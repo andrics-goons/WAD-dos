@@ -2,7 +2,7 @@
 
 ## Seed Data
 
-`server/seed/seed.js` (run with `npm run seed`) gives every teammate, every test and the markers the same starting point. It is **idempotent**: clear → insert users → course → lesson → past session (with checkpoints, statuses, help requests, notes, report).
+`supabase/seed.sql` (applied by `pnpm db:reset`) gives every teammate, every test and the markers the same starting point: users → course → lesson → past session (with checkpoints, statuses, help requests, notes, report). It is **idempotent by construction** — `db:reset` re-creates the schema from the migrations before seeding, so there is no clear-up step to get wrong.
 
 All names below are fictional — don't use classmates' names in submitted data.
 
@@ -19,7 +19,7 @@ All names below are fictional — don't use classmates' names in submitted data.
 | 7–14 | Dana, Eli, Faye, Gus, Hana, Ivan, Jae, Kim | `<first>@codealong.test` | student | Enrolled — appear in the past session |
 | 15 | Zoe Ng | `zoe@codealong.test` | student | **Not** enrolled — for the "not in this course" check |
 
-> These credentials go in the README (the briefing asks for any username/password details there). Passwords are bcrypt-hashed in the seed script.
+> These credentials go in the README (the briefing asks for any username/password details there). Passwords are hashed by Supabase Auth — we never store or hash a password ourselves.
 
 ### Seed course
 
@@ -31,69 +31,92 @@ A second course, **IS216 G2 · AY2025/26 T1** (archived), holds one past session
 
 ### Seed lesson: "Week 6 · Mini Cart" (status `ready`)
 
-Starter files: `index.html`, `app.js`, `style.css` — our own version of a Vue mini-cart exercise (props, emits, axios, localStorage), written by the team.
+Now a **real Vite + Vue project**, not three CDN files. This is forced by dropping the mock API: steps 2 and 8 need something to call, and students get a real Node server, so the lesson ships its own.
+
+**Starter files (12)** — written by the team, source only:
+
+```
+package.json            vite + vue + axios + express as devDependency; "dev" runs both processes
+vite.config.js          proxy /api → http://localhost:3001
+index.html
+src/main.js
+src/App.vue             ← most TODOs live here
+src/components/ItemCard.vue
+src/style.css
+src/ca-probe.js         ← our runtime probe, imported by main.js (see 05 §1)
+server/api.js           ← tiny Express app: /api/categories, /api/items?category=, POST /api/checkout
+server/data.json
+.npmrc                  ← only if the WebContainer symlink spike needs node-linker=hoisted
+README.md               ← one paragraph: what you're building
+```
+
+Two processes run in the container: Vite on 5173 and the Express endpoint on 3001, with Vite proxying `/api` so student code calls a relative path. This is also what makes the lesson teach the real thing — `axios.get('/api/items')` against an actual server, which is what IS216 does anyway.
+
+**The eight steps survive almost unchanged**, now against SFCs instead of a global build:
 
 | Step | TODO title | File |
 |:---:|---|---|
-| 1 | Create the Vue app with a list of categories | `app.js` |
-| 2 | Fetch items for the selected category with axios | `app.js` |
-| 3 | Create the `item-card` component with an `items` prop | `app.js`, `index.html` |
-| 4 | Emit `add-to-cart` from `item-card` | `app.js` |
-| 5 | Add the item to the cart in the parent (increase quantity if it's already there) | `app.js` |
-| 6 | Show the cart total with a computed property | `app.js` |
-| 7 | Save the cart to localStorage and load it on start | `app.js` |
-| 8 | Add Reset and Checkout buttons | `index.html`, `app.js` |
+| 1 | Create the Vue app with a list of categories | `src/App.vue` |
+| 2 | Fetch items for the selected category with axios | `src/App.vue` |
+| 3 | Create the `ItemCard` component with an `items` prop | `src/components/ItemCard.vue`, `src/App.vue` |
+| 4 | Emit `add-to-cart` from `ItemCard` | `src/components/ItemCard.vue` |
+| 5 | Add the item to the cart in the parent (increase quantity if it's already there) | `src/App.vue` |
+| 6 | Show the cart total with a computed property | `src/App.vue` |
+| 7 | Save the cart to localStorage and load it on start | `src/App.vue` |
+| 8 | Add Reset and Checkout buttons (POST `/api/checkout`) | `src/App.vue`, `server/api.js` |
 
-Mock API: `GET /categories`, `GET /items` (filterable by `?category=`), `POST /checkout`.
+Step 4 stays the deliberate trouble step — `props.items` vs `items` — which is what the seeded past session, the error-grouping demo and the Spotlight demo are all built on.
+
+Two things this changes:
+
+- **`localStorage` in step 7 now just works.** The old lesson needed our in-memory shim because an opaque-origin iframe throws on `localStorage`. The WebContainer preview is served from a real origin, so the shim is gone.
+- **Step 3 is where build errors show up.** A half-finished SFC import fails to compile, so the tile turns red with `source: 'build'` before the student has even run anything — a new and genuinely useful signal for the prof.
 
 ### Seed past session (ended, current term)
 
 | Data | Contents | Demonstrates |
 |---|---|---|
 | 8 checkpoints | One per step, with short prof notes | Replay, GitHub export |
-| 11 statuses with `stateHistory` | Most students fine; 6 hit `props.items` vs `items` at Step 4; 3 fall behind at Step 7 | Insights funnel, Step 4 as top trouble step |
+| 11 `student_status` rows with `status_history` | Most students fine; 6 hit `props.items` vs `items` at Step 4; 3 fall behind at Step 7 | Insights funnel, Step 4 as top trouble step |
 | 5 help requests | 2 passed checks, 2 replied helps, 1 resolved in-person | Help history in replay; Spotlight source |
 | 4 notes/bookmarks | Alex's notes on Steps 4 and 7 | Notes + search |
-| SessionReport | Pre-built | Report page renders immediately |
+| `session_reports` row | Pre-built | Report page renders immediately |
 
 ### Seed script outline
 
-```js
-// server/seed/seed.js
-import mongoose from 'mongoose'
-import bcrypt from 'bcrypt'
-import { env } from '../config/env.js'
-import * as models from '../models/index.js'
-import { parseTodos } from '../lib/todo-parser.js'
-import { buildReport } from '../lib/report-builder.js'
-import { loadFixture } from './fixtures/load.js'
+Seeding is now `supabase/seed.sql`, applied automatically by `supabase db reset` — so "reset the database" and "seed the database" are the same command, and idempotency is free: the reset drops and re-creates everything from the migrations before the seed runs.
 
-async function seed() {
-  await mongoose.connect(env.MONGODB_URI)
+```sql
+-- supabase/seed.sql   (runs after every migration on `supabase db reset`)
 
-  // 1. Clear (children first)
-  for (const m of ['Note', 'HelpRequest', 'Snapshot', 'StudentStatus', 'Checkpoint',
-                   'SessionReport', 'Session', 'Lesson', 'Course', 'User']) {
-    await models[m].deleteMany({})
-  }
+-- 1. Auth users. Passwords are hashed by Supabase's own crypt(), never by us.
+--    The on_auth_user_created trigger creates each profiles row as 'student'.
+insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_user_meta_data)
+values
+  ('00000000-0000-0000-0000-000000000001', 'prof@codealong.test',
+   crypt('pass1234', gen_salt('bf')), now(), '{"name":"Prof Lee"}'),
+  ('00000000-0000-0000-0000-000000000002', 'ta.ana@codealong.test',
+   crypt('pass1234', gen_salt('bf')), now(), '{"name":"Ana Lim"}'),
+  -- … 13 more, fixed uuids so every other insert can reference them
+  ;
 
-  // 2. Users
-  const hash = await bcrypt.hash('pass1234', 10)
-  const users = await models.User.insertMany(SEED_USERS.map(u => ({ ...u, passwordHash: hash })))
+-- 2. Promote the two accounts that cannot be created by self-registration
+update public.profiles set role = 'prof' where id = '…0001';
+update public.profiles set role = 'ta'   where id in ('…0002', '…0003');
 
-  // 3. Courses (current + archived last term)
-  // 4. Lesson from fixtures/mini-cart → parseTodos(files) → steps (same parser the app uses)
-  // 5. Past sessions: checkpoints, statuses with stateHistory, snapshots, help requests, notes
-  // 6. buildReport() for each ended session (same builder the app uses)
-
-  console.log('Seed complete:', await countAll())
-  await mongoose.disconnect()
-}
-
-seed().catch(err => { console.error(err); process.exit(1) })
+-- 3. Courses (current + archived last term), course_staff, course_students
+-- 4. Lesson from the Mini Cart fixture + its 8 steps
+-- 5. Past sessions: checkpoints, student_status, status_history, snapshots,
+--    help_requests, notes
+-- 6. session_reports row for each ended session
 ```
 
-> Reusing `parseTodos` and `buildReport` in the seed means seed data always matches what the real code would produce.
+Two things that used to be JavaScript now need care in SQL:
+
+- **Fixed uuids.** The old script could pass objects around in memory. Here every id is written literally (`00000000-…-0001`) so later inserts can reference earlier rows. Keep them readable and grouped by table.
+- **`parseTodos` and `buildReport` can no longer run inside the seed.** They are JS, and `seed.sql` is SQL. So the Mini Cart steps and the seeded report are written out as literal rows, generated once by `pnpm seed:generate` — a small Node script that imports the same `shared/` functions and prints the SQL. That keeps the guarantee we wanted (seed data matches what the real code produces) without a JS seed runner. **Owner: Andric**, with the lesson fixture written together with Evan.
+
+> Generating the seeded steps and report with the real `parseTodos` and `buildReport` means seed data always matches what the app would produce.
 
 ---
 
@@ -101,10 +124,12 @@ seed().catch(err => { console.error(err); process.exit(1) })
 
 | ✓ | Step |
 |:---:|---|
-| ☐ | `npm run seed` on the deployed database (or local for the recording) |
+| ☐ | `pnpm db:reset` locally for the recording, or re-seed the deployed Supabase project |
 | ☐ | Prof, TA and three students **already logged in** in five Chrome profiles — **no login/registration on screen** (Q&A slide 11) |
+| ☐ | **Containers already booted and dependencies installed** in each student window — the cold `pnpm install` must not appear on camera |
 | ☐ | One student window docked in DevTools device mode at **575 px** with the **console open** (Q&A slide 11) |
-| ☐ | `npm run simulate -- --session <code> --students 25` ready in a terminal, so the dashboard looks like a real class |
+| ☐ | `pnpm simulate --session <code> --students 25` ready in a terminal, so the dashboard looks like a real class |
+| ☐ | Supabase project **awake** (it pauses when idle) — open the dashboard and run one query the day before |
 | ☐ | Telegram open on a phone (screen-mirrored) logged in as the TA |
 | ☐ | GitHub repo page open in a tab (Q&A slide 11) |
 | ☐ | Screen recording at 1920×1080, browser zoom 110% for readability |
@@ -130,7 +155,7 @@ Every member presents the part they built (check your section's rule on who must
 |:---:|---|---|
 | 1 | Prof opens IS216 G2 → New lesson → **Import from GitHub** | Repo URL → files appear (GitHub API) |
 | 2 | Review steps | 8 TODOs became an ordered plan; reorder one, edit a title |
-| 3 | **Explain:** TODO parser rules (numbers, multiple files) | Code: `lib/todo-parser.js` + its unit test |
+| 3 | **Explain:** TODO parser rules (numbers, multiple files) | Code: `shared/todo-parser.js` + its unit test |
 
 ### 2:30–5:30 · Live class (Ying Qi, Dylan, Evan)
 
@@ -142,7 +167,7 @@ Every member presents the part they built (check your section's rule on who must
 | 7 | Alex (575 px window) types `items` instead of `props.items` | Console shows the real error; gutter marker; Alex's tile turns **red** |
 | 8 | Several simulated students hit the same error | Error group "`items is not defined` ×7" |
 | 9 | Bea and Chen tap **I'm lost** | Lost count 2 — no names anywhere |
-| 10 | **Explain:** sandbox + probe, status classifier, error normaliser | Diagram slide + `status-classifier.js`, `error-normalizer.js` |
+| 10 | **Explain:** WebContainer runtime, status derivation, error normaliser | Diagram slide + `session_tiles` view, `shared/error-normalizer.js`; mention that a build error's code frame is stripped before it ever leaves the browser |
 
 ### 5:30–7:00 · Catch up (Dylan, Ray Yien)
 
@@ -177,8 +202,8 @@ Every member presents the part they built (check your section's rule on who must
 
 | Slide | Content |
 |---|---|
-| Architecture | Vue 3 + Pinia + Bootstrap ↔ Express REST + Socket.IO ↔ MongoDB Atlas; Telegram + GitHub APIs |
-| Data store | MongoDB Atlas collections and what's in each; privacy rule for snapshots |
+| Architecture | Vue 3 + Pinia + Bootstrap ↔ `supabase-js` ↔ Supabase Postgres + Realtime + Edge Functions; **StackBlitz WebContainer running the student's project in-browser**; Telegram + GitHub APIs. No server of our own |
+| Data store | 14 Postgres tables and what's in each; **the RLS policy that is the privacy rule** — show the `snapshots` policy on screen |
 | Responsive & styling | Breakpoint table; workspace tabs vs panes; tokens; colour + icon + label |
 | Testing | Playwright run with prof + 3 students in one test (clip of the HTML report), 137 tests, unit tests for core logic |
 | Credits & AI use | Libraries table; what AI was (and wasn't) used for |
@@ -197,8 +222,8 @@ What we'd do next (automatic step checks, VS Code reporter) + thanks.
 | 2 | Problem | Three pain points + why existing tools fall short |
 | 3 | Solution & users | One-sentence pitch; prof/TA/student roles; core loop |
 | 4 | Features & tiers | F1–F6 mapped to tiers; signature algorithm highlighted |
-| 5 | Architecture | Stack diagram, REST vs Socket.IO, single-origin deployment |
-| 6 | Data store | Collections, relationships, privacy rule |
+| 5 | Architecture | Stack diagram; direct queries vs RPCs vs Edge Functions; WebContainer as the student runtime; why no server was needed |
+| 6 | Data store | Tables, relationships, RLS as the privacy mechanism, derived tile state |
 | 7 | Core logic | Sandbox + classifier + error grouping (diagram) |
 | 8 | External APIs | Telegram (pings, digests), GitHub (import, export as commits) — integration details |
 | 9 | Design & responsiveness | Screens at 375 px and 1280 px; IDP rules applied |
@@ -214,13 +239,15 @@ Before Q&A: log in first, open pages at 575 px in DevTools with the console visi
 | Likely question | Who answers | Short answer |
 |---|---|---|
 | Why not just use VS Code Live Share? | Evan | Live Share shows the prof's editor to students; it gives the prof no view of the class, no checkpoints to catch up to, no replay |
-| Isn't this surveillance? | Karin | Status only, no keystrokes; staff see code only when a student sends it; "I'm lost" is anonymous; students can see their own data |
-| How does the tile know I'm stuck? | Ying Qi | Errors are caught in your sandbox; Done is your own tap; the server compares your progress with the latest checkpoint |
-| What stops student code from breaking the app? | Dylan | Sandboxed iframe with an opaque origin — no access to our cookies, DOM or API; infinite loops are cut off after 5 s |
+| Isn't this surveillance? | Karin | Status only, no keystrokes; staff see code only when a student sends it — enforced by a database policy, not by our good intentions; "I'm lost" is only ever an aggregate; students can see their own data |
+| How does the tile know I'm stuck? | Ying Qi | Errors are caught in your sandbox; Done is your own tap; a database view compares your progress with the latest checkpoint — the state is computed, never stored, so nobody can fake it |
+| What stops student code from breaking the app? | Dylan | It runs in a WebContainer — a WASM Node sandbox in the browser — and the preview is a separate origin, so it cannot reach our login session, DOM or database. A hung loop hangs that iframe, not the app |
+| Why run Node in the browser at all? | Dylan | So lessons are real projects: real `import`s, a real `pnpm install`, a real dev server. It also gives us compile errors as a dashboard signal, which a plain iframe never could |
+| How do you keep inside Supabase's free tier? | Andric | Only source files cross the network — dependencies come from npm straight to the browser. Reads are cached in IndexedDB and re-checked with a hash, so a rejoin costs almost nothing; autosave sends only the files that changed |
 | How do you group errors? | Evan | Normalise volatile parts, group by step + key, merge by shape — walk through the unit test |
-| What happens with 40 students? | Ying Qi | Updates only on change, summaries ≤ 1/s, buffered writes; load-tested with 40 simulated students |
+| What happens with 40 students? | Ying Qi | Updates only on change, throttled to one write per 2 s; summaries computed in the browser ≤ 1/s; a new checkpoint re-classifies everyone with zero extra writes because the state is derived; load-tested with 40 simulated students |
 | Where's the external API used? | Karin / Ray Yien | Telegram pings + digests; GitHub import + export via the Git Data API |
-| How are tests repeatable? | Andric | In-memory MongoDB re-seeded per spec, mocked external APIs, `data-testid` selectors |
+| How are tests repeatable? | Andric | A local Supabase stack reset by migration per spec — a real Postgres with the real policies — plus mocked external APIs and `data-testid` selectors |
 | What did you use AI for? | Any | Lower-order only (boilerplate, test data, debugging hints); listed in the README |
 
 ---
@@ -242,21 +269,35 @@ IS216 G2 · Team T4 · Andric Ang, Yew Ying Qi, Dylan Shuck, Evan Sim, Karin Tan
 Enrol code for IS216 G2: WAD2G2
 
 ## Set up
-1. Node 20+, npm 10+
-2. `npm install`
-3. Copy `.env.example` to `server/.env` and fill in MONGODB_URI, JWT_SECRET (Telegram/GitHub keys optional — set EXTERNAL_APIS=mock to run without them)
-4. `npm run seed`
+1. **Node ^22.18 or >=24.12** (see `engines`), **pnpm 10** (`corepack enable`), and **Docker**
+   running (the local Supabase stack needs it)
+2. `pnpm install`
+3. Copy `.env.example` to `.env.local` and fill in VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+   (both are printed by `pnpm supabase start`; Telegram/GitHub keys are optional — the functions
+   run with EXTERNAL_APIS=mock locally)
+4. `pnpm supabase start`
+5. `pnpm db:reset` — applies every migration, then the seed
+
+> **Browser:** the workspace needs Chrome or Edge. It runs the student's project in a
+> StackBlitz WebContainer, which requires cross-origin isolation and `SharedArrayBuffer`;
+> Safari may not start it. Other pages work everywhere.
 
 ## Run
-- Development: `npm run dev` → http://localhost:5173
-- Production build: `npm run build && npm start` → http://localhost:3000 (landing page at the root)
+- Development: `pnpm dev:local` → http://localhost:5173 (local Supabase — **use this by default**;
+  pointing day-to-day work at the cloud project burns the free-tier egress budget)
+- Production build: `pnpm build && pnpm preview` (landing page at the root)
+- Deployed: see the link at the top
 
 ## Test
-- `npx playwright install chromium`
-- Unit: `npm run test:unit`
-- End-to-end: `npm run test:e2e` (in-memory DB + mocked APIs; no keys needed) → `npx playwright show-report`
-- Load: start a session, then `npm run simulate -- --session <joinCode> --students 40`
+- `pnpm dlx playwright install chromium`
+- Unit + authorization: `pnpm test:unit` (pure logic in `shared/`, plus RLS negative tests)
+- End-to-end: `pnpm test:e2e` (local Supabase + mocked APIs; no keys needed) → `pnpm dlx playwright show-report`
+- Load: start a session, then `pnpm simulate --session <joinCode> --students 40` (local stack)
 - Test case list: docs/06-stages-and-tests.md
+
+Note on the load test: the 40 simulated students write status rows directly — they cannot each
+boot a WebContainer. It proves Supabase and Realtime hold up under a class's worth of traffic;
+it does not prove 40 real laptops each running a dev server stay responsive.
 
 ## External APIs
 Telegram Bot API — TA pings + digests · GitHub REST API — starter import + replay export
@@ -267,8 +308,31 @@ Telegram Bot API — TA pings + digests · GitHub REST API — starter import + 
 ## Use of AI
 (per member: what was AI-assisted, per IS216 FAQ 20)
 
+## How the student workspace works
+Each student's lesson runs as a real Vite project inside a StackBlitz WebContainer (Node compiled
+to WebAssembly) in their own browser. Only **source files** ever cross the network: dependencies
+are fetched from the npm registry straight to the browser, never stored in or served from Supabase.
+Files are cached in IndexedDB and re-checked with a content hash, so rejoining a session costs
+almost no bandwidth, and autosave (5 s after you stop typing) uploads only the files that changed.
+
+**Measured on this project:** cold `pnpm install` for the Mini Cart lesson takes ~__s, and one
+40-student session costs ~__MB of Supabase egress against the 5 GB monthly budget.
+
+**Possible improvement — caching dependencies locally.** The first boot of a lesson pays for a
+full `pnpm install`, and loading a checkpoint that changed `package.json` pays for it again. If
+that proves slow in practice, the installed tree can be exported from the container into IndexedDB
+and re-mounted on later boots, keyed by a hash of `package.json` + `pnpm-lock.yaml` — turning a
+reinstall into a mount. We deliberately did not build this up front: it costs 50–120 MB of local
+storage per dependency set, it adds a cache-invalidation path, and WebContainer installs are
+already several times faster than a local npm. It is worth building **only if the measured cold
+install above is painful**, and it would cost nothing in Supabase egress because the cache is
+entirely local.
+
 ## Known limitations
-ES-module imports between lesson files; single server instance for Socket.IO
+The workspace requires Chrome or Edge (WebContainer needs cross-origin isolation and
+`SharedArrayBuffer`); dependencies are reinstalled on a fresh device or after a cache eviction;
+the free-tier Supabase project pauses when idle (a weekly keep-alive ping is scheduled); local
+tests require Docker
 ```
 
 ---
@@ -280,8 +344,8 @@ ES-module imports between lesson files; single server instance for Socket.IO
 | ☐ | Zip contains **slides** (PPTX/PDF, YouTube link on slide 1), **README**, **application** source |
 | ☐ | Video ≤ 12:00, ≥ 720p (1080p), unlisted or public, plays logged out |
 | ☐ | Deployed link submitted the way our section faculty asked |
-| ☐ | Fresh clone → README steps → app runs → `npm run test:e2e` green |
-| ☐ | `.env` not in the zip/repo; demo credentials in the README |
+| ☐ | Fresh clone → README steps → app runs → `pnpm test:e2e` green |
+| ☐ | `.env.local` not in the zip/repo; no service role key anywhere in the repo; demo credentials in the README |
 | ☐ | Third-party credits in slides and code comments |
 | ☐ | AI usage section complete |
-| ☐ | Deployed app left running, untouched, until Week 18 |
+| ☐ | Deployed app left running, untouched, until Week 18 — **keep-alive ping scheduled and verified**, so the Supabase project cannot pause |

@@ -1,385 +1,682 @@
-# CodeAlong — Data Model & Authorization
+# CodeAlong — Data Model & Authorization (Supabase / Postgres)
 
 ## Entity Overview
 
-Ten collections in MongoDB Atlas, connected by ObjectId references. Owner of all model files: **Dylan** (others request changes by PR, so the schema stays consistent).
+Fourteen tables in Supabase Postgres, joined by `uuid` foreign keys. Owner of `supabase/migrations/*` (tables, constraints, indexes): **Dylan**. Owner of RLS policies and the derived views: **Ying Qi**. Others request changes by PR so the schema stays consistent.
 
 ```
-                ┌──────────┐
-                │   User   │◄───────────────────────────────────────────┐
-                └────┬─────┘                                            │
-        owner/staff/ │ students                                          │
-                ┌────▼─────┐   1:N   ┌──────────┐   1:N   ┌───────────┐ │
-                │  Course  │────────▶│  Lesson  │────────▶│  Session  │ │
-                └──────────┘         │ steps[]  │         └─────┬─────┘ │
-                                     │ files[]  │               │       │
-                                     └──────────┘               │ 1:N   │
-          ┌───────────────┬──────────────┬──────────────┬───────┴──────┬┴─────────────┐
-          ▼               ▼              ▼              ▼              ▼              ▼
-   ┌────────────┐ ┌──────────────┐ ┌──────────┐ ┌─────────────┐ ┌──────────┐ ┌───────────────┐
-   │ Checkpoint │ │StudentStatus │ │ Snapshot │ │ HelpRequest │ │   Note   │ │ SessionReport │
-   │ seq, files │ │ 1 per student│ │ attempts │ │ → snapshotId│ │ per user │ │  1 per session│
-   └────────────┘ └──────────────┘ └──────────┘ └─────────────┘ └──────────┘ └───────────────┘
+                  auth.users (Supabase Auth)
+                        │ 1:1 trigger
+                  ┌─────▼─────┐
+                  │  profiles │◄──────────────────────────────────────┐
+                  └─────┬─────┘                                       │
+        owner_id        │        course_staff / course_students        │
+                  ┌─────▼─────┐   1:N   ┌─────────┐   1:N   ┌────────┐│
+                  │  courses  │────────▶│ lessons │────────▶│sessions││
+                  └───────────┘         └────┬────┘         └───┬────┘│
+                                             │ 1:N              │     │
+                                        ┌────▼────┐             │     │
+                                        │  steps  │◄────────────┤     │
+                                        └─────────┘             │     │
+        ┌──────────────┬──────────────┬───────────────┬─────────┴──┬──┴──────────┐
+        ▼              ▼              ▼               ▼            ▼             ▼
+┌─────────────┐ ┌──────────────┐ ┌───────────┐ ┌──────────────┐ ┌───────┐ ┌───────────────┐
+│ checkpoints │ │student_status│ │ snapshots │ │ help_requests│ │ notes │ │session_reports│
+│  seq, files │ │ 1 per student│ │ attempts  │ │ → snapshot_id│ │per user│ │ 1 per session │
+└─────────────┘ └──────┬───────┘ └───────────┘ └──────────────┘ └───────┘ └───────────────┘
+                       │ 1:N
+                ┌──────▼───────┐        VIEWS (no storage)
+                │status_history│        session_tiles    ← derives tile state
+                └──────────────┘        session_summary  ← counts + lost_count only
 ```
 
-**Relationships**
-- A **User** (prof) owns many **Courses**; a Course lists TAs in `staff[]` and students in `students[]`.
-- A **Course** has many **Lessons**; a Lesson embeds its starter `files[]` and ordered `steps[]`.
-- A **Lesson** can be taught many times → many **Sessions** (one per live class).
-- A **Session** has many **Checkpoints** (one per saved step), one **StudentStatus** per participating student, many **Snapshots**, **HelpRequests** and **Notes**, and one **SessionReport** after it ends.
-- A **HelpRequest** points to exactly one **Snapshot** — that is the *only* path by which staff can see a student's code.
+**Changes from the MongoDB design** (read this before you port anything):
+
+| Was | Now | Why |
+|---|---|---|
+| `Course.staff[]`, `Course.students[]` embedded arrays | `course_staff`, `course_students` tables | Policies and joins need real rows; `$addToSet` has no SQL equivalent worth emulating |
+| `Lesson.steps[]` sub-documents | `steps` table | `checkpoints`, `student_status`, `help_requests`, `notes` all reference a step by id — that needs a FK target |
+| `StudentStatus.state` (written by the server) | **gone** — derived in `session_tiles` | A client can write its own status row, so a stored `state` would be forgeable. No column, nothing to forge |
+| `StudentStatus.stateHistory[]` capped at 200 | `status_history` table | Append-only rows; the funnel reads them with SQL instead of unwinding an array |
+| `files` as a sub-document array | `jsonb` | Same `[{ path, language, content }]` shape; validated by a `check` constraint |
+| `User.passwordHash` | **gone** | Supabase Auth owns credentials; `profiles` holds only app data |
+| `Lesson.mockApi` | **gone** | Students get a real Node server in WebContainer, so lessons ship their own endpoint instead of us faking one |
+| — | `files_hash` generated columns | A few bytes the client can check before deciding to download 200 KB — this is what makes the IndexedDB cache cheap |
+| ObjectId | `uuid` | `gen_random_uuid()`; `profiles.id` **is** `auth.users.id` |
 
 ---
 
-## Shared Sub-document: `File`
+## Shared Shape: `files` (jsonb)
 
-Used in `Lesson.files`, `Checkpoint.files` and `Snapshot.files`.
+Used in `lessons.files`, `checkpoints.files`, `snapshots.files`.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| `path` | String | required, trimmed, max 120, pattern `^[\w\-./]+$`, no `..` | e.g. `index.html`, `js/app.js` |
-| `language` | String | enum: `html`, `css`, `js`, `json`, `md` | Picks the CodeMirror mode |
-| `content` | String | required (may be empty) | Whole-snapshot total ≤ `Limits.MAX_SNAPSHOT_BYTES` (200 KB) |
-
-Max `Limits.MAX_FILES` (20) files per array. Validated in zod and in a Mongoose `validate` on the array.
-
----
-
-## User
-
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| `name` | String | required, trimmed, 2–60 chars | Display name |
-| `email` | String | required, unique, lowercase, trimmed, email format | Login identifier |
-| `passwordHash` | String | required, `select: false` | bcrypt, 10 salt rounds |
-| `role` | String | enum `Role.PROF / TA / STUDENT`, default `student` | Account type |
-| `telegram.chatId` | String | optional, `select: false` | Set when the user links the bot |
-| `telegram.linkCode` | String | optional, `select: false` | One-time code, expires |
-| `telegram.linkCodeExpiresAt` | Date | optional | 10 minutes after issue |
-| `createdAt` / `updatedAt` | Date | `timestamps: true` | |
-
-**Indexes:** `email` unique.
-
-> **Account bootstrap:** self-registration creates `student` accounts only. Prof and TA accounts are created by the seed script, or a prof promotes a user to TA when adding them as course staff (`POST /api/courses/:id/staff`). There is no self-service path to `prof`.
-
-```js
-// models/user.model.js
-export const createUser       = (data)        => User.create(data)
-export const findByEmail      = (email, withHash = false) =>
-  withHash ? User.findOne({ email }).select('+passwordHash') : User.findOne({ email })
-export const findById         = (id)          => User.findById(id)
-export const updateProfile    = (id, data)    => User.updateOne({ _id: id }, data)
-export const setTelegramLink  = (id, code, expiresAt) =>
-  User.updateOne({ _id: id }, { 'telegram.linkCode': code, 'telegram.linkCodeExpiresAt': expiresAt })
-export const bindTelegramChat = (code, chatId) =>
-  User.findOneAndUpdate(
-    { 'telegram.linkCode': code, 'telegram.linkCodeExpiresAt': { $gt: new Date() } },
-    { 'telegram.chatId': chatId, $unset: { 'telegram.linkCode': 1, 'telegram.linkCodeExpiresAt': 1 } },
-    { new: true })
+```json
+[{ "path": "js/app.js", "language": "js", "content": "…" }]
 ```
 
----
+| Key | Rules |
+|---|---|
+| `path` | required, max 120, matches `^[\w\-./]+$`, no `..` |
+| `language` | one of `html`, `css`, `js`, `vue`, `json`, `md` — `vue` is new: lessons are now SFC projects, and it selects the CodeMirror mode |
+| `content` | required (may be empty) |
 
-## Course
+**Why 40 and not 20.** A bare Vite + Vue scaffold is already ~10 files before the student writes anything, and Mini Cart ships ~12. The old limit of 20 was sized for three hand-written files. The **byte** cap stays at 200 KB, because source files are a few KB each and that cap is what protects the egress budget — see [02](./02-tech-stack.md#the-egress-rule-free-tier-5-gbmonth).
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| `code` | String | required, uppercase, trimmed, e.g. `IS216` | |
-| `title` | String | required, trimmed, max 100 | |
-| `term` | String | required, e.g. `AY2026/27 T1` | Lets insights compare terms |
-| `section` | String | required, e.g. `G2` | |
-| `ownerId` | ObjectId → User | required | The prof who created it |
-| `staff` | [{ `userId` → User, `role`: `prof` \| `ta` }] | unique userIds | Owner is always included as `prof` |
-| `students` | [ObjectId → User] | unique | Filled by enrolment |
-| `enrolCode` | String | required, unique, 6 chars | Students enrol once per course |
-| `archived` | Boolean | default `false` | Archived courses are read-only |
+**What is never in `files`.** The working tree in WebContainer also holds `node_modules/`, `dist/`, `.vite/` and the lockfile. `Limits.SYNC_IGNORE` excludes them from every write, so dependency bytes never reach Postgres. Autosave is an allowlist walk, not a tree walk.
 
-**Indexes:** `enrolCode` unique; `{ 'staff.userId': 1 }`; `{ students: 1 }`; `{ code: 1, term: 1, section: 1 }` unique.
+Enforced by one reusable constraint helper plus a size cap:
 
-```js
-// models/course.model.js
-export const createCourse   = (data)               => Course.create(data)
-export const findForUser    = (userId)             => Course.find({ $or: [{ 'staff.userId': userId }, { students: userId }], archived: false })
-export const findById       = (id)                 => Course.findById(id)
-export const findByEnrolCode= (code)               => Course.findOne({ enrolCode: code, archived: false })
-export const addStudent     = (id, userId)         => Course.updateOne({ _id: id }, { $addToSet: { students: userId } })
-export const removeStudent  = (id, userId)         => Course.updateOne({ _id: id }, { $pull: { students: userId } })
-export const addStaff       = (id, userId, role)   => Course.updateOne({ _id: id, 'staff.userId': { $ne: userId } }, { $push: { staff: { userId, role } } })
-export const updateCourse   = (id, data)           => Course.updateOne({ _id: id }, data)
-export const deleteCourse   = (id)                 => Course.deleteOne({ _id: id })   // cascade in controller
+```sql
+create function public.files_valid(f jsonb) returns boolean
+language sql immutable as $$
+  select jsonb_typeof(f) = 'array'
+     and jsonb_array_length(f) between 1 and 40        -- Limits.MAX_FILES
+     and not exists (
+       select 1 from jsonb_array_elements(f) e
+       where  e->>'path' is null
+          or  length(e->>'path') > 120
+          or  e->>'path' !~ '^[A-Za-z0-9_\-./]+$'
+          or  e->>'path' like '%..%'
+          or  e->>'language' not in ('html','css','js','vue','json','md')
+          or  e->>'content' is null
+     )
+$$;
+
+-- used as:  check (public.files_valid(files) and octet_length(files::text) <= 200000)
 ```
 
 ---
 
-## Lesson (embeds `files[]` and `steps[]`)
+## profiles
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| `courseId` | ObjectId → Course | required | |
-| `title` | String | required, trimmed, max 100 | e.g. "Week 6 · Mini Cart" |
-| `week` | Number | integer 1–13, optional | For ordering in the library |
-| `description` | String | max 500 | |
-| `files` | [File] | 1–20 files | The starter code (with TODO comments) |
-| `entryFile` | String | required, must match a `files.path` | Usually `index.html` |
-| `steps` | [Step] | ordered by `order` | See below |
-| `mockApi` | [{ `method`, `path`, `status`, `body` (Mixed) }] | max 30 routes | Fake backend for lessons that call axios — see [05-core-logic.md](./05-core-logic.md#2-mock-api) |
-| `source` | { `type`: `upload` \| `github`, `repo`, `ref`, `dir` } | | Where the starter came from |
-| `status` | String | enum `draft`, `ready`, `archived`, default `draft` | Only `ready` lessons can start a session |
-| `createdBy` | ObjectId → User | required | |
-| timestamps | | | |
+One row per account, created by the `on_auth_user_created` trigger in [09](./09-integration-contracts.md#2-auth).
 
-### Step (sub-document)
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK → `auth.users(id)` on delete cascade | Same id as the auth user |
+| `name` | `text not null check (char_length(name) between 2 and 60)` | Display name |
+| `role` | `text not null default 'student' check (role in ('prof','ta','student'))` | Account type |
+| `telegram_chat_id` | `text` | Set when the user links the bot |
+| `telegram_link_code` | `text unique` | One-time code |
+| `telegram_link_code_expires_at` | `timestamptz` | 10 minutes after issue |
+| `created_at` / `updated_at` | `timestamptz default now()` | `updated_at` by trigger |
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| `_id` | ObjectId | auto | Referenced by checkpoints, statuses, help requests |
-| `order` | Number | integer ≥ 1, unique within lesson | 1-based display order |
-| `title` | String | required, max 120 | Defaults to the TODO text |
-| `description` | String | max 1000 | Prof's explanation |
-| `todoRefs` | [{ `file`, `line` }] | optional | Where the TODO was found (one step can span files — see [05-core-logic.md](./05-core-logic.md#5-todo-parser--lesson-plan)) |
-| `checks` | [{ `id`, `label`, `kind`, `spec` (Mixed), `enabled` }] | optional (COULD) | Automatic step checks — stretch |
+Email lives in `auth.users` — we never duplicate it.
 
-**Indexes:** `{ courseId: 1, week: 1 }`.
+```sql
+alter table profiles enable row level security;
 
-```js
-// models/lesson.model.js
-export const createLesson   = (data)                 => Lesson.create(data)
-export const findByCourse   = (courseId)             => Lesson.find({ courseId, status: { $ne: 'archived' } }).sort({ week: 1, createdAt: 1 })
-export const findById       = (id)                   => Lesson.findById(id)
-export const updateLesson   = (id, data)             => Lesson.updateOne({ _id: id }, data, { runValidators: true })
-export const replaceSteps   = (id, steps)            => Lesson.updateOne({ _id: id }, { steps }, { runValidators: true })
-export const updateStep     = (id, stepId, data)     => Lesson.updateOne({ _id: id, 'steps._id': stepId }, prefixKeys('steps.$.', data))
-export const deleteStep     = (id, stepId)           => Lesson.updateOne({ _id: id }, { $pull: { steps: { _id: stepId } } })
-export const deleteLesson   = (id)                   => Lesson.deleteOne({ _id: id })  // blocked if any session exists → archive instead
+-- I can always read myself
+create policy "read own profile" on profiles for select using (id = auth.uid());
+
+-- names are visible to people I share a course with (needed for tiles and the help queue)
+create policy "read coursemates" on profiles for select using (
+  exists (select 1 from course_staff cs where cs.user_id = profiles.id and public.is_course_member(cs.course_id))
+  or exists (select 1 from course_students st where st.user_id = profiles.id and public.is_course_staff(st.course_id))
+);
+
+-- I may edit my own name and Telegram fields, but NOT my role
+create policy "update own profile" on profiles for update
+  using (id = auth.uid())
+  with check (id = auth.uid() and role = (select role from profiles where id = auth.uid()));
+```
+
+> The `with check` clause on that last policy is what makes "there is no self-service path to `prof`" true. Promotion happens only inside `rpc('add_course_staff')`, which is `security definer`.
+
+---
+
+## courses
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK default `gen_random_uuid()` | |
+| `code` | `text not null` | e.g. `IS216`, uppercase |
+| `title` | `text not null check (char_length(title) <= 100)` | |
+| `term` | `text not null` | e.g. `AY2026/27 T1` — lets insights compare terms |
+| `section` | `text not null` | e.g. `G2` |
+| `owner_id` | `uuid not null → profiles(id)` | The prof who created it |
+| `enrol_code` | `text not null unique check (char_length(enrol_code) = 6)` | |
+| `archived` | `boolean not null default false` | Archived courses are read-only |
+| `created_at` | `timestamptz default now()` | |
+
+**Indexes:** `unique (code, term, section)`; `unique (enrol_code)`.
+
+### course_staff / course_students
+
+| Table | Columns |
+|---|---|
+| `course_staff` | `course_id uuid → courses`, `user_id uuid → profiles`, `role text check (role in ('prof','ta'))`, `primary key (course_id, user_id)` |
+| `course_students` | `course_id uuid → courses`, `user_id uuid → profiles`, `enrolled_at timestamptz default now()`, `primary key (course_id, user_id)` |
+
+Both get an index on `(user_id)` so "my courses" is a single index scan.
+
+```sql
+alter table courses         enable row level security;
+alter table course_staff    enable row level security;
+alter table course_students enable row level security;
+
+create policy "members read course" on courses for select
+  using (public.is_course_member(id));
+
+create policy "prof creates course" on courses for insert
+  with check (owner_id = auth.uid() and public.current_role() = 'prof');
+
+create policy "owner edits course" on courses for update using (owner_id = auth.uid());
+create policy "owner deletes course" on courses for delete using (owner_id = auth.uid());
+
+create policy "members read staff list" on course_staff for select
+  using (public.is_course_member(course_id));
+create policy "members read student list" on course_students for select
+  using (public.is_course_staff(course_id) or user_id = auth.uid());
+```
+
+Writes to `course_staff` and `course_students` have **no** client policy — they happen only through `rpc('add_course_staff')` and `rpc('enrol_with_code')`. A student must be able to match an enrol code against a course they cannot yet read, which is exactly what `security definer` is for:
+
+```sql
+create function public.enrol_with_code(p_code text) returns courses
+language plpgsql security definer set search_path = '' as $$
+declare c public.courses;
+begin
+  select * into c from public.courses where enrol_code = upper(p_code) and archived = false;
+  if not found then
+    raise exception 'NOT_FOUND|No course with that code' using errcode = 'P0001';
+  end if;
+  insert into public.course_students (course_id, user_id) values (c.id, auth.uid())
+    on conflict do nothing;
+  return c;
+end $$;
 ```
 
 ---
 
-## Session (one live class)
+## lessons
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| `lessonId` | ObjectId → Lesson | required | |
-| `courseId` | ObjectId → Course | required | Denormalised for fast auth checks |
-| `startedBy` | ObjectId → User | required | |
-| `joinCode` | String | required, 6 chars from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` | Unique among live sessions |
-| `status` | String | enum `live`, `ended`, default `live` | |
-| `currentStepId` | ObjectId | optional | Step of the latest checkpoint |
-| `settings` | { `allowCatchUp`: Boolean = true, `hintsEnabled`: Boolean = false, `idleAfterSec`: Number = 180 } | | Prof can toggle during class |
-| `spotlight` | { `errorKey`, `excerpt`, `checkpointId`, `shownAt` } \| null | | Anonymised; see [05-core-logic.md](./05-core-logic.md#8-spotlight-anonymisation) |
-| `startedAt` | Date | default now | |
-| `endedAt` | Date | set on end | |
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | |
+| `course_id` | `uuid not null → courses` on delete cascade | |
+| `title` | `text not null check (char_length(title) <= 100)` | e.g. "Week 6 · Mini Cart" |
+| `week` | `int check (week between 1 and 13)` | For ordering in the library |
+| `description` | `text check (char_length(description) <= 500)` | |
+| `files` | `jsonb not null check (public.files_valid(files) and octet_length(files::text) <= 200000)` | Starter code with TODOs — a real Vite project, source files only |
+| `files_hash` | `text generated always as (md5(files::text)) stored` | Cheap change check for the IndexedDB cache — the client selects this, not `files` |
+| `entry_file` | `text not null` | `index.html` for the dev server; trigger checks it exists in `files` |
+| `dev_command` | `text not null default 'pnpm dev'` | What WebContainer spawns; a lesson may also declare a second process |
+| `source` | `jsonb` | `{ type: 'upload' \| 'github', repo, ref, dir }` |
+| `status` | `text not null default 'draft' check (status in ('draft','ready','archived'))` | Only `ready` can start a session |
+| `created_by` | `uuid not null → profiles` | |
+| `created_at` / `updated_at` | `timestamptz` | |
 
-**Indexes:** partial unique `{ joinCode: 1 }` where `status: 'live'`; `{ courseId: 1, startedAt: -1 }`; `{ lessonId: 1 }`.
+**Indexes:** `(course_id, week)`.
 
-```js
-// models/session.model.js
-export const createSession   = (data)          => Session.create(data)
-export const findLiveByCode  = (joinCode)      => Session.findOne({ joinCode, status: 'live' })
-export const findById        = (id)            => Session.findById(id)
-export const findByCourse    = (courseId)      => Session.find({ courseId }).sort({ startedAt: -1 })
-export const setCurrentStep  = (id, stepId)    => Session.updateOne({ _id: id }, { currentStepId: stepId })
-export const setSpotlight    = (id, spotlight) => Session.updateOne({ _id: id }, { spotlight })
-export const endSession      = (id)            => Session.updateOne({ _id: id, status: 'live' }, { status: 'ended', endedAt: new Date() })
+## steps
+
+Promoted from a sub-document, because four other tables point at a step.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | Referenced by checkpoints, statuses, help requests, notes |
+| `lesson_id` | `uuid not null → lessons` on delete cascade | |
+| `order` | `int not null check ("order" >= 1)` | 1-based; `unique (lesson_id, "order")` |
+| `title` | `text not null check (char_length(title) <= 120)` | Defaults to the TODO text |
+| `description` | `text check (char_length(description) <= 1000)` | |
+| `todo_refs` | `jsonb default '[]'` | `[{ file, line }]` — one step can span files |
+| `checks` | `jsonb default '[]'` | Automatic step checks (COULD) |
+
+> `order` is a reserved word — always quote it as `"order"` in SQL. The API layer exposes it as `order` in camelCase JS.
+
+```sql
+alter table lessons enable row level security;
+alter table steps   enable row level security;
+
+create policy "members read lessons" on lessons for select
+  using (public.is_course_member(course_id));
+create policy "prof writes lessons" on lessons for all
+  using (public.is_course_prof(course_id)) with check (public.is_course_prof(course_id));
+
+-- Students see steps (that's their plan) but not files until a session starts;
+-- the client selects columns explicitly and `lesson_files_for_member` gates the files.
+create policy "members read steps" on steps for select using (
+  exists (select 1 from lessons l where l.id = steps.lesson_id and public.is_course_member(l.course_id))
+);
+create policy "prof writes steps" on steps for all using (
+  exists (select 1 from lessons l where l.id = steps.lesson_id and public.is_course_prof(l.course_id))
+) with check (
+  exists (select 1 from lessons l where l.id = steps.lesson_id and public.is_course_prof(l.course_id))
+);
+```
+
+**Reordering** is one RPC so orders stay contiguous and unique inside a transaction:
+
+```sql
+create function public.replace_steps(p_lesson_id uuid, p_steps jsonb) returns setof public.steps
+language plpgsql security definer set search_path = '' as $$
+begin
+  if not public.is_course_prof((select course_id from public.lessons where id = p_lesson_id)) then
+    raise exception 'FORBIDDEN|Only the course prof can edit steps' using errcode = 'P0001';
+  end if;
+  delete from public.steps where lesson_id = p_lesson_id
+    and id not in (select (e->>'id')::uuid from jsonb_array_elements(p_steps) e where e->>'id' is not null);
+  -- upsert each incoming step with its new order (set-based, so no unique clash mid-way)
+  …
+  return query select * from public.steps where lesson_id = p_lesson_id order by "order";
+end $$;
 ```
 
 ---
 
-## Checkpoint
+## sessions
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| `sessionId` | ObjectId → Session | required | |
-| `stepId` | ObjectId | required, must exist in the lesson's steps | |
-| `seq` | Number | required, integer ≥ 1 | 1, 2, 3… in save order |
-| `files` | [File] | required | Full snapshot of the prof's code (small, simple, replayable) |
-| `note` | String | max 500 | Optional explanation shown in replay |
-| `createdBy` | ObjectId → User | required | |
-| `createdAt` | Date | timestamps | |
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | |
+| `lesson_id` | `uuid not null → lessons` | |
+| `course_id` | `uuid not null → courses` | Denormalised so every policy is one hop |
+| `started_by` | `uuid not null → profiles` | |
+| `join_code` | `text not null check (char_length(join_code) = 6)` | From `JOIN_CODE_ALPHABET` |
+| `status` | `text not null default 'live' check (status in ('live','ended'))` | |
+| `current_step_id` | `uuid → steps` | Step of the latest checkpoint |
+| `settings` | `jsonb not null default '{"allowCatchUp":true,"hintsEnabled":false,"idleAfterSec":180}'` | Prof toggles during class |
+| `spotlight` | `jsonb` | Anonymised excerpt, or null |
+| `announcement` | `jsonb check (announcement is null or char_length(announcement->>'text') between 1 and 200)` | `{ text, at }` — the prof's current class announcement, or null. Stored so late joiners and reconnecting students see it, not just whoever was subscribed at the moment it was sent. Written only by `rpc('announce')`, so the broadcast always accompanies the write |
+| `started_at` | `timestamptz default now()` | |
+| `ended_at` | `timestamptz` | |
 
-**Indexes:** unique `{ sessionId: 1, seq: 1 }`.
+**Indexes:** `unique (join_code) where status = 'live'` (partial); `(course_id, started_at desc)`; `(lesson_id)`.
 
-```js
-// models/checkpoint.model.js
-export const createCheckpoint = (data)               => Checkpoint.create(data)
-export const findBySession    = (sessionId)          => Checkpoint.find({ sessionId }).sort({ seq: 1 })
-export const findLatest       = (sessionId)          => Checkpoint.findOne({ sessionId }).sort({ seq: -1 })
-export const findBySeq        = (sessionId, seq)     => Checkpoint.findOne({ sessionId, seq })
-export const nextSeq          = async (sessionId)    => ((await findLatest(sessionId))?.seq ?? 0) + 1
+```sql
+create function public.is_session_member(sid uuid) returns boolean
+language sql security definer stable set search_path = '' as $$
+  select public.is_course_member((select course_id from public.sessions where id = sid))
+$$;
+
+alter table sessions enable row level security;
+create policy "members read sessions" on sessions for select using (public.is_course_member(course_id));
+create policy "prof updates sessions" on sessions for update using (public.is_course_prof(course_id));
 ```
 
-> Two "Save checkpoint" clicks at once could race for the same `seq`; the unique index rejects the second insert and the controller retries once with a fresh `seq`.
+`start_session`, `join_session` and `end_session` are RPCs — a client cannot be trusted to allocate a unique join code or decide its own role. Full bodies in [05-core-logic.md](./05-core-logic.md#3-session-lifecycle).
 
 ---
 
-## StudentStatus (latest state only — one per student per session)
+## checkpoints
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| `sessionId` | ObjectId → Session | required | |
-| `studentId` | ObjectId → User | required | |
-| `doneStepOrder` | Number | integer ≥ 0, default 0 | Highest step the student marked Done |
-| `state` | String | enum `TileState`: `done`, `in_progress`, `error`, `behind`, `idle` | Computed by the server classifier, never trusted from the client |
-| `error` | { `name`, `message`, `file`, `line`, `key`, `shapeKey`, `at` } \| null | message max 300 | Normalised by `lib/error-normalizer.js` |
-| `checks` | { `passed`, `total` } | | Only when automatic checks exist (COULD) |
-| `lost` | Boolean | default `false` | **Never sent to staff per student** — only counted |
-| `catchUps` | Number | default 0 | Times the student loaded a checkpoint (for insights) |
-| `stateHistory` | [{ `state`, `stepOrder`, `at` }] | capped at 200 entries | Feeds the insights funnel |
-| `lastSeenAt` | Date | required | Heartbeat or any event |
-| `joinedAt` | Date | default now | Attendance for digests |
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | |
+| `session_id` | `uuid not null → sessions` on delete cascade | |
+| `step_id` | `uuid not null → steps` | |
+| `seq` | `int not null check (seq >= 1)` | 1, 2, 3… in save order |
+| `files` | `jsonb not null check (public.files_valid(files) and octet_length(files::text) <= 200000)` | Full snapshot of the prof's code |
+| `files_hash` | `text generated always as (md5(files::text)) stored` | Cache key; also how the client detects that `package.json` changed between checkpoints |
+| `note` | `text check (char_length(note) <= 500)` | Shown in replay |
+| `created_by` | `uuid not null → profiles` | |
+| `created_at` | `timestamptz default now()` | |
 
-**Indexes:** unique `{ sessionId: 1, studentId: 1 }`; `{ sessionId: 1, state: 1 }`.
+**Indexes:** `unique (session_id, seq)`.
 
-```js
-// models/student-status.model.js
-export const upsertStatus    = (sessionId, studentId, patch, historyEntry) =>
-  StudentStatus.findOneAndUpdate(
-    { sessionId, studentId },
-    { $set: patch, ...(historyEntry && { $push: { stateHistory: { $each: [historyEntry], $slice: -200 } } }),
-      $setOnInsert: { joinedAt: new Date() } },
-    { upsert: true, new: true })
-export const findBySession   = (sessionId) => StudentStatus.find({ sessionId }).populate('studentId', 'name')
-export const countLost       = (sessionId) => StudentStatus.countDocuments({ sessionId, lost: true })
-export const incrementCatchUp= (sessionId, studentId) => StudentStatus.updateOne({ sessionId, studentId }, { $inc: { catchUps: 1 } })
+```sql
+alter table checkpoints enable row level security;
+create policy "members read checkpoints" on checkpoints for select using (public.is_session_member(session_id));
+-- inserts only via rpc('save_checkpoint'): it allocates seq, sets current_step_id and broadcasts
 ```
+
+> Two "Save checkpoint" clicks at once race for the same `seq`. The unique index rejects the second; the RPC retries once with a fresh `seq` inside the same transaction.
 
 ---
 
-## Snapshot (a student's code)
+## student_status (latest state only — one row per student per session)
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| `sessionId` | ObjectId → Session | required | |
-| `studentId` | ObjectId → User | required | |
-| `stepId` | ObjectId | optional | Step the student was on |
-| `reason` | String | enum `autosave`, `before_catchup`, `help_request` | |
-| `files` | [File] | required | |
-| `createdAt` | Date | timestamps | |
+**There is no `state` column.** This is the deliberate difference from the Mongo design: the student's own client writes this row, so anything stored here is forgeable. Only raw signals are stored; the tile state is derived in `session_tiles`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `session_id` | `uuid not null → sessions` on delete cascade | `primary key (session_id, student_id)` |
+| `student_id` | `uuid not null → profiles` | |
+| `done_step_order` | `int not null default 0 check (done_step_order >= 0)` | Highest step marked Done |
+| `error` | `jsonb` | `{ source: 'runtime' \| 'build', name, message, file, line, key, shapeKey, at }`, message ≤ 300. **Build errors have their code frame stripped before they get here** — see [05 §1](./05-core-logic.md#1-client-side-runtime-webcontainer) |
+| `checks` | `jsonb` | `{ passed, total }` — only when automatic checks exist (COULD) |
+| `lost` | `boolean not null default false` | **Readable only by its owner** |
+| `catch_ups` | `int not null default 0` | Times the student loaded a checkpoint |
+| `last_seen_at` | `timestamptz not null default now()` | Heartbeat or any event |
+| `joined_at` | `timestamptz not null default now()` | Attendance for digests |
+
+**Indexes:** `(session_id)`.
+
+## status_history
+
+Append-only; replaces the capped `stateHistory[]` array. Written by a trigger whenever the derived state changes.
+
+| Column | Type |
+|---|---|
+| `id` | `bigint generated always as identity` PK |
+| `session_id` | `uuid not null → sessions` on delete cascade |
+| `student_id` | `uuid not null → profiles` |
+| `state` | `text not null` |
+| `step_order` | `int not null` |
+| `at` | `timestamptz not null default now()` |
+
+**Indexes:** `(session_id, student_id, at)`.
+
+```sql
+alter table student_status  enable row level security;
+alter table status_history  enable row level security;
+
+-- a student writes ONLY their own row, and only while the session is live
+create policy "student writes own status" on student_status for all
+  using  (student_id = auth.uid())
+  with check (student_id = auth.uid()
+              and (select status from sessions where id = session_id) = 'live');
+
+-- staff read every status row in their session — but the table holds no code,
+-- and `lost` is filtered out by the view they actually query
+create policy "staff read statuses" on student_status for select
+  using (public.is_course_staff((select course_id from sessions where id = session_id)));
+
+create policy "staff read history" on status_history for select
+  using (public.is_course_staff((select course_id from sessions where id = session_id)));
+```
+
+### Views: `session_tiles` and `session_summary`
+
+`session_tiles` is the only thing the dashboard reads. It encodes the classifier from [05](./05-core-logic.md#4-status-classifier) in SQL, so the state cannot disagree with the rules:
+
+```sql
+create view public.session_tiles with (security_invoker = true) as
+select
+  ss.session_id,
+  ss.student_id,
+  p.name,
+  coalesce(st."order", 0)                                       as target_order,
+  ss.done_step_order                                            as step_order,
+  ss.error->>'key'                                              as error_key,
+  left(ss.error->>'message', 120)                               as error_preview,
+  ss.checks,
+  ss.last_seen_at,
+  case
+    when now() - ss.last_seen_at >
+         make_interval(secs => (s.settings->>'idleAfterSec')::int) then 'idle'
+    when ss.error is not null                                        then 'error'
+    when coalesce(st."order", 0) = 0 then
+         case when ss.done_step_order >= 1 then 'done' else 'in_progress' end
+    when ss.done_step_order >= coalesce(st."order", 0)               then 'done'
+    when ss.done_step_order  = coalesce(st."order", 0) - 1           then 'in_progress'
+    else 'behind'
+  end                                                           as state
+from student_status ss
+join sessions s  on s.id = ss.session_id
+join profiles p  on p.id = ss.student_id
+left join steps st on st.id = s.current_step_id;
+```
+
+`security_invoker = true` makes the view run with the caller's rights, so the RLS policies above still apply — **without it a view would leak every session's rows.**
+
+```sql
+create view public.session_summary with (security_invoker = true) as
+select
+  session_id,
+  count(*)                                        as total,
+  count(*) filter (where state = 'done')          as done,
+  count(*) filter (where state = 'in_progress')   as in_progress,
+  count(*) filter (where state = 'error')         as error,
+  count(*) filter (where state = 'behind')        as behind,
+  count(*) filter (where state = 'idle')          as idle,
+  (select count(*) from student_status x
+    where x.session_id = t.session_id and x.lost)  as lost_count
+from session_tiles t group by session_id;
+```
+
+`lost_count` is an aggregate, so **no query a staff member can write returns who is lost.** That is the whole mechanism for T-PRIV-04.
+
+---
+
+## snapshots (a student's code)
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | |
+| `session_id` | `uuid not null → sessions` on delete cascade | |
+| `student_id` | `uuid not null → profiles` | |
+| `step_id` | `uuid → steps` | Step the student was on |
+| `reason` | `text not null check (reason in ('autosave','before_catchup','help_request'))` | |
+| `files` | `jsonb not null check (public.files_valid(files) and octet_length(files::text) <= 200000)` | Source files only — `SYNC_IGNORE` keeps `node_modules/`, `dist/` and `.vite/` out |
+| `files_hash` | `text generated always as (md5(files::text)) stored` | Cache key |
+| `created_at` | `timestamptz default now()` | |
 
 **Rules**
-- `autosave`: **one per student per session** (upsert) — the latest editor state, so a refresh or a laptop switch doesn't lose work.
-- `before_catchup` and `help_request`: **immutable**, a new document each time.
-- Staff can read a snapshot **only** through the help request that references it.
+- `autosave`: **one per student per session** — `unique (session_id, student_id) where reason = 'autosave'`, written by `rpc('autosave_patch')`, which merges only the files that changed into the existing `files` jsonb rather than replacing the whole set. Debounced 5 s on the client; see [05 §2](./05-core-logic.md#2-files-cache--dependencies).
+- `before_catchup` and `help_request`: immutable, a new row each time.
+- Staff read a snapshot **only** through the help request that references it.
 
-**Indexes:** `{ sessionId: 1, studentId: 1, reason: 1, createdAt: -1 }`; partial unique `{ sessionId: 1, studentId: 1 }` where `reason: 'autosave'`.
+**Indexes:** the partial unique above; `(session_id, student_id, reason, created_at desc)`.
 
-```js
-// models/snapshot.model.js
-export const upsertAutosave  = (sessionId, studentId, stepId, files) =>
-  Snapshot.findOneAndUpdate({ sessionId, studentId, reason: 'autosave' }, { stepId, files }, { upsert: true, new: true })
-export const findAutosave    = (sessionId, studentId) => Snapshot.findOne({ sessionId, studentId, reason: 'autosave' })
-export const createSnapshot  = (data)                 => Snapshot.create(data)   // before_catchup | help_request
-export const findMineBySession = (sessionId, studentId) =>
-  Snapshot.find({ sessionId, studentId, reason: { $ne: 'autosave' } }).sort({ createdAt: -1 })
+```sql
+alter table snapshots enable row level security;
+
+create policy "own snapshots" on snapshots for all
+  using (student_id = auth.uid()) with check (student_id = auth.uid());
+
+-- THE privacy rule. Staff reach a snapshot only via a help request pointing at it.
+create policy "staff read sent snapshots" on snapshots for select using (
+  exists (
+    select 1 from help_requests hr
+    join sessions s on s.id = hr.session_id
+    where hr.snapshot_id = snapshots.id
+      and public.is_course_staff(s.course_id)
+  )
+);
 ```
 
 ---
 
-## HelpRequest
+## help_requests
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| `sessionId` | ObjectId → Session | required | |
-| `studentId` | ObjectId → User | required | |
-| `stepId` | ObjectId | required | |
-| `type` | String | enum `check` ("Check my work"), `help` ("Ask for help") | |
-| `snapshotId` | ObjectId → Snapshot | required | Created in the same request; `reason: 'help_request'` |
-| `message` | String | max 300 | Optional note from the student |
-| `inPerson` | Boolean | default `false` | `help` only — triggers a Telegram ping |
-| `seat` | String | max 20 | e.g. "Row C, 4" — only for in-person |
-| `status` | String | enum `open`, `claimed`, `passed`, `replied`, `resolved`, `cancelled`, default `open` | Transitions below |
-| `claimedBy` | ObjectId → User | optional | |
-| `reply` | String | max 1000 | TA feedback |
-| `telegramNotifiedAt` | Date | optional | |
-| timestamps | | | `createdAt` drives queue order |
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | |
+| `session_id` | `uuid not null → sessions` on delete cascade | |
+| `student_id` | `uuid not null → profiles` | |
+| `step_id` | `uuid not null → steps` | |
+| `type` | `text not null check (type in ('check','help'))` | |
+| `snapshot_id` | `uuid not null → snapshots` | Created in the same RPC, `reason = 'help_request'` |
+| `message` | `text check (char_length(message) <= 300)` | The student's opening message |
+| `in_person` | `boolean not null default false` | `help` only — triggers a Telegram ping |
+| `seat` | `text check (char_length(seat) <= 20)` | Required when `in_person` |
+| `status` | `text not null default 'open' check (status in ('open','claimed','passed','replied','resolved','cancelled'))` | |
+| `claimed_by` | `uuid → profiles` | Cleared when the student follows up, so any staff member can pick it back up |
+| `thread` | `jsonb not null default '[]'` | Append-only exchange after the opening message: `[{ role: 'staff' \| 'student', author_id, body, at }]`. Staff replies ≤ 1000 chars, student follow-ups ≤ 300. **Text only — never code** |
+| `follow_ups` | `int not null default 0 check (follow_ups <= 3)` | `Limits.MAX_FOLLOW_UPS`. Stops a request turning into a chat |
+| `telegram_notified_at` | `timestamptz` | |
+| `created_at` / `updated_at` | `timestamptz` | `created_at` drives queue order — **a follow-up keeps its original place** |
 
-**Allowed transitions**
+**Allowed transitions** (enforced inside `rpc('transition_help_request')`, except the follow-up, which has its own RPC)
 
 | From | To | Who |
 |---|---|---|
 | `open` | `claimed` | Staff |
 | `open` | `cancelled` | The student who created it |
-| `claimed` | `passed` | Claiming staff (only `type: check`) |
+| `claimed` | `passed` | Claiming staff (only `type = 'check'`) |
 | `claimed` | `replied` | Claiming staff |
-| `claimed` | `resolved` | Claiming staff (in-person help done) |
+| `claimed` | `resolved` | Claiming staff (in-person done) |
 | `claimed` | `open` | Claiming staff (release) |
+| `replied` | `open` | **The student who created it — a follow-up**, via `rpc('follow_up_help_request')`, at most `MAX_FOLLOW_UPS` (3) times |
 
-**Indexes:** `{ sessionId: 1, status: 1, createdAt: 1 }`; partial unique `{ sessionId: 1, studentId: 1, type: 1 }` where `status ∈ {open, claimed}` — one active request per type per student.
+`passed`, `resolved` and `cancelled` stay terminal: a passed check needs no follow-up, and in-person help was resolved face to face.
 
-```js
-// models/help-request.model.js
-export const createRequest   = (data)          => HelpRequest.create(data)
-export const findQueue       = (sessionId)     => HelpRequest.find({ sessionId, status: { $in: ['open', 'claimed'] } }).sort({ createdAt: 1 }).populate('studentId', 'name')
-export const findMine        = (sessionId, studentId) => HelpRequest.find({ sessionId, studentId }).sort({ createdAt: -1 })
-export const findById        = (id)            => HelpRequest.findById(id).populate('studentId', 'name')
-export const transition      = (id, from, to, patch = {}) =>
-  HelpRequest.findOneAndUpdate({ _id: id, status: { $in: [].concat(from) } }, { status: to, ...patch }, { new: true })
-  // null result = someone else changed it first → controller returns 409
+**Indexes:** `(session_id, status, created_at)`; `unique (session_id, student_id, type) where status in ('open','claimed')` — one active request per type per student, which is how T-HELP-06 returns a conflict without any application code.
+
+```sql
+alter table help_requests enable row level security;
+
+create policy "student reads own requests" on help_requests for select using (student_id = auth.uid());
+create policy "staff read queue" on help_requests for select
+  using (public.is_course_staff((select course_id from sessions where id = session_id)));
+-- all writes via rpc: create_help_request, claim_help_request, transition_help_request,
+--                      follow_up_help_request
 ```
 
+Claiming is race-free in one statement — zero rows updated **is** the conflict:
+
+```sql
+create function public.claim_help_request(p_request_id uuid) returns public.help_requests
+language plpgsql security definer set search_path = '' as $$
+declare r public.help_requests;
+begin
+  update public.help_requests set status = 'claimed', claimed_by = auth.uid(), updated_at = now()
+   where id = p_request_id and status = 'open'
+     and public.is_course_staff((select course_id from public.sessions where id = session_id))
+  returning * into r;
+  if not found then
+    raise exception 'CONFLICT|Someone else is already on this one' using errcode = 'P0001';
+  end if;
+  return r;
+end $$;
+```
+
+### Follow-ups
+
+Before this, `replied` was terminal — a student whose problem wasn't fixed by the reply had to open a brand-new request, go to the back of the queue, and probably reach a different TA with none of the context. A follow-up reopens **the same request** instead:
+
+```sql
+create function public.follow_up_help_request(p_request_id uuid, p_message text, p_files jsonb)
+returns public.help_requests
+language plpgsql security definer set search_path = '' as $$
+declare r public.help_requests; snap uuid;
+begin
+  -- 1. fresh snapshot of the student's CURRENT code — the reply may have prompted changes
+  insert into public.snapshots (session_id, student_id, step_id, reason, files)
+  select session_id, student_id, step_id, 'help_request', p_files
+    from public.help_requests where id = p_request_id and student_id = auth.uid()
+  returning id into snap;
+  if snap is null then
+    raise exception 'FORBIDDEN|You can only follow up on your own request' using errcode = 'P0001';
+  end if;
+
+  -- 2. reopen: only from 'replied', only under the cap
+  update public.help_requests set
+      status      = 'open',
+      claimed_by  = null,
+      snapshot_id = snap,
+      follow_ups  = follow_ups + 1,
+      thread      = thread || jsonb_build_array(jsonb_build_object(
+                      'role','student','author_id',auth.uid(),'body',p_message,'at',now())),
+      updated_at  = now()
+   where id = p_request_id and status = 'replied' and follow_ups < 3
+  returning * into r;
+  if not found then
+    raise exception 'BAD_REQUEST|You can follow up on a replied request up to 3 times — ask for in-person help instead'
+      using errcode = 'P0001';
+  end if;
+  return r;
+end $$;
+```
+
+| Decision | Why |
+|---|---|
+| **Same row, original `created_at`** | The problem is the original one, still unsolved, so it keeps its place in the oldest-first queue rather than going to the back |
+| **`claimed_by` cleared** | Any TA can claim it. The card shows "Follow-up · last handled by Ana", derived from the latest staff entry in `thread` — no extra column |
+| **A fresh snapshot is attached** | The student has usually changed their code since the reply, so the TA reviews what they have *now* |
+| **Only the latest snapshot stays visible to staff** | The `snapshots` privacy policy admits a row only via `help_requests.snapshot_id`, which now points at the new one. The earlier snapshot becomes unreadable to staff. We kept the policy simple rather than widen it — staff see the minimum code needed, which is the privacy design working as intended |
+| **`thread` is text only, in the same row** | No new table, so **no new RLS policy**: the existing "student reads own" and "staff read queue" policies already cover it. This is what keeps follow-ups cheap compared with a full message table |
+| **Capped at 3** | Past that, the TA should walk over. The cap is what stops this becoming a chat feature |
+| **Partial unique index still applies** | If the student opened another request of the same type meanwhile, reopening raises `CONFLICT` — no special case needed |
+
+The waiting-time badge on the card counts from the latest `thread` entry, not `created_at`, so a follow-up doesn't instantly show as 20 minutes overdue.
+
 ---
 
-## Note (notes and bookmarks)
+## notes
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| `userId` | ObjectId → User | required | Private to the author |
-| `sessionId` | ObjectId → Session | required | |
-| `checkpointId` | ObjectId → Checkpoint | optional | Anchor in the replay |
-| `kind` | String | enum `note`, `bookmark` | |
-| `body` | String | max 2000; required for `note` | |
-| timestamps | | | |
-
-**Indexes:** `{ userId: 1, sessionId: 1 }`; text index on `body` for search.
-
----
-
-## SessionReport (insights, one per ended session)
-
-| Field | Type | Notes |
+| Column | Type | Notes |
 |---|---|---|
-| `sessionId` | ObjectId → Session, unique | |
-| `courseId`, `lessonId` | ObjectId | For cross-term trends |
-| `attendance` | { `joined`, `enrolled` } | |
-| `steps` | [{ `stepId`, `order`, `title`, `reachedDone`, `peakError`, `peakBehind`, `medianMinutesToDone`, `catchUps`, `helpRequests` }] | Per-step funnel |
-| `topErrors` | [{ `key`, `sampleMessage`, `stepOrder`, `students` }] | Top 5, counts only |
-| `lostPeak` | Number | Max simultaneous "I'm lost" |
-| `generatedAt` | Date | |
-| `digest` | { `sentAt`, `recipients` } | Telegram digest log (counts only) |
+| `id` | `uuid` PK | |
+| `user_id` | `uuid not null → profiles` | Private to the author |
+| `session_id` | `uuid not null → sessions` on delete cascade | |
+| `checkpoint_id` | `uuid → checkpoints` | Anchor in the replay |
+| `kind` | `text not null check (kind in ('note','bookmark'))` | |
+| `body` | `text check (char_length(body) <= 2000)` | Required for `note` |
+| `created_at` / `updated_at` | `timestamptz` | |
 
-Built by `lib/report-builder.js` when the session ends — see [05-core-logic.md](./05-core-logic.md#10-insights-report).
+**Indexes:** `(user_id, session_id)`; GIN full-text on `to_tsvector('english', body)` for search.
+
+```sql
+alter table notes enable row level security;
+create policy "own notes" on notes for all
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+```
+
+One policy, and T-PRIV-05 passes — a note belonging to someone else is not a 404 we have to remember to return, it simply isn't in the result set.
+
+---
+
+## session_reports
+
+| Column | Type | Notes |
+|---|---|---|
+| `session_id` | `uuid` PK → `sessions` on delete cascade | One per ended session |
+| `course_id`, `lesson_id` | `uuid` | For cross-term trends |
+| `attendance` | `jsonb` | `{ joined, enrolled }` |
+| `steps` | `jsonb` | Per-step funnel — see [05](./05-core-logic.md#10-insights-report) |
+| `top_errors` | `jsonb` | Top 5, counts only |
+| `lost_peak` | `int` | Max simultaneous "I'm lost" |
+| `generated_at` | `timestamptz default now()` | |
+| `digest` | `jsonb` | `{ sentAt, recipients }` — counts only |
+
+Written by the `end-session` Edge Function (triggered by a Database Webhook when `sessions.status` becomes `ended`). The report page polls until the row exists.
+
+```sql
+alter table session_reports enable row level security;
+create policy "staff read reports" on session_reports for select using (public.is_course_staff(course_id));
+```
+
+## test_outbox (local + test only)
+
+When `EXTERNAL_APIS=mock`, Edge Functions append here instead of calling Telegram/GitHub. E2E tests assert against it, replacing the old `GET /api/__test__/outbox`.
+
+| Column | Type |
+|---|---|
+| `id` | `bigint generated always as identity` PK |
+| `channel` | `text` (`telegram` \| `github` \| `llm`) |
+| `payload` | `jsonb` |
+| `created_at` | `timestamptz default now()` |
+
+Created in a migration guarded so it is never applied to the production project, and it has **no** select policy for `authenticated` — tests read it with the service role key.
 
 ---
 
 ## Delete Cascades
 
-| Deleting | Also deletes / changes |
+Handled by `on delete cascade` on the foreign keys, so there is no controller-side cascade to forget.
+
+| Deleting | Also deletes |
 |---|---|
-| Course (owner prof only) | Its lessons, sessions and everything under each session (below) |
-| Lesson | Blocked if any session exists — the lesson is archived instead (replays must keep working) |
-| Session (owner prof only, ended sessions) | Checkpoints, statuses, snapshots, help requests, notes, report |
-| Removing a student from a course | Their future access only; past statuses/snapshots stay for the report |
+| Course (owner prof only) | Its lessons → steps, sessions → everything under each session |
+| Lesson | Blocked by a trigger if any session exists — archived instead, so replays keep working |
+| Session (owner prof, ended only) | Checkpoints, statuses, history, snapshots, help requests, notes, report |
+| Removing a student from a course | Their `course_students` row only; past statuses/snapshots stay for the report |
 
 ---
 
 ## Authorization Matrix
 
-"Staff" = listed in `course.staff`. "Enrolled" = listed in `course.students`.
+Unchanged as a specification — this is still the contract. What changed is *where* it is enforced: RLS policies and `security definer` RPCs rather than controller checks.
 
 | Action | Student (enrolled) | TA (staff) | Prof (staff) |
 |---|:---:|:---:|:---:|
 | Register / log in / edit own profile / link Telegram | ✅ | ✅ | ✅ |
-| Enrol in a course with `enrolCode` | ✅ | — | — |
+| Enrol in a course with `enrol_code` | ✅ | — | — |
 | View course + lesson library | ✅ | ✅ | ✅ |
 | **Create / edit / archive** course | ❌ | ❌ | ✅ (owner) |
 | Add TA to course | ❌ | ❌ | ✅ (owner) |
 | **Create / edit / delete** lesson, edit steps, import from GitHub | ❌ | ❌ | ✅ |
 | Start / end a live session, save checkpoints, Spotlight | ❌ | ❌ | ✅ |
+| Post / clear a class announcement | ❌ | ❌ | ✅ |
 | Join a live session | ✅ | ✅ (as staff) | ✅ |
 | Report own status, tap Done, toggle "I'm lost", autosave, catch up | ✅ | — | — |
 | View class dashboard (tiles, counts, error groups) | ❌ | ✅ | ✅ |
-| See which student tapped "I'm lost" | ❌ | ❌ | ❌ (nobody) |
+| See which student tapped "I'm lost" | ❌ | ❌ | ❌ (nobody — it is an aggregate) |
 | Send Check my work / Ask for help | ✅ | — | — |
+| Follow up on own replied request (max 3) | ✅ | — | — |
 | View help queue, claim, pass, reply, resolve | ❌ | ✅ | ✅ |
 | View a student's code | ❌ | Only via a help request the student sent | Only via a help request the student sent |
 | View replay of a session | ✅ (if enrolled) | ✅ | ✅ |
@@ -389,38 +686,24 @@ Built by `lib/report-builder.js` when the session ends — see [05-core-logic.md
 
 ---
 
-## Auth Token Shape
-
-On login the server sets an httpOnly cookie `ca_token` containing a JWT signed with `JWT_SECRET`:
-
-```js
-// JWT payload
-{ sub: "6507…", role: "prof", name: "Prof Lee", iat: 1760000000, exp: 1760043200 }
-
-// After requireAuth, controllers read:
-req.user = { _id: "6507…", role: "prof", name: "Prof Lee" }
-```
-
-Cookie flags: `httpOnly`, `sameSite: 'lax'`, `secure` in production, `maxAge = JWT_TTL_HOURS`. The same cookie authenticates the Socket.IO handshake (see [09-integration-contracts.md](./09-integration-contracts.md#2-auth)).
-
----
-
 ## Validation Rules Summary
 
-| Form / payload | Required | Rules |
-|---|---|---|
-| Register | name, email, password | email format; password ≥ 8 chars; unique email; role always `student` |
-| Login | email, password | generic "Invalid email or password" on any mismatch; rate-limited (10/min/IP) |
-| Course | code, title, term, section | code uppercase A–Z0–9; unique code+term+section |
-| Lesson | title, files, entryFile | 1–20 files; paths safe; entryFile exists; total ≤ 200 KB |
-| Step edit | title | order unique and contiguous after reorder |
-| GitHub import | repo URL | `https://github.com/<owner>/<repo>` (optional `/tree/<ref>/<dir>`); only `.html/.css/.js/.json/.md` files kept |
-| Start session | lessonId | lesson `status: ready`, has ≥ 1 step, caller is prof staff |
-| Join session | joinCode | 6 chars; live session; caller enrolled or staff |
-| Checkpoint | stepId, files | step belongs to the lesson; session live |
-| Status update (socket) | stepOrder, error? | stepOrder within 0…steps.length; error message truncated to 300 chars |
-| Help request | type, stepId, files | one active request per type; message ≤ 300; seat required if `inPerson` |
-| Help reply | reply | 1–1000 chars; only by claiming staff |
-| Note | kind, body (for notes) | body ≤ 2000 |
+Each rule exists **twice**: a zod schema in `src/validators/` for the per-field form message, and a constraint or RPC guard so the rule holds even without the UI. The constraint is what the tests assert.
 
-On validation failure the API returns **400** with `error.fields` — the Vue form shows the message under each field and keeps what the user typed.
+| Form / payload | Required | Rules | Backstop |
+|---|---|---|---|
+| Register | name, email, password | email format; password ≥ 8 | Supabase Auth |
+| Login | email, password | generic "Invalid email or password" | Supabase Auth (rate-limited by the platform) |
+| Course | code, title, term, section | code uppercase A–Z0–9 | `unique (code, term, section)` |
+| Lesson | title, files, entry_file | 1–40 files; safe paths; `entry_file` exists; ≤ 200 KB | `files_valid()` + `octet_length` check + trigger |
+| Step edit | title | order unique and contiguous | `unique (lesson_id, "order")` + `replace_steps` |
+| GitHub import | repo URL | `https://github.com/<owner>/<repo>[/tree/<ref>/<dir>]`; only `.html/.css/.js/.json/.md` | `github-import` function |
+| Start session | lesson_id | lesson `ready`, ≥ 1 step, caller is prof staff | `start_session` RPC |
+| Join session | join_code | 6 chars; live session; caller is a member | `join_session` RPC |
+| Checkpoint | step_id, files | step belongs to the lesson; session live | `save_checkpoint` RPC |
+| Status update | done_step_order, error? | within 0…steps.length; message ≤ 300; no code frame in a build error | `student_status` policy + check; T-PRIV-09 |
+| Help request | type, step_id, files | one active per type; seat required if in_person | partial unique index |
+| Help reply | reply | 1–1000 chars; claiming staff only; appended to `thread` | `transition_help_request` |
+| Help follow-up | message, files | 1–300 chars; own request; status `replied`; ≤ 3 follow-ups | `follow_up_help_request` + `follow_ups` check |
+| Announcement | text | 1–200 chars; prof of the course; session live | `announce` RPC + `announcement` check |
+| Note | kind, body | body ≤ 2000 | `check` constraint |

@@ -49,15 +49,15 @@ Every item below comes from the IS216 Group Project Briefing and the Project Q&A
 |---|---|---|
 | 1 | Identify and solve a problem (Briefing) | Live-coding drop-off in IS216 labs — see problem table above and the proposal |
 | 2 | Use HTML, CSS and JavaScript (Briefing) | Vue 3 single-file components (HTML templates + JS), Bootstrap 5 + our own CSS tokens — see [02-tech-stack.md](./02-tech-stack.md) |
-| 3 | *Suggested:* CSS framework + JS framework, JSON (Briefing) | Bootstrap 5, Vue 3 + Vue Router + Pinia, JSON REST API |
+| 3 | *Suggested:* CSS framework + JS framework, JSON (Briefing) | Bootstrap 5, Vue 3 + Vue Router + Pinia, JSON/JSONB throughout |
 | 4 | Responsive design following IDP UI patterns (Briefing) | Every page has a defined layout from iPhone 6 (375 px) to Bootstrap XL (≥ 1200 px) — see [04-pages-routes-and-events.md](./04-pages-routes-and-events.md#client-pages) |
-| 5 | Dynamic site with a backend data store (Briefing) | Express REST API + Socket.IO + MongoDB Atlas (Mongoose) — see [03-data-model.md](./03-data-model.md) |
+| 5 | Dynamic site with a backend data store (Briefing) | Supabase Postgres (14 tables, RLS) + Supabase Realtime + 8 Edge Functions — see [03-data-model.md](./03-data-model.md) |
 | 6 | Meaningful use of ≥ 1 external public API via async HTTP (Briefing) | **Telegram Bot API** (TA pings, digests) and **GitHub REST API** (starter-code import, replay export, one commit per step). LLM API is Keep-In-View — see [05-core-logic.md](./05-core-logic.md) |
 | 7 | At least end-to-end testing of core features (Briefing) | Playwright E2E with multi-browser-context tests (prof + students in one test), plus Vitest unit tests for core logic — see [06-stages-and-tests.md](./06-stages-and-tests.md) |
 | 8 | Displays properly in Chrome; responsive checked in Chrome DevTools from iPhone 6 to Bootstrap XL (FAQ 5, 17) | Responsive pass is a stage gate; Playwright runs a 375 px and a 1280 px project |
-| 9 | App packaged at root; first page via "index" (Briefing) | Express serves the built Vue app (`client/dist/index.html`) at `/` — `http://localhost:3000` loads the landing page |
+| 9 | App packaged at root; first page via "index" (Briefing) | Vercel serves the built Vue app's `index.html` at `/`; a `vercel.json` rewrite makes every deep link (incl. the `/join/:code` QR link) resolve to it |
 | 10 | README: URL / repo link, setup, run, test steps, credentials (Briefing) | README skeleton in [07-seed-and-demo.md](./07-seed-and-demo.md#readme-skeleton) |
-| 11 | Deployed app link; keep it running until Week 18 (Briefing) | Single Node service + Atlas — see [02-tech-stack.md](./02-tech-stack.md#deployment) |
+| 11 | Deployed app link; keep it running until Week 18 (Briefing) | Vercel (static, never sleeps) + Supabase; **a weekly keep-alive ping is required** so the free-tier project does not pause — see [02-tech-stack.md](./02-tech-stack.md#deployment) |
 | 12 | Slides (~10, PPTX/PDF, video link on slide 1) + YouTube video ≤ 12 min, ≥ 720p, unlisted/public (Briefing) | Slide outline + demo script in [07-seed-and-demo.md](./07-seed-and-demo.md) |
 | 13 | Free public libraries must be credited in the presentation and code comments (FAQ 6) | Third-party credit table in [02-tech-stack.md](./02-tech-stack.md#third-party-libraries-credit-these) |
 | 14 | AI only for lower-order tasks; declare AI-reliant parts in README (FAQ 20) | See [AI Usage Policy](#ai-usage-policy-faq-20) below |
@@ -107,9 +107,9 @@ The Q&A slides grade on three tiers: **Tier 1** get data → show data (~B+), **
 
 | # | Feature ("this app lets me…") | Tier | Why it's that tier | Owner |
 |---|---|:---:|---|---|
-| F1 | **Run a live coding session** — start a session, students join by code/QR, every checkpoint reaches every laptop instantly | 2 | Real-time fan-out, reconnection, room authorization; merges session + checkpoint + membership data | Ying Qi |
+| F1 | **Run a live coding session** — start a session, students join by code/QR, every checkpoint reaches every laptop instantly; the prof can **post a short announcement** to the whole class | 2 | Real-time fan-out, reconnection, room authorization; merges session + checkpoint + membership data | Ying Qi |
 | F2 | **Code along and catch up** — edit files in the browser, see the live preview and console, have errors caught automatically, tap Done, load the prof's checkpoint without losing my attempt | 2–3 | Sandboxed execution + error capture + snapshot preservation; automatic step checks are the stretch | Dylan |
-| F3 | **Get help quickly** — send my code to the TA ("Check my work" / "Ask for help"); TA reviews side-by-side with the checkpoint, passes or replies, or gets pinged on Telegram to come over | 2 | Queue workflow + side-by-side comparison + Telegram Bot API | Karin |
+| F3 | **Get help quickly** — send my code to the TA ("Check my work" / "Ask for help"); TA reviews side-by-side with the checkpoint, passes or replies, or gets pinged on Telegram to come over; if the reply doesn't fix it, **follow up on the same request** without losing my place | 2 | Queue workflow + side-by-side comparison + Telegram Bot API | Karin |
 | F4 | **See the room and teach to it** — turn starter-code TODOs into a lesson plan, watch one tile per student, see grouped common errors, Spotlight one anonymised example | **3** | TODO parsing, status classification, error normalisation + grouping algorithm | Evan |
 | F5 | **Review the lesson afterwards** — step-by-step replay with "What you missed" diffs, notes, bookmarks, search, import starter code from GitHub and export my replay with one commit per step | 2 | GitHub REST (Git Data API) + diffing + search across lessons | Ray Yien |
 | F6 | **Learn which steps lose students** — after-class insights (drop-off per step, top errors, recurring trouble steps across terms) sent as a Telegram digest | 2–3 | Aggregation across statuses, help requests and past terms | Andric |
@@ -133,7 +133,7 @@ Priorities follow the latest proposal (self-marking + automatic error detection 
 
 **Rule:** no COULD work starts until every MUST item passes the full end-to-end demo in [07-seed-and-demo.md](./07-seed-and-demo.md).
 
-**Out of scope:** lessons that need an Express server, `npm install` or Vite (API calls in lessons go to CodeAlong's mock API instead); recording keystrokes; showing any student's code to staff unless the student sends it.
+**Out of scope:** lesson exercises that need more than a browser-hosted Node project (native deps, databases, long-running background jobs) (API calls in lessons go to CodeAlong's mock API instead); recording keystrokes; showing any student's code to staff unless the student sends it.
 
 ---
 
@@ -144,12 +144,12 @@ Priorities follow the latest proposal (self-marking + automatic error detection 
 | Module system | ES modules everywhere (`"type": "module"`), so `shared/constants.js` is imported by both client and server |
 | Vue style | Composition API with `<script setup>`; props down / events up; `computed` for derived state, `watch` for side effects |
 | Client state | One Pinia store per domain (`auth`, `courses`, `session`, `workspace`, `dashboard`, `help`, `replay`) |
-| Client I/O | Components never call `axios`/`socket.io` directly — only through `client/src/api/*` modules |
-| Server layering | `routes` → `middleware` → `controllers` → `services` / `lib` → `models` |
+| Client I/O | Components never call `supabase` directly — only through `src/api/*.api.js` modules |
+| Where logic lives | Pure functions in `shared/` · trusted writes in `security definer` RPCs · secrets in Edge Functions · everything else is a direct query under RLS |
 | Async style | `async/await` + `try/catch`; unexpected errors go to `next(err)` |
-| Validation | Request bodies validated with `zod` schemas in `server/validators/`; Mongoose enforces types/enums as the second layer |
-| Responses | Always `{ data }` on success, `{ error: { code, message, fields? } }` on failure — see [09-integration-contracts.md](./09-integration-contracts.md) |
-| Realtime | REST for anything that writes to the DB; Socket.IO only for broadcasting and lightweight status |
+| Validation | `zod` schemas in `src/validators/` for per-field form messages; a Postgres `check` constraint or RPC guard behind every rule as the layer that actually holds |
+| Responses | `supabase-js` returns `{ data, error }`; one `mapError()` turns Postgres codes into `{ code, message }` — see [09-integration-contracts.md](./09-integration-contracts.md) |
+| Realtime | Write to Postgres first; Broadcast for prof actions, Postgres Changes for rows you own, Presence for attendance |
 | Testability | Every interactive element has a `data-testid` following the convention in [09-integration-contracts.md](./09-integration-contracts.md#9-data-testid-convention) |
 | Credits | Any third-party snippet gets a `// Source: <url> (licence)` comment and a line in the slides |
 
@@ -159,16 +159,17 @@ Priorities follow the latest proposal (self-marking + automatic error detection 
 
 | Decision | Why |
 |---|---|
-| Student code runs in a sandboxed `<iframe>` in **their own browser** | Zero server cost per student, no remote code execution risk on our server, broken code can't affect anything else |
-| Dashboard shows **status, not code** | Privacy by design (our unique angle); also keeps socket payloads tiny |
-| "I'm lost" is stored per student but only ever **sent out as a count** | Dedup (one student can't spam it) without exposing identity |
-| One `StudentStatus` document per student per session (unique index) | The dashboard needs the *latest* state only — an upsert per change, not an event log |
+| Student code runs in a **WebContainer in their own browser** | Real Node compiled to WebAssembly: real `import`s, a real `pnpm install`, a real dev server. Zero server cost per student, no remote code execution anywhere of ours, and broken code breaks only that preview. It also gives us **compile errors** as a dashboard signal, which a plain iframe never could |
+| Dashboard shows **status, not code** | Privacy by design (our unique angle); the tables staff can read have no code columns at all |
+| "I'm lost" is stored per student but only ever **readable as a count** | Dedup (one student can't spam it) without exposing identity; staff read the `session_summary` aggregate, never the raw column |
+| One `student_status` row per student per session (composite PK) | The dashboard needs the *latest* signals only — an upsert per change, with `status_history` as the separate event log for insights |
 | Snapshots stored separately from status, with a `reason` | Keeps attempts after "Load checkpoint"; only snapshots attached to a help request are ever visible to staff |
-| Steps embedded in `Lesson` | Reorder = replace one array atomically; steps are never queried on their own |
-| REST writes + Socket.IO broadcasts | Writes get validation, auth and HTTP status codes; sockets stay a thin, replaceable layer |
-| Express serves the built Vue app (single origin) | Satisfies "index at root", lets the httpOnly JWT cookie work for both REST and the Socket.IO handshake |
+| `steps` is its own table | Four tables reference a step by id, and a foreign key needs a real target; reordering stays atomic inside `rpc('replace_steps')` |
+| **Tile state is derived, never stored** | The student's own browser writes their status row, so a stored `state` would be forgeable. `session_tiles` computes it in SQL — and a new checkpoint re-classifies all 40 students with zero writes |
+| **Authorization lives in RLS, not in handlers** | The anon key ships in the browser bundle, so policies are the only boundary — which also means no handler can forget a check, and the privacy rule is expressed once per table |
 | Self-marking + auto error detection as baseline; auto step checks as stretch | Automatic checking is the riskiest part — the app is complete without it |
-| In-memory MongoDB + mocked external APIs in E2E | Tests are repeatable and never burn API quota |
+| **Only source files cross the network** | Dependencies come from npm straight to the browser, so `node_modules` never touches Supabase. Reads are cached in IndexedDB behind a content hash and autosave uploads only changed files — which is how a 5 GB free tier is enough |
+| Local Supabase stack + mocked external APIs in E2E | A real Postgres with the real policies, reset by migration; tests never burn API quota |
 | Bootstrap 5 + our own design tokens | Fast responsive grid; tokens keep the look consistent across six people's pages |
 
 ---
@@ -178,7 +179,7 @@ Priorities follow the latest proposal (self-marking + automatic error detection 
 | Allowed (lower-order) | Not allowed (higher-order) |
 |---|---|
 | Information search, explaining errors, debugging hints | Core business logic (status classifier, error grouping, TODO parser, catch-up, help workflow, export) |
-| Layout/theme ideas, UI/UX inspiration | Backend endpoints and Socket.IO handlers |
+| Layout/theme ideas, UI/UX inspiration | RLS policies, RPCs and Edge Functions |
 | Boilerplate and starter snippets | Critical frontend interactivity (workspace, dashboard, replay) |
 | Generating unit test cases, sample inputs, mock/seed data | Solving major implementation issues end-to-end |
 

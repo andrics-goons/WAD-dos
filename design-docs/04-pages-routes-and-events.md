@@ -1,4 +1,4 @@
-# CodeAlong — Pages, API Routes & Socket Events
+# CodeAlong — Pages, Data Access & Realtime
 
 ## Page Map
 
@@ -13,6 +13,8 @@ Register /register             Join session      /join[/:code]    Help review   
                                Replay viewer     /replays/:id     Insights report   /sessions/:id/report
                                Profile           /profile
 ```
+
+Routes are unchanged by the move to Supabase — the URLs are a UI contract, not a backend one.
 
 ---
 
@@ -29,8 +31,8 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 | `/courses/:id/lessons/new` | `LessonNewView` | Evan (upload) + Ray Yien (GitHub import tab) | Prof | Stepper: 1 Source → 2 Review files → 3 Review steps |
 | `/lessons/:id/edit` | `LessonEditView` | Evan | Prof | Step list only, editor opens as a sheet → file editor left, draggable step list right |
 | `/join`, `/join/:code` | `JoinView` | Ying Qi | Logged in (redirects to login with `returnTo`) | Big 6-box code input, auto-submits when complete; `/join/:code` pre-fills from QR |
-| `/s/:id/teach` | `TeachView` | Evan (editor, plan, dashboard) + Ying Qi (session bar) | Prof | **xs:** dashboard-first (summary bar, filters, tiles); editor behind a tab. **xl:** editor 8 cols + terminal below; plan + error groups 4 cols; tile grid full width below; join code card collapsible |
-| `/s/:id/code` | `WorkspaceView` | Dylan (+ Ray Yien's "What you missed" panel) | Enrolled student | **xs:** tabs *Code · Preview · Console · Steps*, sticky bottom bar with **Done**, **I'm lost**, **Help**. **lg:** three panes (editor · preview · console) with step list in an offcanvas |
+| `/s/:id/teach` | `TeachView` | Evan (editor, plan, dashboard) + Ying Qi (session bar) | Prof | **xs:** dashboard-first (summary bar, filters, tiles); editor behind a tab. **xl:** editor 8 cols + terminal below; plan + error groups 4 cols; tile grid full width below; join code card collapsible. An **"Announce to class"** box sits in the session bar at every size |
+| `/s/:id/code` | `WorkspaceView` | Dylan (+ Ray Yien's "What you missed" panel) | Enrolled student | **VS Code-style IDE** — see [the layout below](#the-workspace-is-an-ide). **xs:** tabs *Code · Preview · Terminal · Steps*, file tree in an offcanvas, sticky bottom bar with **Done**, **I'm lost**, **Help**. **lg:** file tree rail + editor + preview, terminal docked under. The prof's current announcement shows as a dismissible banner across the top at every size |
 | `/s/:id/help` | `HelpQueueView` | Karin | Staff | Queue cards 1 col → queue list left, selected request right |
 | `/help/:requestId` | `HelpReviewView` | Karin | Staff | Stacked: student code, then checkpoint, then reply → side-by-side diff with reply box under |
 | `/replays` | `ReplayListView` | Ray Yien | Logged in | List grouped by course, search box on top |
@@ -39,13 +41,55 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 | `/profile` | `ProfileView` | Andric (profile) + Karin (Telegram link card) | Logged in | Single column |
 | `*` | `NotFoundView` | Andric | Public | Friendly 404 with links back |
 
-**Route guards (`router/index.js`):** `meta: { auth: true, roles: ['prof'] }`. Unauthenticated → `/login?returnTo=<path>`. Wrong role → toast "You don't have access to that page" and redirect to `/courses`. Course-level checks happen on the server (the client cannot know membership reliably).
+### Route guards
+
+`router/index.js` uses `meta: { auth: true, roles: ['prof'] }`. Unauthenticated → `/login?returnTo=<path>`. Wrong **account** role → toast "You don't have access to that page" and redirect to `/courses`.
+
+**The guard is UX, not security.** Course-level membership is never checked in the client — RLS decides which rows exist, so a student who hand-navigates to another course's session gets an empty page and a "not found" state, not leaked data. Every view therefore needs a real empty/forbidden state, not just a spinner.
+
+> **Deployment note:** these are history-mode routes on a static host. `vercel.json` must rewrite everything to `index.html`, or `/join/:code` from the QR code 404s. See [02](./02-tech-stack.md#deployment).
+
+### The workspace is an IDE
+
+`/s/:id/code` is the page the student spends the whole class in, and it now holds a real project rather than three files — so it is laid out like VS Code: tree on the left, open file beside it, preview and terminal alongside.
+
+```
+lg / xl ───────────────────────────────────────────────────────────────────
+┌────────────┬──────────────────────────────┬─────────────────────────────┐
+│ FILES      │ ItemCard.vue  ×  main.js  ×  │  PREVIEW                    │
+│ ▸ src/     ├──────────────────────────────┤  (iframe → WebContainer     │
+│   ItemCard │                              │   dev-server URL)           │
+│   main.js  │   CodeMirror 6               │                             │
+│ ▸ server/  │                              ├─────────────────────────────┤
+│   api.js   │                              │  STEPS  4/8 · current step  │
+│ package.js │                              │                             │
+├────────────┴──────────────────────────────┴─────────────────────────────┤
+│ TERMINAL   pnpm install · pnpm dev output (local only, never sent)      │
+└─────────────────────────────────────────────────────────────────────────┘
+
+xs (375 px) ───────────────────────────────────────────
+┌─────────────────────────────────────────┐
+│ ☰ files   Code │ Preview │ Terminal │ Steps │   ← tabs; ☰ opens the tree
+├─────────────────────────────────────────┤      as an offcanvas drawer
+│  active tab fills the viewport          │
+├─────────────────────────────────────────┤
+│  [ Done ]  [ I'm lost ]  [ Help ]       │   ← sticky bottom bar
+└─────────────────────────────────────────┘
+```
+
+| Rule | Why |
+|---|---|
+| The file tree is a **rail at lg+, an offcanvas drawer at xs** | A tree, an editor and a preview cannot coexist at 375 px. T-RESP-01 checks the drawer; T-RESP-05 still requires no horizontal page scroll anywhere |
+| The terminal is **read-only output, and never leaves the browser** | It carries `pnpm install` and dev-server text, which can contain source lines. Nothing writes it to Postgres — see the privacy contract in [09](./09-integration-contracts.md#5-privacy-contract-our-unique-feature--every-pr-is-checked-against-this) |
+| Boot and install have **explicit visible states** | "Starting your project…" → "Installing dependencies…" (streamed) → ready. A 20-second silent pause reads as broken, and this is the first thing a student sees on joining |
+| Open files are tabs; the tree is the source of truth | `FileTabs` keeps its role, now driven by tree selection rather than a flat file list |
+| Unsupported browser is a **message, not a blank pane** | Feature-detect `crossOriginIsolated`; Safari shows "The workspace needs Chrome or Edge" |
 
 ### UI rules that apply to every page (IDP / 10 rules of thumb)
 
 | Rule | How we apply it |
 |---|---|
-| Visibility of system status | Connection pill in the navbar (Live · Reconnecting… · Offline); saving indicator in the workspace |
+| Visibility of system status | Connection pill in the navbar (Live · Reconnecting… · Offline) driven by the Realtime channel state; saving indicator in the workspace |
 | Match the real world | Labels say "Done", "I'm lost", "Load checkpoint", "Check my work" — no jargon like "sync state" |
 | User control & freedom | Load checkpoint always keeps your attempt (restorable); help requests can be cancelled |
 | Consistency | Same tile colours, icons and labels everywhere (`StatusPill`); one button style per action type |
@@ -55,233 +99,280 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 
 ---
 
-## REST API Catalog
+## Data Access Catalog
 
-All endpoints are under `/api`, return `{ data }` / `{ error }` (see [09-integration-contracts.md](./09-integration-contracts.md#3-api-response-envelope)), and use JSON. "Staff" / "Enrolled" checks happen in the controller after loading the course.
+There are no REST endpoints. Every row of this table is one of three things:
 
-### Auth & profile — `auth.routes.js`, `users.routes.js` (Andric), `telegram.routes.js` (Karin)
+- **Query** — `supabase.from(…)` straight from the browser. RLS decides what comes back, so there is no auth code to write.
+- **RPC** — a `security definer` Postgres function, for anything multi-step or anything the client must not decide (roles, join codes, sequence numbers, state transitions).
+- **Function** — a Supabase Edge Function, for anything needing an API secret or elevated rights.
 
-| Method | Path | What happens | Auth | Who |
-|---|---|---|:---:|---|
-| POST | `/api/auth/register` | Validate → hash → create `student` → set cookie → 201 user | No | Any |
-| POST | `/api/auth/login` | Validate → compare bcrypt → set cookie → 200 user | No | Any (rate-limited) |
-| POST | `/api/auth/logout` | Clear cookie → 204 | Yes | Any |
-| GET | `/api/auth/me` | Current user (used on app load) | Yes | Any |
-| PATCH | `/api/users/me` | Update name / password (current password required) | Yes | Any |
-| POST | `/api/users/me/telegram/link` | Issue one-time link code → returns `https://t.me/<bot>?start=<code>` | Yes | Any (Karin) |
-| DELETE | `/api/users/me/telegram` | Unlink Telegram | Yes | Any (Karin) |
+All of it goes through `src/api/*.api.js`; components never touch `supabase` directly.
 
-### Courses — `courses.routes.js` (Andric)
+### Auth & profile — `auth.api.js` (Andric), Telegram bits (Karin)
 
-| Method | Path | What happens | Who |
+| Kind | Call | What happens | Who |
 |---|---|---|---|
-| GET | `/api/courses` | Courses where I am staff or enrolled | Any |
-| POST | `/api/courses` | Create course; owner added to `staff` as prof; generates `enrolCode` | Prof |
-| POST | `/api/courses/enrol` | `{ enrolCode }` → add me to `students` | Student |
-| GET | `/api/courses/:courseId` | Course + my membership role | Staff / enrolled |
-| PATCH | `/api/courses/:courseId` | Edit title/term/section/archived | Owner |
-| DELETE | `/api/courses/:courseId` | Delete with cascade (confirm in UI) | Owner |
-| POST | `/api/courses/:courseId/staff` | `{ email }` → add as TA (promotes account to `ta` if student) | Owner |
-| GET | `/api/courses/:courseId/people` | Staff + students (names only) | Staff |
-| DELETE | `/api/courses/:courseId/students/:userId` | Remove student | Owner |
+| Auth | `auth.signUp({ email, password, options: { data: { name } } })` | Trigger creates the `profiles` row as `student` | Any |
+| Auth | `auth.signInWithPassword(…)` | Session stored by `supabase-js`; platform rate-limits | Any |
+| Auth | `auth.signOut()` | Clears the local session | Any |
+| Query | `auth.getUser()` + `from('profiles').select().eq('id', uid).single()` | Current user on app load | Any |
+| Query | `from('profiles').update({ name })` | Own row only (policy forbids changing `role`) | Any |
+| Auth | `auth.updateUser({ password })` | Requires a fresh session | Any |
+| RPC | `issue_telegram_link_code()` | Writes a one-time code + expiry, returns `https://t.me/<bot>?start=<code>` | Any (Karin) |
+| Query | `from('profiles').update({ telegram_chat_id: null })` | Unlink | Any (Karin) |
 
-### Lessons & steps — `lessons.routes.js` (Evan) + GitHub import (Ray Yien)
+### Courses — `courses.api.js` (Andric)
 
-| Method | Path | What happens | Who |
+| Kind | Call | What happens | Who |
 |---|---|---|---|
-| GET | `/api/courses/:courseId/lessons?search=` | Lesson library (title/description search) | Staff / enrolled |
-| POST | `/api/courses/:courseId/lessons` | Create from uploaded files → runs TODO parser → steps → `draft` | Prof |
-| POST | `/api/courses/:courseId/lessons/import` | `{ repoUrl }` → GitHub service fetches files → TODO parser → `draft` | Prof (Ray Yien) |
-| GET | `/api/lessons/:lessonId` | Lesson with files + steps | Staff (students get steps only, no files until a session starts) |
-| PATCH | `/api/lessons/:lessonId` | Edit title/description/week/files/entryFile/mockApi/status | Prof |
-| POST | `/api/lessons/:lessonId/reparse` | Re-run TODO parser on current files; returns proposed steps (not saved) | Prof |
-| PUT | `/api/lessons/:lessonId/steps` | Replace full ordered step list (create/reorder/delete in one go) | Prof |
-| PATCH | `/api/lessons/:lessonId/steps/:stepId` | Edit one step | Prof |
-| DELETE | `/api/lessons/:lessonId/steps/:stepId` | Delete one step (re-numbers the rest) | Prof |
-| DELETE | `/api/lessons/:lessonId` | Delete if never taught, else 409 → archive | Prof |
+| Query | `from('courses').select('*')` | RLS returns exactly the courses I staff or am enrolled in — **no `$or` to write** | Any |
+| Query | `from('courses').insert({ … })` | Policy requires `role = 'prof'`; `enrol_code` from `shared/join-code.js` | Prof |
+| RPC | `enrol_with_code(p_code)` | Matches a course I cannot yet read, inserts my `course_students` row | Student |
+| Query | `from('courses').select().eq('id', id).single()` | Course; my role comes from the `course_staff`/`course_students` queries | Staff / enrolled |
+| Query | `from('courses').update(…).eq('id', id)` | Owner policy | Owner |
+| Query | `from('courses').delete().eq('id', id)` | FK cascades handle the rest | Owner |
+| RPC | `add_course_staff(p_course_id, p_email)` | Adds as TA, promoting `profiles.role` to `ta` if still `student` | Owner |
+| Query | `from('course_staff').select('role, profiles(name)')` + same for students | People tab (names only) | Staff |
+| RPC | `remove_course_student(p_course_id, p_user_id)` | Removes enrolment; past statuses stay for the report | Owner |
 
-### Sessions & checkpoints — `sessions.routes.js` (Ying Qi), `checkpoints.routes.js` (Ying Qi)
+### Lessons & steps — `lessons.api.js` (Evan) + GitHub import (Ray Yien)
 
-| Method | Path | What happens | Who |
+| Kind | Call | What happens | Who |
 |---|---|---|---|
-| POST | `/api/lessons/:lessonId/sessions` | Start session → join code + QR data URL | Prof |
-| POST | `/api/sessions/join` | `{ joinCode }` → `{ sessionId, role }` (then the client opens the socket) | Enrolled / staff |
-| GET | `/api/sessions/:sessionId` | Session, lesson steps, latest checkpoint, my role | Member |
-| PATCH | `/api/sessions/:sessionId/settings` | Toggle `allowCatchUp`, `hintsEnabled`, `idleAfterSec` | Prof |
-| POST | `/api/sessions/:sessionId/end` | End → build report → broadcast `session:ended` | Prof |
-| GET | `/api/courses/:courseId/sessions` | Past + live sessions | Staff / enrolled |
-| POST | `/api/sessions/:sessionId/checkpoints` | Save checkpoint → broadcast `checkpoint:new` | Prof |
-| GET | `/api/sessions/:sessionId/checkpoints` | All checkpoints (files included) | Member |
+| Query | `from('lessons').select().eq('course_id', id).ilike('title', …)` | Lesson library search | Staff / enrolled |
+| Query | `from('lessons').insert(…)` then RPC `replace_steps` | Create from uploaded files; `parseTodos` already ran **in the browser** | Prof |
+| Function | `github-import` → `{ repoUrl }` | Fetches files with the server token → returns files; client then parses and inserts | Prof (Ray Yien) |
+| Query | `from('lessons').select('*, steps(*)')` | Lesson with steps. **Students select only `steps`** — `files` is fetched from the session, not the lesson | Staff |
+| Query | `from('lessons').update(…)` | Title/description/week/files/entry_file/dev_command/status | Prof |
+| — | `parseTodos(files, entryFile)` | Re-parse is a **pure function in the browser** — the old `POST /reparse` round-trip is gone | Prof |
+| RPC | `replace_steps(p_lesson_id, p_steps)` | Create/reorder/delete in one transaction, orders contiguous | Prof |
+| Query | `from('steps').update(…).eq('id', stepId)` | Edit one step | Prof |
+| RPC | `delete_step(p_step_id)` | Deletes and renumbers the rest | Prof |
+| Query | `from('lessons').delete().eq('id', id)` | A trigger raises `CONFLICT` if the lesson was ever taught → UI offers Archive | Prof |
 
-### Dashboard & Spotlight — `dashboard.routes.js` (Evan)
+### Sessions & checkpoints — `sessions.api.js`, `checkpoints.api.js` (Ying Qi)
 
-| Method | Path | What happens | Who |
+| Kind | Call | What happens | Who |
 |---|---|---|---|
-| GET | `/api/sessions/:sessionId/dashboard` | Initial snapshot: tiles (no code), counts, lost count, error groups | Staff |
-| POST | `/api/sessions/:sessionId/spotlight` | `{ errorKey, helpRequestId }` → build anonymised excerpt → broadcast `spotlight:show` | Prof |
-| DELETE | `/api/sessions/:sessionId/spotlight` | Clear → broadcast `spotlight:hide` | Prof |
+| RPC | `start_session(p_lesson_id)` | Validates `ready` + prof, allocates a unique join code, inserts; client renders the QR from `APP_URL/join/<code>` | Prof |
+| RPC | `join_session(p_join_code)` | Finds the live session, decides my role, returns `{ session_id, role }` | Enrolled / staff |
+| Query | `from('sessions').select('*, lessons(steps(*))')` + latest checkpoint | Session bootstrap | Member |
+| Query | `from('sessions').update({ settings })` | Prof policy; a trigger broadcasts `session:settings` | Prof |
+| RPC | `end_session(p_session_id)` | Sets `ended`, broadcasts `session:ended`; a Database Webhook fires `end-session` to build the report | Prof |
+| RPC | `announce(p_session_id, p_text)` | Writes `sessions.announcement` and broadcasts `session:announce` to everyone; `p_text = null` clears it. Stored, not just broadcast, so late joiners see it | Prof |
+| Query | `from('sessions').select().eq('course_id', id).order('started_at', { ascending: false })` | Past + live sessions | Staff / enrolled |
+| RPC | `save_checkpoint(p_session_id, p_step_id, p_files, p_note)` | Allocates `seq`, sets `current_step_id`, broadcasts `checkpoint:new` | Prof |
+| Query | `from('checkpoints').select().eq('session_id', id).order('seq')` | All checkpoints with files | Member |
 
-### Student workspace — `workspace.routes.js` (Dylan)
+### Dashboard & Spotlight — `dashboard.api.js` (Evan)
 
-| Method | Path | What happens | Who |
+| Kind | Call | What happens | Who |
 |---|---|---|---|
-| GET | `/api/sessions/:sessionId/workspace` | My autosave (or starter files if none) + my status | Enrolled |
-| PUT | `/api/sessions/:sessionId/workspace` | Autosave (debounced 2 s on the client; ≤ 200 KB) | Enrolled |
-| POST | `/api/sessions/:sessionId/catch-up` | Save `before_catchup` snapshot of my files → return latest checkpoint files + snapshot id | Enrolled (if `allowCatchUp`) |
-| GET | `/api/sessions/:sessionId/my-attempts` | My `before_catchup` snapshots (restore an attempt) | Enrolled |
+| Query | `from('session_tiles').select().eq('session_id', id)` | Tiles with state derived in SQL — **no code columns exist** | Staff |
+| Query | `from('session_summary').select().eq('session_id', id).single()` | Counts + `lost_count` as an aggregate | Staff |
+| Function | `spotlight` → `{ sessionId, errorKey, helpRequestId? }` | Reads an eligible help-request snapshot with elevated rights, builds the anonymised excerpt, broadcasts `spotlight:show` | Prof |
+| Query | `from('lessons').select('id, files_hash')` then `files` only on a cache miss | The `files_hash` check that keeps repeat loads near-zero egress — see [05 §2](./05-core-logic.md#2-files-cache--dependencies) | Member |
+| Query | `from('sessions').update({ spotlight: null })` | Trigger broadcasts `spotlight:hide` | Prof |
 
-### Help — `help.routes.js` (Karin)
+> Error groups are **not** a server call. `groupErrors(tiles, …)` runs in the staff browser over the tile list — the same pure function, now client-side.
 
-| Method | Path | What happens | Who |
+### Student workspace — `workspace.api.js` (Dylan)
+
+| Kind | Call | What happens | Who |
 |---|---|---|---|
-| POST | `/api/sessions/:sessionId/help-requests` | `{ type, stepId, files, message?, inPerson?, seat? }` → snapshot + request → `help:new` to staff → Telegram ping if in-person | Enrolled |
-| GET | `/api/sessions/:sessionId/help-requests` | Staff: open/claimed queue · Student: my requests | Member |
-| GET | `/api/help-requests/:requestId` | Request + snapshot files + checkpoint for that step | Staff, or the requesting student |
-| POST | `/api/help-requests/:requestId/claim` | `open → claimed` (409 if already claimed) | Staff |
-| POST | `/api/help-requests/:requestId/release` | `claimed → open` | Claiming staff |
-| POST | `/api/help-requests/:requestId/pass` | `claimed → passed` (check only) → student gets a tick | Claiming staff |
-| POST | `/api/help-requests/:requestId/reply` | `{ reply }` → `claimed → replied` | Claiming staff |
-| POST | `/api/help-requests/:requestId/resolve` | `claimed → resolved` (in-person done) | Claiming staff |
-| POST | `/api/help-requests/:requestId/cancel` | `open → cancelled` | Requesting student |
+| Query | `from('snapshots').select().eq('session_id', id).eq('reason','autosave').maybeSingle()` | My autosave; falls back to the session's starter files | Enrolled |
+| RPC | `autosave_patch(p_session_id, p_upsert, p_delete)` | Autosave, debounced **5 s** after the last keystroke (plus a flush on blur/unload). Sends **only the files whose content hash changed**, diffed against IndexedDB; an unchanged tree sends no request at all. `SYNC_IGNORE` keeps `node_modules/`, `dist/` and `.vite/` out | Enrolled |
+| RPC | `catch_up(p_session_id, p_files)` | Writes the `before_catchup` snapshot **first**, then returns the latest checkpoint + snapshot id | Enrolled (if `allowCatchUp`) |
+| Query | `from('snapshots').select().eq('reason','before_catchup')` | My attempts — RLS makes "mine" automatic | Enrolled |
+| Query | `from('student_status').upsert({ … })` | Status on change + 30 s heartbeat. No `state` field exists to send | Enrolled |
+| Query | `from('student_status').update({ lost })` | Anonymous: staff can only read the aggregate | Enrolled |
 
-### Replay, notes, search, export — `replays.routes.js`, `notes.routes.js` (Ray Yien)
+### Help — `help.api.js` (Karin)
 
-| Method | Path | What happens | Who |
+| Kind | Call | What happens | Who |
 |---|---|---|---|
-| GET | `/api/replays` | Ended sessions in my courses (+ whether I attended) | Any |
-| GET | `/api/sessions/:sessionId/replay` | Checkpoints in order + step titles + per-checkpoint diff stats | Member |
-| GET | `/api/sessions/:sessionId/notes` | My notes/bookmarks | Member |
-| POST | `/api/sessions/:sessionId/notes` | Create note/bookmark | Member |
-| PATCH | `/api/notes/:noteId` | Edit own note | Author |
-| DELETE | `/api/notes/:noteId` | Delete own note | Author |
-| GET | `/api/search?q=&courseId=` | Search step titles, checkpoint notes and my notes across lessons | Any |
-| GET | `/api/github/oauth/start?sessionId=` | Redirect to GitHub OAuth (scope `public_repo`) | Any |
-| GET | `/api/github/oauth/callback` | Exchange code → token held server-side for 10 min (not in MongoDB) → redirect back | Any |
-| POST | `/api/sessions/:sessionId/export` | `{ repoName, private? }` → create repo + one commit per checkpoint → `{ repoUrl }` | Member with a fresh GitHub token |
+| RPC | `create_help_request(p_session_id, p_step_id, p_type, p_files, p_message, p_in_person, p_seat)` | Creates snapshot + request atomically; partial unique index rejects a second active request of the same type; a Database Webhook fires `telegram-notify` when `in_person` | Enrolled |
+| Query | `from('help_requests').select(…)` | Staff get the queue, a student gets their own — **the same query, split by RLS** | Member |
+| Query | `from('help_requests').select('*, snapshots(files)').eq('id', id).single()` | Request + the code the student sent + the checkpoint for that step | Staff, or the requesting student |
+| RPC | `claim_help_request(p_request_id)` | `open → claimed` in one conditional update; zero rows updated raises `CONFLICT` | Staff |
+| RPC | `transition_help_request(p_request_id, p_to, p_reply)` | release / pass / reply / resolve / cancel, with the transition table enforced server-side. A reply is **appended to `thread`**, so earlier replies survive a follow-up | Claiming staff, or the student for `cancel` |
+| RPC | `follow_up_help_request(p_request_id, p_message, p_files)` | `replied → open` on the **same** request: attaches a fresh snapshot of the student's current code, appends the message to `thread`, clears `claimed_by`, keeps the original queue place. Max 3 per request | The requesting student |
 
-### Reports & digests — `reports.routes.js` (Andric; sending via Karin's Telegram service)
+### Replay, notes, search, export — `replays.api.js`, `notes.api.js` (Ray Yien)
 
-| Method | Path | What happens | Who |
+| Kind | Call | What happens | Who |
 |---|---|---|---|
-| GET | `/api/sessions/:sessionId/report` | Insights for one session | Staff |
-| GET | `/api/lessons/:lessonId/trends` | Same lesson across sessions/terms: steps that trip students every time | Staff |
-| POST | `/api/sessions/:sessionId/report/digest` | `{ audience: ['tas', 'absent'] }` → Telegram digest | Prof |
+| Query | `from('sessions').select().eq('status','ended')` | Ended sessions in my courses (RLS); attendance from my `student_status` row | Any |
+| Query | `from('checkpoints').select('*, steps(title, order)').order('seq')` | Replay source; per-checkpoint diff stats computed client-side with `diffSummary` | Member |
+| Query | `from('notes').select/insert/update/delete` | One `own notes` policy covers all four | Author |
+| RPC | `search(p_q, p_course_id)` | Full-text over step titles, checkpoint notes and my own notes, ranked; input is parameterised so regex characters are literal | Any |
+| Auth | `auth.linkIdentity({ provider: 'github', scopes: 'public_repo' })` | Replaces the hand-rolled OAuth dance; Supabase holds the `provider_token` on the session | Any |
+| Function | `github-export` → `{ sessionId, repoName, private }` | Creates the repo and one commit per checkpoint via the Git Data API | Member with a fresh GitHub identity |
 
-### Hints (COULD) — `hints.routes.js` (Karin)
+### Reports & digests — `reports.api.js` (Andric; sending via Karin's function)
 
-| Method | Path | What happens | Who |
+| Kind | Call | What happens | Who |
 |---|---|---|---|
-| POST | `/api/sessions/:sessionId/hints` | `{ stepId, errorKey }` → cached one-line hint (rule table first, LLM if enabled) | Enrolled (if `hintsEnabled`) |
+| Query | `from('session_reports').select().eq('session_id', id).maybeSingle()` | Null while the `end-session` function is still building — the page polls | Staff |
+| RPC | `lesson_trends(p_lesson_id)` | Steps that trip students across sessions/terms | Staff |
+| Function | `digest` → `{ sessionId, audience: ['tas','absent'] }` | Builds the message from the report, sends via Telegram | Prof |
 
-### Test-only — `test.routes.js` (Andric; mounted only when `NODE_ENV=test`)
+### Hints (COULD) — Karin
 
-| Method | Path | What happens |
-|---|---|---|
-| POST | `/api/__test__/reset` | Drop DB + re-seed |
-| GET | `/api/__test__/outbox` | Messages the fake Telegram/GitHub services recorded |
+| Kind | Call | What happens | Who |
+|---|---|---|---|
+| Function | `hint` → `{ sessionId, stepId, errorKey }` | Rule table first, LLM only if `hintsEnabled` and a key is set; cached by `(lesson, step, errorKey)` | Enrolled |
 
-> **Route ordering:** static paths must be declared before parameter paths that could swallow them — e.g. `POST /api/courses/enrol` before `/api/courses/:courseId`, and `POST /api/sessions/join` before `/api/sessions/:sessionId`. Invalid ObjectIds are rejected by a `validateObjectId('courseId')` param middleware → 404, never a crash.
+### Test-only
 
----
-
-## Key Controller Logic
-
-```
-Start session  POST /api/lessons/:lessonId/sessions
-  1. Load lesson; 404 if missing; 409 unless status === 'ready' and steps.length ≥ 1
-  2. Load course; 403 unless caller is staff with role 'prof'
-  3. Generate join code; retry on unique-index clash (max 5)
-  4. Create Session { status: 'live' }
-  5. Return { session, joinUrl: `${APP_URL}/join/${code}`, qrDataUrl }
-
-Join session  POST /api/sessions/join
-  1. findLiveByCode(joinCode) → 404 "No live class with that code"
-  2. Caller enrolled → role 'student'; staff → role 'staff'; else 403 "You're not in this course"
-  3. Return { sessionId, role }; client navigates to /s/:id/code or /s/:id/teach
-
-Save checkpoint  POST /api/sessions/:sessionId/checkpoints
-  1. Session live (409) + caller prof staff (403)
-  2. stepId must be in lesson.steps (400)
-  3. seq = nextSeq(); create (retry once on duplicate seq)
-  4. setCurrentStep; dashboardCache.setTarget(sessionId, step.order) → re-classify all
-  5. broadcast checkpoint:new to students + staff; 201
-
-Catch up  POST /api/sessions/:sessionId/catch-up
-  1. Session live + allowCatchUp (403 "Catch-up is turned off for this class")
-  2. Latest checkpoint; 409 if none yet
-  3. Create Snapshot { reason: 'before_catchup', files: req.body.files }
-  4. incrementCatchUp; return { checkpoint, attemptSnapshotId }
-  (Client then shows "What you missed" = diff(attempt, checkpoint) and loads checkpoint files)
-
-Create help request  POST /api/sessions/:sessionId/help-requests
-  1. Enrolled + session live
-  2. Active request of same type exists → 409 "You already have a request waiting"
-  3. Create Snapshot { reason: 'help_request' }, then HelpRequest { snapshotId }
-  4. broadcast help:new to staff (name, step, type — no code)
-  5. If inPerson: telegramService.pingOnDutyStaff(session, request) → set telegramNotifiedAt
-     (Telegram failure is logged and shown to the student as "TA notified in app only" — never a 500)
-
-End session  POST /api/sessions/:sessionId/end
-  1. Prof staff; 409 if already ended
-  2. endSession → broadcast session:ended → disconnect sockets from the room
-  3. reportBuilder.build(sessionId) → SessionReport (async; report page polls until ready)
-```
-
----
-
-## Socket.IO Events
-
-Owner: **Ying Qi** (transport, rooms, auth); each feature owner owns the payload of their events. Event names live in `shared/constants.js` as `SocketEvent.*`.
-
-### Rooms
-
-| Room | Members |
+| What | How |
 |---|---|
-| `session:<id>:students` | Students who joined the session |
-| `session:<id>:staff` | Prof + TAs viewing the session |
-| `user:<id>` | Every socket of one user (multiple tabs/devices) |
+| Reset the database | `supabase db reset` — re-applies migrations + `seed.sql`. Replaces `POST /api/__test__/reset` |
+| Inspect fake Telegram/GitHub traffic | `select * from test_outbox` with the service role key. Replaces `GET /api/__test__/outbox` |
 
-### Client → server
+> **What disappeared with Express:** route ordering rules (`/courses/enrol` before `/courses/:courseId`), `validateObjectId` middleware, `requireAuth`/`requireRole`, the `validate(schema)` layer, and the 66-row endpoint table this section used to be. What replaced them is one RLS policy set and 11 RPCs — strictly less code, and the authorization is no longer something a handler can forget.
 
-| Event | Payload | Ack | Who | Notes |
-|---|---|---|---|---|
-| `session:join` | `{ sessionId }` | `{ ok, role, latestCheckpoint, myStatus?, settings }` | Member | Server re-checks membership; joins rooms |
-| `session:leave` | `{ sessionId }` | — | Member | Also on disconnect |
-| `status:update` | `{ sessionId, doneStepOrder, error: { name, message, file, line } \| null, checks? }` | `{ ok, state }` | Student | Sent **only when something changed**; server classifies |
-| `heartbeat` | `{ sessionId, typing: boolean }` | — | Student | Every 30 s while the tab is visible |
-| `lost:toggle` | `{ sessionId, lost: boolean }` | `{ ok }` | Student | Anonymous to staff |
+---
 
-### Server → client
+## Key Logic (RPC bodies)
 
-| Event | Room | Payload | Owner |
-|---|---|---|---|
-| `checkpoint:new` | students + staff | `{ seq, stepId, stepOrder, title, createdAt }` (files fetched on demand) | Ying Qi |
-| `session:settings` | students + staff | `{ allowCatchUp, hintsEnabled }` | Ying Qi |
-| `session:ended` | students + staff | `{ sessionId, replayUrl }` | Ying Qi |
-| `dashboard:tile` | staff | `{ studentId, name, state, stepOrder, errorKey, errorPreview, checks?, lastSeenAt }` — **no code** | Evan |
-| `dashboard:summary` | staff (≤ 1 per second) | `{ counts: { done, in_progress, error, behind, idle }, lostCount, errorGroups: [{ key, preview, stepOrder, count }] }` | Evan |
-| `spotlight:show` / `spotlight:hide` | students + staff | `{ excerpt, fixFiles?, errorPreview }` / `{}` | Evan |
-| `help:new` / `help:updated` | staff | `{ requestId, studentName, stepOrder, type, status, inPerson, seat }` | Karin |
-| `help:updated` | `user:<studentId>` | `{ requestId, status, reply? }` (a pass shows a tick on the student's step) | Karin |
+```
+start_session  rpc('start_session', { p_lesson_id })
+  1. Load lesson; NOT_FOUND if missing; CONFLICT unless status='ready' and it has ≥ 1 step
+  2. FORBIDDEN unless is_course_prof(lesson.course_id)
+  3. Generate join code; retry on the partial unique clash (max 5)
+  4. insert sessions { status: 'live' }
+  5. return session   → client renders QR for `${APP_URL}/join/${code}`
+
+join_session  rpc('join_session', { p_join_code })
+  1. select ... where join_code = upper($1) and status = 'live'
+     → NOT_FOUND 'No live class with that code'
+  2. is_enrolled → 'student';  is_course_staff → 'staff';  else FORBIDDEN "You're not in this course"
+  3. return { session_id, role }  → client goes to /s/:id/code or /s/:id/teach
+
+save_checkpoint  rpc('save_checkpoint', …)
+  1. session live (CONFLICT) + is_course_prof (FORBIDDEN)
+  2. p_step_id must belong to session.lesson_id (BAD_REQUEST)
+  3. seq = coalesce(max(seq),0)+1; insert (retry once on the unique index)
+  4. update sessions set current_step_id = p_step_id
+     → every row of session_tiles re-derives; students 2+ steps back become `behind`
+       with no extra writes
+  5. realtime.send('session:<id>', 'checkpoint:new', payload)
+
+catch_up  rpc('catch_up', { p_session_id, p_files })
+  1. session live + settings->>'allowCatchUp' = 'true'  (FORBIDDEN "Catch-up is turned off")
+  2. latest checkpoint; CONFLICT if none yet
+  3. insert snapshots { reason: 'before_catchup', files: p_files }   ← BEFORE returning
+  4. update student_status set catch_ups = catch_ups + 1
+  5. return { checkpoint, attempt_snapshot_id }
+  (Client then shows "What you missed" = diffSummary(attempt, checkpoint) and loads the files)
+
+create_help_request  rpc('create_help_request', …)
+  1. is_enrolled + session live
+  2. insert snapshots { reason: 'help_request' }, then help_requests { snapshot_id }
+     → the partial unique index raises CONFLICT "You already have a request waiting"
+  3. Staff see it via their postgres_changes subscription on help_requests (no code in the row)
+  4. If in_person: a Database Webhook invokes `telegram-notify`
+     (a Telegram failure only clears telegram_notified_at and shows the student
+      "TA notified in app only" — it never fails the request, because the row is
+      already committed before the webhook fires)
+
+follow_up_help_request  rpc('follow_up_help_request', { p_request_id, p_message, p_files })
+  1. request belongs to auth.uid()                       → FORBIDDEN
+  2. insert snapshots { reason: 'help_request' }         ← the student's code NOW
+  3. update … where status='replied' and follow_ups < 3  → BAD_REQUEST past the cap
+       status='open', claimed_by=null, snapshot_id=new, follow_ups+1, thread ||= message
+     created_at untouched → it keeps its place in the oldest-first queue
+  4. Staff see it re-enter the queue via postgres_changes, badged
+     "Follow-up · last handled by Ana" (from the latest staff entry in thread)
+  (If anything raises, the whole function rolls back — the snapshot from step 2 included.)
+
+announce  rpc('announce', { p_session_id, p_text })
+  1. is_course_prof + session live; 1–200 chars (or null to clear)
+  2. update sessions set announcement = { text, at }  (or null)
+  3. realtime.send('session:announce', { sessionId, text, at })
+
+end_session  rpc('end_session', { p_session_id })
+  1. is_course_prof; CONFLICT if already ended
+  2. update status='ended', ended_at=now(); realtime.send('session:ended')
+  3. A Database Webhook on that update invokes `end-session`, which writes
+     session_reports (async; the report page polls until the row appears)
+```
+
+---
+
+## Realtime
+
+Owner: **Ying Qi** (channels, subscriptions, auth); each feature owner owns the payload of their events. Names live in `shared/constants.js` as `RtEvent.*`.
+
+One channel per session, `session:<sessionId>`, carrying all three mechanisms. Membership is enforced by RLS on `realtime.messages` (see [09](./09-integration-contracts.md#realtime-authorization)) — a student cannot subscribe to another course's session.
+
+### Broadcast (server → everyone in the channel)
+
+Sent only from RPCs and Edge Functions via `realtime.send()`. Clients subscribe; they never broadcast.
+
+| Event | Payload | Owner |
+|---|---|---|
+| `checkpoint:new` | `{ sessionId, seq, stepId, stepOrder, title, createdAt }` (files fetched on demand) | Ying Qi |
+| `session:settings` | `{ sessionId, allowCatchUp, hintsEnabled }` | Ying Qi |
+| `session:ended` | `{ sessionId, replayUrl }` | Ying Qi |
+| `spotlight:show` | `{ sessionId, errorPreview, excerpt: { path, startLine, code }, fix: { path, startLine, code } }` | Evan |
+| `spotlight:hide` | `{ sessionId }` | Evan |
+| `session:announce` | `{ sessionId, text, at }` — `text: null` clears | Ying Qi |
+
+### Postgres Changes (rows you are allowed to see)
+
+| Subscription | Who | Effect |
+|---|---|---|
+| `student_status` filtered `session_id=eq.<id>` | Staff | Re-read that student's row from `session_tiles`; tile re-renders |
+| `help_requests` filtered `session_id=eq.<id>` | Staff | Queue card appears or updates |
+| `help_requests` filtered `student_id=eq.<me>` | Student | Sees the reply, or a tick when a check is passed |
+
+RLS applies to subscriptions, so a student receives only their own rows — the old `user:<id>` room is unnecessary.
+
+### Presence
+
+Students track `{ userId, name }` on join; staff read it for the live attendance count. `joined_at` is still written to `student_status` so the report survives after everyone disconnects. Presence is **not** used for idle — idle is `now() - last_seen_at > idleAfterSec`, derived in `session_tiles`.
+
+### What used to be socket events
+
+| Old Socket.IO | Now |
+|---|---|
+| `session:join` / `session:leave` + rooms | `channel.subscribe()` / `unsubscribe()`; RLS does the membership check |
+| `status:update` (client → server, server classifies) | `upsert student_status` with raw signals; the **view** classifies |
+| `heartbeat` | Same upsert, touching `last_seen_at` every 30 s while the tab is visible |
+| `lost:toggle` | `update student_status set lost = …` on my own row |
+| `dashboard:tile` | Postgres Changes on `student_status` |
+| `dashboard:summary` | `session_summary` view + a Vue `computed`, throttled client-side to ≤ 1/s |
+| `help:new` / `help:updated` | Postgres Changes on `help_requests` |
 
 ### Connection lifecycle
 
 ```
-connect (cookie JWT) → io.use(auth) → 401-style "unauthorized" error if invalid
-  → client emits session:join → server validates → rooms joined → ack
-disconnect → status unchanged; classifier marks idle after idleAfterSec without heartbeat
-reconnect (Socket.IO automatic, backoff) → client re-emits session:join → re-sends its current status
+supabase-js connects with the Auth session → RLS applies to channel + row subscriptions
+subscribe('session:<id>')  → broadcast + postgres_changes + presence, then read bootstrap rows
+token refresh              → handled by supabase-js (realtime.setAuth)
+disconnect                 → nothing is written; the view reports `idle` once last_seen_at ages out
+reconnect (automatic)      → re-subscribe, re-read latest checkpoint and my own status
 ```
+
+The navbar connection pill reflects the channel state (`SUBSCRIBED` → Live, `CHANNEL_ERROR`/`TIMED_OUT` → Reconnecting…, offline → Offline). Edits continue locally throughout; autosave retries.
 
 ---
 
 ## Component Breakdown (key screens)
 
+Unchanged — components never knew where the data came from, which is why this table survives the rewrite intact.
+
 | Component | Props | Emits | Notes |
 |---|---|---|---|
-| `CodeEditor` | `modelValue`, `language`, `errorLine`, `readOnly` | `update:modelValue`, `save` (Ctrl/⌘+S) | CodeMirror 6 wrapper; gutter marker on `errorLine` |
-| `FileTabs` | `files`, `activePath` | `select` | Scrollable on xs |
-| `PreviewFrame` | `files`, `entryFile`, `mockApi`, `runKey` | `console`, `runtime-error`, `network`, `ready` | Sandboxed iframe — [05-core-logic.md](./05-core-logic.md#1-sandboxed-preview) |
+| `FileTree` | `files`, `activePath` | `select`, `create`, `rename`, `delete` | New. Rail at lg+, offcanvas at xs; folders collapsible; `SYNC_IGNORE` paths hidden entirely |
+| `CodeEditor` | `modelValue`, `language`, `errorLine`, `readOnly` | `update:modelValue`, `save` (Ctrl/⌘+S) | CodeMirror 6 wrapper; gutter marker on `errorLine`; `vue` mode for SFCs |
+| `FileTabs` | `openPaths`, `activePath` | `select`, `close` | Open-file tabs, driven by `FileTree` selection |
+| `PreviewFrame` | `previewUrl`, `runKey` | `console`, `runtime-error`, `network`, `ready` | `<iframe>` pointed at the WebContainer dev server — [05 §1](./05-core-logic.md#1-client-side-runtime-webcontainer) |
+| `TerminalPanel` | `lines`, `busy` | — | New. Streams `pnpm install` / dev-server output. **Output stays local** |
+| `BootState` | `phase`, `progress` | `retry` | New. booting → installing → starting → ready, or a failure with the terminal tail |
 | `ConsolePanel` | `entries` | `clear` | Filters: All · Errors · Network |
 | `DoneButton` | `stepOrder`, `disabled`, `passedByTa` | `done`, `undo` | Disabled while the last run has an error |
 | `StudentTile` | `tile` | `select` | Colour + icon + label; shows step "4/8" and error preview |
@@ -289,7 +380,11 @@ reconnect (Socket.IO automatic, backoff) → client re-emits session:join → re
 | `ClassSummaryBar` | `counts`, `lostCount`, `total` | `filter` | Clickable segments filter the grid |
 | `ErrorGroupList` | `groups` | `spotlight` | Prof-only Spotlight button per group |
 | `StepList` (prof) | `steps`, `currentStepId` | `reorder`, `edit`, `delete` | Drag handle on lg; up/down buttons on xs |
-| `HelpRequestCard` | `request` | `claim`, `open` | Waiting time live-updates |
+| `HelpRequestCard` | `request` | `claim`, `open` | Waiting time live-updates (from the latest `thread` entry, so a follow-up isn't instantly "overdue"); **Follow-up** badge + "last handled by …" |
+| `HelpThread` | `request` | — | New. Opening message, then every reply and follow-up in order. Shown to the student and to the reviewing TA |
+| `FollowUpForm` | `request`, `remaining` | `submit` | New. Only on a `replied` request; shows "2 follow-ups left"; at 0, suggests in-person help |
+| `AnnouncementBanner` | `announcement` | `dismiss` | New. Top of the workspace; dismissing hides it until a **new** announcement arrives |
+| `AnnounceInput` | `current` | `announce`, `clear` | New. In the teach view's session bar; 200-char counter |
 | `SideBySideView` | `studentFiles`, `checkpointFiles` | — | Uses Ray Yien's `DiffView` |
 | `DiffView` | `before`, `after`, `mode: 'split' \| 'unified'` | — | Unified forced on xs |
 | `CheckpointTimeline` | `checkpoints`, `activeSeq`, `bookmarks` | `select` | Keyboard ← → navigation |
@@ -300,15 +395,24 @@ reconnect (Socket.IO automatic, backoff) → client re-emits session:join → re
 
 | Situation | What the user sees | Handling |
 |---|---|---|
-| Form validation fails | Message under each field; values kept | 400 `error.fields` → form store |
-| Wrong login | "Invalid email or password" (never says which) | 401 |
-| Not logged in on a protected page | Redirect to `/login?returnTo=…` | Router guard + 401 interceptor |
-| Not allowed (e.g. student opens `/s/:id/teach`) | Toast + redirect to `/courses` | Router guard (role) / 403 from API |
-| Wrong join code | "No live class with that code" under the input | 404 |
-| Session ended while coding | Banner "Class ended — your work is saved. Open replay" | `session:ended` event |
-| Socket disconnected | Navbar pill turns amber "Reconnecting…"; edits continue locally; autosave retries | Socket.IO reconnect |
+| Form validation fails | Message under each field; values kept | zod in `src/validators/` → form store (client-side, before the write) |
+| Wrong login | "Invalid email or password" (never says which) | Supabase Auth error, mapped to a generic message |
+| Not logged in on a protected page | Redirect to `/login?returnTo=…` | Router guard + an auth-state listener that clears the store on sign-out |
+| Not allowed (e.g. student opens `/s/:id/teach`) | Toast + redirect to `/courses` | Router guard on account role |
+| **Row exists but isn't mine** | Empty/forbidden state on the page, not a crash | RLS returns zero rows → `maybeSingle()` gives `null`. Every view needs this state |
+| Wrong join code | "No live class with that code" under the input | `join_session` raises `NOT_FOUND\|…` |
+| Session ended while coding | Banner "Class ended — your work is saved. Open replay" | `session:ended` broadcast |
+| Realtime disconnected | Navbar pill turns amber "Reconnecting…"; edits continue locally; autosave retries | Channel state callback; supabase-js reconnects with backoff |
 | Autosave fails | "Not saved — retrying" next to the file name; never blocks typing | Exponential retry; work kept in memory |
-| Help already claimed by another TA | Toast "Ana is already on this one" and the card updates | 409 |
-| Telegram / GitHub down | Feature-specific message ("Couldn't reach GitHub — try again in a minute"); rest of app works | Service catches, returns 502 with `code: 'UPSTREAM_UNAVAILABLE'` |
-| Unknown route | Friendly 404 page | Vue `*` route; API `notFound` → 404 JSON |
-| Unexpected server error | Toast "Something went wrong" + request id; no stack trace | `errorHandler` logs, returns 500 |
+| Help already claimed by another TA | Toast "Ana is already on this one" and the card updates | `claim_help_request` raises `CONFLICT\|…`; the card updates from Postgres Changes |
+| Reply didn't fix it | Student sees **Follow up** on the replied request, with "2 follow-ups left" | `follow_up_help_request`; the same request returns to the queue in its original place |
+| Follow-up limit reached | "You've followed up 3 times — ask for in-person help instead" | `BAD_REQUEST\|…` from the RPC |
+| Prof posts an announcement | Banner across the top of every student's workspace; late joiners see it too | `session:announce` broadcast + `sessions.announcement` on bootstrap |
+| Telegram / GitHub down | Feature-specific message ("Couldn't reach GitHub — try again in a minute"); rest of app works | Edge Function returns `UPSTREAM_UNAVAILABLE`; the row was already committed |
+| Payload too large | "That's too much code to save — remove a file" | `octet_length` check constraint → mapped to `PAYLOAD_TOO_LARGE`; `MAX_FILES` is 40 |
+| **Project won't start** | "Your project didn't start" + the last terminal lines + Retry | No `server-ready` within `BOOT_TIMEOUT_MS` |
+| **Install is slow** | "Installing dependencies…" with streamed output, never a frozen pane | Expected on first boot, and after a checkpoint that changed `package.json` |
+| **Code won't compile** | Error in the console panel and the editor gutter; the tile turns red with `source: 'build'` | Dev-server output → `parseBuildError()` (code frame stripped) → `normalizeError()` |
+| **Browser can't run the workspace** | "The workspace needs Chrome or Edge" | `crossOriginIsolated` is false (Safari, or missing COOP/COEP headers) |
+| Unknown route | Friendly 404 page | Vue catch-all route (plus the `vercel.json` rewrite so the server doesn't 404 first) |
+| Unexpected failure | Toast "Something went wrong" | `mapError()` returns `INTERNAL`; details logged to the console, never shown |

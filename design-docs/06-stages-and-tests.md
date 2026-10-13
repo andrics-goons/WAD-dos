@@ -7,32 +7,33 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | # | Stage | Target | Gate (must be true before moving on) |
 |---|---|---|---|
 | 0 | Design lock | Week 8 | All nine design docs reviewed by all six members; open questions in [08-workload-split.md](./08-workload-split.md#open-questions) answered |
-| 1 | Skeleton | Week 8 | `npm run dev` boots; `npm start` serves the built Vue app at `/`; MongoDB connects; one Playwright smoke test passes |
-| 2 | Platform | Week 8 | Register/login/logout, course create + enrol, role guards work; seed loads |
-| 3 | **Live session core (pitch demo)** | Week 9 Mon | Prof starts session → 3 students join by code → checkpoint reaches all 3 → a typo turns a tile red → student loads checkpoint → tile turns green |
+| 1 | Skeleton | Week 8 | `supabase start` + `pnpm dev` boots; `pnpm db:reset` applies every migration from scratch; the app reads one seeded row through RLS; **a WebContainer boots and serves a preview**; one Playwright smoke test passes |
+| 2 | Platform | Week 8 | Register/login/logout via Supabase Auth, course create + enrol, role guards; **every table has RLS enabled and one negative test** |
+| 3 | **Live session core (pitch demo)** | Week 9 Mon | Prof starts session → 3 students join by code → **their containers boot and the preview runs** → checkpoint broadcast reaches all 3 → a typo turns a tile red → student loads checkpoint → tile turns green |
 | 4 | Lesson plan | Week 9 | Upload starter → TODO parser proposes steps → prof edits/reorders/deletes → lesson `ready` |
-| 5 | Status & dashboard | Week 10 | Classifier states correct for all 5 states; idle sweep; filters; anonymous lost count |
+| 5 | Status & dashboard | Week 10 | `session_tiles` returns correct state for all 5 cases; idle derives without a write; filters; anonymous lost count |
 | 6 | Catch-up | Week 10 | Load checkpoint keeps attempt; "What you missed" diff correct; restore attempt works |
-| 7 | Help flow | Week 10 | Check my work → pass/reply; Ask for help → claim/resolve; Telegram ping (fake in tests) |
+| 7 | Help flow | Week 10 | Check my work → pass/reply; Ask for help → claim/resolve; **a replied request can be followed up**; Telegram ping (mock in tests) |
 | 8 | Replay & GitHub | Week 11 | Replay steps through all checkpoints; notes/bookmarks; import + export (one commit per step) |
 | 9 | Error groups & Spotlight | Week 11 | Grouping matches unit-test expectations; Spotlight shows an anonymised excerpt to everyone |
-| 10 | Insights | Week 11 | Report generated on end; trouble score + trends; digest sent (fake in tests) |
-| 11 | Hardening | Week 11–12 | Validation + error states everywhere; responsive pass 375 → 1440 px; load test 40 students passes |
-| 12 | Demo ready | Week 12 | Fresh clone → README steps → seed → all E2E green → deployed URL works → video recorded |
+| 10 | Insights | Week 11 | Report written by the `end-session` function; trouble score + trends; digest sent (mock in tests) |
+| 11 | Hardening | Week 11–12 | Validation + error states everywhere; responsive pass 375 → 1440 px; load test 40 students passes **inside the Realtime free-tier cap** |
+| 12 | Demo ready | Week 12 | Fresh clone → README steps → `db:reset` → all E2E green → deployed URL works (incl. the `/join/:code` deep link) → keep-alive scheduled → video recorded |
 
 ### Pattern checks per stage (reviewer ticks these in the PR)
 
 | Stage | Required pattern |
 |---|---|
-| 2 | Passwords bcrypt-hashed; JWT only in httpOnly cookie; `requireAuth`/`requireRole` on every protected route |
-| 3 | REST for writes, sockets for broadcast; socket handshake re-checks membership; reconnect re-joins the room |
-| 4 | Parser is a pure function with unit tests; prof reviews before saving |
-| 5 | Client never sends `state` — server classifies; staff payloads contain no code |
-| 6 | `before_catchup` snapshot is written **before** the checkpoint loads |
-| 7 | Claim/pass/reply use conditional updates (409 on conflict); Telegram failure never fails the request |
-| 8 | GitHub token never stored in MongoDB; import limited to safe file types and size |
-| 9 | Spotlight only uses help-request snapshots; names removed |
-| 10 | Report contains counts only |
+| 1 | Migrations are additive and re-runnable; `supabase db reset` passes from zero; COOP/COEP headers present in dev and on Vercel |
+| 2 | **No table without `enable row level security`**; credentials handled only by Supabase Auth (nothing password-shaped in our tables); views declared `security_invoker = true` |
+| 3 | Writes go through RPCs where the client must not decide; broadcasts sent from the RPC, not the client; reconnect re-subscribes and re-reads |
+| 4 | Parser is a pure function in `shared/` with unit tests; prof reviews before saving |
+| 5 | **No `state` column anywhere**; tile state derived in `session_tiles`; staff queries select no code columns; **build errors pass through `parseBuildError()` before `normalizeError()`** |
+| 6 | `before_catchup` snapshot is written **inside** the `catch_up` transaction, before anything is returned; a dependency change shows an explicit installing state |
+| 7 | Claim is a single conditional update (zero rows = conflict); the Telegram webhook cannot fail the student's request; replies append to `thread`, never overwrite |
+| 8 | No GitHub token in any row we own; import limited to safe file types and size |
+| 9 | Spotlight only uses help-request snapshots; names and comments removed |
+| 10 | Report contains counts only, no `student_id` |
 | 11 | Every page usable at 375 px; every interactive element has a `data-testid` |
 
 ---
@@ -42,29 +43,73 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | Layer | Tool | Scope | Why it matters for the rubric |
 |---|---|---|---|
 | **E2E** (main) | Playwright, Chromium | Every main user journey, with **multiple browser contexts in one test** (prof + TA + students) | "Tests cover the app's main user journeys" |
-| Unit | Vitest | Pure logic: classifier, normaliser, TODO parser, diff summary, srcdoc builder, report builder, GitHub export (fake HTTP) | Shows understanding of testing concepts; fast feedback |
-| Load | `scripts/simulate-class.js` | 40 socket clients in one session | Proves the live dashboard holds up in a real class |
+| Unit | Vitest | Pure logic in `shared/`: classifier, normaliser, TODO parser, diff summary, build-error parser, report builder, spotlight excerpt; plus the IndexedDB cache and delta-autosave logic | Shows understanding of testing concepts; fast feedback |
+| **RLS** (new) | Vitest + `supabase-js` | Authorization as data: sign in as the wrong user, assert **zero rows** | Authorization is now the database's job, so it needs its own tests |
+| Load | `scripts/simulate-class.js` | 40 Realtime clients in one session | Proves the live dashboard holds up in a real class, and that we fit the free tier |
 
-### Making E2E repeatable and stable
+### Why RLS gets its own layer
+
+In the Express design, "a student cannot read another student's code" was true because **no route existed**. T-PRIV-02 asserted a 404. The browser now queries Postgres directly, so absence proves nothing — the guarantee lives entirely in policies, and a single missing `enable row level security` makes a table world-readable through the public anon key.
+
+So every policy gets a test that signs in as the wrong person and asserts the row is invisible:
+
+```js
+// tests/unit/rls/snapshots.test.js
+it("a student cannot read another student's autosave", async () => {
+  const bea = await signIn('bea@codealong.test')
+  const { data } = await bea.from('snapshots').select('*').eq('student_id', alexId)
+  expect(data).toEqual([])            // not an error — the rows simply do not exist
+})
+
+it('staff can read a snapshot the student sent via a help request', async () => {
+  const ta = await signIn('ta.ana@codealong.test')
+  const { data } = await ta.from('snapshots').select('*').eq('id', sentSnapshotId)
+  expect(data).toHaveLength(1)
+})
+```
+
+A companion test sweeps the schema so a new table cannot be merged without policies:
+
+```js
+it('every public table has RLS enabled', async () => {
+  const { data } = await admin.rpc('tables_without_rls')   // helper in 0003_rls.sql
+  expect(data).toEqual([])
+})
+```
+
+### Making tests repeatable and stable
 
 | Rubric ask | How |
 |---|---|
-| Repeatable | Server runs on **mongodb-memory-server**; each spec file calls `POST /api/__test__/reset` (re-seed) in `beforeAll`; E2E runs with `workers: 1` |
-| No external flakiness | `EXTERNAL_APIS=mock` swaps Telegram/GitHub/LLM for fakes; tests read the fake outbox via `GET /api/__test__/outbox` |
+| Repeatable | `supabase start` runs Postgres + Auth + Realtime + Functions locally; `supabase db reset` re-applies all migrations and `seed.sql` before each spec file; E2E runs with `workers: 1` |
+| No external flakiness | `EXTERNAL_APIS=mock` makes the Telegram/GitHub/LLM functions append to `test_outbox`; tests read that table with the service role key |
 | Stable selectors | Only `getByTestId()` and `getByRole()` — never CSS classes or text that may change. Convention in [09-integration-contracts.md](./09-integration-contracts.md#9-data-testid-convention) |
-| No arbitrary waits | `await expect(locator).toHaveText(...)` auto-waits; no `waitForTimeout` except the idle-state test, which shortens `idleAfterSec` via settings |
+| No arbitrary waits | `await expect(locator).toHaveText(...)` auto-waits; no `waitForTimeout` except the idle-state test, which shortens `idleAfterSec` via session settings |
 | Clear structure | One spec file per feature; `test.describe` per journey; Arrange → Act → Assert comments; shared fixtures |
 | Responsive | Two Playwright projects: `desktop-chrome` (1280×800) and `mobile-chrome` (375×667, `isMobile`, `hasTouch`). Specs tagged `@responsive` run on both |
+| Docker dependency | `supabase start` needs Docker. The README documents it, and `pnpm test:e2e` fails with a clear message if the daemon is not running |
 
 ### Fixture sketch — `tests/e2e/fixtures.js`
 
 ```js
 import { test as base, expect } from '@playwright/test'
+import { createClient } from '@supabase/supabase-js'
 
+const URL = process.env.VITE_SUPABASE_URL
+const ANON = process.env.VITE_SUPABASE_ANON_KEY
+
+// Sign in through Supabase Auth, then plant the session in localStorage so the
+// page is already logged in — the equivalent of the old API-login shortcut.
 async function loginContext(browser, email, password = 'pass1234') {
+  const sb = createClient(URL, ANON)
+  const { data, error } = await sb.auth.signInWithPassword({ email, password })
+  expect(error).toBeNull()
+
   const context = await browser.newContext()
-  const res = await context.request.post('/api/auth/login', { data: { email, password } })
-  expect(res.ok()).toBeTruthy()                 // login via API — it's plumbing, not under test here
+  await context.addInitScript(([key, session]) => {
+    window.localStorage.setItem(key, JSON.stringify(session))
+  }, [`sb-${new URL(URL).hostname.split('.')[0]}-auth-token`, data.session])
+
   return { context, page: await context.newPage() }
 }
 
@@ -81,7 +126,11 @@ export const test = base.extend({
 export { expect }
 ```
 
+> The one fiddly part of this rewrite: the Supabase session lives in `localStorage` under a project-scoped key, not in a cookie, so `addInitScript` replaces `context.request.post('/api/auth/login')`. **Owner: Andric**, and worth getting right in Week 8 — every E2E spec depends on it.
+
 ### Example journey — `tests/e2e/live-session.spec.js`
+
+Unchanged from the Mongo design, which is the point: the tests describe behaviour, not plumbing.
 
 ```js
 test('a typo turns the tile red and catching up turns it green', async ({ prof, students }) => {
@@ -116,22 +165,23 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 
 ## Test Plan
 
-**Layer:** E2E = Playwright · Unit = Vitest · Int = API-level test with Playwright `request` · Load = simulator. Each ID maps to the spec file in brackets.
+**Layer:** E2E = Playwright · Unit = Vitest on `shared/` · **DB** = `supabase-js` signed in as a specific user (replaces the old "Int" API-level layer) · RLS = negative authorization test · Load = simulator. Each ID maps to the spec file in brackets.
 
 ### PLAT — Accounts, courses, roles (platform) · `platform.spec.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-PLAT-01 | Register with valid data | E2E | Account created as `student`; lands on `/courses` |
-| T-PLAT-02 | Register duplicate email / short password | E2E | 400 field errors shown; values kept |
-| T-PLAT-03 | Login wrong password vs unknown email | Int | Both 401 with the same generic message |
+| T-PLAT-01 | Register with valid data | E2E | `profiles` row created as `student` by the trigger; lands on `/courses` |
+| T-PLAT-02 | Register duplicate email / short password | E2E | zod field errors shown; values kept; Supabase rejects the duplicate |
+| T-PLAT-03 | Login wrong password vs unknown email | DB | Both fail with the same generic message |
 | T-PLAT-04 | Protected page while logged out | E2E | Redirect to `/login?returnTo=…`; after login, back to that page |
 | T-PLAT-05 | Prof creates course | E2E | Course card shows enrol code |
-| T-PLAT-06 | Student enrols with code / wrong code | E2E | Course appears / "No course with that code" |
-| T-PLAT-07 | Prof adds TA by email | E2E | TA sees the course; account role becomes `ta` |
-| T-PLAT-08 | Student opens prof-only route | E2E | Toast + redirect; API returns 403 for the matching call |
-| T-PLAT-09 | Password stored as bcrypt hash | Unit | `passwordHash` matches `/^\$2[aby]\$/`; plain text absent |
-| T-PLAT-10 | Login rate limit | Int | 11th attempt in a minute → 429 |
+| T-PLAT-06 | Student enrols with code / wrong code | E2E | Course appears / "No course with that code" from `enrol_with_code` |
+| T-PLAT-07 | Prof adds TA by email | E2E | TA sees the course; `profiles.role` becomes `ta` |
+| T-PLAT-08 | Student opens prof-only route | E2E | Toast + redirect; the equivalent query returns zero rows |
+| T-PLAT-09 | **Credentials never touch our schema** | DB | No column in any `public` table holds a password or hash; `auth.users` is not readable with the anon key |
+| T-PLAT-10 | **A student cannot promote themselves** | RLS | `update profiles set role='prof'` on own row is rejected by the policy's `with check` |
+| T-PLAT-11 | Login rate limit | DB | Repeated failures throttled by Supabase Auth (platform-provided) |
 
 ### LESSON — Lessons & plan · `lessons.spec.js`, `todo-parser.test.js`
 
@@ -139,11 +189,11 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 |---|---|:---:|---|
 | T-LES-01 | Upload starter files → steps proposed | E2E | Step list shows the TODOs in order |
 | T-LES-02 | Edit step title/description | E2E | Saved; persists after reload |
-| T-LES-03 | Reorder steps (buttons on mobile, drag on desktop) | E2E `@responsive` | Orders contiguous 1…n |
+| T-LES-03 | Reorder steps (buttons on mobile, drag on desktop) | E2E `@responsive` | Orders contiguous 1…n after `replace_steps` |
 | T-LES-04 | Delete step | E2E | Remaining steps renumbered |
-| T-LES-05 | Unsafe path / > 20 files / > 200 KB | Int | 400 with field error |
-| T-LES-06 | Delete a lesson that was taught | Int | 409 → UI offers Archive |
-| T-LES-07 | Student fetches lesson files outside a session | Int | Steps only, no files |
+| T-LES-05 | Unsafe path / > 20 files / > 200 KB | DB | `files_valid()` / `octet_length` constraint rejects the insert |
+| T-LES-06 | Delete a lesson that was taught | DB | Trigger raises `CONFLICT` → UI offers Archive |
+| T-LES-07 | Student reads a lesson outside a session | RLS | Steps visible; `files` not selectable by a non-staff member |
 | T-TODO-01 | JS, HTML and CSS comment forms parsed | Unit | 3 steps with correct files/lines |
 | T-TODO-02 | Numbered TODOs sorted by number across files | Unit | Order follows numbers, not file order |
 | T-TODO-03 | Same number in two files → one step, two refs | Unit | `todoRefs.length === 2` |
@@ -157,36 +207,55 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
 | T-SESS-01 | Prof starts session | E2E | Join code (6 chars, no 0/O/1/I/L) + QR visible |
-| T-SESS-02 | Start on a draft lesson | Int | 409 |
+| T-SESS-02 | Start on a draft lesson | DB | `start_session` raises `CONFLICT` |
 | T-SESS-03 | Student joins via code input and via `/join/:code` | E2E | Lands in workspace on Step 1 |
 | T-SESS-04 | Non-enrolled user joins | E2E | "You're not in this course" |
 | T-SESS-05 | Wrong / ended code | E2E | "No live class with that code" |
 | T-SESS-06 | Checkpoint broadcast to 3 students | E2E | All 3 see the toast + new step within 2 s |
-| T-SESS-07 | Student reconnects (go offline → online) | E2E | Pill shows Reconnecting… then Live; status re-sent; checkpoint missed while offline is shown |
-| T-SESS-08 | Two quick checkpoint saves | Int | Distinct `seq` 1, 2 (no duplicate) |
-| T-SESS-09 | Socket handshake without cookie | Int | Connection refused |
-| T-SESS-10 | Student emits `session:join` for another course's session | Int | Ack `{ ok: false }`; not added to room |
+| T-SESS-07 | Student reconnects (go offline → online) | E2E | Pill shows Reconnecting… then Live; status re-read; checkpoint missed while offline is shown |
+| T-SESS-08 | Two quick checkpoint saves | DB | Distinct `seq` 1, 2 — the unique index plus the RPC retry |
+| T-SESS-09 | **Realtime subscribe without a session** | RLS | Anon client cannot subscribe to `session:<id>`; no messages received |
+| T-SESS-10 | **Subscribe to another course's session channel** | RLS | Rejected by the `realtime.messages` policy |
 | T-SESS-11 | Prof ends session | E2E | Students see "Class ended" banner with replay link |
 | T-SESS-12 | Settings toggle (catch-up off) | E2E | Students' Load checkpoint button disabled with tooltip |
+| T-SESS-13 | **Student calls `save_checkpoint`** | RLS | `FORBIDDEN` — the RPC checks `is_course_prof` |
+| T-SESS-14 | Prof posts an announcement | E2E | Every student sees `announcement-banner` with the text within 2 s |
+| T-SESS-15 | **Late joiner sees the current announcement** | E2E | A student who joins after it was sent sees it on load (read from `sessions.announcement`, not the broadcast) |
+| T-SESS-16 | Prof clears the announcement | E2E | Banner disappears for everyone |
+| T-SESS-17 | Student or TA calls `announce` | RLS | `FORBIDDEN` |
+| T-SESS-18 | Announcement over 200 chars | DB | Check constraint rejects it |
 
-### SBX — Workspace & sandbox · `workspace.spec.js`, `srcdoc-builder.test.js`, `mock-api.test.js`
+### SBX — Workspace, runtime & cache · `workspace.spec.js`, `build-error.test.js`, `files-cache.test.js`
+
+Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API tests are gone; boot, install, build errors and the cache replace them.
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-SBX-01 | Local CSS/JS inlined; CDN tags kept | Unit | Output contains inline code + original CDN URLs |
-| T-SBX-02 | Probe injected first in `<head>` | Unit | Probe precedes all user scripts |
-| T-SBX-03 | Runtime error shown in console, gutter and status pill | E2E | File + line match the typo |
-| T-SBX-04 | `console.log` appears in console panel | E2E | Entry visible |
-| T-SBX-05 | Preview cannot read parent cookies / DOM | E2E | `document.cookie` in preview is empty; `parent.document` access throws (logged) |
-| T-SBX-06 | Message with wrong `runId` ignored | Unit | No state change |
-| T-SBX-07 | Infinite loop | E2E | Iframe replaced after 5 s with the hint message |
-| T-SBX-08 | axios to mocked route | E2E | Data renders; console shows `mocked` |
-| T-SBX-09 | Mock filters array by query param | Unit | `?category=fruit` returns fruit only |
-| T-SBX-10 | `localStorage` works across runs | E2E | Cart persists after Ctrl+S re-run |
+| T-SBX-01 | Container boots and the dev server comes up | E2E | `BootState` goes booting → installing → starting → ready; preview renders the app |
+| T-SBX-02 | `crossOriginIsolated` is true on the app origin | E2E | COOP/COEP headers present; without them the boot is skipped with a clear message |
+| T-SBX-03 | Runtime error shown in console, gutter and status pill | E2E | File + line match the typo; `error.source === 'runtime'` |
+| T-SBX-04 | `console.log` appears in the console panel | E2E | Entry visible |
+| T-SBX-05 | **Preview cannot read our Supabase session** | E2E | The preview is a different origin: `localStorage` there is the project's own; `parent.document` access throws |
+| T-SBX-06 | **Build error turns the tile red** | E2E | A broken `import` produces `error.source === 'build'` with file + line |
+| T-SBX-07 | **Build error carries no code frame** | Unit | `parseBuildError()` on real Vite output returns `{name,message,file,line}` and **no** source lines |
+| T-SBX-08 | Boot timeout | E2E | No `server-ready` within `BOOT_TIMEOUT_MS` → "Your project didn't start" + terminal tail + Retry |
+| T-SBX-09 | Terminal output never leaves the browser | DB | After an install, no row in any table contains install/dev-server output |
+| T-SBX-10 | `localStorage` works in the student's project | E2E | Cart persists across a reload — natively, with no shim |
 | T-SBX-11 | Autosave + refresh | E2E | Edits restored after reload |
-| T-SBX-12 | Done disabled while the last run has an error | E2E | Button disabled with reason |
+| T-SBX-18 | **Autosave fires 5 s after the last keystroke** | E2E | No write while typing continues; one write 5 s after it stops |
+| T-SBX-19 | **Only changed files are sent** | Unit | Editing one file of twelve produces a one-entry `p_upsert` |
+| T-SBX-20 | **An unchanged tree sends no request** | Unit | Debounce tick with no hash change issues zero calls |
+| T-SBX-21 | **A failed save retries the same delta** | Unit | Synced hashes are not advanced on failure; the next tick resends |
+| T-SBX-22 | Flush on tab close | E2E | `visibilitychange` writes immediately, losing none of the 5 s window |
+| T-SBX-23 | Deleted file is removed server-side | E2E | Path appears in `p_delete`; gone from the autosave row |
+| T-SBX-12 | Done disabled while the last run has an error | E2E | Button disabled with reason (runtime **or** build) |
+| T-SBX-13 | **`SYNC_IGNORE` respected** | DB | After an install, no saved row contains a `node_modules/`, `dist/` or `.vite/` path |
+| T-SBX-14 | **Cache hit costs no network** | Unit | Matching `files_hash` → `loadFiles` returns from IndexedDB with zero fetches |
+| T-SBX-15 | **Cache miss and eviction** | Unit | Changed hash refetches; a wiped store still loads correctly (cache, not source of truth) |
+| T-SBX-16 | File tree create / rename / delete | E2E | Reflected in the container FS and in the next autosave |
+| T-SBX-17 | Unsupported browser | E2E | With isolation disabled, "The workspace needs Chrome or Edge" — not a blank pane |
 
-### STAT — Status & classifier · `status-classifier.test.js`, `dashboard.spec.js`
+### STAT — Status & derived state · `tile-state.test.js`, `dashboard.spec.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
@@ -196,20 +265,23 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-STAT-04 | done ≤ target − 2 | Unit | `behind` |
 | T-STAT-05 | Error overrides behind/done | Unit | `error` |
 | T-STAT-06 | Idle overrides everything | Unit | `idle` |
-| T-STAT-07 | New checkpoint re-classifies all | E2E | Previously green tiles turn amber |
+| T-STAT-07 | New checkpoint re-derives all | E2E | Previously green tiles turn amber with no status writes |
 | T-STAT-08 | Idle after `idleAfterSec` (set to 5 s in test) | E2E | Tile grey; returns on activity |
-| T-STAT-09 | Client cannot force a state | Int | Sending `state: 'done'` in payload is ignored |
+| T-STAT-09 | **A student cannot forge their state** | DB | `student_status` has no `state` column; writing one is rejected |
+| T-STAT-10 | **`shared/tile-state.js` agrees with `session_tiles`** | DB+Unit | Same inputs → same state from SQL and JS, across all 6 cases |
+| T-STAT-11 | **A student cannot write another student's status** | RLS | Rejected by the `student_id = auth.uid()` policy |
+| T-STAT-12 | **A student cannot write status after the session ends** | RLS | Policy requires `status = 'live'` |
 
 ### DASH — Dashboard · `dashboard.spec.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
 | T-DASH-01 | Initial snapshot loads for a running session | E2E | Tiles for all joined students |
-| T-DASH-02 | Summary bar counts match tiles | E2E | Counts equal per state |
+| T-DASH-02 | Summary counts match tiles | E2E | `session_summary` equals the computed counts |
 | T-DASH-03 | Filter by clicking a summary segment | E2E `@responsive` | Only that state's tiles shown |
 | T-DASH-04 | "I'm lost" from 2 students | E2E | Lost count = 2; no tile shows who |
 | T-DASH-05 | Student un-taps "I'm lost" | E2E | Count decrements |
-| T-DASH-06 | TA (staff) can view dashboard; student cannot | E2E | TA sees tiles; student redirected / 403 |
+| T-DASH-06 | TA (staff) can view dashboard; student cannot | RLS | TA gets tile rows; a student gets zero rows from `session_tiles` |
 | T-DASH-07 | Tiles show icon + label, not only colour | E2E | `data-state` + visible label text |
 
 ### ERRG — Error groups & Spotlight · `error-normalizer.test.js`, `spotlight.test.js`, `spotlight.spec.js`
@@ -224,43 +296,56 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-ERRG-06 | Spotlight with an eligible help snapshot | E2E | All students see excerpt + fix |
 | T-ERRG-07 | Excerpt anonymised | Unit | No student names, no comments, ≤ 30 lines |
 | T-ERRG-08 | Spotlight with no help snapshot | E2E | Error + fix only, with explanation to prof |
+| T-ERRG-09 | **Student invokes the `spotlight` function** | DB | `FORBIDDEN` — the function checks `is_course_prof` before using the service role |
 
 ### CATCH — Catch-up · `catch-up.spec.js`, `diff-summary.test.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
 | T-CATCH-01 | Load checkpoint | E2E | Editor shows checkpoint code; "What you missed" open |
-| T-CATCH-02 | Attempt preserved | Int | `before_catchup` snapshot exists **before** files are returned |
+| T-CATCH-02 | Attempt preserved | DB | `before_catchup` snapshot exists in the same transaction, before files are returned |
 | T-CATCH-03 | Restore attempt | E2E | Original code back in the editor |
 | T-CATCH-04 | First-difference line correct | Unit | Points at the typo line |
 | T-CATCH-05 | Whitespace-only changes ignored | Unit | No hunks |
-| T-CATCH-06 | Catch-up before any checkpoint | Int | 409 with message |
-| T-CATCH-07 | "What you missed" readable at 375 px | E2E `@responsive` | Unified diff mode, no horizontal page scroll |
+| T-CATCH-06 | Catch-up before any checkpoint | DB | `CONFLICT` with message |
+| T-CATCH-07 | Catch-up when `allowCatchUp` is false | DB | `FORBIDDEN` "Catch-up is turned off for this class" |
+| T-CATCH-08 | "What you missed" readable at 375 px | E2E `@responsive` | Unified diff mode, no horizontal page scroll |
+| T-CATCH-09 | **Checkpoint with an unchanged dependency tree** | E2E | Files mount, HMR picks them up, **no install runs** |
+| T-CATCH-10 | **Checkpoint that changed `package.json`** | E2E | Explicit "installing dependencies" state, streamed to the terminal; completes and the preview runs |
 
 ### HELP — Help flow · `help.spec.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-HELP-01 | Student sends Check my work | E2E | TA queue shows card instantly (name, step, type — no code) |
+| T-HELP-01 | Student sends Check my work | E2E | TA queue shows card instantly via Postgres Changes (name, step, type — no code) |
 | T-HELP-02 | TA claims → side-by-side view | E2E | Student code vs checkpoint for that step |
 | T-HELP-03 | Pass | E2E | Student sees tick on step; tile shows passed |
 | T-HELP-04 | Reply | E2E | Student sees reply in their help panel |
-| T-HELP-05 | Two TAs claim the same request | E2E | Second gets "already on this one" |
-| T-HELP-06 | Duplicate active request of same type | Int | 409 |
+| T-HELP-05 | Two TAs claim the same request | E2E | Second gets "already on this one" (zero rows updated) |
+| T-HELP-06 | Duplicate active request of same type | DB | Partial unique index → `CONFLICT` |
 | T-HELP-07 | Student cancels open request | E2E | Card disappears from queue |
-| T-HELP-08 | In-person help → Telegram ping | E2E | Fake outbox has message with name, seat, step, link |
-| T-HELP-09 | Telegram fake set to fail | E2E | Request still created; student sees "notified in app only" |
-| T-HELP-10 | Another student opens `/help/:id` | Int | 403 |
-| T-HELP-11 | Pass on a `help` (not `check`) request | Int | 400 |
+| T-HELP-08 | In-person help → Telegram ping | E2E | `test_outbox` has a message with name, seat, step, link |
+| T-HELP-09 | Telegram mock set to fail | E2E | Request still exists (committed before the webhook); student sees "notified in app only" |
+| T-HELP-10 | Another student reads a help request | RLS | Zero rows |
+| T-HELP-11 | Pass on a `help` (not `check`) request | DB | `BAD_REQUEST` from `transition_help_request` |
+| T-HELP-12 | Non-claiming TA replies | DB | `FORBIDDEN` |
+| T-HELP-13 | **Student follows up on a replied request** | E2E | Same request returns to the queue **in its original place**, badged "Follow-up · last handled by Ana"; the TA sees the full thread |
+| T-HELP-14 | **Follow-up attaches the student's current code** | E2E | The TA's side-by-side shows the new snapshot, not the original |
+| T-HELP-15 | **Earlier snapshot no longer readable by staff** | RLS | After a follow-up, staff select on the previous snapshot returns zero rows |
+| T-HELP-16 | **Fourth follow-up rejected** | DB | `BAD_REQUEST` "ask for in-person help instead"; `follow_ups` stays 3 |
+| T-HELP-17 | Follow-up on a `passed` / `resolved` / `cancelled` request | DB | `BAD_REQUEST` — only `replied` reopens |
+| T-HELP-18 | Another student follows up on someone else's request | RLS | `FORBIDDEN`, and no snapshot is left behind (the function rolls back) |
+| T-HELP-19 | Earlier replies survive a follow-up | E2E | Second reply is appended to `thread`; the first is still shown |
 
-### TG — Telegram linking & digests · `telegram.test.js`, `insights.spec.js`
+### TG — Telegram linking & webhook · `telegram.test.js`, `insights.spec.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-TG-01 | Link code → `/start <code>` update binds chatId | Unit | `telegram.chatId` set; code cleared |
+| T-TG-01 | Link code → `/start <code>` binds `telegram_chat_id` | Unit | Chat id set; code cleared |
 | T-TG-02 | Expired code | Unit | Not bound; bot replies "code expired" |
 | T-TG-03 | User text HTML-escaped | Unit | `<script>` sent as `&lt;script&gt;` |
 | T-TG-04 | 429 handling | Unit | Waits `retry_after`, retries once |
+| T-TG-05 | **Webhook without the secret token header** | Unit | Rejected with 401; nothing written |
 
 ### REPLAY — Replay, notes, search · `replay.spec.js`
 
@@ -271,19 +356,19 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-REP-03 | Read-only preview runs | E2E | Preview renders the app at that step |
 | T-REP-04 | Add / edit / delete note and bookmark | E2E | Persist after reload; private to author |
 | T-REP-05 | Search finds a step title and a note | E2E | Both in results with links |
-| T-REP-06 | Search with regex characters | Int | No crash; literal match |
-| T-REP-07 | Non-member opens replay | Int | 403 |
+| T-REP-06 | Search with regex characters | DB | No crash; literal match (parameterised RPC) |
+| T-REP-07 | Non-member reads a replay | RLS | Zero checkpoints returned |
 
 ### GH — GitHub import/export · `github-export.test.js`, `replay.spec.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-GH-01 | Import public repo (fake) | E2E | Draft lesson with filtered files + steps |
+| T-GH-01 | Import public repo (mock) | E2E | Draft lesson with filtered files + steps |
 | T-GH-02 | Import filters unsafe types / > 20 files | Unit | Only allowed files kept |
-| T-GH-03 | Export creates one commit per checkpoint | Unit | Fake records 1 repo + n trees + n commits + 1 ref update, in order |
+| T-GH-03 | Export creates one commit per checkpoint | Unit | Mock records 1 repo + n trees + n commits + 1 ref update, in order |
 | T-GH-04 | Commit messages `Step k: <title>` | Unit | Match |
 | T-GH-05 | Repo name taken (422) | E2E | UI asks for another name |
-| T-GH-06 | Token not persisted | Int | No GitHub token in any MongoDB document after export |
+| T-GH-06 | **Token never persisted in our schema** | DB | No GitHub token in any row of any `public` table after an export |
 
 ### INS — Insights · `report-builder.test.js`, `insights.spec.js`
 
@@ -292,26 +377,34 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-INS-01 | `reachedDone` and `dropOff` from fixture histories | Unit | Match hand-computed values |
 | T-INS-02 | Trouble score formula | Unit | Matches expected ranking |
 | T-INS-03 | Recurring trouble across 2 seeded past sessions | Unit | Step flagged |
-| T-INS-04 | Report generated on end | E2E | Report page shows funnel + top errors |
-| T-INS-05 | Report has no per-student data | Int | No `studentId` fields in payload |
-| T-INS-06 | Digest to TAs and absent students | E2E | Fake outbox: TA summary + absent-student messages only to linked, absent students |
+| T-INS-04 | Report written when the session ends | E2E | Page polls, then shows funnel + top errors |
+| T-INS-05 | Report has no per-student data | DB | No `student_id` anywhere in the row |
+| T-INS-06 | Digest to TAs and absent students | E2E | `test_outbox`: TA summary + messages only to linked, absent students |
+| T-INS-07 | Student reads a report | RLS | Zero rows |
 
-### PRIV — Privacy by design · `privacy.spec.js`
+### PRIV — Privacy by design · `privacy.spec.js`, `tests/unit/rls/*`
+
+The section the architecture change affects most. Each rule that used to be "no endpoint exists" is now a policy with a negative test.
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-PRIV-01 | `dashboard:tile` / `dashboard:summary` payloads | Int | No `files` / code fields |
-| T-PRIV-02 | Staff fetches a student's autosave | Int | No route exists → 404 |
-| T-PRIV-03 | Staff fetches a snapshot through a help request | Int | Allowed (student sent it) |
-| T-PRIV-04 | Lost identity never sent | Int | No payload contains which student is lost |
-| T-PRIV-05 | Notes private | Int | Another user's note → 404 |
+| T-PRIV-01 | Tile and summary payloads contain no code | DB | `session_tiles` / `session_summary` expose no `files` column at all |
+| T-PRIV-02 | **Staff read a student's autosave** | RLS | Zero rows — the `snapshots` policy only admits help-request snapshots |
+| T-PRIV-03 | Staff read a snapshot through a help request | RLS | Exactly one row (the student sent it) |
+| T-PRIV-04 | **Lost identity never retrievable** | RLS | Staff reading `student_status.lost` get zero rows; `session_summary.lost_count` is an aggregate |
+| T-PRIV-05 | Notes private | RLS | Another user's note is invisible |
+| T-PRIV-06 | **Every `public` table has RLS enabled** | RLS | `tables_without_rls()` returns empty |
+| T-PRIV-07 | **Every view uses `security_invoker`** | RLS | A view without it would leak all sessions; assert none exist |
+| T-PRIV-08 | No keystroke logging | Review | Status written only on change + 30 s heartbeat |
+| T-PRIV-09 | **No build-error code frame reaches staff** | Unit+DB | Real Vite error output → `student_status.error` holds the message only; no source line appears in `session_tiles` |
+| T-PRIV-10 | **Terminal output never persisted** | DB | No table holds `pnpm install` or dev-server text |
 
 ### RESP — Responsive (Chrome) · tagged `@responsive`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-RESP-01 | Workspace at 375 px | E2E | Tabs Code/Preview/Console/Steps; sticky bottom bar; no horizontal scroll |
-| T-RESP-02 | Workspace at 1280 px | E2E | Three panes visible |
+| T-RESP-01 | Workspace at 375 px | E2E | Tabs Code/Preview/Terminal/Steps; **file tree is an offcanvas drawer**; sticky bottom bar; no horizontal scroll |
+| T-RESP-02 | Workspace at 1280 px | E2E | File tree rail + editor + preview, terminal docked below |
 | T-RESP-03 | Teach view at 375 px | E2E | Dashboard-first layout; editor behind tab |
 | T-RESP-04 | Teach view at 1280 px | E2E | Editor + plan + tile grid visible together |
 | T-RESP-05 | No page has horizontal scroll at 375 px | E2E | `scrollWidth <= innerWidth` on every route |
@@ -321,24 +414,30 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-VAL-01 | Invalid ObjectId in any route | Int | 404 JSON, no crash |
-| T-VAL-02 | Unknown API route | Int | 404 JSON envelope |
+| T-VAL-01 | Malformed uuid in a route param | DB | Mapped to `NOT_FOUND`, no crash (replaces the old ObjectId check) |
+| T-VAL-02 | Row exists but is not mine | E2E | Empty/forbidden state on the page, not a spinner or a crash |
 | T-VAL-03 | Unknown client route | E2E | Friendly 404 page |
-| T-VAL-04 | Forced server error | Int | 500 envelope with request id, no stack trace |
-| T-VAL-05 | XSS in step title / note / reply | E2E | Rendered as text (Vue escaping); never executed |
-| T-VAL-06 | Oversized payload | Int | 413 / 400 |
+| T-VAL-04 | **Deep link on the deployed URL** | E2E | `/join/<code>` and a refresh on `/s/:id/code` work (SPA rewrite) |
+| T-VAL-05 | XSS in step title / note / reply / follow-up / announcement | E2E | Rendered as text (Vue escaping); never executed |
+| T-VAL-06 | Oversized payload | DB | `octet_length` constraint → `PAYLOAD_TOO_LARGE` |
 | T-VAL-07 | Upstream (GitHub) down | E2E | Feature message; rest of app works |
+| T-VAL-08 | Every zod rule has a constraint behind it | Review | Each row of the validation table in [03](./03-data-model.md#validation-rules-summary) has both |
 
 ### LOAD & SEED
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-LOAD-01 | 40 simulated students, update every 3 s, 5 minutes | Load | p95 tile latency < 500 ms; no dropped sockets |
-| T-LOAD-02 | 40 students receive a checkpoint | Load | All acked within 2 s |
-| T-SEED-01 | `npm run seed` twice | Int | Same counts both times (idempotent) |
-| T-SEED-02 | Seeded accounts log in with documented passwords | Int | All roles correct |
+| T-LOAD-01 | 40 simulated students, update every 3 s, 5 minutes | Load | p95 tile latency < 500 ms; no dropped subscriptions |
+| T-LOAD-02 | 40 students receive a checkpoint broadcast | Load | All within 2 s |
+| T-LOAD-03 | **Load test fits the Realtime free tier** | Load | Concurrent connections and message count stay inside the cap; recorded in the README |
+| T-LOAD-04 | **Egress per session measured** | Load | One full session's Supabase egress recorded against the 5 GB budget; cached rejoin costs ~0 |
+| T-LOAD-05 | **Cold install time measured** | Load | Recorded in the README; decides whether the dependency cache in [05 §2](./05-core-logic.md#2-files-cache--dependencies) gets built |
+
+> **What the load test does not prove.** The 40 simulated students write status rows directly; they cannot each boot a WebContainer. So T-LOAD-01/02 show that Supabase and Realtime hold up under a class's worth of traffic — they say nothing about whether 40 real laptops each running a Vite dev server stay responsive. Those are two different questions and only the first is testable here. Say so in the README rather than letting "load-tested with 40 students" imply more than it does.
+| T-SEED-01 | `pnpm db:reset` twice | DB | Same counts both times (migrations + `seed.sql` are idempotent by construction) |
+| T-SEED-02 | Seeded accounts log in with documented passwords | DB | All roles correct |
 | T-SEED-03 | Seeded past session has replay + report | E2E | Both pages render |
-| T-SMOKE-01 | `/` loads landing in production build | E2E | Title + "Join a class" visible |
+| T-SMOKE-01 | `/` loads landing in the production build | E2E | Title + "Join a class" visible |
 
 ---
 
@@ -346,34 +445,40 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 
 | Area | Count | Main stage |
 |---|---:|---|
-| PLAT | 10 | 2 |
+| PLAT | 11 | 2 |
 | LESSON + TODO | 14 | 4 |
-| SESS | 12 | 3 |
-| SBX | 12 | 3 |
-| STAT | 9 | 5 |
+| SESS | 18 | 3 |
+| SBX | 23 | 3 |
+| STAT | 12 | 5 |
 | DASH | 7 | 5 |
-| ERRG | 8 | 9 |
-| CATCH | 7 | 6 |
-| HELP | 11 | 7 |
-| TG | 4 | 7 |
+| ERRG | 9 | 9 |
+| CATCH | 10 | 6 |
+| HELP | 19 | 7 |
+| TG | 5 | 7 |
 | REPLAY | 7 | 8 |
 | GH | 6 | 8 |
-| INS | 6 | 10 |
-| PRIV | 5 | 5–9 |
+| INS | 7 | 10 |
+| PRIV | 10 | 5–9 |
 | RESP | 6 | 11 |
-| VALID | 7 | 11 |
-| LOAD + SEED + SMOKE | 6 | 11–12 |
-| **Total** | **137** | |
+| VALID | 8 | 11 |
+| LOAD + SEED + SMOKE | 9 | 11–12 |
+| **Total** | **181** | |
+
+Up from 137 in the Mongo design: 15 came from authorization moving into the database (RLS negative tests — the cheapest in the suite, a sign-in and an `expect(data).toEqual([])`), and 17 more from the WebContainer runtime (boot, install, build errors, the file cache, delta autosave, and the two privacy tests that keep code frames and terminal output out of the dashboard), plus 12 for help follow-ups and class announcements.
 
 **Must be green for the video:** every E2E test tagged on a MUST feature (PLAT, LESSON, SESS, SBX, STAT, DASH, CATCH, HELP, REPLAY, PRIV, RESP, VALID).
 
 ### How to run (goes in the README)
 
 ```bash
-npm install
-npx playwright install chromium
-npm run test:unit                    # Vitest — ~5 s
-npm run test:e2e                     # builds client, starts test server (in-memory DB, mocked APIs), runs Playwright
-npx playwright show-report           # HTML report with traces for any failure
-npm run simulate -- --session ABC234 --students 40   # load test against a running session
+# Docker must be running — the local stack needs it
+pnpm install
+pnpm dlx playwright install chromium
+pnpm supabase start                  # Postgres + Auth + Realtime + Functions on localhost
+pnpm db:reset                        # migrations + seed.sql
+
+pnpm test:unit                       # Vitest: shared/ logic + RLS negative tests — ~10 s
+pnpm test:e2e                        # builds, runs Playwright against the local stack (EXTERNAL_APIS=mock)
+pnpm dlx playwright show-report      # HTML report with traces for any failure
+pnpm simulate --session ABC234 --students 40   # load test (local stack — see the egress rule in 02)
 ```
