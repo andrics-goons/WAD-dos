@@ -114,7 +114,7 @@ The Q&A slides grade on three tiers: **Tier 1** get data → show data (~B+), **
 | F5 | **Review the lesson afterwards** — step-by-step replay with "What you missed" diffs, notes, bookmarks, search, import starter code from GitHub and export my replay with one commit per step | 2 | GitHub REST (Git Data API) + diffing + search across lessons | Ray Yien |
 | F6 | **Learn which steps lose students** — after-class insights (drop-off per step, top errors, recurring trouble steps across terms) sent as a Telegram digest | 2–3 | Aggregation across statuses, help requests and past terms | Andric |
 
-**Platform (not features):** accounts, login/registration, roles, courses, enrolment, deployment, shared UI kit — owned by Andric.
+**Platform (not features):** the data platform — schema, RLS, auth, accounts / courses / enrolment data — is owned by Andric; the frontend platform — app shell, router, login/registration and course pages, shared UI kit, deployment — is owned by Ying Qi.
 
 **Our signature (Tier 3):** F4's error grouping + status classifier and F2's catch-up flow. These are what we lead with in the pitch and the video.
 

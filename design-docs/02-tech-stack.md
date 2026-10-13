@@ -63,7 +63,7 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   ├── constants.js             ← Roles, tile states, help statuses, limits, event names
 │   ├── todo-parser.js           ← Evan
 │   ├── error-normalizer.js      ← Evan
-│   ├── tile-state.js            ← Ying Qi — classify(), mirrors the session_tiles SQL
+│   ├── tile-state.js            ← Evan — classify(), must agree with Andric's session_tiles SQL
 │   ├── diff-summary.js          ← Ray Yien
 │   ├── spotlight.js             ← Evan — excerpt + anonymise
 │   ├── report-builder.js        ← Andric
@@ -86,28 +86,29 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   ├── validators/              ← zod schemas, one per form
 │   ├── views/                   ← one file per page (see 04-pages-routes-and-events.md)
 │   ├── components/
-│   │   ├── ui/                  ← AppNavbar, AppToast, ConfirmModal, EmptyState, StatusPill (Andric)
-│   │   ├── workspace/           ← CodeEditor, FileTabs, PreviewFrame, ConsolePanel, DoneButton (Dylan)
+│   │   ├── ui/                  ← AppNavbar, AppToast, ConfirmModal, EmptyState, StatusPill (Ying Qi)
+│   │   ├── workspace/           ← CodeEditor, FileTabs, PreviewFrame, ConsolePanel, DoneButton (Dylan); FileTree (Ray Yien)
 │   │   ├── dashboard/           ← StudentTile, TileGrid, ErrorGroupList, ClassSummaryBar (Evan)
 │   │   ├── lesson/              ← StepList, StepEditor, StarterUpload (Evan)
-│   │   ├── session/             ← JoinCodeCard, QrDisplay, CheckpointToast (Ying Qi)
+│   │   ├── session/             ← CheckpointToast, ConnectionPill, AnnouncementBanner, AnnounceInput (Karin); JoinCodeCard, QrDisplay (Evan)
 │   │   ├── help/                ← HelpQueue, HelpRequestCard, SideBySideView (Karin)
 │   │   ├── replay/              ← CheckpointTimeline, DiffView, NoteEditor (Ray Yien)
-│   │   └── insights/            ← StepFunnelChart, TopErrorsTable (Andric)
+│   │   └── insights/            ← StepFunnelChart, TopErrorsTable (Evan)
 │   ├── composables/             ← useSandbox, useAutosave, useBreakpoint, useCountdown
 │   ├── runtime/                 ← WebContainer integration (Dylan)
 │   │   ├── container.js         ← boot, mount, spawn, server-ready → preview URL
 │   │   ├── install.js           ← pnpm install, streamed; skipped when the tree is unchanged
 │   │   └── terminal.js          ← xterm-style output panel wiring
-│   ├── cache/
-│   │   └── files.js             ← IndexedDB cache keyed by files_hash (§2 of 05)
+│   ├── cache/                   ← the file layer (Ray Yien)
+│   │   ├── files.js             ← IndexedDB cache keyed by files_hash (§2 of 05)
+│   │   └── autosave.js          ← 5 s debounce, changed files only
 │   └── styles/
 │       ├── tokens.css           ← colours, spacing, radii, tile-state colours
 │       └── main.css
 │
 ├── supabase/                    ← everything that is not the browser
 │   ├── config.toml
-│   ├── migrations/              ← Dylan owns tables; Ying Qi owns policies + views
+│   ├── migrations/              ← schema owned by Andric; each feature owner adds their own RPC migrations
 │   │   ├── 0001_tables.sql
 │   │   ├── 0002_helpers.sql     ← current_role(), is_course_staff(), is_session_member(), files_valid()
 │   │   ├── 0003_rls.sql         ← a policy per table per command
@@ -127,7 +128,9 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   └── seed.sql                 ← demo data (07-seed-and-demo.md); applied by `supabase db reset`
 │
 ├── scripts/
-│   └── simulate-class.js        ← N fake students over supabase-js (load test + fuller demo dashboard)
+│   ├── simulate-class.js        ← N fake students over supabase-js (Ying Qi)
+│   ├── seed-generate.js         ← prints seed rows using the real shared/ functions (Andric)
+│   └── fixtures/mini-cart/      ← the Mini Cart lesson project (Evan)
 │
 └── tests/
     ├── e2e/                     ← Playwright specs (see 06-stages-and-tests.md)
@@ -396,7 +399,7 @@ Call it 15–30 MB realistic, ~140 MB pathological — so 5 GB is well over a hu
 | **Load test no longer reflects the real client** | 40 simulated students write status rows; they cannot each boot a WebContainer. The load test proves Supabase and Realtime hold up — it says nothing about 40 laptops each running a dev server. Say so rather than implying otherwise |
 | Migrations drift from what is deployed | `supabase db reset` in CI proves migrations apply from scratch; deploy order documented above |
 
-Checklist (owner: Andric):
+Checklist (owner: Ying Qi; the keep-alive item: Andric):
 - [ ] `pnpm build` works on a clean clone with only the two `VITE_` vars
 - [ ] Deployed URL loads the landing page at `/`
 - [ ] `/join/<code>` and a refresh on `/s/:id/code` work on the deployed URL (SPA rewrite)

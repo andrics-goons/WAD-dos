@@ -14,12 +14,12 @@ This is the "how it actually works" document: the parts that make CodeAlong a Ti
 | # | Logic | Owner | Tier | Home | Tested in |
 |---|---|---|:---:|---|---|
 | 1 | **Client-side runtime (WebContainer)** | Dylan | **3** | browser | `tests/unit/build-error.test.js`, E2E `workspace.spec.js` |
-| 2 | **Files, cache & dependencies** | Dylan | 2–3 | browser + Postgres | `tests/unit/files-cache.test.js`, E2E `workspace.spec.js` |
+| 2 | **Files, cache & dependencies** | Ray Yien (files, autosave) · Dylan (dependencies) | 2–3 | browser + Postgres | `tests/unit/files-cache.test.js`, E2E `workspace.spec.js` |
 | 3 | Session lifecycle | Ying Qi | 2 | RPC | `tests/unit/rls/sessions.test.js`, E2E `live-session.spec.js` |
-| 4 | Status reporting + classifier | Ying Qi | 3 | view + `shared/` | `tests/unit/tile-state.test.js`, `tests/unit/rls/status.test.js` |
+| 4 | Status reporting + classifier | Andric (view) · Evan (`classify()`) | 3 | view + `shared/` | `tests/unit/tile-state.test.js`, `tests/unit/rls/status.test.js` |
 | 5 | TODO parser → lesson plan | Evan | 2–3 | `shared/` | `tests/unit/todo-parser.test.js` |
 | 6 | Error normalisation + grouping (runtime **and build** errors) | Evan | **3** | `shared/` | `tests/unit/error-normalizer.test.js` |
-| 7 | Catch-up + "What you missed" | Dylan (load) · Ray Yien (diff) | 2–3 | RPC + browser | `tests/unit/diff-summary.test.js`, E2E `catch-up.spec.js` |
+| 7 | Catch-up + "What you missed" | Ray Yien (RPC, diff) · Dylan (mount, reinstall) | 2–3 | RPC + browser | `tests/unit/diff-summary.test.js`, E2E `catch-up.spec.js` |
 | 8 | Help queue + Telegram ping | Karin | 2 | RPC + function | E2E `help.spec.js` |
 | 9 | Spotlight anonymisation | Evan | 2 | function + `shared/` | `tests/unit/spotlight.test.js` |
 | 10 | Insights report + trends | Andric | 2–3 | function + `shared/` | `tests/unit/report-builder.test.js` |
@@ -297,7 +297,7 @@ Rendered with Vue's normal escaping like every other user-entered string (T-VAL-
 
 The workspace keeps `{ doneStepOrder, lastError }` and upserts its `student_status` row **only when one of them changes**, throttled to `STATUS_WRITE_THROTTLE_MS` (2 s). A heartbeat touches `last_seen_at` every 30 s while the tab is visible (`document.visibilityState`). No keystrokes, no code — the table has no column for either.
 
-### Derived in SQL (Ying Qi)
+### Derived in SQL (Andric)
 
 This is the design change worth understanding. In the Mongo version the server classified and stored `state`. Here the student's own browser writes the row, so a stored `state` would be forgeable. **There is no `state` column** — `session_tiles` derives it, with `target_order` = the step order of the session's latest checkpoint (0 before the first):
 
@@ -662,4 +662,4 @@ Markers test each feature up to 5–6 times a day (FAQ 19).
 | **Supabase Realtime** | Free-tier concurrent connections + monthly messages | 40 students × a 3 s update for 5 min ≈ 4,000 messages per load test | ⚠️ **verify before Week 11** |
 | **Supabase Postgres** | Free-tier storage + the project pauses when idle | Trivial storage; pausing is the real risk | ⚠️ **keep-alive required** — see [02](./02-tech-stack.md#risks-specific-to-this-stack) |
 
-The last two rows are new and are the only places this architecture is *more* fragile than the Express one. Both are Andric's to verify.
+The last two rows are new and are the only places this architecture is *more* fragile than the Express one. The Realtime cap is Ying Qi's to verify (it is a run of her simulator); the idle pause is Andric's.

@@ -126,7 +126,7 @@ export const test = base.extend({
 export { expect }
 ```
 
-> The one fiddly part of this rewrite: the Supabase session lives in `localStorage` under a project-scoped key, not in a cookie, so `addInitScript` replaces `context.request.post('/api/auth/login')`. **Owner: Andric**, and worth getting right in Week 8 — every E2E spec depends on it.
+> The one fiddly part of this rewrite: the Supabase session lives in `localStorage` under a project-scoped key, not in a cookie, so `addInitScript` replaces `context.request.post('/api/auth/login')`. **Owner: Karin**, and worth getting right in Week 8 — every E2E spec depends on it.
 
 ### Example journey — `tests/e2e/live-session.spec.js`
 

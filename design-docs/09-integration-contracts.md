@@ -15,7 +15,7 @@ shared/
 ├── constants.js         ← the enums below
 ├── todo-parser.js       ← Evan
 ├── error-normalizer.js  ← Evan
-├── tile-state.js        ← Ying Qi (classify(), mirrors the SQL view)
+├── tile-state.js        ← Evan (classify(), must agree with Andric's SQL view)
 ├── diff-summary.js      ← Ray Yien
 ├── spotlight.js         ← Evan (excerpt + anonymise)
 ├── build-error.js       ← Dylan (strips the code frame before normalising)
@@ -313,27 +313,30 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `rpc('join_session')` | Ying Qi | Join view | `(p_join_code text) → { session_id, role }` |
 | `rpc('save_checkpoint')` | Ying Qi | Teach view | `(p_session_id uuid, p_step_id uuid, p_files jsonb, p_note text) → checkpoint row` |
 | `rpc('end_session')` | Ying Qi | Teach view | `(p_session_id uuid) → session row` |
-| `rpc('announce')` | Ying Qi | Teach view (Evan's input box) | `(p_session_id uuid, p_text text \| null) → session row` — sets `sessions.announcement` and broadcasts `session:announce`; `null` clears |
-| `rpc('catch_up')` | Dylan | Workspace store | `(p_session_id uuid, p_files jsonb) → { checkpoint, attempt_snapshot_id }` |
-| `rpc('autosave_patch')` | Dylan | Workspace store | `(p_session_id uuid, p_upsert jsonb, p_delete text[]) → { files_hash }` — merges changed files into the autosave row; see [05 §2](./05-core-logic.md#2-files-cache--dependencies) |
+| `rpc('announce')` | Karin | Teach view (Karin's `AnnounceInput`, embedded by Evan) | `(p_session_id uuid, p_text text \| null) → session row` — sets `sessions.announcement` and broadcasts `session:announce`; `null` clears |
+| `rpc('catch_up')` | Ray Yien | Workspace store | `(p_session_id uuid, p_files jsonb) → { checkpoint, attempt_snapshot_id }` |
+| `rpc('autosave_patch')` | Ray Yien | `src/cache/autosave.js` | `(p_session_id uuid, p_upsert jsonb, p_delete text[]) → { files_hash }` — merges changed files into the autosave row; see [05 §2](./05-core-logic.md#2-files-cache--dependencies) |
 | `rpc('claim_help_request')` | Karin | Help queue | `(p_request_id uuid) → request row` (raises `CONFLICT\|…` if taken) |
 | `rpc('transition_help_request')` | Karin | Help review | `(p_request_id uuid, p_to text, p_reply text) → request row` — a reply is **appended to `thread`**, never overwritten |
 | `rpc('follow_up_help_request')` | Karin | Student help panel | `(p_request_id uuid, p_message text, p_files jsonb) → request row` — `replied → open`, fresh snapshot, max `MAX_FOLLOW_UPS` |
 | `rpc('replace_steps')` | Evan | Lesson editor | `(p_lesson_id uuid, p_steps jsonb) → steps[]` |
-| `view session_tiles` | Ying Qi | Evan (dashboard) | `(session_id, student_id, name, state, step_order, error_source, error_key, error_preview, passed_steps, checks, last_seen_at)` — `error_source` is `'runtime'` or `'build'`, so the dashboard can label a group "won't compile" vs "throws" |
-| `view session_summary` | Ying Qi | Evan (summary bar) | `(session_id, total, done, in_progress, error, behind, idle, lost_count)` |
+| `view session_tiles` | Andric | Evan (dashboard) | `(session_id, student_id, name, state, step_order, error_source, error_key, error_preview, passed_steps, checks, last_seen_at)` — `error_source` is `'runtime'` or `'build'`, so the dashboard can label a group "won't compile" vs "throws" |
+| `view session_summary` | Andric | Evan (summary bar) | `(session_id, total, done, in_progress, error, behind, idle, lost_count)` |
 | `normalizeError` | Evan | Dylan (before writing status) | `({ name, message }) => { key, shapeKey }` |
 | `parseBuildError` | Dylan | Dylan (dev-server output) | `(stdout: string) => { name, message, file, line } \| null` — **drops the code frame**; run before `normalizeError` |
-| `container` / `loadFiles` | Dylan | Dylan only | WebContainer boot + the IndexedDB file cache; nothing else imports them |
+| `container.mount(files)` / `boot()` | Dylan | Evan (teach preview), Ray Yien (replay preview) | The one WebContainer runtime; nobody builds a second |
+| `loadFiles(kind, id, hash)` | Ray Yien | Dylan (workspace boot) | `→ files` — IndexedDB first, Supabase only on a hash miss |
+| `autosave(tree)` | Ray Yien | Dylan (editor changes) | Debounced 5 s; sends only changed files |
+| `catchUp(sessionId, files)` | Ray Yien | Dylan (Load checkpoint) | `→ { checkpoint, attemptSnapshotId, depsChanged }` — Dylan reinstalls when `depsChanged` |
 | `groupErrors` | Evan | Evan (client summary) | `(tiles, { min, presentCount }) => errorGroups[]` |
-| `classify` | Ying Qi | Evan (client re-derive) | `({ doneStepOrder, error, lastSeenAt, targetOrder, now, idleAfterMs }) => TileState` |
+| `classify` | Evan | Evan (dashboard re-derive) — must agree with Andric's `session_tiles` | `({ doneStepOrder, error, lastSeenAt, targetOrder, now, idleAfterMs }) => TileState` |
 | `parseTodos` | Evan | Ray Yien (`github-import`), Andric (seed) | `(files, entryFile) => steps[]` |
 | `diffSummary` | Ray Yien | Dylan, Karin | `(beforeFiles, afterFiles) => { files: [{ path, added, removed, firstDiffLine, hunks }] }` |
 | `<DiffView>` | Ray Yien | Dylan, Karin | props `before`, `after`, `mode` |
 | `fn('github-import')` | Ray Yien | Lesson new view | `{ repoUrl } → { files, entryFile, source }` |
 | `fn('github-export')` | Ray Yien | Replay view | `{ sessionId, repoName, private } → { repoUrl }` |
 | `fn('spotlight')` | Evan | Teach view | `{ sessionId, errorKey, helpRequestId? } → { excerpt, fix, errorPreview }` |
-| `fn('digest')` | Andric (content) / Karin (send) | Report view | `{ sessionId, audience: ['tas','absent'] } → { sent, failed }` |
+| `fn('digest')` | Andric (content) / Karin (send) | Report view (Evan) | `{ sessionId, audience: ['tas','absent'] } → { sent, failed }` |
 | `buildReport` | Andric | `end-session` function, seed | `(rows) => sessionReport` |
 
 ---

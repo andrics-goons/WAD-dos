@@ -17,13 +17,14 @@ import { useToastStore } from '@/stores/toast'
  * state for "the row exists but isn't yours".
  * See design-docs/04-pages-routes-and-events.md and 09-integration-contracts.md §4.
  *
+ * NOTE: no route currently sets auth / roles / guest, so every page is reachable
+ * without signing in. The guard below is left in place and inert — adding the meta
+ * back to a route re-enables it.
+ *
  * Deployment: these are history-mode routes on a static host. vercel.json rewrites
  * every path to index.html, or a refresh on /s/:id/code — and the /join/:code link
  * printed in the QR code — would 404 before Vue ever loads.
  */
-const STAFF = ['prof', 'ta']
-const PROF = ['prof']
-
 const routes = [
   // ── Public ────────────────────────────────────────────────────────────────
   {
@@ -36,13 +37,13 @@ const routes = [
     path: '/login',
     name: 'login',
     component: () => import('@/views/LoginView.vue'),
-    meta: { guest: true, title: 'Log in' },
+    meta: { title: 'Log in' },
   },
   {
     path: '/register',
     name: 'register',
     component: () => import('@/views/RegisterView.vue'),
-    meta: { guest: true, title: 'Create an account' },
+    meta: { title: 'Create an account' },
   },
 
   // ── Any signed-in user ────────────────────────────────────────────────────
@@ -50,14 +51,14 @@ const routes = [
     path: '/courses',
     name: 'courses',
     component: () => import('@/views/CoursesView.vue'),
-    meta: { auth: true, title: 'My courses' },
+    meta: { title: 'My courses' },
   },
   {
     path: '/courses/:id',
     name: 'course',
     component: () => import('@/views/CourseView.vue'),
     props: true,
-    meta: { auth: true, title: 'Course' },
+    meta: { title: 'Course' },
   },
   {
     // One record for both /join and /join/:code. The QR code links to /join/<code>,
@@ -66,7 +67,7 @@ const routes = [
     name: 'join',
     component: () => import('@/views/JoinView.vue'),
     props: true,
-    meta: { auth: true, title: 'Join a class' },
+    meta: { title: 'Join a class' },
   },
   {
     // The IDE: WebContainer runtime, file tree, editor, preview, terminal.
@@ -76,26 +77,26 @@ const routes = [
     name: 'workspace',
     component: () => import('@/views/WorkspaceView.vue'),
     props: true,
-    meta: { auth: true, title: 'Workspace' },
+    meta: { title: 'Workspace' },
   },
   {
     path: '/replays',
     name: 'replays',
     component: () => import('@/views/ReplayListView.vue'),
-    meta: { auth: true, title: 'Replays' },
+    meta: { title: 'Replays' },
   },
   {
     path: '/replays/:sessionId',
     name: 'replay',
     component: () => import('@/views/ReplayView.vue'),
     props: true,
-    meta: { auth: true, title: 'Replay' },
+    meta: { title: 'Replay' },
   },
   {
     path: '/profile',
     name: 'profile',
     component: () => import('@/views/ProfileView.vue'),
-    meta: { auth: true, title: 'Profile' },
+    meta: { title: 'Profile' },
   },
 
   // ── Staff (prof / TA) ─────────────────────────────────────────────────────
@@ -104,21 +105,21 @@ const routes = [
     name: 'help-queue',
     component: () => import('@/views/HelpQueueView.vue'),
     props: true,
-    meta: { auth: true, roles: STAFF, title: 'Help queue' },
+    meta: { title: 'Help queue' },
   },
   {
     path: '/help/:requestId',
     name: 'help-review',
     component: () => import('@/views/HelpReviewView.vue'),
     props: true,
-    meta: { auth: true, roles: STAFF, title: 'Help request' },
+    meta: { title: 'Help request' },
   },
   {
     path: '/sessions/:id/report',
     name: 'session-report',
     component: () => import('@/views/ReportView.vue'),
     props: true,
-    meta: { auth: true, roles: STAFF, title: 'Session report' },
+    meta: { title: 'Session report' },
   },
 
   // ── Prof only ─────────────────────────────────────────────────────────────
@@ -127,21 +128,21 @@ const routes = [
     name: 'teach',
     component: () => import('@/views/TeachView.vue'),
     props: true,
-    meta: { auth: true, roles: PROF, title: 'Teach' },
+    meta: { title: 'Teach' },
   },
   {
     path: '/courses/:id/lessons/new',
     name: 'lesson-new',
     component: () => import('@/views/LessonNewView.vue'),
     props: true,
-    meta: { auth: true, roles: PROF, title: 'New lesson' },
+    meta: { title: 'New lesson' },
   },
   {
     path: '/lessons/:id/edit',
     name: 'lesson-edit',
     component: () => import('@/views/LessonEditView.vue'),
     props: true,
-    meta: { auth: true, roles: PROF, title: 'Edit lesson' },
+    meta: { title: 'Edit lesson' },
   },
 
   // ── Catch-all ─────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
 
 ## Entity Overview
 
-Fourteen tables in Supabase Postgres, joined by `uuid` foreign keys. Owner of `supabase/migrations/*` (tables, constraints, indexes): **Dylan**. Owner of RLS policies and the derived views: **Ying Qi**. Others request changes by PR so the schema stays consistent.
+Fourteen tables in Supabase Postgres, joined by `uuid` foreign keys. Owner of the schema — tables, constraints, indexes, triggers, RLS policies and the derived views: **Andric**. Feature owners write their own RPCs in their own new migrations, and Andric reviews every migration PR, so the schema stays consistent.
 
 ```
                   auth.users (Supabase Auth)

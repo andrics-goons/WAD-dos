@@ -240,7 +240,7 @@ Before Q&A: log in first, open pages at 575 px in DevTools with the console visi
 |---|---|---|
 | Why not just use VS Code Live Share? | Evan | Live Share shows the prof's editor to students; it gives the prof no view of the class, no checkpoints to catch up to, no replay |
 | Isn't this surveillance? | Karin | Status only, no keystrokes; staff see code only when a student sends it — enforced by a database policy, not by our good intentions; "I'm lost" is only ever an aggregate; students can see their own data |
-| How does the tile know I'm stuck? | Ying Qi | Errors are caught in your sandbox; Done is your own tap; a database view compares your progress with the latest checkpoint — the state is computed, never stored, so nobody can fake it |
+| How does the tile know I'm stuck? | Andric | Errors are caught in your sandbox; Done is your own tap; a database view compares your progress with the latest checkpoint — the state is computed, never stored, so nobody can fake it |
 | What stops student code from breaking the app? | Dylan | It runs in a WebContainer — a WASM Node sandbox in the browser — and the preview is a separate origin, so it cannot reach our login session, DOM or database. A hung loop hangs that iframe, not the app |
 | Why run Node in the browser at all? | Dylan | So lessons are real projects: real `import`s, a real `pnpm install`, a real dev server. It also gives us compile errors as a dashboard signal, which a plain iframe never could |
 | How do you keep inside Supabase's free tier? | Andric | Only source files cross the network — dependencies come from npm straight to the browser. Reads are cached in IndexedDB and re-checked with a hash, so a rejoin costs almost nothing; autosave sends only the files that changed |

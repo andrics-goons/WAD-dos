@@ -20,26 +20,26 @@ Routes are unchanged by the move to Supabase — the URLs are a UI contract, not
 
 ## Client Pages
 
-Each page lists its owner, who can open it, and how its layout responds. All pages share `AppNavbar` + `AppToast` from Andric's UI kit.
+Each page lists its owner, who can open it, and how its layout responds. All pages share `AppNavbar` + `AppToast` from Ying Qi's UI kit.
 
 | Path | View | Owner | Who | Layout: xs (375–575 px) → lg/xl (≥ 992 px) |
 |---|---|---|---|---|
-| `/` | `LandingView` | Andric | Public | Hero + 3 feature cards stacked → hero left, cards in a row; "Join a class" CTA always visible |
-| `/login`, `/register` | `LoginView`, `RegisterView` | Andric | Public | Full-width card → centred card max 420 px |
-| `/courses` | `CoursesView` | Andric | Logged in | Course cards 1 col → 3 cols; prof sees "New course"; student sees "Enrol with code" |
-| `/courses/:id` | `CourseView` | Andric (shell) + Ray Yien (lesson library) | Staff / enrolled | Tabs (Lessons · Sessions · People) → same tabs, lessons as a table with search |
+| `/` | `LandingView` | Ying Qi | Public | Hero + 3 feature cards stacked → hero left, cards in a row; "Join a class" CTA always visible |
+| `/login`, `/register` | `LoginView`, `RegisterView` | Ying Qi | Public | Full-width card → centred card max 420 px |
+| `/courses` | `CoursesView` | Ying Qi | Logged in | Course cards 1 col → 3 cols; prof sees "New course"; student sees "Enrol with code" |
+| `/courses/:id` | `CourseView` | Ying Qi (shell) + Ray Yien (lesson library) | Staff / enrolled | Tabs (Lessons · Sessions · People) → same tabs, lessons as a table with search |
 | `/courses/:id/lessons/new` | `LessonNewView` | Evan (upload) + Ray Yien (GitHub import tab) | Prof | Stepper: 1 Source → 2 Review files → 3 Review steps |
 | `/lessons/:id/edit` | `LessonEditView` | Evan | Prof | Step list only, editor opens as a sheet → file editor left, draggable step list right |
-| `/join`, `/join/:code` | `JoinView` | Ying Qi | Logged in (redirects to login with `returnTo`) | Big 6-box code input, auto-submits when complete; `/join/:code` pre-fills from QR |
-| `/s/:id/teach` | `TeachView` | Evan (editor, plan, dashboard) + Ying Qi (session bar) | Prof | **xs:** dashboard-first (summary bar, filters, tiles); editor behind a tab. **xl:** editor 8 cols + terminal below; plan + error groups 4 cols; tile grid full width below; join code card collapsible. An **"Announce to class"** box sits in the session bar at every size |
-| `/s/:id/code` | `WorkspaceView` | Dylan (+ Ray Yien's "What you missed" panel) | Enrolled student | **VS Code-style IDE** — see [the layout below](#the-workspace-is-an-ide). **xs:** tabs *Code · Preview · Terminal · Steps*, file tree in an offcanvas, sticky bottom bar with **Done**, **I'm lost**, **Help**. **lg:** file tree rail + editor + preview, terminal docked under. The prof's current announcement shows as a dismissible banner across the top at every size |
+| `/join`, `/join/:code` | `JoinView` | Karin | Logged in (redirects to login with `returnTo`) | Big 6-box code input, auto-submits when complete; `/join/:code` pre-fills from QR |
+| `/s/:id/teach` | `TeachView` | Evan (editor, live preview, plan, dashboard, join code card) + Karin (announce input) | Prof | **xs:** dashboard-first (summary bar, filters, tiles); editor behind a tab. **xl:** editor 8 cols + terminal below; plan + error groups 4 cols; tile grid full width below; join code card collapsible. An **"Announce to class"** box sits in the session bar at every size |
+| `/s/:id/code` | `WorkspaceView` | Dylan (+ Ray Yien's file tree and "What you missed" panel; Karin's announcement banner) | Enrolled student | **VS Code-style IDE** — see [the layout below](#the-workspace-is-an-ide). **xs:** tabs *Code · Preview · Terminal · Steps*, file tree in an offcanvas, sticky bottom bar with **Done**, **I'm lost**, **Help**. **lg:** file tree rail + editor + preview, terminal docked under. The prof's current announcement shows as a dismissible banner across the top at every size |
 | `/s/:id/help` | `HelpQueueView` | Karin | Staff | Queue cards 1 col → queue list left, selected request right |
 | `/help/:requestId` | `HelpReviewView` | Karin | Staff | Stacked: student code, then checkpoint, then reply → side-by-side diff with reply box under |
 | `/replays` | `ReplayListView` | Ray Yien | Logged in | List grouped by course, search box on top |
 | `/replays/:sessionId` | `ReplayView` | Ray Yien | Staff / enrolled | Timeline as horizontal scroller, code below, preview behind a tab → timeline left, code + preview right, notes drawer |
-| `/sessions/:id/report` | `ReportView` | Andric | Staff | Cards stacked; funnel chart scrolls horizontally → 2-col grid: funnel, top errors, recurring steps, digest panel |
-| `/profile` | `ProfileView` | Andric (profile) + Karin (Telegram link card) | Logged in | Single column |
-| `*` | `NotFoundView` | Andric | Public | Friendly 404 with links back |
+| `/sessions/:id/report` | `ReportView` | Evan (page) · Andric (report data) | Staff | Cards stacked; funnel chart scrolls horizontally → 2-col grid: funnel, top errors, recurring steps, digest panel |
+| `/profile` | `ProfileView` | Ying Qi (profile) + Karin (Telegram link card) | Logged in | Single column |
+| `*` | `NotFoundView` | Ying Qi | Public | Friendly 404 with links back |
 
 ### Route guards
 
@@ -177,7 +177,7 @@ All of it goes through `src/api/*.api.js`; components never touch `supabase` dir
 
 > Error groups are **not** a server call. `groupErrors(tiles, …)` runs in the staff browser over the tile list — the same pure function, now client-side.
 
-### Student workspace — `workspace.api.js` (Dylan)
+### Student workspace — `workspace.api.js` (Dylan: status and lost · Ray Yien: files, autosave, catch-up)
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
@@ -319,7 +319,7 @@ Sent only from RPCs and Edge Functions via `realtime.send()`. Clients subscribe;
 | `session:ended` | `{ sessionId, replayUrl }` | Ying Qi |
 | `spotlight:show` | `{ sessionId, errorPreview, excerpt: { path, startLine, code }, fix: { path, startLine, code } }` | Evan |
 | `spotlight:hide` | `{ sessionId }` | Evan |
-| `session:announce` | `{ sessionId, text, at }` — `text: null` clears | Ying Qi |
+| `session:announce` | `{ sessionId, text, at }` — `text: null` clears | Karin |
 
 ### Postgres Changes (rows you are allowed to see)
 
