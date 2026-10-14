@@ -25,7 +25,7 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | Stage | Required pattern |
 |---|---|
 | 1 | Migrations are additive and re-runnable; `supabase db reset` passes from zero; COOP/COEP headers present in dev and on Vercel |
-| 2 | **No table without `enable row level security`**; credentials handled only by Supabase Auth (nothing password-shaped in our tables); views declared `security_invoker = true` |
+| 2 | **No table without `enable row level security`**; credentials handled only by Supabase Auth (nothing password-shaped in our tables); views declared `security_invoker = true`; the sign-up trigger allow-lists the role; every table has an `admin reads all` policy and no other admin policy |
 | 3 | Writes go through RPCs where the client must not decide; broadcasts sent from the RPC, not the client; reconnect re-subscribes and re-reads |
 | 4 | Parser is a pure function in `shared/` with unit tests; prof reviews before saving |
 | 5 | **No `state` column anywhere**; tile state derived in `session_tiles`; staff queries select no code columns; **build errors pass through `parseBuildError()` before `normalizeError()`** |
@@ -171,7 +171,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-PLAT-01 | Register with valid data | E2E | `profiles` row created as `student` by the trigger; lands on `/courses` |
+| T-PLAT-01 | Register as Student, and as Educator | E2E | `profiles.role` is `student` / `prof` respectively, set by the trigger; lands on `/courses` |
 | T-PLAT-02 | Register duplicate email / short password | E2E | zod field errors shown; values kept; Supabase rejects the duplicate |
 | T-PLAT-03 | Login wrong password vs unknown email | DB | Both fail with the same generic message |
 | T-PLAT-04 | Protected page while logged out | E2E | Redirect to `/login?returnTo=…`; after login, back to that page |
@@ -182,6 +182,10 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-09 | **Credentials never touch our schema** | DB | No column in any `public` table holds a password or hash; `auth.users` is not readable with the anon key |
 | T-PLAT-10 | **A student cannot promote themselves** | RLS | `update profiles set role='prof'` on own row is rejected by the policy's `with check` |
 | T-PLAT-11 | Login rate limit | DB | Repeated failures throttled by Supabase Auth (platform-provided) |
+| T-PLAT-12 | **Sign-up role allow-list** | DB | Sign-up metadata `role: 'admin'`, `'ta'`, `'xyz'` or missing → `student`; only `'prof'` → `prof` |
+| T-PLAT-13 | **Editing auth metadata later changes nothing** | RLS | `auth.updateUser({ data: { role: 'prof' } })` after sign-up leaves `profiles.role` = `student` |
+| T-PLAT-14 | **Course uniqueness is per prof** | DB | Two profs can each create "IS216 · AY2026/27 T1 · G2"; the same prof creating it twice → `CONFLICT` |
+| T-PLAT-15 | **A prof never sees another prof's course** | RLS | Prof B selecting Prof A's course, lessons or sessions gets zero rows |
 
 ### LESSON — Lessons & plan · `lessons.spec.js`, `todo-parser.test.js`
 
@@ -381,6 +385,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-INS-05 | Report has no per-student data | DB | No `student_id` anywhere in the row |
 | T-INS-06 | Digest to TAs and absent students | E2E | `test_outbox`: TA summary + messages only to linked, absent students |
 | T-INS-07 | Student reads a report | RLS | Zero rows |
+| T-INS-08 | **Trends stay inside one prof's courses** | DB | With two profs teaching a same-titled lesson, each prof's `lesson_trends` includes only their own sessions |
 
 ### PRIV — Privacy by design · `privacy.spec.js`, `tests/unit/rls/*`
 
@@ -391,13 +396,31 @@ The section the architecture change affects most. Each rule that used to be "no 
 | T-PRIV-01 | Tile and summary payloads contain no code | DB | `session_tiles` / `session_summary` expose no `files` column at all |
 | T-PRIV-02 | **Staff read a student's autosave** | RLS | Zero rows — the `snapshots` policy only admits help-request snapshots |
 | T-PRIV-03 | Staff read a snapshot through a help request | RLS | Exactly one row (the student sent it) |
-| T-PRIV-04 | **Lost identity never retrievable** | RLS | Staff reading `student_status.lost` get zero rows; `session_summary.lost_count` is an aggregate |
-| T-PRIV-05 | Notes private | RLS | Another user's note is invisible |
+| T-PRIV-04 | **Lost identity never retrievable by staff** | RLS | Staff reading `student_status.lost` get zero rows; `session_summary.lost_count` is an aggregate (admins can read it — T-ADM-07) |
+| T-PRIV-05 | Notes private | RLS | Another non-admin user's note is invisible |
 | T-PRIV-06 | **Every `public` table has RLS enabled** | RLS | `tables_without_rls()` returns empty |
 | T-PRIV-07 | **Every view uses `security_invoker`** | RLS | A view without it would leak all sessions; assert none exist |
 | T-PRIV-08 | No keystroke logging | Review | Status written only on change + 30 s heartbeat |
 | T-PRIV-09 | **No build-error code frame reaches staff** | Unit+DB | Real Vite error output → `student_status.error` holds the message only; no source line appears in `session_tiles` |
 | T-PRIV-10 | **Terminal output never persisted** | DB | No table holds `pnpm install` or dev-server text |
+
+### ADM — Admin · `admin.spec.js`, `tests/unit/rls/admin.test.js`
+
+Admins read everything and write only accounts. Most of these are negative tests, because the risk with an all-seeing role is an admin power leaking somewhere it shouldn't.
+
+| ID | Test | Layer | Expected |
+|---|---|:---:|---|
+| T-ADM-01 | Student, TA or prof calls `admin_list_users` / `admin_set_role` / `admin-users` | RLS | `FORBIDDEN` for all three |
+| T-ADM-02 | Admin lists users | DB | Every account, with email, role and disabled state |
+| T-ADM-03 | Admin changes a user's role | DB | Role updated; one `admin_audit` row with from/to |
+| T-ADM-04 | **Admin changes their own role** | DB | `BAD_REQUEST`; role unchanged |
+| T-ADM-05 | Admin disables an account | E2E | That user can no longer sign in; re-enabling restores it; both audited |
+| T-ADM-06 | **Admin disables themselves** | DB | Refused |
+| T-ADM-07 | Admin reads any table | RLS | Snapshots, notes, `student_status.lost` and another prof's course all readable |
+| T-ADM-08 | **Admin cannot act inside a course** | RLS | `save_checkpoint`, `claim_help_request`, lesson updates and course edits by an admin → `FORBIDDEN` or zero rows |
+| T-ADM-09 | **Policy sweep** | RLS | Every `public` table has exactly one `admin reads all` `select` policy, and no admin policy for any other command |
+| T-ADM-10 | Logged-out caller is never an admin | RLS | `is_admin()` is `false` (not `null`) for the anon key |
+| T-ADM-11 | Admin users page at 375 px and 1280 px | E2E `@responsive` | Cards on xs, table on lg; the admin's own row has role and disable locked |
 
 ### RESP — Responsive (Chrome) · tagged `@responsive`
 
@@ -445,7 +468,7 @@ The section the architecture change affects most. Each rule that used to be "no 
 
 | Area | Count | Main stage |
 |---|---:|---|
-| PLAT | 11 | 2 |
+| PLAT | 15 | 2 |
 | LESSON + TODO | 14 | 4 |
 | SESS | 18 | 3 |
 | SBX | 23 | 3 |
@@ -457,14 +480,15 @@ The section the architecture change affects most. Each rule that used to be "no 
 | TG | 5 | 7 |
 | REPLAY | 7 | 8 |
 | GH | 6 | 8 |
-| INS | 7 | 10 |
+| INS | 8 | 10 |
 | PRIV | 10 | 5–9 |
+| ADM | 11 | 2 |
 | RESP | 6 | 11 |
 | VALID | 8 | 11 |
 | LOAD + SEED + SMOKE | 9 | 11–12 |
-| **Total** | **181** | |
+| **Total** | **197** | |
 
-Up from 137 in the Mongo design: 15 came from authorization moving into the database (RLS negative tests — the cheapest in the suite, a sign-in and an `expect(data).toEqual([])`), and 17 more from the WebContainer runtime (boot, install, build errors, the file cache, delta autosave, and the two privacy tests that keep code frames and terminal output out of the dashboard), plus 12 for help follow-ups and class announcements.
+Up from 137 in the Mongo design: 15 came from authorization moving into the database (RLS negative tests — the cheapest in the suite, a sign-in and an `expect(data).toEqual([])`), and 17 more from the WebContainer runtime (boot, install, build errors, the file cache, delta autosave, and the two privacy tests that keep code frames and terminal output out of the dashboard), plus 12 for help follow-ups and class announcements, and 16 for sign-up roles, per-prof courses and the admin role.
 
 **Must be green for the video:** every E2E test tagged on a MUST feature (PLAT, LESSON, SESS, SBX, STAT, DASH, CATCH, HELP, REPLAY, PRIV, RESP, VALID).
 

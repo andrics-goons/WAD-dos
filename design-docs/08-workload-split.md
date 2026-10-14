@@ -22,11 +22,13 @@ After the Supabase + WebContainer rewrites, Dylan's card was carrying more than 
 | Member | Before | After |
 |---|---:|---:|
 | Dylan | ~40 | ~25 |
-| Andric | ~27 | ~23 |
+| Andric | ~27 | ~23 → **~28** after the sign-up-role and admin additions |
 | Ying Qi | ~23 | ~24 |
 | Ray Yien | ~16 | ~24 |
 | Evan | ~16 | ~24 |
 | Karin | ~18 | ~24 |
+
+**Andric's card grew after the rebalance** — sign-up roles and the admin role (about +5) both belong to auth, so they went to its owner. It is now the heaviest by points; the admin page is the first thing to hand to Ying Qi if it runs late, since it is plain UI on top of his functions.
 
 **Watch Evan's card.** It is level on points but carries the most *risk*: the Tier 3 algorithm (error grouping), the heaviest page (the teach view) and now the report page. If anything slips, the report page is the first thing to hand to Ying Qi — its charts are built on her UI kit anyway.
 
@@ -130,7 +132,7 @@ Items marked **(moved)** changed owner in the [Week 8 rebalance](#rebalance-week
 | Client channel wrapper + session store | `src/realtime/sessionChannel.js`, `src/stores/session.js` | ⬜ |
 | **Vue app shell, router + guards, auth/courses stores** **(moved)** | `src/main.js`, `App.vue`, `router/index.js`, `stores/auth.js`, `stores/courses.js` | ⬜ |
 | **UI kit + tokens** (navbar, toast, modal, empty state, status pill) **(moved)** | `components/ui/*`, `styles/tokens.css` | ⬜ |
-| **Landing, login, register, courses, course page shell, profile, 404** **(moved)** | `views/*` (those pages) | ⬜ |
+| **Landing, login, register, courses, course page shell, profile, 404** **(moved)** — register includes the **Student / Educator** choice | `views/*` (those pages) | ⬜ |
 | **Responsive + consistency review** — every PR's 375 px and 1280 px screenshots **(moved)** | — | ⬜ |
 | **Vercel deployment**: `vercel.json` (SPA rewrite + COOP/COEP headers), env vars **(moved)** | `vercel.json` | ⬜ |
 | **Independent `tables_without_rls()` sweep** + its test **(moved)** | `tests/unit/rls/schema.test.js` | ⬜ |
@@ -266,9 +268,13 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | Report builder + `end-session` function + trends RPC (the page is Evan's) | `shared/report-builder.js`, `supabase/functions/end-session/` | ⬜ |
 | Seed data + `seed:generate` (uses Evan's Mini Cart fixture) | `supabase/seed.sql`, `scripts/seed-generate.js` | ⬜ |
 | Keep-alive cron so the free-tier project can't pause before Week 18 | GitHub Actions cron | ⬜ |
-| Tests | T-PLAT-03, 09–11 · T-STAT-07–09, 11, 12 · T-PRIV-01–05, 08 · T-INS-01–03, 05–07 · T-VAL-01, 06–08 · T-SEED-* · RLS suite | ⬜ |
+| **Sign-up role choice**: trigger allow-list (`prof`, else `student`) + `register({ role })` **(new)** | sign-up migration, `src/api/auth.api.js` | ⬜ |
+| **Admin role**: `app_role()` / `is_admin()`, one `admin reads all` policy per table, `admin_audit` **(new)** | `0002_helpers.sql`, `0003_rls.sql`, new migration | ⬜ |
+| **Admin user management**: `admin_list_users`, `admin_set_role`, `admin-users` Edge Function **(new)** | new migration, `supabase/functions/admin-users/`, `src/api/admin.api.js` | ⬜ |
+| **Admin users page** — your one Vue page **(new)** | `views/AdminUsersView.vue` | ⬜ |
+| Tests | T-PLAT-03, 09–15 · T-STAT-07–09, 11, 12 · T-PRIV-01–05, 08 · T-INS-01–03, 05–08 · T-VAL-01, 06–08 · T-SEED-* · T-ADM-* · RLS suite | ⬜ |
 
-**Boundary:** owns the whole database contract — every table, policy, view and trigger — plus auth, the accounts/courses data layer, the insights data and the seed. Builds no pages. Others request schema changes by PR to Andric.
+**Boundary:** owns the whole database contract — every table, policy, view and trigger — plus auth, sign-up roles, the admin role, the accounts/courses data layer, the insights data and the seed. Builds one page: `/admin/users`. Others request schema changes by PR to Andric.
 **Hands to others:** the tables and views, `mapError()`, `auth.api` / `courses.api`, and `session_reports` for Evan's report page.
 **Watch out:** your policies are the privacy contract in [09](./09-integration-contracts.md#5-privacy-contract-our-unique-feature--every-pr-is-checked-against-this). A missing `enable row level security` is a security bug, not a style issue — and Ying Qi's independent sweep is there to catch exactly that.
 
