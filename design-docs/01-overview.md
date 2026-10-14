@@ -51,7 +51,7 @@ Every item below comes from the IS216 Group Project Briefing and the Project Q&A
 | 2 | Use HTML, CSS and JavaScript (Briefing) | Vue 3 single-file components (HTML templates + JS), Bootstrap 5 + our own CSS tokens — see [02-tech-stack.md](./02-tech-stack.md) |
 | 3 | *Suggested:* CSS framework + JS framework, JSON (Briefing) | Bootstrap 5, Vue 3 + Vue Router + Pinia, JSON/JSONB throughout |
 | 4 | Responsive design following IDP UI patterns (Briefing) | Every page has a defined layout from iPhone 6 (375 px) to Bootstrap XL (≥ 1200 px) — see [04-pages-routes-and-events.md](./04-pages-routes-and-events.md#client-pages) |
-| 5 | Dynamic site with a backend data store (Briefing) | Supabase Postgres (14 tables, RLS) + Supabase Realtime + 8 Edge Functions — see [03-data-model.md](./03-data-model.md) |
+| 5 | Dynamic site with a backend data store (Briefing) | Supabase Postgres (15 tables, RLS) + Supabase Realtime + 9 Edge Functions — see [03-data-model.md](./03-data-model.md) |
 | 6 | Meaningful use of ≥ 1 external public API via async HTTP (Briefing) | **Telegram Bot API** (TA pings, digests) and **GitHub REST API** (starter-code import, replay export, one commit per step). LLM API is Keep-In-View — see [05-core-logic.md](./05-core-logic.md) |
 | 7 | At least end-to-end testing of core features (Briefing) | Playwright E2E with multi-browser-context tests (prof + students in one test), plus Vitest unit tests for core logic — see [06-stages-and-tests.md](./06-stages-and-tests.md) |
 | 8 | Displays properly in Chrome; responsive checked in Chrome DevTools from iPhone 6 to Bootstrap XL (FAQ 5, 17) | Responsive pass is a stage gate; Playwright runs a 375 px and a 1280 px project |
@@ -167,6 +167,9 @@ Priorities follow the latest proposal (self-marking + automatic error detection 
 | `steps` is its own table | Four tables reference a step by id, and a foreign key needs a real target; reordering stays atomic inside `rpc('replace_steps')` |
 | **Tile state is derived, never stored** | The student's own browser writes their status row, so a stored `state` would be forgeable. `session_tiles` computes it in SQL — and a new checkpoint re-classifies all 40 students with zero writes |
 | **Authorization lives in RLS, not in handlers** | The anon key ships in the browser bundle, so policies are the only boundary — which also means no handler can forget a check, and the privacy rule is expressed once per table |
+| **Users choose Student or Educator at sign-up** | Educators shouldn't need someone to create their account. It's safe because a prof's power is per course: being a prof lets you create *your own* course, never see anyone else's |
+| **Courses belong to one prof** | Each course has a single owner; uniqueness and insights trends are scoped per prof, so profs never collide with or see each other |
+| **Admins read everything, write only accounts** | Someone has to fix mis-picked roles and disabled accounts, and see the whole system. Writes stay limited to user management so an admin can't accidentally act inside a class. The privacy promise is therefore scoped to *course staff*: "the prof can't see your code unless you send it" |
 | Self-marking + auto error detection as baseline; auto step checks as stretch | Automatic checking is the riskiest part — the app is complete without it |
 | **Only source files cross the network** | Dependencies come from npm straight to the browser, so `node_modules` never touches Supabase. Reads are cached in IndexedDB behind a content hash and autosave uploads only changed files — which is how a 5 GB free tier is enough |
 | Local Supabase stack + mocked external APIs in E2E | A real Postgres with the real policies, reset by migration; tests never burn API quota |

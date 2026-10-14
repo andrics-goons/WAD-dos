@@ -2,7 +2,7 @@
 
 ## Entity Overview
 
-Fourteen tables in Supabase Postgres, joined by `uuid` foreign keys. Owner of the schema — tables, constraints, indexes, triggers, RLS policies and the derived views: **Andric**. Feature owners write their own RPCs in their own new migrations, and Andric reviews every migration PR, so the schema stays consistent.
+Fifteen tables in Supabase Postgres (plus a test-only outbox), joined by `uuid` foreign keys. Owner of the schema — tables, constraints, indexes, triggers, RLS policies and the derived views: **Andric**. Feature owners write their own RPCs in their own new migrations, and Andric reviews every migration PR, so the schema stays consistent.
 
 ```
                   auth.users (Supabase Auth)
@@ -29,6 +29,17 @@ Fourteen tables in Supabase Postgres, joined by `uuid` foreign keys. Owner of th
                 │status_history│        session_tiles    ← derives tile state
                 └──────────────┘        session_summary  ← counts + lost_count only
 ```
+
+**How a course is organised.** Every course belongs to the one prof who created it (`courses.owner_id`) and is invisible to anyone who isn't in it. Inside it:
+
+```
+Course  (one prof, their TAs, their enrolled students)
+ ├── Lessons    the reusable plans: starter files + ordered steps
+ └── Sessions   every live class the prof has started in this course — each one a run of a lesson
+       └── checkpoints, statuses, snapshots, help requests, notes, report
+```
+
+A session points at **both** its lesson (what was taught) and its course (`sessions.course_id`), so the course page can list every session started in it, live and past, without going through lessons. Lessons sit in between so the same plan can be taught again — next week to another section, or next term — and the runs compared in the insights report.
 
 **Changes from the MongoDB design** (read this before you port anything):
 
@@ -95,7 +106,7 @@ One row per account, created by the `on_auth_user_created` trigger in [09](./09-
 |---|---|---|
 | `id` | `uuid` PK → `auth.users(id)` on delete cascade | Same id as the auth user |
 | `name` | `text not null check (char_length(name) between 2 and 60)` | Display name |
-| `role` | `text not null default 'student' check (role in ('prof','ta','student'))` | Account type |
+| `role` | `text not null default 'student' check (role in ('student','ta','prof','admin'))` | Account type. Set at sign-up to `student` or `prof` (the user's choice — "Educator" in the UI); `ta` comes only from `add_course_staff`; `admin` only from the seed or another admin |
 | `telegram_chat_id` | `text` | Set when the user links the bot |
 | `telegram_link_code` | `text unique` | One-time code |
 | `telegram_link_code_expires_at` | `timestamptz` | 10 minutes after issue |
@@ -121,7 +132,13 @@ create policy "update own profile" on profiles for update
   with check (id = auth.uid() and role = (select role from profiles where id = auth.uid()));
 ```
 
-> The `with check` clause on that last policy is what makes "there is no self-service path to `prof`" true. Promotion happens only inside `rpc('add_course_staff')`, which is `security definer`.
+> **How roles are assigned.**
+> - **At sign-up the user picks Student or Educator.** The sign-up trigger in [09 §2](./09-integration-contracts.md#2-auth) reads that choice from the sign-up metadata through an allow-list: `prof` is accepted, and *anything* else — missing, `ta`, `admin`, junk — becomes `student`. The browser sends that metadata, so the trigger never trusts it beyond the allow-list.
+> - **After sign-up the role is locked.** The `with check` clause on the update policy above rejects any change to your own role, so a student cannot later promote themselves and a mis-click on "Educator" cannot be undone by the user — an admin fixes it.
+> - **`ta`** is granted per course by its prof, through `rpc('add_course_staff')`.
+> - **`admin`** is never self-selectable: it comes from `seed.sql`, from one SQL statement run by the project owner on the cloud project, or from another admin via `rpc('admin_set_role')`.
+>
+> Policies must read the role from `profiles`, **never** from the user's auth metadata or token: a user can edit their own auth metadata at any time with `auth.updateUser({ data })`. The trigger is safe only because it reads that metadata once, at sign-up.
 
 ---
 
@@ -139,7 +156,9 @@ create policy "update own profile" on profiles for update
 | `archived` | `boolean not null default false` | Archived courses are read-only |
 | `created_at` | `timestamptz default now()` | |
 
-**Indexes:** `unique (code, term, section)`; `unique (enrol_code)`.
+**Indexes:** `unique (owner_id, code, term, section)`; `unique (enrol_code)`.
+
+Courses are **per prof**, not global. The uniqueness rule includes `owner_id`, so it only stops a prof duplicating *their own* course — two profs can both run "IS216 · AY2026/27 T1 · G2" without colliding, or learning that the other exists. `enrol_code` stays unique system-wide on purpose: it is the lookup key a student types, so two courses cannot share one.
 
 ### course_staff / course_students
 
@@ -159,7 +178,7 @@ create policy "members read course" on courses for select
   using (public.is_course_member(id));
 
 create policy "prof creates course" on courses for insert
-  with check (owner_id = auth.uid() and public.current_role() = 'prof');
+  with check (owner_id = auth.uid() and public.app_role() = 'prof');
 
 create policy "owner edits course" on courses for update using (owner_id = auth.uid());
 create policy "owner deletes course" on courses for delete using (owner_id = auth.uid());
@@ -644,6 +663,69 @@ Created in a migration guarded so it is never applied to the production project,
 
 ---
 
+## Admin
+
+An **admin** manages user accounts and can **read everything** in the system. Admins cannot *act* in a course — they cannot start sessions, save checkpoints, claim help requests or edit lessons — because every one of those writes goes through an RPC or policy that checks course membership, and admin access is deliberately read-only outside user management.
+
+### Helpers
+
+```sql
+-- The caller's account role. Named app_role, NOT current_role: `current_role` without
+-- a schema prefix is a built-in Postgres keyword that returns the *database* role
+-- ('authenticated', 'postgres'), so a missing `public.` would silently compare
+-- against the wrong thing.
+create function public.app_role() returns text
+language sql security definer stable set search_path = '' as $$
+  select role from public.profiles where id = auth.uid()
+$$;
+
+create function public.is_admin() returns boolean
+language sql security definer stable set search_path = '' as $$
+  select coalesce(public.app_role() = 'admin', false)
+$$;
+```
+
+Both are `security definer` for the same reason as every other helper: they read `profiles`, and they are called from policies **on** `profiles`, which would otherwise call themselves in a loop. `is_admin()` coalesces to `false`, so a logged-out caller (whose role is `null`) is never mistaken for an admin.
+
+### Read access: one extra policy per table
+
+Rather than editing every existing policy, each table gets **one additional `select` policy**. Policies combine with OR, so the existing rules are untouched and admin access is a single, greppable line per table:
+
+```sql
+create policy "admin reads all" on public.<table> for select using (public.is_admin());
+-- applied to every table in public, plus the Realtime channel policy on realtime.messages
+```
+
+There is **no** admin `insert` / `update` / `delete` policy on any table. Admin writes happen only through the functions below. The schema sweep test checks both halves: every table has an `admin reads all` policy, and no admin policy exists for any other command.
+
+### Managing users
+
+| Action | Mechanism | Notes |
+|---|---|---|
+| List every user — name, email, role, joined, disabled | `rpc('admin_list_users')` | Emails live in `auth.users`, which the browser cannot read; this `security definer` function joins them in after checking `is_admin()` |
+| Change a user's role | `rpc('admin_set_role', user_id, role)` | Validates the role, refuses to change the caller's own role, writes an audit row |
+| Disable / re-enable an account | Edge Function `admin-users` → Supabase's auth admin API (`ban_duration`) | Needs the service-role key, so it is an Edge Function. **Disable, never delete**: other tables reference users without cascading, and deleting a user with class history would either fail or rewrite past reports. A disabled user's current session lasts until its token expires (≤ 1 hour) |
+| Send a password-reset email | Edge Function `admin-users` | For users locked out of their account |
+
+**"You can't change your own role"** (and can't disable yourself) is the only lock-out guard needed: only an admin can demote or disable an admin, and nobody can do it to themselves, so at least one working admin always remains.
+
+All admin guards use `is distinct from` / `is_admin()`, never `<> 'admin'`: for a logged-out caller the role is `null`, and `null <> 'admin'` is `null`, which a guard would treat as *not* blocked.
+
+### `admin_audit`
+
+| Column | Type |
+|---|---|
+| `id` | `bigint generated always as identity` PK |
+| `actor_id` | `uuid not null → profiles` |
+| `action` | `text not null` — `set_role`, `disable`, `enable`, `reset_password` |
+| `target_id` | `uuid → profiles` |
+| `detail` | `jsonb` — e.g. `{ "from": "prof", "to": "student" }` |
+| `at` | `timestamptz not null default now()` |
+
+Readable only by admins; written only by the admin functions. **Admin writes are audited; admin reads are not** — Postgres has no trigger on `select`, so "which admin looked at which snapshot" is not recorded. That is a known limit of this design, stated in the README.
+
+---
+
 ## Delete Cascades
 
 Handled by `on delete cascade` on the foreign keys, so there is no controller-side cascade to forget.
@@ -659,30 +741,33 @@ Handled by `on delete cascade` on the foreign keys, so there is no controller-si
 
 ## Authorization Matrix
 
-Unchanged as a specification — this is still the contract. What changed is *where* it is enforced: RLS policies and `security definer` RPCs rather than controller checks.
+The contract, enforced by RLS policies and `security definer` RPCs. **Admin** is a platform-operator account, not a course role: it reads everything, writes only user accounts.
 
-| Action | Student (enrolled) | TA (staff) | Prof (staff) |
-|---|:---:|:---:|:---:|
-| Register / log in / edit own profile / link Telegram | ✅ | ✅ | ✅ |
-| Enrol in a course with `enrol_code` | ✅ | — | — |
-| View course + lesson library | ✅ | ✅ | ✅ |
-| **Create / edit / archive** course | ❌ | ❌ | ✅ (owner) |
-| Add TA to course | ❌ | ❌ | ✅ (owner) |
-| **Create / edit / delete** lesson, edit steps, import from GitHub | ❌ | ❌ | ✅ |
-| Start / end a live session, save checkpoints, Spotlight | ❌ | ❌ | ✅ |
-| Post / clear a class announcement | ❌ | ❌ | ✅ |
-| Join a live session | ✅ | ✅ (as staff) | ✅ |
-| Report own status, tap Done, toggle "I'm lost", autosave, catch up | ✅ | — | — |
-| View class dashboard (tiles, counts, error groups) | ❌ | ✅ | ✅ |
-| See which student tapped "I'm lost" | ❌ | ❌ | ❌ (nobody — it is an aggregate) |
-| Send Check my work / Ask for help | ✅ | — | — |
-| Follow up on own replied request (max 3) | ✅ | — | — |
-| View help queue, claim, pass, reply, resolve | ❌ | ✅ | ✅ |
-| View a student's code | ❌ | Only via a help request the student sent | Only via a help request the student sent |
-| View replay of a session | ✅ (if enrolled) | ✅ | ✅ |
-| Notes / bookmarks | Own only | Own only | Own only |
-| Export replay to GitHub | ✅ (own account) | ✅ | ✅ |
-| View insights report, send Telegram digest | ❌ | ✅ view | ✅ view + send |
+| Action | Student (enrolled) | TA (staff) | Prof (staff) | Admin |
+|---|:---:|:---:|:---:|:---:|
+| Register (as Student or Educator) / log in / edit own profile / link Telegram | ✅ | ✅ | ✅ | ✅ |
+| Enrol in a course with `enrol_code` | ✅ | — | — | — |
+| View course + lesson library | ✅ | ✅ | ✅ | ✅ (every course) |
+| **Create / edit / archive** course | ❌ | ❌ | ✅ (own courses only) | ❌ |
+| Add TA to course | ❌ | ❌ | ✅ (owner) | ❌ |
+| **Create / edit / delete** lesson, edit steps, import from GitHub | ❌ | ❌ | ✅ | ❌ |
+| Start / end a live session, save checkpoints, Spotlight | ❌ | ❌ | ✅ | ❌ |
+| Post / clear a class announcement | ❌ | ❌ | ✅ | ❌ |
+| Join a live session | ✅ | ✅ (as staff) | ✅ | — |
+| Report own status, tap Done, toggle "I'm lost", autosave, catch up | ✅ | — | — | — |
+| View class dashboard (tiles, counts, error groups) | ❌ | ✅ | ✅ | ✅ (read-only) |
+| See which student tapped "I'm lost" | ❌ | ❌ | ❌ | ✅ |
+| Send Check my work / Ask for help | ✅ | — | — | — |
+| Follow up on own replied request (max 3) | ✅ | — | — | — |
+| View help queue | ❌ | ✅ | ✅ | ✅ (read-only) |
+| Claim, pass, reply, resolve help requests | ❌ | ✅ | ✅ | ❌ |
+| View a student's code | ❌ | Only via a help request the student sent | Only via a help request the student sent | ✅ any |
+| View replay of a session | ✅ (if enrolled) | ✅ | ✅ | ✅ |
+| Notes / bookmarks | Own only | Own only | Own only | Read all |
+| Export replay to GitHub | ✅ (own account) | ✅ | ✅ | — |
+| View insights report, send Telegram digest | ❌ | ✅ view | ✅ view + send | ✅ view |
+| **List users, change roles, disable accounts, send password resets** | ❌ | ❌ | ❌ | ✅ |
+| Change own role | ❌ | ❌ | ❌ | ❌ |
 
 ---
 
@@ -692,9 +777,9 @@ Each rule exists **twice**: a zod schema in `src/validators/` for the per-field 
 
 | Form / payload | Required | Rules | Backstop |
 |---|---|---|---|
-| Register | name, email, password | email format; password ≥ 8 | Supabase Auth |
+| Register | name, email, password, role choice | email format; password ≥ 8; role is Student or Educator | Supabase Auth + the trigger's allow-list (`prof`, else `student`) |
 | Login | email, password | generic "Invalid email or password" | Supabase Auth (rate-limited by the platform) |
-| Course | code, title, term, section | code uppercase A–Z0–9 | `unique (code, term, section)` |
+| Course | code, title, term, section | code uppercase A–Z0–9 | `unique (owner_id, code, term, section)` — per prof |
 | Lesson | title, files, entry_file | 1–40 files; safe paths; `entry_file` exists; ≤ 200 KB | `files_valid()` + `octet_length` check + trigger |
 | Step edit | title | order unique and contiguous | `unique (lesson_id, "order")` + `replace_steps` |
 | GitHub import | repo URL | `https://github.com/<owner>/<repo>[/tree/<ref>/<dir>]`; only `.html/.css/.js/.json/.md` | `github-import` function |

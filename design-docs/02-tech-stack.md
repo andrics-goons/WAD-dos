@@ -2,7 +2,7 @@
 
 ## Technology Stack
 
-**Shape of the system:** a Vue 3 single-page app on Vercel talking straight to Supabase (Postgres + Auth + Realtime), plus eight Edge Functions for the jobs that need secrets or elevated rights. There is no Express server, no Socket.IO and no Node process to host.
+**Shape of the system:** a Vue 3 single-page app on Vercel talking straight to Supabase (Postgres + Auth + Realtime), plus nine Edge Functions for the jobs that need secrets or elevated rights. Student code runs in a **StackBlitz WebContainer** — real Node, in the student's own browser. There is no Express server, no Socket.IO and no Node process of ours to host.
 
 | Layer | Technology | Why | Course link |
 |---|---|---|---|
@@ -34,7 +34,7 @@ That was the original plan (IS113 stack). We moved to Supabase because three thi
 
 - **Our privacy promise became enforceable.** "Staff never see a student's code unless they sent it" used to be a check each controller had to remember. It is now one RLS policy on `snapshots` that applies to every query automatically.
 - **No long-running process to deploy.** Socket.IO needs a persistent Node server, which rules out most free hosting and needs WebSocket support on a load balancer. Supabase Realtime removes that entirely.
-- **Much less code to finish by Week 12.** The whole `models/`, `controllers/`, `middleware/`, `validators/` and `sockets/` layer — roughly 66 REST endpoints — collapses into direct queries plus 11 RPCs and 8 functions.
+- **Much less code to finish by Week 12.** The whole `models/`, `controllers/`, `middleware/`, `validators/` and `sockets/` layer — roughly 66 REST endpoints — collapses into direct queries plus a set of RPCs and 9 functions.
 - **What got worse:** the anon key ships in the browser bundle, so a table without RLS is readable by anyone. RLS is no longer an optimisation, it is the entire security boundary. Hence the hard rule in [09](./09-integration-contracts.md#4-authorization-layering): no table lands without policies and a negative test.
 
 ### Why not React / plain HTML pages?
@@ -110,10 +110,10 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   ├── config.toml
 │   ├── migrations/              ← schema owned by Andric; each feature owner adds their own RPC migrations
 │   │   ├── 0001_tables.sql
-│   │   ├── 0002_helpers.sql     ← current_role(), is_course_staff(), is_session_member(), files_valid()
+│   │   ├── 0002_helpers.sql     ← app_role(), is_admin(), is_course_staff(), is_session_member(), files_valid()
 │   │   ├── 0003_rls.sql         ← a policy per table per command
 │   │   ├── 0004_views.sql       ← session_tiles, session_summary (security_invoker)
-│   │   ├── 0005_rpc.sql         ← the 11 security-definer functions
+│   │   ├── 0005_rpc.sql         ← security-definer functions (each feature owner adds their own)
 │   │   └── 0006_triggers.sql    ← new-user profile, status_history, broadcast on checkpoint
 │   ├── functions/               ← Deno; one folder per function
 │   │   ├── _shared/cors.ts, supabaseAdmin.ts, outbox.ts
@@ -124,7 +124,8 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   │   ├── spotlight/           ← Evan — anonymised excerpt
 │   │   ├── end-session/         ← Andric — builds the report (invoked by DB webhook)
 │   │   ├── digest/              ← Andric content, Karin send
-│   │   └── hint/                ← Karin (COULD)
+│   │   ├── hint/                ← Karin (COULD)
+│   │   └── admin-users/         ← Andric — disable / enable / password reset, admin only
 │   └── seed.sql                 ← demo data (07-seed-and-demo.md); applied by `supabase db reset`
 │
 ├── scripts/

@@ -18,6 +18,8 @@ All names below are fictional — don't use classmates' names in submitted data.
 | 6 | Chen Wei | `chen@codealong.test` | student | Enrolled — third live laptop |
 | 7–14 | Dana, Eli, Faye, Gus, Hana, Ivan, Jae, Kim | `<first>@codealong.test` | student | Enrolled — appear in the past session |
 | 15 | Zoe Ng | `zoe@codealong.test` | student | **Not** enrolled — for the "not in this course" check |
+| 16 | Prof Tan | `prof.tan@codealong.test` | prof | Owns a **different** course (IS216 G1) — proves profs can't see each other's courses (T-PLAT-14/15, T-INS-08) |
+| 17 | Ada Admin | `admin@codealong.test` | admin | The one admin account. Keep it to one: admins can read everything, including students' code |
 
 > These credentials go in the README (the briefing asks for any username/password details there). Passwords are hashed by Supabase Auth — we never store or hash a password ourselves.
 
@@ -28,6 +30,8 @@ All names below are fictional — don't use classmates' names in submitted data.
 | IS216 | Web Application Development II | AY2026/27 T1 | G2 | `WAD2G2` | Prof Lee, Ana, Ben | Alex … Kim (11) |
 
 A second course, **IS216 G2 · AY2025/26 T1** (archived), holds one past session of the same lesson so "recurring trouble steps across terms" has data.
+
+A third course, **IS216 G1 · AY2026/27 T1**, belongs to **Prof Tan** and holds one past session of a same-titled Mini Cart lesson. It exists to prove the per-prof boundary: Prof Lee must never see it, and Prof Lee's trends must never count its sessions.
 
 ### Seed lesson: "Week 6 · Mini Cart" (status `ready`)
 
@@ -100,9 +104,11 @@ values
   -- … 13 more, fixed uuids so every other insert can reference them
   ;
 
--- 2. Promote the two accounts that cannot be created by self-registration
-update public.profiles set role = 'prof' where id = '…0001';
-update public.profiles set role = 'ta'   where id in ('…0002', '…0003');
+-- 2. Roles. Profs could self-register as Educators, but the seed sets them directly
+--    so they exist with fixed ids. TAs and the admin can never be self-registered.
+update public.profiles set role = 'prof'  where id in ('…0001', '…0016');
+update public.profiles set role = 'ta'    where id in ('…0002', '…0003');
+update public.profiles set role = 'admin' where id = '…0017';
 
 -- 3. Courses (current + archived last term), course_staff, course_students
 -- 4. Lesson from the Mini Cart fixture + its 8 steps
@@ -203,7 +209,7 @@ Every member presents the part they built (check your section's rule on who must
 | Slide | Content |
 |---|---|
 | Architecture | Vue 3 + Pinia + Bootstrap ↔ `supabase-js` ↔ Supabase Postgres + Realtime + Edge Functions; **StackBlitz WebContainer running the student's project in-browser**; Telegram + GitHub APIs. No server of our own |
-| Data store | 14 Postgres tables and what's in each; **the RLS policy that is the privacy rule** — show the `snapshots` policy on screen |
+| Data store | 15 Postgres tables and what's in each; **the RLS policy that is the privacy rule** — show the `snapshots` policy on screen |
 | Responsive & styling | Breakpoint table; workspace tabs vs panes; tokens; colour + icon + label |
 | Testing | Playwright run with prof + 3 students in one test (clip of the HTML report), 137 tests, unit tests for core logic |
 | Credits & AI use | Libraries table; what AI was (and wasn't) used for |
@@ -239,7 +245,8 @@ Before Q&A: log in first, open pages at 575 px in DevTools with the console visi
 | Likely question | Who answers | Short answer |
 |---|---|---|
 | Why not just use VS Code Live Share? | Evan | Live Share shows the prof's editor to students; it gives the prof no view of the class, no checkpoints to catch up to, no replay |
-| Isn't this surveillance? | Karin | Status only, no keystrokes; staff see code only when a student sends it — enforced by a database policy, not by our good intentions; "I'm lost" is only ever an aggregate; students can see their own data |
+| Isn't this surveillance? | Karin | Status only, no keystrokes; **course staff** see code only when a student sends it — enforced by a database policy, not by our good intentions; "I'm lost" is only ever an aggregate to staff. One platform admin account can read everything, the way any system's operator can — its role changes and account actions are logged, and we keep it to a single account |
+| Can't anyone just sign up as a prof? | Andric | Yes — and that's safe, because being a prof only lets you create *your own* course. Every other course, its sessions and its students' code stay invisible to you; access is checked per course, not by account type |
 | How does the tile know I'm stuck? | Andric | Errors are caught in your sandbox; Done is your own tap; a database view compares your progress with the latest checkpoint — the state is computed, never stored, so nobody can fake it |
 | What stops student code from breaking the app? | Dylan | It runs in a WebContainer — a WASM Node sandbox in the browser — and the preview is a separate origin, so it cannot reach our login session, DOM or database. A hung loop hangs that iframe, not the app |
 | Why run Node in the browser at all? | Dylan | So lessons are real projects: real `import`s, a real `pnpm install`, a real dev server. It also gives us compile errors as a dashboard signal, which a plain iframe never could |
@@ -266,6 +273,9 @@ IS216 G2 · Team T4 · Andric Ang, Yew Ying Qi, Dylan Shuck, Evan Sim, Karin Tan
 | Prof | prof@codealong.test |
 | TA | ta.ana@codealong.test |
 | Student | alex@codealong.test (also bea@, chen@) |
+| Second prof (separate course) | prof.tan@codealong.test |
+| Admin | admin@codealong.test |
+New sign-ups can choose Student or Educator.
 Enrol code for IS216 G2: WAD2G2
 
 ## Set up

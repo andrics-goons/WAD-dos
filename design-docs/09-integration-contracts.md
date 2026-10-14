@@ -24,7 +24,8 @@ shared/
 ```
 
 ```js
-export const Role = Object.freeze({ PROF: 'prof', TA: 'ta', STUDENT: 'student' })
+export const Role = Object.freeze({ PROF: 'prof', TA: 'ta', STUDENT: 'student', ADMIN: 'admin' })
+export const SignupRole = Object.freeze({ STUDENT: 'student', EDUCATOR: 'prof' })   // the only two a user may pick
 export const CourseRole = Object.freeze({ PROF: 'prof', TA: 'ta' })
 
 export const LessonStatus = Object.freeze({ DRAFT: 'draft', READY: 'ready', ARCHIVED: 'archived' })
@@ -85,6 +86,7 @@ export const Fn = Object.freeze({
   SPOTLIGHT: 'spotlight',
   HINT: 'hint',
   DIGEST: 'digest',
+  ADMIN_USERS: 'admin-users',     // disable / enable / password reset (admin only)
 })
 ```
 
@@ -96,14 +98,21 @@ export const Fn = Object.freeze({
 
 - Email + password through `supabase.auth.signUp()` / `signInWithPassword()`. **We never hash passwords ourselves** — no bcrypt, no `jsonwebtoken`, no `ca_token` cookie.
 - `supabase-js` stores the session in `localStorage` and refreshes it automatically. The same session authenticates Postgres queries, Realtime subscriptions and Edge Function calls — nothing extra to wire up.
-- A trigger on `auth.users` inserts the matching `profiles` row with `role = 'student'`:
+- At sign-up the user chooses **Student** or **Educator**, sent as `options: { data: { name, role } }`. A trigger on `auth.users` inserts the matching `profiles` row, passing the role through an **allow-list**, because sign-up metadata comes straight from the browser:
 
 ```sql
 create function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
   insert into public.profiles (id, name, role)
-  values (new.id, coalesce(new.raw_user_meta_data->>'name', 'Student'), 'student');
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'name', 'Student'),
+    case new.raw_user_meta_data->>'role'
+      when 'prof' then 'prof'      -- "Educator" in the UI
+      else 'student'               -- anything else: missing, 'ta', 'admin', junk
+    end
+  );
   return new;
 end $$;
 
@@ -126,9 +135,16 @@ const { data: profile } = await supabase.from('profiles').select('id, name, role
 `auth.uid()` is the signed-in user's id in every policy and RPC. Role and membership come from these **`security definer`** helpers (definer is required — a policy on `course_staff` that itself queries `course_staff` would otherwise recurse):
 
 ```sql
-create function public.current_role() returns text
+-- NOT named current_role: without a `public.` prefix that is a built-in Postgres keyword
+-- returning the *database* role, so a forgotten prefix would silently compare the wrong thing.
+create function public.app_role() returns text
 language sql security definer stable set search_path = '' as $$
   select role from public.profiles where id = auth.uid()
+$$;
+
+create function public.is_admin() returns boolean
+language sql security definer stable set search_path = '' as $$
+  select coalesce(public.app_role() = 'admin', false)   -- never true for a logged-out caller
 $$;
 
 create function public.is_course_staff(cid uuid) returns boolean
@@ -153,7 +169,9 @@ language sql security definer stable set search_path = '' as $$
 $$;
 ```
 
-> **Account bootstrap.** Self-registration only ever creates `student`. `profiles.role` is **not** self-updatable (see the policy in [03](./03-data-model.md#profiles)); a prof promotes a student to `ta` through `rpc('add_course_staff')`. Prof accounts come from `supabase/seed.sql`. There is no self-service path to `prof`.
+> **Account bootstrap.** Users pick **Student** or **Educator** (`prof`) at sign-up; the trigger's allow-list makes those the only two outcomes. After that, `profiles.role` is **not** self-updatable (see the policy in [03](./03-data-model.md#profiles)) — a mis-pick is fixed by an admin. `ta` is granted per course through `rpc('add_course_staff')`. `admin` comes only from `supabase/seed.sql`, one SQL statement on the cloud project, or another admin via `rpc('admin_set_role')`.
+>
+> **Never read the role from auth metadata or the JWT in a policy.** A user can rewrite their own auth metadata at any time (`auth.updateUser({ data })`). The trigger is safe only because it reads that metadata once, at sign-up; every policy reads `profiles` through `app_role()` / `is_admin()`.
 
 ### Realtime authorization
 
@@ -163,7 +181,8 @@ Private Broadcast channels are authorized by RLS on `realtime.messages`, so a st
 create policy "members read session channel" on realtime.messages
 for select to authenticated using (
   realtime.topic() like 'session:%'
-  and public.is_session_member(split_part(realtime.topic(), ':', 2)::uuid)
+  and (public.is_session_member(split_part(realtime.topic(), ':', 2)::uuid)
+       or public.is_admin())
 );
 ```
 
@@ -230,6 +249,10 @@ Three layers, in this order:
 | Staff actions | `is_course_staff(course_id)` |
 | Student actions | `is_enrolled(course_id)` |
 | Viewer actions (replay, library) | `is_course_member(course_id)` |
+| Admin: read anything | `is_admin()` — **one extra `select` policy per table**, never folded into the helpers above |
+| Admin: manage users | `is_admin()` inside `admin_list_users`, `admin_set_role` and the `admin-users` function |
+
+**Why admin isn't folded into `is_course_staff()`:** those helpers also guard *writes* (claiming help requests, saving checkpoints). Making them return true for admins would quietly give admins every staff write too. Keeping admin as a separate, `select`-only policy makes "admins read everything, write only accounts" true by construction — and the schema sweep test checks that no admin policy exists for any command but `select`.
 
 **Rule for every PR that adds a table:** policies land in the same migration, and the PR includes a negative test (`tests/unit/rls/*.test.js`) proving the wrong user gets zero rows. A table without RLS enabled is a security bug, because the anon key ships in the Vue bundle.
 
@@ -239,14 +262,17 @@ Three layers, in this order:
 
 This is the section the architecture change affects most. Previously three of these rules were enforced by *absence* ("there is no endpoint that returns another student's autosave"). The browser now queries Postgres directly, so **absence is no longer a mechanism** — each rule is a policy, a view, or a column that does not exist.
 
+> **Scope: these rules protect students from course staff and from each other. Admins are excluded by design.** An admin is a platform operator who can read every table, including students' code and who tapped "I'm lost". So every claim below is about *staff and students*, and must be stated that way in the slides and Q&A — "the prof can't see your code unless you send it", never "nobody can". Admin **writes** are audited in `admin_audit`; admin **reads** are not, because Postgres cannot trigger on `select`. Keep the number of admin accounts to the minimum the demo needs.
+
 | Rule | Enforced by | Test |
 |---|---|---|
 | Staff never read a student's autosave or `before_catchup` snapshot | `snapshots` SELECT policy: own rows, **or** a row referenced by a `help_requests` the staff can see | T-PRIV-02 |
 | A student's code reaches staff **only** via a help request they sent, or an anonymised Spotlight excerpt | Same policy + `spotlight` Edge Function | T-PRIV-03 |
 | Dashboard data contains no code | `student_status` has **no** `files` column, and `session_tiles` selects none | T-PRIV-01 |
-| "I'm lost" is only ever a count | `student_status.lost` is readable only by its owner; staff read `session_summary`, which exposes `lost_count` and no ids | T-PRIV-04 |
+| "I'm lost" is only ever a count **to staff** | `student_status.lost` is readable only by its owner (and admins); staff read `session_summary`, which exposes `lost_count` and no ids | T-PRIV-04 |
 | A student cannot forge their tile state | There is **no** `state` column. `session_tiles` derives it in SQL from `done_step_order`, `error`, `last_seen_at` | T-STAT-09 |
-| Notes are private to the author | `notes` policies keyed on `user_id = auth.uid()` | T-PRIV-05 |
+| Notes are private to the author (admins excepted) | `notes` policies keyed on `user_id = auth.uid()` | T-PRIV-05 |
+| **Admins read, but write only accounts** | One `admin reads all` `select` policy per table; no admin policy for any other command; admin writes only through the admin functions | T-ADM-* |
 | Reports contain counts only | `session_reports` built by the `end-session` function from aggregates; no `student_id` anywhere in the row | T-INS-05 |
 | No keystroke logging | Client writes `student_status` only on change + a 30 s heartbeat | Code review |
 | **A build error's code frame never leaves the browser** | `parseBuildError()` in `shared/build-error.js` keeps only `{ name, message, file, line }` and drops every code-frame line *before* `normalizeError()` runs. Truncating to `ERROR_MESSAGE_MAX` is not sufficient — 300 chars of a code frame is still code | T-PRIV-09 |
@@ -308,6 +334,9 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | Function | Owner | Called by | Signature |
 |---|---|---|---|
 | `rpc('enrol_with_code')` | Andric | Courses store | `(p_code text) → course row` |
+| `rpc('admin_list_users')` | Andric | Admin page | `() → [{ id, email, name, role, created_at, disabled }]` — `FORBIDDEN` unless admin |
+| `rpc('admin_set_role')` | Andric | Admin page | `(p_user_id uuid, p_role text) → profile row` — refuses the caller's own role; writes `admin_audit` |
+| `fn('admin-users')` | Andric | Admin page | `{ action: 'disable' \| 'enable' \| 'reset_password', userId } → { ok }` — service role; refuses self-disable; writes `admin_audit` |
 | `rpc('add_course_staff')` | Andric | Course people page | `(p_course_id uuid, p_email text) → staff row` |
 | `rpc('start_session')` | Ying Qi | Teach view | `(p_lesson_id uuid) → { session, join_code }` |
 | `rpc('join_session')` | Ying Qi | Join view | `(p_join_code text) → { session_id, role }` |
@@ -366,6 +395,8 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |
 | Replay | `timeline-step-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
 | Reports | `report-funnel`, `report-top-errors`, `btn-send-digest` |
+| Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login` |
+| Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `btn-disable-<userId>`, `btn-reset-<userId>`, `input-user-search` |
 
 ---
 
@@ -422,6 +453,9 @@ Full list in [02-tech-stack.md](./02-tech-stack.md#environment-variables).
 - [ ] GitHub export creates one commit per checkpoint
 - [ ] Insights report + digest correct (counts only)
 - [ ] **No RLS policy missing:** every table in `public` reports `relrowsecurity = true`
+- [ ] Every table has exactly one `admin reads all` `select` policy, and no admin policy for any other command
+- [ ] Signing up as Educator gives `prof`; signing up with any other role value gives `student`
+- [ ] An admin can change a role and disable an account; neither works on themselves; both appear in `admin_audit`
 - [ ] Negative RLS tests pass (student cannot read another student's snapshot/status/notes)
 - [ ] Every page usable 375 → 1440 px, portrait and landscape, in Chrome
 - [ ] Load test: 40 simulated students within latency target, inside the Realtime free-tier cap
