@@ -1,25 +1,21 @@
 <script setup>
-    import { ref } from "vue"
-
-    // placeholder files until the real file list is wired in
-    const files = ref(["loading.html", "main.js", "style.css"])
-
     defineProps({
-        selected: { type: String, default: "" }
+        filePaths: { type: Array, default: () => [] },
+        selectedFile: { type: String, default: "" },
     })
 
-    const emit = defineEmits(["update:selected"])
+    const emit = defineEmits(["update:selectedFile"])
 </script>
 
 <template>
     <div class="file-tree">
         <div class="tree-list">
             <div
-                v-for="file in files"
+                v-for="file in filePaths"
                 :key="file"
                 class="tree-item"
-                :class="{ active: file === selected }"
-                @click="emit('update:selected', file)"
+                :class="{ active: file === selectedFile }"
+                @click="emit('update:selectedFile', file)"
             >
                 <svg class="tree-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor">
                     <path d="M4 1.5h5l3 3v10H4z M9 1.5v3h3" />

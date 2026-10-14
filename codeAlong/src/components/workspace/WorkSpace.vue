@@ -3,23 +3,28 @@
     import CodeEditor from "./CodeEditor.vue"
     import FileTree from "./FileTree.vue"
 
-    defineProps({
-        modelValue: { type: String, default: "" }
+    const props = defineProps({
+        filePaths: { type: Array, default: () => [] },
+        selectedFile: { type: String, default: "" },
+        selectedCode: { type: String, default: "" },
     })
 
-    const emit = defineEmits(["update:modelValue"])
+    const emit = defineEmits(["update:selectedFile", "update:selectedCode"])
 
-    const selected = ref("main.js")
     const collapsed = ref(false)
 
-    // "main.js" -> "JS", shown as the badge next to the open file name
-    const fileType = computed(() => selected.value.split(".").pop().toUpperCase())
+    // used as filebadge next to filename in codeeditor
+    const fileType = computed(() => props.selectedFile.split(".").pop().toUpperCase())
 </script>
 
 <template>
     <div class="workspace">
+        
+        <!-- Tree Pane -->
         <div class="pane tree-pane" :class="{ collapsed }">
+            <!-- Pane Header -->
             <div class="pane-header">
+                <!-- Collapse widget button -->
                 <button
                     class="toggle-btn"
                     type="button"
@@ -33,19 +38,34 @@
                 </button>
                 <span v-show="!collapsed">Files</span>
             </div>
+
+            <!-- Actual collapsable file structure -->
             <div v-show="!collapsed" class="pane-body">
-                <FileTree v-model:selected="selected" />
+
+                <FileTree
+                    :file-paths="filePaths"
+                    :selected-file="selectedFile"
+                    @update:selected-file="emit('update:selectedFile', $event)"
+                />
+
             </div>
+
         </div>
+
+        <!-- Code editor Pane -->
         <div class="pane editor-pane">
+            <!-- Pane header -->
             <div class="pane-header">
                 <span class="file-badge">{{ fileType }}</span>
-                <span>{{ selected }}</span>
+                <span>{{ selectedFile }}</span>
             </div>
             <div class="pane-body">
+                <!-- :key remounts the editor when the file changes, since it only reads selectedCode on mount -->
                 <CodeEditor
-                    :model-value="modelValue"
-                    @update:model-value="emit('update:modelValue', $event)"
+                    :key="selectedFile"
+                    :selected-file="selectedFile"
+                    :selected-code="selectedCode"
+                    @update:selected-code="emit('update:selectedCode', $event)"
                 />
             </div>
         </div>
