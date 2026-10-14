@@ -1,5 +1,5 @@
 <script setup>
-  import WorkSpace from "../components/workspace/WorkSpace.vue"
+  import EditorPanel from "../components/workspace/EditorPanel.vue"
   import { useWorkspaceStore } from "@/stores/workspace.js"
 
   defineProps({ id: { type: String, required: true } })
@@ -12,7 +12,7 @@
   <h1>Workspace</h1>
 
   <div class="workspace-box">
-    <WorkSpace
+    <EditorPanel
       :file-paths="workspaceStore.filePaths"
       v-model:selected-file="workspaceStore.selectedFile"
       v-model:selected-code="workspaceStore.selectedCode"

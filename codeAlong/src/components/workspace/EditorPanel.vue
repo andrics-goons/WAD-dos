@@ -18,7 +18,7 @@
 </script>
 
 <template>
-    <div class="workspace">
+    <div class="editor-panel">
         
         <!-- Tree Pane -->
         <div class="pane tree-pane" :class="{ collapsed }">
@@ -74,7 +74,7 @@
 
 <style scoped>
     /* colours taken from the oneDark theme used by CodeEditor */
-    .workspace {
+    .editor-panel {
         display: flex;
         height: 100%;
         background: #282c34;
