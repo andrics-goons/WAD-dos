@@ -1,0 +1,262 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Our look: buttons, form fields, panels. (Bootstrap provides the rest —
+   form-switch, spinner-border, btn-close — already themed via base.css.)
+   Examples of every class are on /_kit.
+
+   Naming: everything we own starts with ca- (so it never clashes with lesson
+   code or CodeMirror). Variants use a double dash: .ca-btn--primary.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Buttons ──────────────────────────────────────────────────────────────────
+   <button class="ca-btn ca-btn--primary">Save checkpoint</button>
+   Variants: --primary (main action on a screen) · --secondary (alternatives)
+             --success · --warning · --danger (destructive, behind ConfirmModal)
+             --ghost (toolbar / icon buttons) · --link
+   Sizes:    --sm · --lg      Modifiers: --block (full width) · --icon (square)
+
+   HOW THE BUTTON IS BUILT: "settings" variables
+   ──────────────────────────────────────────────
+   There are two levels of variables here:
+     --ca-…   THEME settings for the whole app, defined in tokens.css
+              (e.g. --ca-brand = indigo)
+     --btn-…  COMPONENT settings for just this button — "which theme colour
+              does this button use?" (e.g. --btn-bg = var(--ca-brand))
+
+   So  --btn-bg: var(--ca-surface);  reads as "this button's background
+   setting = the theme's surface colour (white)". It's a variable whose
+   value is another variable.
+
+   .ca-btn does two things:
+     Step 1 — sets default values for the four settings (a plain white button)
+     Step 2 — writes the real styles ONCE, reading only the settings:
+              background: var(--btn-bg);  color: var(--btn-fg); …
+   Each variant (.ca-btn--primary, --danger, …) then changes ONLY the
+   settings, never the styles. For <button class="ca-btn ca-btn--primary">:
+     1. .ca-btn says  "background = whatever --btn-bg is"   (default: white)
+     2. .ca-btn--primary comes later and sets --btn-bg to indigo
+     3. so the button's background ends up indigo
+
+   Why not just write  .ca-btn--primary { background: #4f46e5; … }  instead?
+     • hover, focus and disabled rules are written once in .ca-btn, and every
+       variant gets them automatically
+     • a new variant is just four lines of settings
+     • no hex codes here — change the brand in tokens.css and every button follows
+     • the dark IDE works for free: inside .ca-ide, --ca-surface is dark grey,
+       so a secondary button there turns dark with no extra class */
+.ca-btn {
+  /* Step 1: settings, with defaults = a plain secondary button */
+  --btn-bg: var(--ca-surface); /* background colour (white) */
+  --btn-bg-hover: var(--ca-surface-muted); /* background on hover (light grey) */
+  --btn-fg: var(--ca-text); /* text/icon colour (dark) */
+  --btn-border: var(--ca-border-strong); /* border colour (grey) */
+
+  /* Step 2: the actual styles — they only ever read the settings above */
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ca-space-2);
+  min-height: 2.5rem; /* 40px — comfortable tap target */
+  padding: 0 var(--ca-space-4);
+  border: 1px solid var(--btn-border);
+  border-radius: var(--ca-radius);
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  font-size: var(--ca-text-sm);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+/* Written once, works for every variant: hover just swaps to that variant's --btn-bg-hover */
+.ca-btn:hover:not(:disabled) {
+  background: var(--btn-bg-hover);
+  text-decoration: none;
+}
+.ca-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ca-brand-ring);
+}
+.ca-btn:disabled,
+.ca-btn[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Variants: each one only overrides the four --btn-* settings from Step 1 */
+.ca-btn--primary {
+  --btn-bg: var(--ca-brand); /* indigo instead of white */
+  --btn-bg-hover: var(--ca-brand-hover);
+  --btn-fg: var(--ca-on-brand);
+  --btn-border: transparent;
+}
+.ca-btn--primary:active:not(:disabled) {
+  background: var(--ca-brand-active);
+}
+.ca-btn--secondary {
+  /* the default look, named so intent is clear in templates */
+}
+.ca-btn--success {
+  --btn-bg: var(--ca-success);
+  --btn-bg-hover: var(--ca-success-hover);
+  --btn-fg: var(--ca-on-brand);
+  --btn-border: transparent;
+}
+.ca-btn--warning {
+  --btn-bg: var(--ca-warning);
+  --btn-bg-hover: var(--ca-warning-hover);
+  --btn-fg: var(--ca-on-warning);
+  --btn-border: transparent;
+}
+.ca-btn--danger {
+  --btn-bg: var(--ca-danger);
+  --btn-bg-hover: var(--ca-danger-hover);
+  --btn-fg: var(--ca-on-brand);
+  --btn-border: transparent;
+}
+.ca-btn--ghost {
+  --btn-bg: transparent;
+  --btn-border: transparent;
+  --btn-fg: var(--ca-text-muted);
+}
+.ca-btn--ghost:hover:not(:disabled) {
+  color: var(--ca-text);
+}
+.ca-btn--link {
+  --btn-bg: transparent;
+  --btn-bg-hover: transparent;
+  --btn-border: transparent;
+  --btn-fg: var(--ca-link);
+  padding-inline: var(--ca-space-1);
+}
+.ca-btn--link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.ca-btn--sm {
+  min-height: 2rem;
+  padding: 0 var(--ca-space-3);
+  font-size: var(--ca-text-xs);
+}
+.ca-btn--lg {
+  min-height: 3rem;
+  padding: 0 var(--ca-space-5);
+  font-size: var(--ca-text-base);
+}
+.ca-btn--block {
+  width: 100%;
+}
+.ca-btn--icon {
+  width: 2.5rem;
+  padding: 0;
+}
+.ca-btn--icon.ca-btn--sm {
+  width: 2rem;
+}
+
+/* ── Form fields ──────────────────────────────────────────────────────────────
+   <div class="ca-field">
+     <label class="ca-label" for="email">Email</label>
+     <input id="email" class="ca-input" :aria-invalid="!!errors.email" aria-describedby="email-err" />
+     <p v-if="errors.email" id="email-err" class="ca-field-error">{{ errors.email }}</p>
+   </div>
+   .ca-input works on <input>, <select> and <textarea>.
+   Invalid state comes from aria-invalid="true" (also good for screen readers). */
+.ca-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ca-space-1);
+  min-width: 0;
+}
+.ca-label {
+  font-size: var(--ca-text-sm);
+  font-weight: 500;
+}
+.ca-input {
+  display: block;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: var(--ca-space-2) var(--ca-space-3);
+  border: 1px solid var(--ca-border-strong);
+  border-radius: var(--ca-radius);
+  background: var(--ca-surface);
+  color: var(--ca-text);
+  font-size: var(--ca-text-base); /* 16px stops iOS zooming on focus */
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.ca-input::placeholder {
+  color: var(--ca-text-muted);
+  opacity: 0.8;
+}
+.ca-input:focus {
+  outline: none;
+  border-color: var(--ca-brand);
+  box-shadow: 0 0 0 3px var(--ca-brand-ring);
+}
+.ca-input:disabled {
+  background: var(--ca-surface-muted);
+  cursor: not-allowed;
+}
+.ca-input[aria-invalid='true'] {
+  border-color: var(--ca-danger);
+}
+.ca-input[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25);
+}
+textarea.ca-input {
+  min-height: 5rem;
+  resize: vertical;
+}
+select.ca-input {
+  appearance: none;
+  padding-right: var(--ca-space-6);
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.1rem) 55%,
+    calc(100% - 0.8rem) 55%;
+  background-size: 0.3rem 0.3rem;
+  background-repeat: no-repeat;
+}
+.ca-field-hint {
+  margin: 0;
+  font-size: var(--ca-text-xs);
+  color: var(--ca-text-muted);
+}
+.ca-field-error {
+  margin: 0;
+  font-size: var(--ca-text-sm);
+  color: var(--ca-danger);
+}
+.ca-ide .ca-field-error {
+  color: #fca5a5;
+}
+
+/* ── Panels ───────────────────────────────────────────────────────────────────
+   .ca-surface — a white panel on the off-white page (border + soft shadow)
+   .ca-card    — a surface with padding; use for course cards, report cards */
+.ca-surface {
+  background: var(--ca-surface);
+  border: 1px solid var(--ca-border);
+  border-radius: var(--ca-radius-lg);
+  box-shadow: var(--ca-shadow-sm);
+}
+.ca-card {
+  background: var(--ca-surface);
+  border: 1px solid var(--ca-border);
+  border-radius: var(--ca-radius-lg);
+  box-shadow: var(--ca-shadow-sm);
+  padding: var(--ca-space-4);
+}
+@media (min-width: 768px) {
+  .ca-card {
+    padding: var(--ca-space-5);
+  }
+}

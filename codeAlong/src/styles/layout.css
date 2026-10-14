@@ -1,0 +1,67 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Page frames.
+   For everything else (flex, gaps, spacing, show/hide per breakpoint, text
+   alignment, truncation, screen-reader-only) use Bootstrap utilities:
+     d-flex gap-2 · row g-3 col-md-6 · d-none d-md-block · text-truncate ·
+     text-body-secondary · visually-hidden · mb-3 p-4
+   Anything page-specific goes in your component's <style scoped>.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Page frames ──────────────────────────────────────────────────────────── */
+
+/* Standard body for every non-IDE page: centred, max width, side gutters. */
+.ca-page {
+  width: 100%;
+  max-width: var(--ca-content-max);
+  margin-inline: auto;
+  padding: var(--ca-space-5) var(--ca-space-4) var(--ca-space-7);
+}
+@media (min-width: 768px) {
+  .ca-page {
+    padding: var(--ca-space-6) var(--ca-space-5) var(--ca-space-7);
+  }
+}
+
+/* Title row: heading left, actions right; wraps onto two lines at xs. */
+.ca-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ca-space-3) var(--ca-space-4);
+  margin-bottom: var(--ca-space-5);
+}
+.ca-page-header h1 {
+  margin: 0;
+  font-size: var(--ca-text-xl);
+}
+
+/* Full-height pages under the navbar (workspace, teach view). */
+.ca-fill-viewport {
+  height: calc(100dvh - var(--ca-navbar-height));
+  min-height: 0;
+}
+
+/* Small uppercase label above a heading or section. */
+.ca-eyebrow {
+  font-size: var(--ca-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ca-text-muted);
+}
+
+/* ── Responsive card grid ──────────────────────────────────────────────────────
+   Bootstrap's row/col is for page layout; this is for card lists where you want
+   "as many columns as fit" without picking col classes per breakpoint:
+     <div class="ca-grid" style="--min: 18rem">  → 1 column at xs, more as the width allows  */
+.ca-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--min, 16rem), 100%), 1fr));
+  gap: var(--gap, var(--ca-space-4));
+}
+
+.ca-mono {
+  font-family: var(--ca-font-mono);
+  font-variant-ligatures: none;
+}

@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref(null)
+  const user = ref(null) // { id, name, role } — camelCase, from profiles
   const loaded = ref(false)
 
   const isAuthenticated = computed(() => user.value !== null)
@@ -17,5 +17,10 @@ export const useAuthStore = defineStore('auth', () => {
     return user.value
   }
 
-  return { user, loaded, isAuthenticated, role, ensureLoaded }
+  // TODO: await authApi.signOut() (supabase.auth.signOut) once auth.api.js exists.
+  async function signOut() {
+    user.value = null
+  }
+
+  return { user, loaded, isAuthenticated, role, ensureLoaded, signOut }
 })
