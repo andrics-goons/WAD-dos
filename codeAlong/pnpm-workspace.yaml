@@ -1,0 +1,3 @@
+allowBuilds:
+  # optional native file-watcher pulled in by a dev tool; Vite doesn't need its build script
+  '@parcel/watcher': false
