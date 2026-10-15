@@ -23,7 +23,7 @@
     // Defining emits to allow updating of file inputted
     const emit = defineEmits(["update:selectedCode"])
 
-    // Creeating editor Element
+    // Creating editor Element
     const editorEl = ref(null)
     let view
 

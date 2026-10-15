@@ -1,5 +1,6 @@
 <script setup>
-  import EditorPanel from "../components/workspace/EditorPanel.vue"
+  import EditorPanel from "@/components/workspace/EditorPanel.vue"
+  import Terminal from "@/components/workspace/Terminal.vue"
   import { useWorkspaceStore } from "@/stores/workspace.js"
 
   defineProps({ id: { type: String, required: true } })
@@ -18,11 +19,19 @@
       v-model:selected-code="workspaceStore.selectedCode"
     />
   </div>
+
+  <div class="terminal-box">
+    <Terminal />
+  </div>
 </template>
 
 <style scoped>
     .workspace-box {
         height: 600px;
         width: 60vw;
+    }
+    .terminal-box {
+      height: 400px;
+      width: 60vw;
     }
 </style>

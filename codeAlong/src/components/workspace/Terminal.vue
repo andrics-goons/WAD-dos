@@ -1,12 +1,39 @@
-<script>
+<script setup>
+    import { ref, onMounted, onBeforeUnmount } from "vue"
+    // Function that creates xterm instance 
+    import { createTerminal } from "@/runtime/terminal.js"
+    // Connects the terminal to a shell inside the WebContainer
+    import { connectShell } from "@/runtime/shell.js"
+    import { getWebContainer } from "@/runtime/webcontainer.js"
 
+    // Creating terminal element
+    const terminalEl = ref(null)
+
+    let term
+    let webcontainer
+
+    // On mounted, create the xterm instance, attach it to the page, then connect it to the shell
+    onMounted(async () => {
+        // create a fresh terminal for this component connect it to the div
+        term = createTerminal(terminalEl.value)
+        webcontainer = getWebContainer()
+        connectShell(webcontainer, term)
+
+    })
+
+    // Before unmount, clean up so leaving the page doesn't leave a terminal or shell running
+    onBeforeUnmount(() => {
+        // TODO: disconnect the shell (if it was connected), stop watching for resizes, and destroy the terminal
+    })
 </script>
 
 <template>
-
-
+    <div ref="terminalEl" class="terminal"></div>
 </template>
 
-<style>
-
+<style scoped>
+    .terminal {
+        height: 100%;
+        width: 100%;
+    }
 </style>
