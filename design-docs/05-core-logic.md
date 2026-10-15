@@ -563,7 +563,9 @@ For each step *k* (with `t_k` = time of the checkpoint for step *k*):
 
 The report highlights the top 3 steps, the top 5 error groups and the peak "I'm lost" count.
 
-**Trends across terms** (`rpc('lesson_trends')`): for every past session of the same lesson (or a lesson with the same title in a course with the same course code), a step counts as *recurring trouble* if it was in the top 3 by trouble score in at least two sessions. Steps are matched by `step_id` when the lesson is reused, otherwise by normalised title. This is a SQL aggregate now rather than a JS loop over documents.
+**Trends across terms** (`rpc('lesson_trends')`): for every past session of the same lesson (or a lesson with the same title in a course with the same course code) **among the calling prof's own courses**, a step counts as *recurring trouble* if it was in the top 3 by trouble score in at least two sessions. Steps are matched by `step_id` when the lesson is reused, otherwise by normalised title. This is a SQL aggregate now rather than a JS loop over documents.
+
+**Courses are per prof, so trends are too.** Two profs who both teach IS216 never see each other's sessions in their trends — the function filters on `courses.owner_id = auth.uid()` before matching anything. (Admins can still read every report row directly; they just don't get a cross-prof trends view.)
 
 **Digest** (`functions.invoke('digest')`, content by Andric, sending by Karin):
 - **To TAs:** attendance, top 3 trouble steps, top errors, open help requests left.

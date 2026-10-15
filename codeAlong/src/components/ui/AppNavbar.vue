@@ -29,7 +29,7 @@ const links = [
 
 async function signOut() {
   userMenuOpen.value = false
-  await auth.signOut()
+  await auth.logout()
   router.push({ name: 'landing' })
 }
 </script>
