@@ -156,6 +156,15 @@ const routes = [
     meta: { auth: true, roles: ADMIN, title: 'Users' },
   },
 
+  // ── Dev reference ─────────────────────────────────────────────────────────
+  {
+    // Living style guide for the team: tokens, StatusPill, buttons, toasts, IDE surfaces.
+    path: '/_kit',
+    name: 'ui-kit',
+    component: () => import('@/views/KitView.vue'),
+    meta: { title: 'UI kit' },
+  },
+
   // ── Catch-all ─────────────────────────────────────────────────────────────
   {
     path: '/:pathMatch(.*)*',
