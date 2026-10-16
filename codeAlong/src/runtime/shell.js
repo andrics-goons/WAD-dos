@@ -1,10 +1,7 @@
-
-
-
 export async function connectShell(webcontainer, term) {
     // create shell process in webcontainer
     const shell = await webcontainer.spawn("jsh", {
-        terminal:{ cols: term.cols, rows: term.rows }  //meant for resizing, do i rly need this
+        terminal:{ cols: term.cols, rows: term.rows }  //meant for resizing, TODO LATER
     })
 
     // writing shell outputs into the terminal
@@ -16,12 +13,20 @@ export async function connectShell(webcontainer, term) {
         })
     )
 
-    // creating writer instance and using onData listener for keystrokes and writing into input
+    // create writer instance
     const input = shell.input.getWriter()
-    term.onData((data) => {
+    // listen to keystrokes using onData
+    const keystrokes = term.onData((data) => {
         input.write(data)
     })
 
-    // need to create a resizer
-    // need to create an undo everything above
+    // need to create a resizer TODO LATER
+
+    // return disconnect function
+    return () => {
+        // stop sending keystrokes to shell
+        keystrokes.dispose()
+        // kill the shell
+        shell.kill()
+    }
 }

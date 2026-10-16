@@ -16,9 +16,11 @@ export function toFileSystemTree(files) {
     const tree = {}
 
     for (const { path, content } of files) {
-        const parts = path.split("/") 
+        const parts = path.split("/")
+        if (parts.includes("node_modules")) {
+            continue
+        }
         const fileName = parts.pop()
-        
         let current = tree
         for (const folder of parts) {
             if (!current[folder]) current[folder] = { directory: {} }
