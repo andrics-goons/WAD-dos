@@ -72,6 +72,16 @@ const routes = [
     meta: { auth: true, title: 'Join a class' },
   },
   {
+    // Join a COURSE (once per term). /enrol shows a code box; /enrol/<code> is the
+    // shareable link / QR the prof hands out — it pre-fills the box and auto-submits.
+    // Not the same as /join, which joins one live class inside a course.
+    path: '/enrol/:code?',
+    name: 'enrol',
+    component: () => import('@/views/EnrolView.vue'),
+    props: true,
+    meta: { auth: true, roles: ['student', 'ta'], title: 'Enrol in a course' },
+  },
+  {
     // The IDE: WebContainer runtime, file tree, editor, preview, terminal.
     // Membership and "is this session live" are decided by RLS + rpc('join_session'),
     // and the view itself refuses to boot when the page isn't cross-origin isolated.

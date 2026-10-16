@@ -8,6 +8,7 @@ PUBLIC                         ANY LOGGED-IN USER                 STAFF (TA / PR
 Landing  /                     My courses        /courses         Teach view        /s/:id/teach   (prof)
 Login    /login                Course page       /courses/:id     Help queue        /s/:id/help
 Register /register             Join session      /join[/:code]    Help review       /help/:requestId
+                               Enrol in course   /enrol[/:code]
 404                            Student workspace /s/:id/code      Lesson editor     /lessons/:id/edit (prof)
                                Replays           /replays         New lesson        /courses/:id/lessons/new (prof)
                                Replay viewer     /replays/:id     Insights report   /sessions/:id/report
@@ -32,8 +33,9 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 |---|---|---|---|---|
 | `/` | `LandingView` | Ying Qi | Public | Hero + 3 feature cards stacked → hero left, cards in a row; "Join a class" CTA always visible |
 | `/login`, `/register` | `LoginView`, `RegisterView` | Ying Qi | Public | Full-width card → centred card max 420 px |
-| `/courses` | `CoursesView` | Ying Qi | Logged in | Course cards 1 col → 3 cols; prof sees "New course"; student sees "Enrol with code" |
-| `/courses/:id` | `CourseView` | Ying Qi (shell) + Ray Yien (lesson library) | Staff / enrolled | Tabs (Lessons · Sessions · People) → same tabs, lessons as a table with search |
+| `/courses` | `CoursesView` | Ying Qi | Logged in | Course cards 1 col → 3 cols; prof sees "New course"; student sees **"Enrol in a course"**, which opens `/enrol` |
+| `/courses/:id` | `CourseView` | Ying Qi (shell) + Ray Yien (lesson library) | Staff / enrolled | Tabs (Lessons · Sessions · People) → same tabs, lessons as a table with search. **The owner sees a "Share enrolment" card**: the enrol code, a **Copy link** button for `<APP_URL>/enrol/<code>`, and its QR |
+| `/enrol`, `/enrol/:code` | `EnrolView` | Andric | Students and TAs (redirects to login with `returnTo`) | Same 6-box code input as the join page; `/enrol/:code` pre-fills from the link or QR and auto-submits. Success → that course's page. **Joins a course once per term — not the same as `/join`, which joins one live class** |
 | `/courses/:id/lessons/new` | `LessonNewView` | Evan (upload) + Ray Yien (GitHub import tab) | Prof | Stepper: 1 Source → 2 Review files → 3 Review steps |
 | `/lessons/:id/edit` | `LessonEditView` | Evan | Prof | Step list only, editor opens as a sheet → file editor left, draggable step list right |
 | `/join`, `/join/:code` | `JoinView` | Karin | Logged in (redirects to login with `returnTo`) | Big 6-box code input, auto-submits when complete; `/join/:code` pre-fills from QR |
@@ -136,12 +138,12 @@ All of it goes through `src/api/*.api.js`; components never touch `supabase` dir
 | Kind | Call | What happens | Who |
 |---|---|---|---|
 | Query | `from('courses').select('*')` | RLS returns exactly the courses I staff or am enrolled in — **no `$or` to write** | Any |
-| Query | `from('courses').insert({ … })` | Policy requires `role = 'prof'`; `enrol_code` from `shared/join-code.js` | Prof |
-| RPC | `enrol_with_code(p_code)` | Matches a course I cannot yet read, inserts my `course_students` row | Student |
+| RPC | `create_course(p_code, p_title, p_term, p_section)` | Creates the course **and** makes the caller its prof in one transaction; the server generates the enrol code. There is no insert policy on `courses` — a plain insert would leave the course invisible to its creator ([03](./03-data-model.md#why-there-is-no-insert-policy-on-courses)) | Prof |
+| RPC | `enrol_with_code(p_code)` | Matches a course I cannot yet read (case-insensitive, not archived), inserts my `course_students` row; enrolling twice is harmless. Used by the enrol page for both the typed code and the `/enrol/:code` link | Student or TA (not in a course they staff) |
 | Query | `from('courses').select().eq('id', id).single()` | Course; my role comes from the `course_staff`/`course_students` queries | Staff / enrolled |
 | Query | `from('courses').update(…).eq('id', id)` | Owner policy | Owner |
 | Query | `from('courses').delete().eq('id', id)` | FK cascades handle the rest | Owner |
-| RPC | `add_course_staff(p_course_id, p_email)` | Adds as TA, promoting `profiles.role` to `ta` if still `student` | Owner |
+| RPC | `add_course_staff(p_course_id, p_email)` | Adds as TA, promoting `profiles.role` to `ta` if still `student`. Refuses someone already on staff or **currently enrolled as a student in this course** | Owner |
 | Query | `from('course_staff').select('role, profiles(name)')` + same for students | People tab (names only) | Staff |
 | RPC | `remove_course_student(p_course_id, p_user_id)` | Removes enrolment; past statuses stay for the report | Owner |
 
@@ -422,6 +424,8 @@ Unchanged — components never knew where the data came from, which is why this 
 | Not allowed (e.g. student opens `/s/:id/teach`) | Toast + redirect to `/courses` | Router guard on account role |
 | **Row exists but isn't mine** | Empty/forbidden state on the page, not a crash | RLS returns zero rows → `maybeSingle()` gives `null`. Every view needs this state |
 | Wrong join code | "No live class with that code" under the input | `join_session` raises `NOT_FOUND\|…` |
+| Wrong or archived enrol code | "No course with that code" under the input | `enrol_with_code` raises `NOT_FOUND\|…` |
+| Enrol link opened while logged out | Sent to log in (or register), then straight back to the enrol link, which completes | `returnTo` carried through **both** login and register — a new student following the link usually has no account yet |
 | Session ended while coding | Banner "Class ended — your work is saved. Open replay" | `session:ended` broadcast |
 | Realtime disconnected | Navbar pill turns amber "Reconnecting…"; edits continue locally; autosave retries | Channel state callback; supabase-js reconnects with backoff |
 | Autosave fails | "Not saved — retrying" next to the file name; never blocks typing | Exponential retry; work kept in memory |
