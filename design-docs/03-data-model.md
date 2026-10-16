@@ -659,7 +659,7 @@ When `EXTERNAL_APIS=mock`, Edge Functions append here instead of calling Telegra
 | `payload` | `jsonb` |
 | `created_at` | `timestamptz default now()` |
 
-Created in a migration guarded so it is never applied to the production project, and it has **no** select policy for `authenticated` — tests read it with the service role key.
+An ordinary migration (`…_test_outbox.sql`), applied everywhere including production: with RLS on and no policy for ordinary users it is unreachable from the app, and with `EXTERNAL_APIS=live` nothing ever writes to it. Its only policy is `admin reads all`. Edge Functions write it and tests read it with the service-role key; `readOutbox()` and `outboxMark()` in `tests/unit/rls/_helpers.js` do the reading. `channel` is checked against `('telegram', 'github', 'llm')`.
 
 ---
 
