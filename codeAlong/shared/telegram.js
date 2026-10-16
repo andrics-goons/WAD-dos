@@ -36,11 +36,12 @@ export function checkLinkCode(profile, code, now = Date.now()) {
   return Number.isFinite(expiresAt) && expiresAt > now ? 'ok' : 'expired'
 }
 
-// The in-person help ping. Every user-supplied field is escaped.
-export function formatInPersonPing({ studentName, seat, stepTitle, message, link }) {
+// The in-person help ping (layout from design-docs/05 §8). Every user-supplied field is escaped.
+export function formatInPersonPing({ courseLabel, lessonTitle, studentName, seat, stepTitle, message, link }) {
+  const where = [courseLabel, lessonTitle].filter(Boolean).map(escapeHtml).join(' · ')
   const lines = [
-    `<b>${escapeHtml(studentName)}</b> wants help in person`,
-    `Seat: ${escapeHtml(seat)}`,
+    where ? `🙋 Help needed — ${where}` : '🙋 Help needed',
+    `<b>${escapeHtml(studentName)}</b> · Seat ${escapeHtml(seat)}`,
     `Step: ${escapeHtml(stepTitle)}`,
   ]
   if (message) lines.push(`"${escapeHtml(message)}"`)
@@ -48,7 +49,36 @@ export function formatInPersonPing({ studentName, seat, stepTitle, message, link
   return lines.join('\n')
 }
 
+// Live sender for Telegram's sendMessage, with fetch injected so tests never hit the network.
+// Returns { ok, status, retryAfter? } and never throws, so a Telegram outage cannot fail the
+// caller. The token is only ever used to build the URL; it is never logged or returned.
+export function createTelegramSender(fetchFn, token) {
+  return async (chatId, html) => {
+    try {
+      const res = await fetchFn(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: html,
+          parse_mode: 'HTML',
+          link_preview_options: { is_disabled: true },
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      return {
+        ok: res.ok && body.ok !== false,
+        status: res.status,
+        retryAfter: body?.parameters?.retry_after,
+      }
+    } catch {
+      return { ok: false, status: 0 }
+    }
+  }
+}
+
 export const BOT_REPLIES = Object.freeze({
+  error: 'Something went wrong on our side. Please try again in a minute.',
   linked: 'Linked. You will get help pings and digests here. Send /stop to unlink.',
   expired: 'That link code has expired. Generate a new one from your CodeAlong profile.',
   invalid: 'That link code is not valid. Generate one from your CodeAlong profile.',
