@@ -13,6 +13,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // shared/ is imported by both the Vue app and the Edge Functions (see design-docs/09 §1)
+      '@shared': fileURLToPath(new URL('./shared', import.meta.url)),
     },
   },
 

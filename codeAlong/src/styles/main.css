@@ -1,0 +1,6 @@
+/* Global stylesheet — imported once in src/main.js. Owner: Ying Qi.
+   Plain CSS only (no framework, no preprocessor). Order matters: tokens first. */
+@import './tokens.css';
+@import './base.css';
+@import './components.css';
+@import './layout.css';

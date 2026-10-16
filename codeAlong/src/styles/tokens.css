@@ -1,0 +1,169 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   CodeAlong design tokens — the ONE place colours, type, spacing, radii and
+   shadows live. Change these only via PR + a ping in the team channel.
+
+   Use them in your component's <style scoped> as var(--ca-…).
+   Never hard-code a hex colour in a component — add a token here instead.
+   See every token rendered at /_kit.
+
+   Look: light app pages, dark IDE regions. Anything inside an element with
+   class="ca-ide" data-bs-theme="dark" gets the dark values of these tokens.
+
+   HOW CSS VARIABLES WORK (if you haven't used them before)
+   ─────────────────────────────────────────────────────────
+   1. Making one:   --name: value;
+      A property starting with two dashes is a variable we invent. CSS does
+      nothing with it by itself — it just stores the value.
+        :root { --ca-surface: #ffffff; }     ← ":root" = the whole page, so
+                                               every element can read it
+   2. Using one:    var(--name)
+      Means "look up this variable and put its value here".
+        .ca-card { background: var(--ca-surface); }   → background: #ffffff;
+
+   Why bother: change --ca-surface once here and every card, panel and input
+   that uses it updates. It's also how the dark IDE works — .ca-ide (bottom of
+   this file) re-sets the same variable names to dark values, and everything
+   inside it picks those up instead, with no separate "dark" classes.
+
+   Tip: right-click any element → Inspect → the Styles panel shows each var()
+   and the value it resolved to.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Brand ──────────────────────────────────────────────────────────────── */
+  --ca-brand: #4f46e5; /* indigo — primary buttons, links, active nav */
+  --ca-brand-hover: #4338ca;
+  --ca-brand-active: #3730a3;
+  --ca-brand-subtle: #eef2ff; /* tinted backgrounds, active nav item */
+  --ca-brand-ring: rgba(79, 70, 229, 0.35); /* focus rings */
+  --ca-on-brand: #ffffff; /* text on a brand-coloured background */
+  --ca-link: var(--ca-brand); /* links and text-only buttons */
+
+  /* ── Semantic ───────────────────────────────────────────────────────────── */
+  /* White text on success/danger/info meets WCAG AA (4.5:1); warning uses dark text */
+  --ca-success: #15803d;
+  --ca-success-hover: #166534;
+  --ca-danger: #dc2626;
+  --ca-danger-hover: #b91c1c;
+  --ca-warning: #f59e0b;
+  --ca-warning-hover: #d97706;
+  --ca-on-warning: #1f2937;
+  --ca-info: #0369a1;
+
+  /* ── Surfaces & text (light app) ────────────────────────────────────────── */
+  --ca-bg: #f8fafc; /* page background */
+  --ca-surface: #ffffff; /* cards, panels, navbar, inputs */
+  --ca-surface-muted: #f1f5f9; /* hover rows, stripes, secondary panels */
+  --ca-border: #e2e8f0;
+  --ca-border-strong: #cbd5e1; /* input borders */
+  --ca-text: #0f172a;
+  --ca-text-muted: #64748b;
+  --ca-backdrop: rgba(15, 23, 42, 0.5); /* behind modals */
+
+  /* ── Dark IDE palette (also available on light pages, e.g. for previews) ── */
+  --ca-ide-bg: #0d1117; /* editor */
+  --ca-ide-surface: #161b22; /* panes, tab bar, terminal */
+  --ca-ide-raised: #1c2330; /* active tab, hovered row */
+  --ca-ide-border: #30363d;
+  --ca-ide-text: #e6edf3;
+  --ca-ide-muted: #8b949e;
+  --ca-ide-accent: #818cf8; /* brand, lightened for dark backgrounds */
+
+  /* ── Tile states ────────────────────────────────────────────────────────── */
+  /* Names match TileState values, so var(--ca-state-${tile.state}) just works.
+     solid → dots, borders, chart bars · bg → pill/tile fill · fg → text on bg.
+     Colour is never the only signal: StatusPill also renders an icon + label. */
+  --ca-state-done: #16a34a;
+  --ca-state-done-bg: #dcfce7;
+  --ca-state-done-fg: #14532d;
+  --ca-state-in_progress: #d97706;
+  --ca-state-in_progress-bg: #fef3c7;
+  --ca-state-in_progress-fg: #78350f;
+  --ca-state-error: #dc2626;
+  --ca-state-error-bg: #fee2e2;
+  --ca-state-error-fg: #7f1d1d;
+  --ca-state-behind: #2563eb;
+  --ca-state-behind-bg: #dbeafe;
+  --ca-state-behind-fg: #1e3a8a;
+  --ca-state-idle: #64748b;
+  --ca-state-idle-bg: #f1f5f9;
+  --ca-state-idle-fg: #334155;
+
+  /* ── Type ───────────────────────────────────────────────────────────────── */
+  /* Self-hosted via @fontsource (imported in main.js) — Google Fonts would be
+     blocked by the COOP/COEP headers WebContainer needs. */
+  --ca-font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --ca-font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --ca-text-xs: 0.75rem; /* 12px */
+  --ca-text-sm: 0.875rem; /* 14px */
+  --ca-text-base: 1rem; /* 16px */
+  --ca-text-lg: 1.125rem; /* 18px */
+  --ca-text-xl: 1.5rem; /* 24px */
+  --ca-text-2xl: 2rem; /* 32px */
+
+  /* ── Spacing scale (use for padding, margin, gap) ───────────────────────── */
+  --ca-space-1: 0.25rem; /* 4px */
+  --ca-space-2: 0.5rem; /* 8px */
+  --ca-space-3: 0.75rem; /* 12px */
+  --ca-space-4: 1rem; /* 16px */
+  --ca-space-5: 1.5rem; /* 24px */
+  --ca-space-6: 2rem; /* 32px */
+  --ca-space-7: 3rem; /* 48px */
+
+  /* ── Shape & depth ──────────────────────────────────────────────────────── */
+  --ca-radius-sm: 0.375rem;
+  --ca-radius: 0.5rem;
+  --ca-radius-lg: 0.75rem;
+  --ca-radius-pill: 999px;
+  --ca-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --ca-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --ca-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.14);
+
+  /* ── Layout ─────────────────────────────────────────────────────────────── */
+  --ca-navbar-height: 3.5rem;
+  --ca-content-max: 1320px; /* no stretched lines on wide screens */
+
+  /* ── Stacking order ─────────────────────────────────────────────────────── */
+  --ca-z-navbar: 1030; /* same numbers as Bootstrap's scale, so both stack correctly */
+  --ca-z-drawer: 1045;
+  --ca-z-modal: 1055;
+  --ca-z-toast: 1090;
+
+  /* ── Breakpoints (reference only — CSS can't use variables in @media) ─────
+     Write the 375px layout first, then add min-width overrides:
+       sm 576px · md 768px · lg 992px · xl 1200px · xxl 1400px
+     These match the test widths in design-docs/02 "Responsive breakpoints". */
+}
+
+/* ── Dark IDE region ──────────────────────────────────────────────────────────
+   <section class="ca-ide" data-bs-theme="dark">…</section>
+   (data-bs-theme makes Bootstrap pieces like btn-close and form-switch go dark too)
+   Every token below flips, so buttons, inputs, StatusPill and EmptyState inside
+   it turn dark with no extra classes. */
+.ca-ide {
+  color-scheme: dark; /* dark scrollbars + native controls */
+  --ca-bg: var(--ca-ide-bg);
+  --ca-surface: var(--ca-ide-surface);
+  --ca-surface-muted: var(--ca-ide-raised);
+  --ca-border: var(--ca-ide-border);
+  --ca-border-strong: #484f58;
+  --ca-text: var(--ca-ide-text);
+  --ca-text-muted: var(--ca-ide-muted);
+  --ca-brand-subtle: rgba(129, 140, 248, 0.16);
+  --ca-brand-ring: rgba(129, 140, 248, 0.45);
+  --ca-link: var(--ca-ide-accent);
+
+  --ca-state-done-bg: rgba(22, 163, 74, 0.18);
+  --ca-state-done-fg: #86efac;
+  --ca-state-in_progress-bg: rgba(217, 119, 6, 0.2);
+  --ca-state-in_progress-fg: #fcd34d;
+  --ca-state-error-bg: rgba(220, 38, 38, 0.2);
+  --ca-state-error-fg: #fca5a5;
+  --ca-state-behind-bg: rgba(37, 99, 235, 0.2);
+  --ca-state-behind-fg: #93c5fd;
+  --ca-state-idle-bg: rgba(100, 116, 139, 0.2);
+  --ca-state-idle-fg: #cbd5e1;
+
+  background: var(--ca-ide-bg);
+  color: var(--ca-ide-text);
+}

@@ -1,0 +1,137 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Bootstrap bridge + base.
+
+   Bootstrap's pre-built CSS (imported in main.js) does the reset, the grid,
+   the breakpoints and the layout utilities. This file points Bootstrap's own
+   CSS variables at OUR tokens, so its utilities (text-primary, bg-body-tertiary,
+   text-body-secondary, border, link colour, focus rings) match the theme
+   instead of default Bootstrap blue.
+
+   Declared on both :root and .ca-ide so the dark IDE region flips too.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root,
+.ca-ide {
+  --bs-body-bg: var(--ca-bg);
+  --bs-body-color: var(--ca-text);
+  --bs-body-font-family: var(--ca-font-sans);
+  --bs-font-monospace: var(--ca-font-mono);
+  --bs-emphasis-color: var(--ca-text);
+  --bs-secondary-color: var(--ca-text-muted); /* .text-body-secondary */
+  --bs-secondary-bg: var(--ca-surface-muted);
+  --bs-tertiary-bg: var(--ca-surface-muted); /* .bg-body-tertiary */
+  --bs-border-color: var(--ca-border); /* .border, .border-top, … */
+  --bs-border-radius: var(--ca-radius);
+  --bs-border-radius-sm: var(--ca-radius-sm);
+  --bs-border-radius-lg: var(--ca-radius-lg);
+  --bs-link-color: var(--ca-link);
+  --bs-link-hover-color: var(--ca-brand-hover);
+  --bs-code-color: var(--ca-brand-hover);
+  --bs-focus-ring-color: var(--ca-brand-ring);
+}
+.ca-ide {
+  --bs-link-hover-color: var(--ca-ide-accent);
+  --bs-code-color: var(--ca-ide-accent);
+}
+
+/* Theme colours for Bootstrap's text-*, bg-*, border-* utilities.
+   Keep these hex / rgb values in sync with tokens.css (the -rgb triplets can't use var()).
+   (-rgb versions are what .text-primary / .bg-primary actually read.) */
+:root {
+  --bs-primary: #4f46e5;
+  --bs-primary-rgb: 79, 70, 229;
+  --bs-success: #15803d;
+  --bs-success-rgb: 21, 128, 61;
+  --bs-danger: #dc2626;
+  --bs-danger-rgb: 220, 38, 38;
+  --bs-warning: #f59e0b;
+  --bs-warning-rgb: 245, 158, 11;
+  --bs-info: #0369a1;
+  --bs-info-rgb: 3, 105, 161;
+  --bs-link-color-rgb: 79, 70, 229;
+  --bs-link-hover-color-rgb: 67, 56, 202;
+}
+
+/* Use .ca-btn and .ca-input (components.css). These few overrides only exist so a
+   stray Bootstrap .btn-primary or .form-control doesn't show up Bootstrap-blue. */
+.btn-primary {
+  --bs-btn-bg: var(--ca-brand);
+  --bs-btn-border-color: var(--ca-brand);
+  --bs-btn-hover-bg: var(--ca-brand-hover);
+  --bs-btn-hover-border-color: var(--ca-brand-hover);
+  --bs-btn-active-bg: var(--ca-brand-active);
+  --bs-btn-active-border-color: var(--ca-brand-active);
+  --bs-btn-disabled-bg: var(--ca-brand);
+  --bs-btn-disabled-border-color: var(--ca-brand);
+  --bs-btn-focus-shadow-rgb: 79, 70, 229;
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--ca-brand);
+  --bs-btn-border-color: var(--ca-brand);
+  --bs-btn-hover-bg: var(--ca-brand);
+  --bs-btn-hover-border-color: var(--ca-brand);
+  --bs-btn-active-bg: var(--ca-brand-active);
+  --bs-btn-focus-shadow-rgb: 79, 70, 229;
+}
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+  border-color: var(--ca-brand);
+  box-shadow: 0 0 0 0.25rem var(--ca-brand-ring);
+}
+.form-check-input:checked {
+  background-color: var(--ca-brand);
+  border-color: var(--ca-brand);
+}
+
+/* ── Base additions on top of Bootstrap's reboot ──────────────────────────── */
+body {
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv11', 'ss01'; /* Inter: clearer 1 / l / I — matters for join codes */
+}
+
+/* Calmer, consistent heading sizes than Bootstrap's defaults */
+h1, .h1 { font-size: var(--ca-text-2xl); }
+h2, .h2 { font-size: var(--ca-text-xl); }
+h3, .h3 { font-size: var(--ca-text-lg); }
+h4, .h4, h5, .h5, h6, .h6 { font-size: var(--ca-text-base); }
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+a {
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-variant-ligatures: none;
+}
+:not(pre) > code {
+  padding: 0.1em 0.35em;
+  border-radius: var(--ca-radius-sm);
+  background: var(--ca-surface-muted);
+}
+
+/* Keyboard users always see where they are (rule of thumb: visibility of status) */
+a:focus-visible,
+[role='button']:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--ca-brand);
+  outline-offset: 2px;
+  border-radius: var(--ca-radius-sm);
+}
+.ca-ide a:focus-visible {
+  outline-color: var(--ca-ide-accent);
+}
+
+::selection {
+  background: var(--ca-brand-subtle);
+}
