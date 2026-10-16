@@ -186,6 +186,9 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-13 | **Editing auth metadata later changes nothing** | RLS | `auth.updateUser({ data: { role: 'prof' } })` after sign-up leaves `profiles.role` = `student` |
 | T-PLAT-14 | **Course uniqueness is per prof** | DB | Two profs can each create "IS216 · AY2026/27 T1 · G2"; the same prof creating it twice → `CONFLICT` |
 | T-PLAT-15 | **A prof never sees another prof's course** | RLS | Prof B selecting Prof A's course, lessons or sessions gets zero rows |
+| T-PLAT-16 | **Enrol link** while logged in | E2E | `/enrol/<code>` enrols without typing and lands on the course page |
+| T-PLAT-17 | **Enrol link as a brand-new student** | E2E | Link → log in → "Create an account" → register → back on the enrol link → enrolled (`returnTo` survives login *and* register) |
+| T-PLAT-18 | A prof opens an enrol link | E2E | Toast + redirect (the route is students and TAs only; `enrol_with_code` would refuse anyway) |
 
 ### LESSON — Lessons & plan · `lessons.spec.js`, `todo-parser.test.js`
 
@@ -468,7 +471,7 @@ Admins read everything and write only accounts. Most of these are negative tests
 
 | Area | Count | Main stage |
 |---|---:|---|
-| PLAT | 15 | 2 |
+| PLAT | 18 | 2 |
 | LESSON + TODO | 14 | 4 |
 | SESS | 18 | 3 |
 | SBX | 23 | 3 |
@@ -486,7 +489,7 @@ Admins read everything and write only accounts. Most of these are negative tests
 | RESP | 6 | 11 |
 | VALID | 8 | 11 |
 | LOAD + SEED + SMOKE | 9 | 11–12 |
-| **Total** | **197** | |
+| **Total** | **200** | |
 
 Up from 137 in the Mongo design: 15 came from authorization moving into the database (RLS negative tests — the cheapest in the suite, a sign-in and an `expect(data).toEqual([])`), and 17 more from the WebContainer runtime (boot, install, build errors, the file cache, delta autosave, and the two privacy tests that keep code frames and terminal output out of the dashboard), plus 12 for help follow-ups and class announcements, and 16 for sign-up roles, per-prof courses and the admin role.
 

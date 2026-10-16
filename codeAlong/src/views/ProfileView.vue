@@ -9,7 +9,6 @@ const router = useRouter()
 const isSubmitting = ref(false)
 const errMsg = ref('')
 
-
 async function logout() {
   isSubmitting.value = true
   errMsg.value = ''
@@ -29,7 +28,7 @@ async function logout() {
   <h1>Profile</h1>
   <p>User: {{ auth.user.name }}</p>
   <p>Role: {{ auth.role }}</p>
-  
+
   <button :disabled="isSubmitting" @click="logout()">Logout</button>
   <p v-if="errMsg">{{ errMsg }}</p>
 </template>

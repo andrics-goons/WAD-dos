@@ -8,6 +8,7 @@ PUBLIC                         ANY LOGGED-IN USER                 STAFF (TA / PR
 Landing  /                     My courses        /courses         Teach view        /s/:id/teach   (prof)
 Login    /login                Course page       /courses/:id     Help queue        /s/:id/help
 Register /register             Join session      /join[/:code]    Help review       /help/:requestId
+                               Enrol in course   /enrol[/:code]
 404                            Student workspace /s/:id/code      Lesson editor     /lessons/:id/edit (prof)
                                Replays           /replays         New lesson        /courses/:id/lessons/new (prof)
                                Replay viewer     /replays/:id     Insights report   /sessions/:id/report
@@ -32,8 +33,9 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 |---|---|---|---|---|
 | `/` | `LandingView` | Ying Qi | Public | Hero + 3 feature cards stacked → hero left, cards in a row; "Join a class" CTA always visible |
 | `/login`, `/register` | `LoginView`, `RegisterView` | Ying Qi | Public | Full-width card → centred card max 420 px |
-| `/courses` | `CoursesView` | Ying Qi | Logged in | Course cards 1 col → 3 cols; prof sees "New course"; student sees "Enrol with code" |
-| `/courses/:id` | `CourseView` | Ying Qi (shell) + Ray Yien (lesson library) | Staff / enrolled | Tabs (Lessons · Sessions · People) → same tabs, lessons as a table with search |
+| `/courses` | `CoursesView` | Ying Qi | Logged in | Course cards 1 col → 3 cols; prof sees "New course"; student sees **"Enrol in a course"**, which opens `/enrol` |
+| `/courses/:id` | `CourseView` | Ying Qi (shell) + Ray Yien (lesson library) | Staff / enrolled | Tabs (Lessons · Sessions · People) → same tabs, lessons as a table with search. **The owner sees a "Share enrolment" card**: the enrol code, a **Copy link** button for `<APP_URL>/enrol/<code>`, and its QR |
+| `/enrol`, `/enrol/:code` | `EnrolView` | Andric | Students and TAs (redirects to login with `returnTo`) | Same 6-box code input as the join page; `/enrol/:code` pre-fills from the link or QR and auto-submits. Success → that course's page. **Joins a course once per term — not the same as `/join`, which joins one live class** |
 | `/courses/:id/lessons/new` | `LessonNewView` | Evan (upload) + Ray Yien (GitHub import tab) | Prof | Stepper: 1 Source → 2 Review files → 3 Review steps |
 | `/lessons/:id/edit` | `LessonEditView` | Evan | Prof | Step list only, editor opens as a sheet → file editor left, draggable step list right |
 | `/join`, `/join/:code` | `JoinView` | Karin | Logged in (redirects to login with `returnTo`) | Big 6-box code input, auto-submits when complete; `/join/:code` pre-fills from QR |
@@ -422,6 +424,8 @@ Unchanged — components never knew where the data came from, which is why this 
 | Not allowed (e.g. student opens `/s/:id/teach`) | Toast + redirect to `/courses` | Router guard on account role |
 | **Row exists but isn't mine** | Empty/forbidden state on the page, not a crash | RLS returns zero rows → `maybeSingle()` gives `null`. Every view needs this state |
 | Wrong join code | "No live class with that code" under the input | `join_session` raises `NOT_FOUND\|…` |
+| Wrong or archived enrol code | "No course with that code" under the input | `enrol_with_code` raises `NOT_FOUND\|…` |
+| Enrol link opened while logged out | Sent to log in (or register), then straight back to the enrol link, which completes | `returnTo` carried through **both** login and register — a new student following the link usually has no account yet |
 | Session ended while coding | Banner "Class ended — your work is saved. Open replay" | `session:ended` broadcast |
 | Realtime disconnected | Navbar pill turns amber "Reconnecting…"; edits continue locally; autosave retries | Channel state callback; supabase-js reconnects with backoff |
 | Autosave fails | "Not saved — retrying" next to the file name; never blocks typing | Exponential retry; work kept in memory |

@@ -71,7 +71,11 @@ async function signOut() {
           <i class="bi" :class="l.icon" aria-hidden="true" />{{ l.label }}
         </RouterLink>
 
-        <RouterLink :to="{ name: 'join' }" class="ca-btn ca-btn--primary ca-btn--sm ca-navbar__join" data-testid="nav-join">
+        <RouterLink
+          :to="{ name: 'join' }"
+          class="ca-btn ca-btn--primary ca-btn--sm ca-navbar__join"
+          data-testid="nav-join"
+        >
           <i class="bi bi-box-arrow-in-right" aria-hidden="true" />Join a class
         </RouterLink>
 
@@ -89,16 +93,29 @@ async function signOut() {
             <i class="bi bi-chevron-down ca-user__chev" aria-hidden="true" />
           </button>
           <div v-if="userMenuOpen" class="ca-user__menu" role="menu">
-            <RouterLink :to="{ name: 'profile' }" class="ca-user__item" role="menuitem" data-testid="nav-profile">
+            <RouterLink
+              :to="{ name: 'profile' }"
+              class="ca-user__item"
+              role="menuitem"
+              data-testid="nav-profile"
+            >
               <i class="bi bi-person" aria-hidden="true" />Profile
             </RouterLink>
-            <button type="button" class="ca-user__item" role="menuitem" data-testid="nav-signout" @click="signOut">
+            <button
+              type="button"
+              class="ca-user__item"
+              role="menuitem"
+              data-testid="nav-signout"
+              @click="signOut"
+            >
               <i class="bi bi-box-arrow-right" aria-hidden="true" />Sign out
             </button>
           </div>
         </div>
         <template v-else>
-          <RouterLink :to="{ name: 'login' }" class="ca-navlink" data-testid="nav-login">Log in</RouterLink>
+          <RouterLink :to="{ name: 'login' }" class="ca-navlink" data-testid="nav-login"
+            >Log in</RouterLink
+          >
         </template>
       </div>
     </nav>

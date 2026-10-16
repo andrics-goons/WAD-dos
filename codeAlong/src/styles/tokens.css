@@ -93,7 +93,8 @@
   /* Self-hosted via @fontsource (imported in main.js) — Google Fonts would be
      blocked by the COOP/COEP headers WebContainer needs. */
   --ca-font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
-  --ca-font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --ca-font-mono:
+    'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --ca-text-xs: 0.75rem; /* 12px */
   --ca-text-sm: 0.875rem; /* 14px */
   --ca-text-base: 1rem; /* 16px */
