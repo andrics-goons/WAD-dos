@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { mapError } from './mapError'
 
 // TODO: route errors through mapError() once src/api/mapError.js exists
 export async function register({ name, email, password, role }) {
@@ -7,19 +8,19 @@ export async function register({ name, email, password, role }) {
     password,
     options: { data: { name, role } }, // the trigger reads `name` from here
   })
-  if (error) throw error
+  if (error) throw mapError(error)
   return data.user
 }
 
 export async function login({ email, password }) {
   const { error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) throw error
+  if (error) throw mapError(error)
   return getCurrentUser()
 }
 
 export async function logout() {
   const { error } = await supabase.auth.signOut()
-  if (error) throw error
+  if (error) throw mapError(error)
 }
 
 export async function getCurrentUser() {
@@ -32,7 +33,7 @@ export async function getCurrentUser() {
     .select('id, name, role')
     .eq('id', user.id)
     .single()
-  if (error) throw error
+  if (error) throw mapError(error)
   return data // { id, name, role }
 }
 
