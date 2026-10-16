@@ -72,7 +72,7 @@ A companion test sweeps the schema so a new table cannot be merged without polic
 
 ```js
 it('every public table has RLS enabled', async () => {
-  const { data } = await admin.rpc('tables_without_rls')   // helper in 0003_rls.sql
+  const { data } = await admin.rpc('tables_without_rls')   // helper defined in a migration
   expect(data).toEqual([])
 })
 ```
@@ -189,6 +189,9 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-16 | **Enrol link** while logged in | E2E | `/enrol/<code>` enrols without typing and lands on the course page |
 | T-PLAT-17 | **Enrol link as a brand-new student** | E2E | Link → log in → "Create an account" → register → back on the enrol link → enrolled (`returnTo` survives login *and* register) |
 | T-PLAT-18 | A prof opens an enrol link | E2E | Toast + redirect (the route is students and TAs only; `enrol_with_code` would refuse anyway) |
+| T-PLAT-19 | **A prof sees their course immediately after creating it** | RLS | `create_course` returns it, and a `select` on `courses` as that prof finds it (regression guard for the no-insert-policy design) |
+| T-PLAT-20 | **Staff/student separation** | DB | A TA can enrol in a course they don't staff; enrolling in one they staff → `CONFLICT`; adding an enrolled student as TA → `CONFLICT` |
+| T-PLAT-21 | **Profile updates still work alongside "read coursemates"** | RLS | A student renaming themselves succeeds and promoting themselves fails with `42501` — never `42P17` (regression guard for the recursion fix) |
 
 ### LESSON — Lessons & plan · `lessons.spec.js`, `todo-parser.test.js`
 
@@ -404,6 +407,7 @@ The section the architecture change affects most. Each rule that used to be "no 
 | T-PRIV-06 | **Every `public` table has RLS enabled** | RLS | `tables_without_rls()` returns empty |
 | T-PRIV-07 | **Every view uses `security_invoker`** | RLS | A view without it would leak all sessions; assert none exist |
 | T-PRIV-08 | No keystroke logging | Review | Status written only on change + 30 s heartbeat |
+| T-PRIV-11 | **Students don't see each other's names** | RLS | A student reads the names of their course's staff, never of other students in it |
 | T-PRIV-09 | **No build-error code frame reaches staff** | Unit+DB | Real Vite error output → `student_status.error` holds the message only; no source line appears in `session_tiles` |
 | T-PRIV-10 | **Terminal output never persisted** | DB | No table holds `pnpm install` or dev-server text |
 
@@ -471,7 +475,7 @@ Admins read everything and write only accounts. Most of these are negative tests
 
 | Area | Count | Main stage |
 |---|---:|---|
-| PLAT | 18 | 2 |
+| PLAT | 21 | 2 |
 | LESSON + TODO | 14 | 4 |
 | SESS | 18 | 3 |
 | SBX | 23 | 3 |
@@ -484,12 +488,12 @@ Admins read everything and write only accounts. Most of these are negative tests
 | REPLAY | 7 | 8 |
 | GH | 6 | 8 |
 | INS | 8 | 10 |
-| PRIV | 10 | 5–9 |
+| PRIV | 11 | 5–9 |
 | ADM | 11 | 2 |
 | RESP | 6 | 11 |
 | VALID | 8 | 11 |
 | LOAD + SEED + SMOKE | 9 | 11–12 |
-| **Total** | **200** | |
+| **Total** | **204** | |
 
 Up from 137 in the Mongo design: 15 came from authorization moving into the database (RLS negative tests — the cheapest in the suite, a sign-in and an `expect(data).toEqual([])`), and 17 more from the WebContainer runtime (boot, install, build errors, the file cache, delta autosave, and the two privacy tests that keep code frames and terminal output out of the dashboard), plus 12 for help follow-ups and class announcements, and 16 for sign-up roles, per-prof courses and the admin role.
 

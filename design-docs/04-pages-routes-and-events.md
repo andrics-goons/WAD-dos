@@ -138,12 +138,12 @@ All of it goes through `src/api/*.api.js`; components never touch `supabase` dir
 | Kind | Call | What happens | Who |
 |---|---|---|---|
 | Query | `from('courses').select('*')` | RLS returns exactly the courses I staff or am enrolled in — **no `$or` to write** | Any |
-| Query | `from('courses').insert({ … })` | Policy requires `role = 'prof'`; `enrol_code` from `shared/join-code.js` | Prof |
-| RPC | `enrol_with_code(p_code)` | Matches a course I cannot yet read, inserts my `course_students` row | Student |
+| RPC | `create_course(p_code, p_title, p_term, p_section)` | Creates the course **and** makes the caller its prof in one transaction; the server generates the enrol code. There is no insert policy on `courses` — a plain insert would leave the course invisible to its creator ([03](./03-data-model.md#why-there-is-no-insert-policy-on-courses)) | Prof |
+| RPC | `enrol_with_code(p_code)` | Matches a course I cannot yet read (case-insensitive, not archived), inserts my `course_students` row; enrolling twice is harmless. Used by the enrol page for both the typed code and the `/enrol/:code` link | Student or TA (not in a course they staff) |
 | Query | `from('courses').select().eq('id', id).single()` | Course; my role comes from the `course_staff`/`course_students` queries | Staff / enrolled |
 | Query | `from('courses').update(…).eq('id', id)` | Owner policy | Owner |
 | Query | `from('courses').delete().eq('id', id)` | FK cascades handle the rest | Owner |
-| RPC | `add_course_staff(p_course_id, p_email)` | Adds as TA, promoting `profiles.role` to `ta` if still `student` | Owner |
+| RPC | `add_course_staff(p_course_id, p_email)` | Adds as TA, promoting `profiles.role` to `ta` if still `student`. Refuses someone already on staff or **currently enrolled as a student in this course** | Owner |
 | Query | `from('course_staff').select('role, profiles(name)')` + same for students | People tab (names only) | Staff |
 | RPC | `remove_course_student(p_course_id, p_user_id)` | Removes enrolment; past statuses stay for the report | Owner |
 

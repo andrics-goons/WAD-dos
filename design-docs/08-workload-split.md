@@ -257,25 +257,27 @@ Answers to #3 go in the README either way — the measurement is the decision re
 
 | What | File(s) | Done |
 |---|---|:---:|
-| Supabase project, Auth config, local stack setup | `supabase/config.toml`, Supabase dashboard | ⬜ |
-| **All tables, constraints, indexes** (incl. `files_hash` generated columns) **(moved)** | `supabase/migrations/0001_tables.sql` | ⬜ |
-| **`files_valid()` + membership helpers** (`is_course_staff`, `is_session_member`, …) **(moved)** | `supabase/migrations/0002_helpers.sql` | ⬜ |
-| **RLS policies for every table + the Realtime channel policy** **(moved)** | `supabase/migrations/0003_rls.sql` | ⬜ |
-| **`session_tiles` + `session_summary` views** (`security_invoker`) **(moved)** | `supabase/migrations/0004_views.sql` | ⬜ |
-| **Triggers**: new-user profile, `status_history`, lesson-delete guard **(moved)** | `supabase/migrations/0006_triggers.sql` | ⬜ |
+| Supabase local stack + Auth config (cloud project still to come) | `supabase/config.toml` | ✅ local |
+| **The schema, one migration per layer** — each with its tables, helpers, RLS policies and RPCs **(moved)** | `supabase/migrations/` | |
+| · profiles, sign-up trigger, `app_role()`, `is_admin()` | `…_profiles.sql` | ✅ |
+| · courses, `course_staff`, `course_students`, `is_course_*()` helpers, `create_course` / `enrol_with_code` / `add_course_staff` / `remove_course_student`, "read coursemates" | `…_courses.sql` | ✅ |
+| · lessons, steps (+ `files_valid()`, the lesson-delete guard trigger) | next migration | ⬜ |
+| · sessions, checkpoints, `student_status`, `status_history` + the `session_tiles` / `session_summary` views + the Realtime channel policy | | ⬜ |
+| · snapshots, help requests, notes, session reports | | ⬜ |
 | **Review every migration PR** — feature owners write their own RPCs **(moved)** | — | ⬜ |
-| Supabase client + error mapper | `src/lib/supabase.js`, `src/api/mapError.js` | ⬜ |
-| Auth + profile + courses data access; enrol / add-staff RPCs | `src/api/auth.api.js`, `courses.api.js` | ⬜ |
-| **Enrol page** — typed code and `/enrol/:code` link, auto-submit **(new)** | `views/EnrolView.vue` | ⬜ |
+| Supabase client + error mapper | `src/lib/supabase.js`, `src/api/mapError.js` | ✅ |
+| Auth data access | `src/api/auth.api.js` | ✅ |
+| Courses data access (create, list, enrol, add TA, people) | `src/api/courses.api.js` | ⬜ |
+| **Enrol page** — typed code and `/enrol/:code` link, auto-submit **(new)** — route + `returnTo` through login/register done; the page itself needs `courses.api.js` | `views/EnrolView.vue` | ⬜ |
 | Report builder + `end-session` function + trends RPC (the page is Evan's) | `shared/report-builder.js`, `supabase/functions/end-session/` | ⬜ |
 | Seed data + `seed:generate` (uses Evan's Mini Cart fixture) | `supabase/seed.sql`, `scripts/seed-generate.js` | ⬜ |
 | **`test_outbox` table** — Karin's mocked Telegram/GitHub functions write here; tests read it **(new)** | `…_test_outbox.sql`, `readOutbox()` in `tests/unit/rls/_helpers.js` | ✅ |
 | Keep-alive cron so the free-tier project can't pause before Week 18 | GitHub Actions cron | ⬜ |
-| **Sign-up role choice**: trigger allow-list (`prof`, else `student`) + `register({ role })` **(new)** | sign-up migration, `src/api/auth.api.js` | ⬜ |
-| **Admin role**: `app_role()` / `is_admin()`, one `admin reads all` policy per table, `admin_audit` **(new)** | `0002_helpers.sql`, `0003_rls.sql`, new migration | ⬜ |
+| **Sign-up role choice**: trigger allow-list (`prof`, else `student`) + `register({ role })` **(new)** | `…_profiles.sql`, `src/api/auth.api.js` | ✅ |
+| **Admin role**: `app_role()` / `is_admin()` ✅ and `admin reads all` on every table so far ✅; `admin_audit` still to do **(new)** | `…_profiles.sql`, each layer's migration | ⬜ |
 | **Admin user management**: `admin_list_users`, `admin_set_role`, `admin-users` Edge Function **(new)** | new migration, `supabase/functions/admin-users/`, `src/api/admin.api.js` | ⬜ |
 | **Admin users page** — your one Vue page **(new)** | `views/AdminUsersView.vue` | ⬜ |
-| Tests | T-PLAT-03, 09–18 · T-STAT-07–09, 11, 12 · T-PRIV-01–05, 08 · T-INS-01–03, 05–08 · T-VAL-01, 06–08 · T-SEED-* · T-ADM-* · RLS suite | ⬜ |
+| Tests | T-PLAT-03, 09–21 · T-STAT-07–09, 11, 12 · T-PRIV-01–05, 08, 11 · T-INS-01–03, 05–08 · T-VAL-01, 06–08 · T-SEED-* · T-ADM-* · RLS suite | ⬜ |
 
 **Boundary:** owns the whole database contract — every table, policy, view and trigger — plus auth, sign-up roles, the admin role, the accounts/courses data layer, the insights data and the seed. Builds one page: `/admin/users`. Others request schema changes by PR to Andric.
 **Hands to others:** the tables and views, `mapError()`, `auth.api` / `courses.api`, and `session_reports` for Evan's report page.
