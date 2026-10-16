@@ -64,25 +64,20 @@ function fakeConfirm() {
 
     <div class="kit-lede text-body-secondary">
       <p class="mb-2">
-        <strong class="text-body">Bootstrap</strong> for layout and responsiveness — grid,
-        breakpoints, spacing: <code>row</code>, <code>col-md-6</code>, <code>d-flex gap-2</code>,
-        <code>d-none d-md-block</code>.
+        <strong class="text-body">Bootstrap</strong> for layout and responsiveness — grid, breakpoints, spacing:
+        <code>row</code>, <code>col-md-6</code>, <code>d-flex gap-2</code>, <code>d-none d-md-block</code>.
       </p>
       <p class="mb-0">
-        <strong class="text-body">Our <code>ca-</code> classes</strong> for the look — buttons,
-        inputs, panels — and <code>var(--ca-…)</code> tokens in <code>&lt;style scoped&gt;</code>.
-        Never hard-code a hex colour; tokens live in <code>src/styles/tokens.css</code>.
+        <strong class="text-body">Our <code>ca-</code> classes</strong> for the look — buttons, inputs, panels — and
+        <code>var(--ca-…)</code> tokens in <code>&lt;style scoped&gt;</code>. Never hard-code a hex colour; tokens live in
+        <code>src/styles/tokens.css</code>.
       </p>
     </div>
 
     <!-- ── Colour ──────────────────────────────────────────────────────── -->
     <section class="kit-section">
       <h2>Colour</h2>
-      <div
-        v-for="group in [brand, semantic, surfaces]"
-        :key="group[0].token"
-        class="ca-grid kit-swatches"
-      >
+      <div v-for="group in [brand, semantic, surfaces]" :key="group[0].token" class="ca-grid kit-swatches">
         <div v-for="s in group" :key="s.token">
           <div class="kit-chip" :style="{ background: `var(${s.token})` }" />
           <div class="small fw-semibold">{{ s.name }}</div>
@@ -95,8 +90,8 @@ function fakeConfirm() {
     <section class="kit-section">
       <h2>Tile states</h2>
       <p class="text-body-secondary small">
-        <code>&lt;StatusPill :state="tile.state" /&gt;</code> — always icon + label + colour.
-        Tokens: <code>--ca-state-&lt;state&gt;</code>, <code>-bg</code>, <code>-fg</code>.
+        <code>&lt;StatusPill :state="tile.state" /&gt;</code> — always icon + label + colour. Tokens:
+        <code>--ca-state-&lt;state&gt;</code>, <code>-bg</code>, <code>-fg</code>.
       </p>
       <div class="d-flex flex-wrap gap-2 mb-2">
         <StatusPill v-for="s in TileStateOrder" :key="s" :state="s" />
@@ -110,9 +105,8 @@ function fakeConfirm() {
     <section class="kit-section">
       <h2>Responsive layout (Bootstrap breakpoints)</h2>
       <p class="text-body-secondary small">
-        Layouts change at breakpoints, not at device names. Write the <strong>xs</strong> layout
-        first, then add a class for the breakpoint where it should change — it applies from that
-        width <em>upwards</em>.
+        Layouts change at breakpoints, not at device names. Write the <strong>xs</strong> layout first, then add a class
+        for the breakpoint where it should change — it applies from that width <em>upwards</em>.
       </p>
 
       <!-- Live indicator: exactly one badge is visible at any width -->
@@ -129,57 +123,22 @@ function fakeConfirm() {
       <div class="table-responsive mb-4">
         <table class="table table-sm small align-middle mb-0">
           <thead>
-            <tr>
-              <th>Breakpoint</th>
-              <th>From</th>
-              <th>Class infix</th>
-              <th>Test at</th>
-            </tr>
+            <tr><th>Breakpoint</th><th>From</th><th>Class infix</th><th>Test at</th></tr>
           </thead>
           <tbody>
-            <tr>
-              <td>xs</td>
-              <td>0</td>
-              <td><em>none</em> — <code>col-12</code>, <code>d-none</code></td>
-              <td>375px and 575px</td>
-            </tr>
-            <tr>
-              <td>sm</td>
-              <td>576px</td>
-              <td><code>-sm-</code> — <code>col-sm-6</code></td>
-              <td>600px</td>
-            </tr>
-            <tr>
-              <td>md</td>
-              <td>768px</td>
-              <td><code>-md-</code> — <code>d-md-flex</code></td>
-              <td>800px</td>
-            </tr>
-            <tr>
-              <td>lg</td>
-              <td>992px</td>
-              <td><code>-lg-</code> — <code>col-lg-4</code></td>
-              <td>1024px</td>
-            </tr>
-            <tr>
-              <td>xl</td>
-              <td>1200px</td>
-              <td><code>-xl-</code> — <code>col-xl-3</code></td>
-              <td>1280px</td>
-            </tr>
-            <tr>
-              <td>xxl</td>
-              <td>1400px</td>
-              <td><code>-xxl-</code> — <code>col-xxl-2</code></td>
-              <td>1440px</td>
-            </tr>
+            <tr><td>xs</td><td>0</td><td><em>none</em> — <code>col-12</code>, <code>d-none</code></td><td>375px and 575px</td></tr>
+            <tr><td>sm</td><td>576px</td><td><code>-sm-</code> — <code>col-sm-6</code></td><td>600px</td></tr>
+            <tr><td>md</td><td>768px</td><td><code>-md-</code> — <code>d-md-flex</code></td><td>800px</td></tr>
+            <tr><td>lg</td><td>992px</td><td><code>-lg-</code> — <code>col-lg-4</code></td><td>1024px</td></tr>
+            <tr><td>xl</td><td>1200px</td><td><code>-xl-</code> — <code>col-xl-3</code></td><td>1280px</td></tr>
+            <tr><td>xxl</td><td>1400px</td><td><code>-xxl-</code> — <code>col-xxl-2</code></td><td>1440px</td></tr>
           </tbody>
         </table>
       </div>
 
       <p class="text-body-secondary small">
-        Page layout: <code>row g-3</code> + <code>col-12 col-sm-6 col-lg-4 col-xxl-3</code> → 1
-        column at xs, 2 from sm, 3 from lg, 4 from xxl. Resize the window to see it.
+        Page layout: <code>row g-3</code> + <code>col-12 col-sm-6 col-lg-4 col-xxl-3</code> → 1 column at xs, 2 from sm,
+        3 from lg, 4 from xxl. Resize the window to see it.
       </p>
       <div class="row g-3 mb-4">
         <div v-for="n in 4" :key="n" class="col-12 col-sm-6 col-lg-4 col-xxl-3">
@@ -191,9 +150,9 @@ function fakeConfirm() {
         </div>
       </div>
       <p class="text-body-secondary small">
-        Card lists: <code>&lt;div class="ca-grid" style="--min: 12rem"&gt;</code> — as many columns
-        as fit, no breakpoint classes needed. Show/hide from a breakpoint up:
-        <code>d-none d-md-block</code> (hidden below md), <code>d-md-none</code> (only below md).
+        Card lists: <code>&lt;div class="ca-grid" style="--min: 12rem"&gt;</code> — as many columns as fit, no breakpoint
+        classes needed. Show/hide from a breakpoint up: <code>d-none d-md-block</code> (hidden below md),
+        <code>d-md-none</code> (only below md).
       </p>
       <div class="ca-grid" style="--min: 9rem; --gap: var(--ca-space-2)">
         <div v-for="n in 8" :key="n" class="ca-surface p-3 small">Tile {{ n }}</div>
@@ -208,9 +167,7 @@ function fakeConfirm() {
         <h1>h1 — Week 6 · Mini Cart</h1>
         <h2>h2 — Step 4 of 8</h2>
         <h3 class="mb-3">h3 — Emit add-to-cart</h3>
-        <p class="mb-1">
-          Body text in Inter. Students read join codes like <strong>ABC234</strong> off a projector.
-        </p>
+        <p class="mb-1">Body text in Inter. Students read join codes like <strong>ABC234</strong> off a projector.</p>
         <p class="text-body-secondary mb-2">Muted text uses <code>.text-body-secondary</code>.</p>
         <span class="ca-mono">.ca-mono · const items = props.items</span>
       </div>
@@ -220,9 +177,8 @@ function fakeConfirm() {
     <section class="kit-section">
       <h2>Buttons</h2>
       <p class="text-body-secondary small">
-        <code>ca-btn ca-btn--primary</code> for the main action on a screen,
-        <code>--secondary</code> for alternatives, <code>--danger</code> only for destructive
-        actions (behind a ConfirmModal).
+        <code>ca-btn ca-btn--primary</code> for the main action on a screen, <code>--secondary</code> for alternatives,
+        <code>--danger</code> only for destructive actions (behind a ConfirmModal).
       </p>
       <div class="d-flex flex-wrap gap-2 mb-2">
         <button class="ca-btn ca-btn--primary">Save checkpoint</button>
@@ -237,9 +193,7 @@ function fakeConfirm() {
       <div class="d-flex flex-wrap align-items-center gap-2">
         <button class="ca-btn ca-btn--primary ca-btn--sm">--sm</button>
         <button class="ca-btn ca-btn--primary ca-btn--lg">--lg Join a class</button>
-        <button class="ca-btn ca-btn--secondary ca-btn--icon" aria-label="Settings">
-          <i class="bi bi-gear" />
-        </button>
+        <button class="ca-btn ca-btn--secondary ca-btn--icon" aria-label="Settings"><i class="bi bi-gear" /></button>
         <button class="ca-btn ca-btn--primary" disabled>
           <span class="spinner-border spinner-border-sm" aria-hidden="true" />Saving…
         </button>
@@ -250,21 +204,14 @@ function fakeConfirm() {
     <section class="kit-section">
       <h2>Forms</h2>
       <p class="text-body-secondary small">
-        <code>ca-field</code> + <code>ca-label</code> + <code>ca-input</code>; errors via
-        <code>aria-invalid</code> and <code>ca-field-error</code>. Toggles use Bootstrap's
-        <code>form-check form-switch</code>.
+        <code>ca-field</code> + <code>ca-label</code> + <code>ca-input</code>; errors via <code>aria-invalid</code> and
+        <code>ca-field-error</code>. Toggles use Bootstrap's <code>form-check form-switch</code>.
       </p>
       <form class="ca-card" novalidate @submit.prevent>
         <div class="row g-3">
           <div class="col-12 col-sm-6 ca-field">
             <label class="ca-label" for="kit-email">Email</label>
-            <input
-              id="kit-email"
-              v-model="email"
-              type="email"
-              class="ca-input"
-              placeholder="alex@codealong.test"
-            />
+            <input id="kit-email" v-model="email" type="email" class="ca-input" placeholder="alex@codealong.test" />
             <p class="ca-field-hint">Use your school email</p>
           </div>
           <div class="col-12 col-sm-6 ca-field">
@@ -288,13 +235,7 @@ function fakeConfirm() {
           </div>
           <div class="col-12">
             <div class="form-check form-switch">
-              <input
-                id="kit-switch"
-                class="form-check-input"
-                type="checkbox"
-                role="switch"
-                checked
-              />
+              <input id="kit-switch" class="form-check-input" type="checkbox" role="switch" checked />
               <label class="form-check-label" for="kit-switch">Allow catch-up</label>
             </div>
           </div>
@@ -305,42 +246,13 @@ function fakeConfirm() {
     <!-- ── Feedback ────────────────────────────────────────────────────── -->
     <section class="kit-section">
       <h2>Toasts &amp; confirm</h2>
-      <p class="text-body-secondary small">
-        <code>useToastStore().show(text, variant)</code> — never render your own toast.
-      </p>
+      <p class="text-body-secondary small"><code>useToastStore().show(text, variant)</code> — never render your own toast.</p>
       <div class="d-flex flex-wrap gap-2">
-        <button
-          class="ca-btn ca-btn--secondary ca-btn--sm"
-          data-testid="kit-toast-info"
-          @click="toast.show('Checkpoint 3 is ready', 'info')"
-        >
-          Info
-        </button>
-        <button
-          class="ca-btn ca-btn--secondary ca-btn--sm"
-          @click="toast.show('Checkpoint saved', 'success')"
-        >
-          Success
-        </button>
-        <button
-          class="ca-btn ca-btn--secondary ca-btn--sm"
-          @click="toast.show('Reconnecting…', 'warning')"
-        >
-          Warning
-        </button>
-        <button
-          class="ca-btn ca-btn--secondary ca-btn--sm"
-          @click="toast.show('Ana is already on this one', 'danger', { title: 'Already claimed' })"
-        >
-          Danger
-        </button>
-        <button
-          class="ca-btn ca-btn--danger ca-btn--sm"
-          data-testid="kit-open-confirm"
-          @click="confirmOpen = true"
-        >
-          Open ConfirmModal
-        </button>
+        <button class="ca-btn ca-btn--secondary ca-btn--sm" data-testid="kit-toast-info" @click="toast.show('Checkpoint 3 is ready', 'info')">Info</button>
+        <button class="ca-btn ca-btn--secondary ca-btn--sm" @click="toast.show('Checkpoint saved', 'success')">Success</button>
+        <button class="ca-btn ca-btn--secondary ca-btn--sm" @click="toast.show('Reconnecting…', 'warning')">Warning</button>
+        <button class="ca-btn ca-btn--secondary ca-btn--sm" @click="toast.show('Ana is already on this one', 'danger', { title: 'Already claimed' })">Danger</button>
+        <button class="ca-btn ca-btn--danger ca-btn--sm" data-testid="kit-open-confirm" @click="confirmOpen = true">Open ConfirmModal</button>
       </div>
       <ConfirmModal
         v-model:open="confirmOpen"
@@ -356,9 +268,7 @@ function fakeConfirm() {
 
     <section class="kit-section">
       <h2>Empty / not-found state</h2>
-      <p class="text-body-secondary small">
-        RLS returns zero rows for data you can't see — every view needs one of these.
-      </p>
+      <p class="text-body-secondary small">RLS returns zero rows for data you can't see — every view needs one of these.</p>
       <div class="ca-surface">
         <EmptyState icon="bi-journal-code" title="No lessons yet">
           Upload starter code or import from GitHub to create your first lesson.
@@ -373,8 +283,7 @@ function fakeConfirm() {
     <section id="ide" class="kit-section">
       <h2>IDE surfaces</h2>
       <p class="text-body-secondary small">
-        Wrap the workspace / teach view in
-        <code>&lt;div class="ca-ide" data-bs-theme="dark"&gt;</code>. Tokens, our
+        Wrap the workspace / teach view in <code>&lt;div class="ca-ide" data-bs-theme="dark"&gt;</code>. Tokens, our
         <code>ca-</code> classes, Bootstrap utilities and StatusPill all switch to the dark palette.
       </p>
       <div class="ca-grid kit-swatches mb-3">
@@ -394,9 +303,7 @@ function fakeConfirm() {
             <button class="ca-btn ca-btn--primary ca-btn--sm">Load checkpoint</button>
           </span>
         </div>
-        <pre
-          class="kit-ide__code"
-        ><span class="kit-ln">21</span>const emit = defineEmits(['add-to-cart'])
+        <pre class="kit-ide__code"><span class="kit-ln">21</span>const emit = defineEmits(['add-to-cart'])
 <span class="kit-ln">22</span>function addToCart() {
 <span class="kit-ln kit-ln--err">23</span>  for (const item of items) {   <span class="kit-err">// ReferenceError: items is not defined</span>
 <span class="kit-ln">24</span>    emit('add-to-cart', item)
@@ -408,11 +315,7 @@ function fakeConfirm() {
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2 p-3 border-top">
           <StatusPill v-for="s in TileStateOrder" :key="s" :state="s" />
-          <input
-            class="ca-input ms-md-auto kit-ide__input"
-            placeholder="Dark input"
-            aria-label="Dark input example"
-          />
+          <input class="ca-input ms-md-auto kit-ide__input" placeholder="Dark input" aria-label="Dark input example" />
           <button class="ca-btn ca-btn--secondary ca-btn--sm">Secondary</button>
         </div>
       </div>

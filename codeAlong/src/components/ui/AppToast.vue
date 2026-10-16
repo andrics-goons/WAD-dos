@@ -88,21 +88,13 @@ const ICONS = {
   font-size: 1.1rem;
   line-height: 1.4;
 }
-.ca-toast--success {
-  --toast-accent: var(--ca-success);
-}
-.ca-toast--warning {
-  --toast-accent: var(--ca-warning);
-}
-.ca-toast--danger {
-  --toast-accent: var(--ca-danger);
-}
+.ca-toast--success { --toast-accent: var(--ca-success); }
+.ca-toast--warning { --toast-accent: var(--ca-warning); }
+.ca-toast--danger { --toast-accent: var(--ca-danger); }
 
 .ca-toast-enter-active,
 .ca-toast-leave-active {
-  transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .ca-toast-enter-from,
 .ca-toast-leave-to {

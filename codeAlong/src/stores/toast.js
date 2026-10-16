@@ -22,11 +22,7 @@ export const useToastStore = defineStore('toast', () => {
     // Oldest toasts drop off so a burst of events can't cover the screen
     while (messages.value.length > MAX_VISIBLE) dismiss(messages.value[0].id)
 
-    if (timeout > 0)
-      timers.set(
-        id,
-        setTimeout(() => dismiss(id), timeout),
-      )
+    if (timeout > 0) timers.set(id, setTimeout(() => dismiss(id), timeout))
     return id
   }
 
