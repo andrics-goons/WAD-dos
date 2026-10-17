@@ -1,13 +1,19 @@
 <script setup>
 // 3-step stepper (Source → Review files → Review steps).
-// The upload + parsing is real and runs in the browser; saving to the database is not wired yet.
+// upload + parsing happen in the browser, create lesson saves through lessons.api.js
+// saving needs the lessons table and a real course id in the url
 import { computed, onBeforeUnmount, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import StepList from '@/components/lesson/StepList.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import { createLesson } from '@/api/lessons.api'
+import { useToastStore } from '@/stores/toast'
 import { buildLessonFiles, isIgnored, languageForPath } from '../../shared/lesson-files.js'
 import { parseTodos } from '../../shared/todo-parser.js'
 
-defineProps({ id: { type: String, required: true } })
+const props = defineProps({ id: { type: String, required: true } }) // the course id
+const router = useRouter()
+const toast = useToastStore()
 
 const stage = ref(1)
 const source = ref('upload')
@@ -18,12 +24,15 @@ const entryFile = ref(null)
 const skipped = ref([]) // files the converter rejected one by one (e.g. unsafe path)
 const ignoredCount = ref(0) // files dropped before reading: node_modules, images, lockfiles...
 const errors = ref([])
-const steps = ref([])
+const parsedSteps = ref([]) // steps from parseTodos, this is what gets saved
+const steps = ref([]) // same steps but formatted for StepList
 
-// Lesson details — not saved anywhere until lessons.api.js exists.
+// lesson details
 const title = ref('')
 const week = ref('')
 const description = ref('')
+const titleError = ref('')
+const saving = ref(false)
 
 // What the upload is doing right now, so the page never looks frozen:
 //   idle → picking (browser is opening the folder) → scanning → reading → idle
@@ -50,13 +59,49 @@ function load(entries, options) {
   ignoredCount.value = 0
   errors.value = result.errors
   // Same function the lesson editor will call for "Re-parse TODOs".
-  steps.value = parseTodos(result.files, result.entryFile).map((s) => ({
+  parsedSteps.value = parseTodos(result.files, result.entryFile)
+  steps.value = parsedSteps.value.map((s) => ({
     id: s.order,
     order: s.order,
     title: s.title,
     file: s.todoRefs.map((r) => `${r.file}:${r.line}`).join('  ·  '),
     status: 'todo',
   }))
+}
+
+// check the title before leaving step 1
+function next() {
+  if (stage.value === 1 && !title.value.trim()) {
+    titleError.value = 'Give the lesson a title before you continue'
+    document.getElementById('title')?.focus()
+    return
+  }
+  stage.value++
+}
+
+async function create() {
+
+  saving.value = true
+  try {
+    const { lesson } = await createLesson(
+      props.id,
+      {
+        title: title.value.trim(),
+        week: week.value ? Number(week.value) : null,
+        description: description.value.trim(),
+        files: files.value,
+        entryFile: entryFile.value,
+        source: { type: source.value },
+      },
+      parsedSteps.value,
+    )
+    toast.show('Lesson created as a draft', 'success')
+    router.push({ name: 'lesson-edit', params: { id: lesson.id } })
+  } catch (err) {
+    toast.show(err.message, 'danger', { title: "Couldn't create the lesson" })
+  } finally {
+    saving.value = false
+  }
 }
 
 // Show "Loading files…" only once the file dialog has closed. While it is open nothing changes;
@@ -240,15 +285,26 @@ async function onFolderPicked(event) {
         <div class="row g-3">
           <div class="col-12 col-md-8 ca-field">
             <label class="ca-label" for="title">Lesson title</label>
-            <input id="title" v-model="title" class="ca-input" placeholder="Week 6 · Mini Cart" data-testid="input-title" />
+            <input
+              id="title"
+              v-model="title"
+              class="ca-input"
+              placeholder="Week 6 · Mini Cart"
+              maxlength="100"
+              :aria-invalid="!!titleError"
+              aria-describedby="title-err"
+              data-testid="input-title"
+              @input="titleError = ''"
+            />
+            <p v-if="titleError" id="title-err" class="ca-field-error">{{ titleError }}</p>
           </div>
           <div class="col-12 col-md-4 ca-field">
             <label class="ca-label" for="week">Week</label>
-            <input id="week" v-model="week" class="ca-input" type="number" min="1" data-testid="input-week" />
+            <input id="week" v-model="week" class="ca-input" type="number" min="1" max="13" data-testid="input-week" />
           </div>
           <div class="col-12 ca-field">
             <label class="ca-label" for="desc">Description</label>
-            <textarea id="desc" v-model="description" class="ca-input" rows="2" data-testid="input-description" />
+            <textarea id="desc" v-model="description" class="ca-input" rows="2" maxlength="500" data-testid="input-description" />
           </div>
         </div>
       </div>
@@ -313,7 +369,7 @@ async function onFolderPicked(event) {
           class="ca-btn ca-btn--primary"
           :disabled="!canContinue"
           data-testid="btn-next"
-          @click="stage++"
+          @click="next"
         >
           Next<i class="bi bi-arrow-right" aria-hidden="true" />
         </button>
@@ -321,14 +377,14 @@ async function onFolderPicked(event) {
           v-else
           type="button"
           class="ca-btn ca-btn--primary"
-          disabled
-          title="Saving to the database isn't wired up yet"
+          :disabled="saving || !files.length"
           data-testid="btn-create-lesson"
+          @click="create"
         >
-          <i class="bi bi-check-lg" aria-hidden="true" />Create lesson
+          <span v-if="saving" class="spinner-border spinner-border-sm" aria-hidden="true" />
+          <i v-else class="bi bi-check-lg" aria-hidden="true" />Create lesson
         </button>
       </div>
-      <p v-if="stage === 3" class="ca-field-hint text-end mt-2 mb-0">Saving isn't wired up yet.</p>
     </div>
   </div>
 </template>
