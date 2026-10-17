@@ -333,11 +333,13 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 
 | Function | Owner | Called by | Signature |
 |---|---|---|---|
-| `rpc('enrol_with_code')` | Andric | Courses store | `(p_code text) → course row` |
+| `rpc('create_course')` | Andric | Courses page | `(p_code text, p_title text, p_term text, p_section text) → course row` — prof only; generates the enrol code; adds the caller to `course_staff` as `prof` |
+| `rpc('enrol_with_code')` | Andric | Enrol page | `(p_code text) → course row` — students and TAs; `NOT_FOUND` for a wrong or archived code |
 | `rpc('admin_list_users')` | Andric | Admin page | `() → [{ id, email, name, role, created_at, disabled }]` — `FORBIDDEN` unless admin |
 | `rpc('admin_set_role')` | Andric | Admin page | `(p_user_id uuid, p_role text) → profile row` — refuses the caller's own role; writes `admin_audit` |
 | `fn('admin-users')` | Andric | Admin page | `{ action: 'disable' \| 'enable' \| 'reset_password', userId } → { ok }` — service role; refuses self-disable; writes `admin_audit` |
-| `rpc('add_course_staff')` | Andric | Course people page | `(p_course_id uuid, p_email text) → staff row` |
+| `rpc('add_course_staff')` | Andric | Course people page | `(p_course_id uuid, p_email text) → staff row` — owner only; `CONFLICT` if already staff or enrolled as a student |
+| `rpc('remove_course_student')` | Andric | Course people page | `(p_course_id uuid, p_user_id uuid) → void` — owner only |
 | `rpc('start_session')` | Ying Qi | Teach view | `(p_lesson_id uuid) → { session, join_code }` |
 | `rpc('join_session')` | Ying Qi | Join view | `(p_join_code text) → { session_id, role }` |
 | `rpc('save_checkpoint')` | Ying Qi | Teach view | `(p_session_id uuid, p_step_id uuid, p_files jsonb, p_note text) → checkpoint row` |
@@ -387,7 +389,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Area | Examples |
 |---|---|
 | Navigation | `nav-courses`, `nav-replays`, `nav-profile`, `nav-connection-pill` |
-| Courses | `course-card-<code>`, `btn-new-course`, `input-enrol-code` |
+| Courses | `course-card-<code>`, `btn-new-course`, `btn-enrol-course`, `input-enrol-code`, `btn-enrol`, `enrol-link`, `btn-copy-enrol-link`, `enrol-qr` |
 | Lessons | `lesson-row-<slug>`, `lesson-start-<slug>`, `step-item-<order>`, `btn-step-up-<order>` |
 | Session | `join-code`, `join-qr`, `input-join-code`, `btn-save-checkpoint`, `btn-end-session`, `toast-checkpoint`, `input-announce`, `btn-announce`, `btn-clear-announce`, `announcement-banner` |
 | Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `btn-done`, `btn-lost`, `btn-help`, `btn-load-checkpoint`, `what-you-missed`, `workspace-step-current`, `tab-code`, `tab-preview`, `tab-console`, `tab-steps` |

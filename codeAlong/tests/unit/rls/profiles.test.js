@@ -10,6 +10,7 @@ import {
   track,
   uniqueEmail,
 } from './_helpers.js'
+import { mapError } from '@/api/mapError'
 
 afterAll(cleanup)
 
@@ -133,6 +134,27 @@ describe('profiles RLS: admins', () => {
     const { error } = await admin.client.from('profiles').update({ role: 'student' }).eq('id', admin.id)
     expect(error?.code).toBe('42501')
     expect((await profileOf(admin.id)).role).toBe('admin')
+  })
+})
+
+describe('login errors', () => {
+  it('T-PLAT-03: a wrong password and an unknown email give the same message', async () => {
+    const real = await createUser({ name: 'Real User' })
+
+    const wrongPassword = await anonClient().auth.signInWithPassword({
+      email: real.email,
+      password: 'not-the-password',
+    })
+    const unknownEmail = await anonClient().auth.signInWithPassword({
+      email: uniqueEmail('nobody'),
+      password: 'pass1234',
+    })
+
+    // Supabase itself must not reveal which emails have accounts…
+    expect(wrongPassword.error.code).toBe(unknownEmail.error.code)
+    // …and neither may our friendly message
+    expect(mapError(wrongPassword.error).message).toBe('Invalid email or password')
+    expect(mapError(unknownEmail.error).message).toBe('Invalid email or password')
   })
 })
 

@@ -108,13 +108,16 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │
 ├── supabase/                    ← everything that is not the browser
 │   ├── config.toml
-│   ├── migrations/              ← schema owned by Andric; each feature owner adds their own RPC migrations
-│   │   ├── 0001_tables.sql
-│   │   ├── 0002_helpers.sql     ← app_role(), is_admin(), is_course_staff(), is_session_member(), files_valid()
-│   │   ├── 0003_rls.sql         ← a policy per table per command
-│   │   ├── 0004_views.sql       ← session_tiles, session_summary (security_invoker)
-│   │   ├── 0005_rpc.sql         ← security-definer functions (each feature owner adds their own)
-│   │   └── 0006_triggers.sql    ← new-user profile, status_history, broadcast on checkpoint
+│   ├── migrations/              ← ONE FILE PER LAYER, each holding that layer's tables, helpers,
+│   │   │                           policies and RPCs; named by `supabase migration new <name>`
+│   │   │                           (<timestamp>_<name>.sql). Schema owned by Andric; feature
+│   │   │                           owners add their own RPC migrations, which Andric reviews
+│   │   ├── …_profiles.sql       ← profiles, sign-up trigger, app_role(), is_admin()
+│   │   ├── …_courses.sql        ← courses, course_staff, course_students, is_course_*(),
+│   │   │                           create_course / enrol_with_code / add_course_staff / remove_course_student
+│   │   ├── …_test_outbox.sql    ← where mocked Edge Functions record what they'd have sent
+│   │   └── (next)               ← lessons + steps → sessions, checkpoints, status + the two views
+│   │                               → snapshots, help requests, notes, reports
 │   ├── functions/               ← Deno; one folder per function
 │   │   ├── _shared/cors.ts, supabaseAdmin.ts, outbox.ts
 │   │   ├── telegram-webhook/    ← Karin — receives /start <code>, /stop, /help
