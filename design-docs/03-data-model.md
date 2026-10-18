@@ -67,34 +67,52 @@ Used in `lessons.files`, `checkpoints.files`, `snapshots.files`.
 
 | Key | Rules |
 |---|---|
-| `path` | required, max 120, matches `^[\w\-./]+$`, no `..` |
+| `path` | required, max 120, matches `^[A-Za-z0-9_\-./]+$`, relative (no leading `/`), no `..`, **unique within the list** |
 | `language` | one of `html`, `css`, `js`, `vue`, `json`, `md` — `vue` is new: lessons are now SFC projects, and it selects the CodeMirror mode |
-| `content` | required (may be empty) |
+| `content` | required, must be a string (may be empty) |
 
 **Why 40 and not 20.** A bare Vite + Vue scaffold is already ~10 files before the student writes anything, and Mini Cart ships ~12. The old limit of 20 was sized for three hand-written files. The **byte** cap stays at 200 KB, because source files are a few KB each and that cap is what protects the egress budget — see [02](./02-tech-stack.md#the-egress-rule-free-tier-5-gbmonth).
 
 **What is never in `files`.** The working tree in WebContainer also holds `node_modules/`, `dist/`, `.vite/` and the lockfile. `Limits.SYNC_IGNORE` excludes them from every write, so dependency bytes never reach Postgres. Autosave is an allowlist walk, not a tree walk.
 
-Enforced by one reusable constraint helper plus a size cap:
+Enforced by two helpers plus a size cap, created by the **lessons migration** and reused by checkpoints and snapshots:
 
 ```sql
 create function public.files_valid(f jsonb) returns boolean
-language sql immutable as $$
-  select jsonb_typeof(f) = 'array'
-     and jsonb_array_length(f) between 1 and 40        -- Limits.MAX_FILES
-     and not exists (
-       select 1 from jsonb_array_elements(f) e
-       where  e->>'path' is null
-          or  length(e->>'path') > 120
-          or  e->>'path' !~ '^[A-Za-z0-9_\-./]+$'
-          or  e->>'path' like '%..%'
-          or  e->>'language' not in ('html','css','js','vue','json','md')
-          or  e->>'content' is null
-     )
+language sql immutable set search_path = '' as $$
+    select case
+        when f is null or jsonb_typeof(f) <> 'array' then false
+        when jsonb_array_length(f) not between 1 and 40 then false      -- Limits.MAX_FILES
+        else not exists (
+                select 1 from jsonb_array_elements(f) e
+                where jsonb_typeof(e) <> 'object'
+                   or e->>'path' is null
+                   or length(e->>'path') > 120
+                   or e->>'path' !~ '^[A-Za-z0-9_\-./]+$'
+                   or e->>'path' like '%..%'          -- no climbing out of the project
+                   or e->>'path' like '/%'            -- relative paths only
+                   or e->>'language' is null
+                   or e->>'language' not in ('html', 'css', 'js', 'vue', 'json', 'md')
+                   or jsonb_typeof(e->'content') is distinct from 'string'
+             )
+             and (select count(distinct e->>'path') from jsonb_array_elements(f) e)
+                 = jsonb_array_length(f)              -- no two files with the same path
+    end
+$$;
+
+-- Does the list contain this path? Used to check that entry_file points at a real file.
+create function public.files_include(f jsonb, p text) returns boolean
+language sql immutable set search_path = '' as $$
+    select case
+        when f is null or jsonb_typeof(f) <> 'array' then false
+        else exists (select 1 from jsonb_array_elements(f) e where e->>'path' = p)
+    end
 $$;
 
 -- used as:  check (public.files_valid(files) and octet_length(files::text) <= 200000)
 ```
+
+> **Why `case` and not `and`.** SQL does not promise to evaluate `and` left to right, so `jsonb_typeof(f) = 'array' and jsonb_array_length(f) …` can call `jsonb_array_length` on a non-list and **crash** with an error instead of returning `false`. `case` is evaluated in order, so a bad value always fails the check cleanly (error `23514`, which `mapError` shows as "Some of that information is not valid").
 
 ---
 
@@ -110,7 +128,7 @@ One row per account, created by the `on_auth_user_created` trigger in [09](./09-
 | `telegram_chat_id` | `text` | Set when the user links the bot |
 | `telegram_link_code` | `text unique` | One-time code |
 | `telegram_link_code_expires_at` | `timestamptz` | 10 minutes after issue |
-| `created_at` / `updated_at` | `timestamptz default now()` | `updated_at` by trigger |
+| `created_at` / `updated_at` | `timestamptz default now()` | `updated_at` kept current by the shared `set_updated_at()` trigger (added in the lessons migration) |
 
 Email lives in `auth.users` — we never duplicate it.
 
@@ -236,77 +254,131 @@ All four check for a logged-in caller first (`UNAUTHENTICATED`). Two decisions w
 
 ## lessons
 
+Built by the **lessons migration** (`supabase/migrations/…_lessons.sql`), together with `steps`, the `files_valid()` / `files_include()` helpers and the shared `set_updated_at()` trigger.
+
 | Column | Type | Notes |
 |---|---|---|
 | `id` | `uuid` PK | |
 | `course_id` | `uuid not null → courses` on delete cascade | |
-| `title` | `text not null check (char_length(title) <= 100)` | e.g. "Week 6 · Mini Cart" |
-| `week` | `int check (week between 1 and 13)` | For ordering in the library |
+| `title` | `text not null check (char_length(title) between 1 and 100)` | e.g. "Week 6 · Mini Cart" |
+| `week` | `int check (week between 1 and 13)` | Optional; orders the library |
 | `description` | `text check (char_length(description) <= 500)` | |
 | `files` | `jsonb not null check (public.files_valid(files) and octet_length(files::text) <= 200000)` | Starter code with TODOs — a real Vite project, source files only |
 | `files_hash` | `text generated always as (md5(files::text)) stored` | Cheap change check for the IndexedDB cache — the client selects this, not `files` |
-| `entry_file` | `text not null` | `index.html` for the dev server; trigger checks it exists in `files` |
-| `dev_command` | `text not null default 'pnpm dev'` | What WebContainer spawns; a lesson may also declare a second process |
+| `entry_file` | `text not null` | `index.html` for the dev server; checked by the `entry_file_exists` constraint |
+| `dev_command` | `text not null default 'pnpm dev'` (1–200 chars) | What WebContainer spawns |
 | `source` | `jsonb` | `{ type: 'upload' \| 'github', repo, ref, dir }` |
-| `status` | `text not null default 'draft' check (status in ('draft','ready','archived'))` | Only `ready` can start a session |
-| `created_by` | `uuid not null → profiles` | |
-| `created_at` / `updated_at` | `timestamptz` | |
+| `status` | `text not null default 'draft' check (status in ('draft','ready','archived'))` | Only `ready` can start a session; **students never see `draft`** |
+| `created_by` | `uuid not null default auth.uid() → profiles` | Filled in automatically; the insert policy refuses anyone else's id |
+| `created_at` / `updated_at` | `timestamptz not null default now()` | `updated_at` maintained by `set_updated_at()` |
+
+**Constraint:** `entry_file_exists check (public.files_include(files, entry_file))` — a check constraint, not a trigger, so a bad entry file fails with `23514` like every other invalid value.
 
 **Indexes:** `(course_id, week)`.
 
 ## steps
 
-Promoted from a sub-document, because four other tables point at a step.
+Promoted from a sub-document, because other tables point at a step — see the explanation below.
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | `uuid` PK | Referenced by checkpoints, statuses, help requests, notes |
+| `id` | `uuid` PK | Referenced by checkpoints, sessions, snapshots and help requests |
 | `lesson_id` | `uuid not null → lessons` on delete cascade | |
-| `order` | `int not null check ("order" >= 1)` | 1-based; `unique (lesson_id, "order")` |
-| `title` | `text not null check (char_length(title) <= 120)` | Defaults to the TODO text |
+| `order` | `int not null check ("order" >= 1)` | 1-based, always contiguous (1, 2, 3…) |
+| `title` | `text not null check (char_length(title) between 1 and 120)` | Defaults to the TODO text |
 | `description` | `text check (char_length(description) <= 1000)` | |
-| `todo_refs` | `jsonb default '[]'` | `[{ file, line }]` — one step can span files |
-| `checks` | `jsonb default '[]'` | Automatic step checks (COULD) |
+| `todo_refs` | `jsonb not null default '[]'` | `[{ file, line }]` — one step can span files |
+| `checks` | `jsonb not null default '[]'` | Automatic step checks (COULD) |
+
+**Constraint:** `unique (lesson_id, "order") deferrable initially deferred`.
+
+> **Why deferrable.** A normal unique constraint is checked **row by row, in the middle of an update**. Moving step 3 to position 1 briefly gives two steps `order = 1`, so the change fails even though the finished result is fine. A deferred constraint is checked only when the transaction commits, by which time every order is unique again. Copying a plain `unique (lesson_id, "order")` into any future migration brings that bug back.
 
 > `order` is a reserved word — always quote it as `"order"` in SQL. The API layer exposes it as `order` in camelCase JS.
 
-```sql
-alter table lessons enable row level security;
-alter table steps   enable row level security;
+**Why steps are a separate table.** Other tables point at a *specific* step (a help request is "stuck on this step"; a checkpoint is saved "for this step"), and in Postgres that pointer is a foreign key — which can only target a row in a table, not an item inside a JSON list. It also keeps a step's identity stable when steps are reordered, and lets one step be edited without rewriting its lesson's 200 KB of files.
 
-create policy "members read lessons" on lessons for select
-  using (public.is_course_member(course_id));
-create policy "prof writes lessons" on lessons for all
-  using (public.is_course_prof(course_id)) with check (public.is_course_prof(course_id));
-
--- Students see steps (that's their plan) but not files until a session starts;
--- the client selects columns explicitly and `lesson_files_for_member` gates the files.
-create policy "members read steps" on steps for select using (
-  exists (select 1 from lessons l where l.id = steps.lesson_id and public.is_course_member(l.course_id))
-);
-create policy "prof writes steps" on steps for all using (
-  exists (select 1 from lessons l where l.id = steps.lesson_id and public.is_course_prof(l.course_id))
-) with check (
-  exists (select 1 from lessons l where l.id = steps.lesson_id and public.is_course_prof(l.course_id))
-);
-```
-
-**Reordering** is one RPC so orders stay contiguous and unique inside a transaction:
+### Helpers
 
 ```sql
-create function public.replace_steps(p_lesson_id uuid, p_steps jsonb) returns setof public.steps
-language plpgsql security definer set search_path = '' as $$
-begin
-  if not public.is_course_prof((select course_id from public.lessons where id = p_lesson_id)) then
-    raise exception 'FORBIDDEN|Only the course prof can edit steps' using errcode = 'P0001';
-  end if;
-  delete from public.steps where lesson_id = p_lesson_id
-    and id not in (select (e->>'id')::uuid from jsonb_array_elements(p_steps) e where e->>'id' is not null);
-  -- upsert each incoming step with its new order (set-based, so no unique clash mid-way)
-  …
-  return query select * from public.steps where lesson_id = p_lesson_id order by "order";
-end $$;
+-- Staff see every lesson; enrolled students see everything except drafts.
+create function public.can_read_lesson(lid uuid) returns boolean
+language sql security definer stable set search_path = '' as $$
+    select exists (
+        select 1 from public.lessons l
+        where l.id = lid
+          and (public.is_course_staff(l.course_id)
+               or (public.is_enrolled(l.course_id) and l.status <> 'draft'))
+    )
+$$;
+
+-- Only the course's prof edits a lesson or its steps (not TAs).
+create function public.can_edit_lesson(lid uuid) returns boolean
+language sql security definer stable set search_path = '' as $$
+    select exists (
+        select 1 from public.lessons l
+        where l.id = lid and public.is_course_prof(l.course_id)
+    )
+$$;
 ```
+
+Every steps policy goes through these, so the "can this person see / edit that lesson?" rule lives in one place. Use them in any later policy that needs the same question.
+
+### Policies
+
+```sql
+alter table public.lessons enable row level security;
+alter table public.steps   enable row level security;
+
+-- lessons
+create policy "staff read lessons, students read non-drafts" on public.lessons
+  for select using (public.is_course_staff(course_id)
+                    or (public.is_enrolled(course_id) and status <> 'draft'));
+create policy "prof creates lessons" on public.lessons
+  for insert with check (public.is_course_prof(course_id) and created_by = auth.uid());
+create policy "prof edits lessons" on public.lessons
+  for update using (public.is_course_prof(course_id))
+  with check (public.is_course_prof(course_id));     -- can't move a lesson into a course you don't run
+create policy "prof deletes lessons" on public.lessons
+  for delete using (public.is_course_prof(course_id));
+
+-- steps
+create policy "readers of the lesson read its steps" on public.steps
+  for select using (public.can_read_lesson(lesson_id));
+create policy "prof writes steps" on public.steps
+  for all using (public.can_edit_lesson(lesson_id)) with check (public.can_edit_lesson(lesson_id));
+
+-- plus `admin reads all` on both tables
+```
+
+**Two reading rules worth knowing:**
+
+- **Students never see draft lessons**, nor their steps — a half-finished plan doesn't belong in the student's library. Ready and archived lessons stay visible, so replays of past classes keep their titles.
+- **Students can read a non-draft lesson's starter `files`.** RLS controls *rows*, not columns, so it can't hide one column from some readers; students also need the starter files the moment class starts. Starter code is the *unfinished* exercise — the prof's worked solutions live in checkpoints, which are session-scoped. (This replaces an earlier plan for a `lesson_files_for_member` gate, which was never built.)
+
+### RPCs
+
+**`replace_steps(p_lesson_id, p_steps)`** — save a lesson's whole step list in one transaction. `p_steps` is `[{ id?, title, description?, todo_refs? }, …]` in display order.
+
+1. Not logged in → `UNAUTHENTICATED`
+2. Not this course's prof (TAs included) → `FORBIDDEN`
+3. `p_steps` isn't a list → `BAD_REQUEST`
+4. Any step with an empty title → `VALIDATION_FAILED`
+5. A step `id` belonging to **another lesson** → `BAD_REQUEST` (otherwise a prof could rewrite someone else's lesson through it)
+6. Steps whose `id` is missing from the list are **deleted**
+7. Steps with an `id` are **updated** at their position in the list
+8. Steps without an `id` are **created**
+9. **Any `order` sent is ignored** — steps are always renumbered 1, 2, 3… by list position
+10. Returns the lesson's steps in order
+
+**`delete_step(p_step_id)`** — delete one step and close the gap (1, 2, 4 → 1, 2, 3). `FORBIDDEN` for anyone but the course's prof, including for a step that doesn't exist.
+
+Single-step edits (renaming one step) are a direct `update` on `steps`, allowed by the "prof writes steps" policy — no RPC needed.
+
+### Coming with the sessions migration
+
+- **The "lesson already taught" guard.** Deleting a lesson that has ever been taught must be refused (`CONFLICT`, so the UI offers Archive instead), but that rule needs the `sessions` table. **Until the sessions migration lands, a taught lesson can be deleted.**
+- **Editing the steps of a taught lesson.** Checkpoints and help requests will point at steps, so deleting a step those rows reference needs a rule then too.
 
 ---
 
@@ -759,7 +831,7 @@ Handled by `on delete cascade` on the foreign keys, so there is no controller-si
 | Deleting | Also deletes |
 |---|---|
 | Course (owner prof only) | Its lessons → steps, sessions → everything under each session |
-| Lesson | Blocked by a trigger if any session exists — archived instead, so replays keep working |
+| Lesson | Its steps. **Will be** blocked by a trigger if any session exists — archived instead, so replays keep working. The trigger arrives with the sessions migration; until then, deletion is allowed |
 | Session (owner prof, ended only) | Checkpoints, statuses, history, snapshots, help requests, notes, report |
 | Removing a student from a course | Their `course_students` row only; past statuses/snapshots stay for the report |
 
@@ -806,8 +878,8 @@ Each rule exists **twice**: a zod schema in `src/validators/` for the per-field 
 | Register | name, email, password, role choice | email format; password ≥ 8; role is Student or Educator | Supabase Auth + the trigger's allow-list (`prof`, else `student`) |
 | Login | email, password | generic "Invalid email or password" | Supabase Auth (rate-limited by the platform) |
 | Course | code, title, term, section | code uppercase A–Z0–9 | `unique (owner_id, code, term, section)` — per prof |
-| Lesson | title, files, entry_file | 1–40 files; safe paths; `entry_file` exists; ≤ 200 KB | `files_valid()` + `octet_length` check + trigger |
-| Step edit | title | order unique and contiguous | `unique (lesson_id, "order")` + `replace_steps` |
+| Lesson | title, files, entry_file | 1–40 files; safe relative paths; no duplicate paths; `entry_file` exists; ≤ 200 KB | `files_valid()` + `octet_length` check + `entry_file_exists` constraint |
+| Step edit | title | 1–120 chars; order unique and contiguous | deferred `unique (lesson_id, "order")` + `replace_steps` |
 | GitHub import | repo URL | `https://github.com/<owner>/<repo>[/tree/<ref>/<dir>]`; only `.html/.css/.js/.json/.md` | `github-import` function |
 | Start session | lesson_id | lesson `ready`, ≥ 1 step, caller is prof staff | `start_session` RPC |
 | Join session | join_code | 6 chars; live session; caller is a member | `join_session` RPC |
