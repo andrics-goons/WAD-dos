@@ -2,7 +2,7 @@
 
 ## Technology Stack
 
-**Shape of the system:** a Vue 3 single-page app on Vercel talking straight to Supabase (Postgres + Auth + Realtime), plus nine Edge Functions for the jobs that need secrets or elevated rights. Student code runs in a **StackBlitz WebContainer** — real Node, in the student's own browser. There is no Express server, no Socket.IO and no Node process of ours to host.
+**Shape of the system:** a Vue 3 single-page app on Vercel talking straight to Supabase (Postgres + Auth + Realtime), plus a handful of Edge Functions for the jobs that need secrets or elevated rights. Student code runs in a **StackBlitz WebContainer** — real Node, in the student's own browser. There is no Express server, no Socket.IO and no Node process of ours to host.
 
 | Layer | Technology | Why | Course link |
 |---|---|---|---|
@@ -128,7 +128,6 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   │   ├── end-session/         ← Andric — builds the report (invoked by DB webhook)
 │   │   ├── digest/              ← Andric content, Karin send
 │   │   ├── hint/                ← Karin (COULD)
-│   │   └── admin-users/         ← Andric — disable / enable / password reset, admin only
 │   └── seed.sql                 ← demo data (07-seed-and-demo.md); applied by `supabase db reset`
 │
 ├── scripts/

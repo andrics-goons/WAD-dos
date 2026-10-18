@@ -86,5 +86,4 @@ export const Fn = Object.freeze({
   SPOTLIGHT: 'spotlight',
   HINT: 'hint',
   DIGEST: 'digest',
-  ADMIN_USERS: 'admin-users', // disable / enable / password reset (admin only)
 })
