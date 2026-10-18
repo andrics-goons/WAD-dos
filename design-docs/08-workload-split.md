@@ -267,8 +267,8 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | **Review every migration PR** — feature owners write their own RPCs **(moved)** | — | ⬜ |
 | Supabase client + error mapper | `src/lib/supabase.js`, `src/api/mapError.js` | ✅ |
 | Auth data access | `src/api/auth.api.js` | ✅ |
-| Courses data access (create, list, enrol, add TA, people) | `src/api/courses.api.js` | ⬜ |
-| **Enrol page** — typed code and `/enrol/:code` link, auto-submit **(new)** — route + `returnTo` through login/register done; the page itself needs `courses.api.js` | `views/EnrolView.vue` | ⬜ |
+| Courses data access (create, list, enrol, add TA, people) + courses store | `src/api/courses.api.js`, `src/stores/courses.js`, `tests/unit/api/courses.api.test.js` | ✅ |
+| **Enrol page** — typed code and `/enrol/:code` link, auto-submit **(new)**, `returnTo` through login/register | `views/EnrolView.vue` | ✅ |
 | Report builder + `end-session` function + trends RPC (the page is Evan's) | `shared/report-builder.js`, `supabase/functions/end-session/` | ⬜ |
 | Seed data (Dylan's Mini Cart project; past + live sessions, reports) | `supabase/seed.sql`, `tests/unit/rls/seed.test.js` | ✅ |
 | `seed:generate` — check the seed against the real `parseTodos` / `buildReport` once they exist | `scripts/seed-generate.js` | ⬜ |
