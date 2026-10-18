@@ -203,7 +203,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-LES-04 | Delete step | E2E | Remaining steps renumbered |
 | T-LES-05 | Unsafe path / > 20 files / > 200 KB | DB | `files_valid()` / `octet_length` constraint rejects the insert |
 | T-LES-06 | Delete a lesson that was taught | DB | Trigger raises `CONFLICT` → UI offers Archive |
-| T-LES-07 | Student reads a lesson outside a session | RLS | Steps visible; `files` not selectable by a non-staff member |
+| T-LES-07 | What an enrolled student can read | RLS | A **draft** lesson and its steps: zero rows. A **ready** lesson: visible, with its steps and starter `files` (RLS can't hide one column; starter files aren't secret — see [03](./03-data-model.md#policies-1)) |
 | T-TODO-01 | JS, HTML and CSS comment forms parsed | Unit | 3 steps with correct files/lines |
 | T-TODO-02 | Numbered TODOs sorted by number across files | Unit | Order follows numbers, not file order |
 | T-TODO-03 | Same number in two files → one step, two refs | Unit | `todoRefs.length === 2` |

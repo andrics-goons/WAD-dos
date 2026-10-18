@@ -154,13 +154,13 @@ All of it goes through `src/api/*.api.js`; components never touch `supabase` dir
 | Query | `from('lessons').select().eq('course_id', id).ilike('title', …)` | Lesson library search | Staff / enrolled |
 | Query | `from('lessons').insert(…)` then RPC `replace_steps` | Create from uploaded files; `parseTodos` already ran **in the browser** | Prof |
 | Function | `github-import` → `{ repoUrl }` | Fetches files with the server token → returns files; client then parses and inserts | Prof (Ray Yien) |
-| Query | `from('lessons').select('*, steps(*)')` | Lesson with steps. **Students select only `steps`** — `files` is fetched from the session, not the lesson | Staff |
+| Query | `from('lessons').select('*, steps(*)').order('order', { referencedTable: 'steps' })` | Lesson with its steps, in order, in one query. Staff see every lesson; **enrolled students see non-draft lessons only**, including their starter `files` | Staff / enrolled |
 | Query | `from('lessons').update(…)` | Title/description/week/files/entry_file/dev_command/status | Prof |
 | — | `parseTodos(files, entryFile)` | Re-parse is a **pure function in the browser** — the old `POST /reparse` round-trip is gone | Prof |
-| RPC | `replace_steps(p_lesson_id, p_steps)` | Create/reorder/delete in one transaction, orders contiguous | Prof |
+| RPC | `replace_steps(p_lesson_id, p_steps)` | Create, update, reorder and delete in one transaction. Steps are renumbered 1, 2, 3… by list position (**any `order` sent is ignored**); ids from another lesson and blank titles are refused — full rules in [03](./03-data-model.md#rpcs-1) | Prof |
 | Query | `from('steps').update(…).eq('id', stepId)` | Edit one step | Prof |
 | RPC | `delete_step(p_step_id)` | Deletes and renumbers the rest | Prof |
-| Query | `from('lessons').delete().eq('id', id)` | A trigger raises `CONFLICT` if the lesson was ever taught → UI offers Archive | Prof |
+| Query | `from('lessons').delete().eq('id', id)` | Deletes the lesson and its steps. Once the sessions migration lands, a trigger raises `CONFLICT` if the lesson was ever taught → UI offers Archive. **Until then a taught lesson can be deleted** | Prof |
 
 ### Sessions & checkpoints — `sessions.api.js`, `checkpoints.api.js` (Ying Qi)
 

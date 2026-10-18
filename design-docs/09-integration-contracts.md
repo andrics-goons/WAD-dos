@@ -350,7 +350,8 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `rpc('claim_help_request')` | Karin | Help queue | `(p_request_id uuid) → request row` (raises `CONFLICT\|…` if taken) |
 | `rpc('transition_help_request')` | Karin | Help review | `(p_request_id uuid, p_to text, p_reply text) → request row` — a reply is **appended to `thread`**, never overwritten |
 | `rpc('follow_up_help_request')` | Karin | Student help panel | `(p_request_id uuid, p_message text, p_files jsonb) → request row` — `replied → open`, fresh snapshot, max `MAX_FOLLOW_UPS` |
-| `rpc('replace_steps')` | Evan | Lesson editor | `(p_lesson_id uuid, p_steps jsonb) → steps[]` |
+| `rpc('replace_steps')` | Andric (written with the lessons schema; Evan calls it) | Lesson editor | `(p_lesson_id uuid, p_steps jsonb) → steps[]` — renumbers 1…n by list position, ignoring any `order` sent; refuses blank titles and other lessons' step ids |
+| `rpc('delete_step')` | Andric (with the lessons schema) | Lesson editor | `(p_step_id uuid) → void` — deletes and renumbers |
 | `view session_tiles` | Andric | Evan (dashboard) | `(session_id, student_id, name, state, step_order, error_source, error_key, error_preview, passed_steps, checks, last_seen_at)` — `error_source` is `'runtime'` or `'build'`, so the dashboard can label a group "won't compile" vs "throws" |
 | `view session_summary` | Andric | Evan (summary bar) | `(session_id, total, done, in_progress, error, behind, idle, lost_count)` |
 | `normalizeError` | Evan | Dylan (before writing status) | `({ name, message }) => { key, shapeKey }` |
