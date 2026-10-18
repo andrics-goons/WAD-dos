@@ -270,7 +270,8 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | Courses data access (create, list, enrol, add TA, people) | `src/api/courses.api.js` | ⬜ |
 | **Enrol page** — typed code and `/enrol/:code` link, auto-submit **(new)** — route + `returnTo` through login/register done; the page itself needs `courses.api.js` | `views/EnrolView.vue` | ⬜ |
 | Report builder + `end-session` function + trends RPC (the page is Evan's) | `shared/report-builder.js`, `supabase/functions/end-session/` | ⬜ |
-| Seed data + `seed:generate` (uses Evan's Mini Cart fixture) | `supabase/seed.sql`, `scripts/seed-generate.js` | ⬜ |
+| Seed data (Dylan's Mini Cart project; past + live sessions, reports) | `supabase/seed.sql`, `tests/unit/rls/seed.test.js` | ✅ |
+| `seed:generate` — check the seed against the real `parseTodos` / `buildReport` once they exist | `scripts/seed-generate.js` | ⬜ |
 | **`test_outbox` table** — Karin's mocked Telegram/GitHub functions write here; tests read it **(new)** | `…_test_outbox.sql`, `readOutbox()` in `tests/unit/rls/_helpers.js` | ✅ |
 | Keep-alive cron so the free-tier project can't pause before Week 18 | GitHub Actions cron | ⬜ |
 | **Sign-up role choice**: trigger allow-list (`prof`, else `student`) + `register({ role })` **(new)** | `…_profiles.sql`, `src/api/auth.api.js` | ✅ |
