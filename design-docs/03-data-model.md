@@ -375,44 +375,57 @@ create policy "prof writes steps" on public.steps
 
 Single-step edits (renaming one step) are a direct `update` on `steps`, allowed by the "prof writes steps" policy — no RPC needed.
 
-### Coming with the sessions migration
+### Once a lesson has been taught
 
-- **The "lesson already taught" guard.** Deleting a lesson that has ever been taught must be refused (`CONFLICT`, so the UI offers Archive instead), but that rule needs the `sessions` table. **Until the sessions migration lands, a taught lesson can be deleted.**
-- **Editing the steps of a taught lesson.** Checkpoints and help requests will point at steps, so deleting a step those rows reference needs a rule then too.
+Its step numbers become history: `student_status.done_step_order`, `status_history.step_order` and every checkpoint mean "step N". So the sessions migration adds guards (see [Guards on taught lessons](#guards-on-taught-lessons)). **Until a lesson has a session, everything above applies unchanged.**
 
 ---
 
 ## sessions
 
+Migration: `supabase/migrations/20261018153107_sessions.sql`.
+
 | Column | Type | Notes |
 |---|---|---|
 | `id` | `uuid` PK | |
-| `lesson_id` | `uuid not null → lessons` | |
-| `course_id` | `uuid not null → courses` | Denormalised so every policy is one hop |
+| `lesson_id` | `uuid not null` | `(lesson_id, course_id) → lessons (id, course_id)`, no cascade |
+| `course_id` | `uuid not null → courses` | Denormalised so every policy is one hop. The composite foreign key above means it **can't disagree with the lesson's course** |
 | `started_by` | `uuid not null → profiles` | |
-| `join_code` | `text not null check (char_length(join_code) = 6)` | From `JOIN_CODE_ALPHABET` |
+| `join_code` | `text not null check (join_code ~ '^[A-Z0-9]{6}$')` | From `JOIN_CODE_ALPHABET` |
 | `status` | `text not null default 'live' check (status in ('live','ended'))` | |
-| `current_step_id` | `uuid → steps` | Step of the latest checkpoint |
-| `settings` | `jsonb not null default '{"allowCatchUp":true,"hintsEnabled":false,"idleAfterSec":180}'` | Prof toggles during class |
-| `spotlight` | `jsonb` | Anonymised excerpt, or null |
+| `current_step_id` | `uuid → steps` | Step of the latest checkpoint. A trigger refuses a step from another lesson (`BAD_REQUEST`) |
+| `settings` | `jsonb not null default '{"allowCatchUp":true,"hintsEnabled":false,"idleAfterSec":180}' check (session_settings_valid(settings))` | Prof toggles during class. **All three keys are required on every update**, and `idleAfterSec` must be a number from 30 to 3600 — the view casts it, so one bad value would break every tile |
+| `spotlight` | `jsonb check (≤ 20 000 bytes)` | Anonymised excerpt, or null |
 | `announcement` | `jsonb check (announcement is null or char_length(announcement->>'text') between 1 and 200)` | `{ text, at }` — the prof's current class announcement, or null. Stored so late joiners and reconnecting students see it, not just whoever was subscribed at the moment it was sent. Written only by `rpc('announce')`, so the broadcast always accompanies the write |
-| `started_at` | `timestamptz default now()` | |
+| `started_at` | `timestamptz not null default now()` | |
 | `ended_at` | `timestamptz` | |
 
 **Indexes:** `unique (join_code) where status = 'live'` (partial); `(course_id, started_at desc)`; `(lesson_id)`.
 
-```sql
-create function public.is_session_member(sid uuid) returns boolean
-language sql security definer stable set search_path = '' as $$
-  select public.is_course_member((select course_id from public.sessions where id = sid))
-$$;
+**Policies:** "members read sessions" (`is_course_member`), "prof updates sessions" (`is_course_prof`, `using` and `with check`), "admin reads all". No insert or delete policy: sessions are created by `start_session` and never deleted.
 
-alter table sessions enable row level security;
-create policy "members read sessions" on sessions for select using (public.is_course_member(course_id));
-create policy "prof updates sessions" on sessions for update using (public.is_course_prof(course_id));
+**Column grants.** RLS decides which *rows* a user may touch; it can't say which *columns*. So the migration also does:
+
+```sql
+revoke update on public.sessions from anon, authenticated;
+grant update (settings, spotlight) on public.sessions to authenticated;
 ```
 
-`start_session`, `join_session` and `end_session` are RPCs — a client cannot be trusted to allocate a unique join code or decide its own role. Full bodies in [05-core-logic.md](./05-core-logic.md#3-session-lifecycle).
+The prof writes `settings` and `spotlight` directly (see [04](./04-pages-routes-and-events.md)). `status`, `ended_at`, `current_step_id`, `announcement`, `join_code` and `course_id` are changed only by the session RPCs, which are `security definer` and so not limited by these grants. A direct update of any other column is `42501`.
+
+`start_session`, `join_session`, `save_checkpoint` and `end_session` (Ying Qi), `announce` (Karin) and `catch_up` (Ray Yien) are RPCs — a client cannot be trusted to allocate a unique join code or decide its own role. Full bodies in [05-core-logic.md](./05-core-logic.md#3-session-lifecycle). **They are not in this migration**; each owner adds theirs. Until `start_session` exists, tests create sessions with the service role.
+
+### Session helpers
+
+All `security definer`, for the same reason as the course helpers.
+
+| Helper | True when |
+|---|---|
+| `is_session_member(sid)` | The caller is staff or an enrolled student of the session's course |
+| `is_session_staff(sid)` | The caller is the prof or a TA of the session's course |
+| `is_live_session_student(sid)` | The caller is **enrolled** in the session's course **and** the session is `live` |
+| `session_lost_count(sid)` | Returns the number of raised "I'm lost" flags — to staff and admins. Returns `null` to anyone else |
+| `is_session_channel_member(topic)` | `topic` is exactly `session:<uuid>` and the caller is a member. Anything else is `false`, never a cast error |
 
 ---
 
@@ -422,21 +435,17 @@ create policy "prof updates sessions" on sessions for update using (public.is_co
 |---|---|---|
 | `id` | `uuid` PK | |
 | `session_id` | `uuid not null → sessions` on delete cascade | |
-| `step_id` | `uuid not null → steps` | |
+| `step_id` | `uuid not null → steps` | Must be a step of the session's lesson (trigger, `BAD_REQUEST`) |
 | `seq` | `int not null check (seq >= 1)` | 1, 2, 3… in save order |
 | `files` | `jsonb not null check (public.files_valid(files) and octet_length(files::text) <= 200000)` | Full snapshot of the prof's code |
 | `files_hash` | `text generated always as (md5(files::text)) stored` | Cache key; also how the client detects that `package.json` changed between checkpoints |
 | `note` | `text check (char_length(note) <= 500)` | Shown in replay |
 | `created_by` | `uuid not null → profiles` | |
-| `created_at` | `timestamptz default now()` | |
+| `created_at` | `timestamptz not null default now()` | |
 
 **Indexes:** `unique (session_id, seq)`.
 
-```sql
-alter table checkpoints enable row level security;
-create policy "members read checkpoints" on checkpoints for select using (public.is_session_member(session_id));
--- inserts only via rpc('save_checkpoint'): it allocates seq, sets current_step_id and broadcasts
-```
+**Policies:** "members read checkpoints" (`is_session_member`), "admin reads all". Inserts only via `rpc('save_checkpoint')`: it allocates `seq`, sets `current_step_id` and broadcasts.
 
 > Two "Save checkpoint" clicks at once race for the same `seq`. The unique index rejects the second; the RPC retries once with a fresh `seq` inside the same transaction.
 
@@ -446,104 +455,147 @@ create policy "members read checkpoints" on checkpoints for select using (public
 
 **There is no `state` column.** This is the deliberate difference from the Mongo design: the student's own client writes this row, so anything stored here is forgeable. Only raw signals are stored; the tile state is derived in `session_tiles`.
 
+**There is no `lost` column either.** Staff can read these rows, and staff receive them whole over Postgres Changes, so a column here could never be hidden from them. "I'm lost" lives in [`lost_flags`](#lost_flags) instead.
+
 | Column | Type | Notes |
 |---|---|---|
 | `session_id` | `uuid not null → sessions` on delete cascade | `primary key (session_id, student_id)` |
 | `student_id` | `uuid not null → profiles` | |
 | `done_step_order` | `int not null default 0 check (done_step_order >= 0)` | Highest step marked Done |
-| `error` | `jsonb` | `{ source: 'runtime' \| 'build', name, message, file, line, key, shapeKey, at }`, message ≤ 300. **Build errors have their code frame stripped before they get here** — see [05 §1](./05-core-logic.md#1-client-side-runtime-webcontainer) |
+| `error` | `jsonb check (null, or an object whose message ≤ 300)` | `{ source: 'runtime' \| 'build', name, message, file, line, key, shapeKey, at }`. Send SQL `null` to clear it. **Build errors have their code frame stripped before they get here** — see [05 §1](./05-core-logic.md#1-client-side-runtime-webcontainer) |
 | `checks` | `jsonb` | `{ passed, total }` — only when automatic checks exist (COULD) |
-| `lost` | `boolean not null default false` | **Readable only by its owner** |
-| `catch_ups` | `int not null default 0` | Times the student loaded a checkpoint |
+| `catch_ups` | `int not null default 0` | Times the student loaded a checkpoint. **Written only by `rpc('catch_up')`** |
 | `last_seen_at` | `timestamptz not null default now()` | Heartbeat or any event |
-| `joined_at` | `timestamptz not null default now()` | Attendance for digests |
+| `joined_at` | `timestamptz not null default now()` | Attendance for digests. **Not writable by the student** |
 
-**Indexes:** `(session_id)`.
+**Indexes:** the primary key (it starts with `session_id`). Added to the `supabase_realtime` publication, so staff can subscribe to it.
+
+**Policies:**
+
+| Policy | Rule |
+|---|---|
+| "student reads own status" | `select`: `student_id = auth.uid()` |
+| "student creates own status" | `insert`: own row, and `is_live_session_student(session_id)` |
+| "student updates own status" | `update`: own row, and still `is_live_session_student` — so nothing changes after the class ends |
+| "staff read statuses" | `select`: `is_session_staff(session_id)` |
+| "admin reads all" | `select` |
+
+No delete policy: the row is the attendance record. Staff can't write a row, because they aren't enrolled.
+
+**Column grants:** the student may insert and update `session_id, student_id, done_step_order, error, checks, last_seen_at` only. `catch_ups` and `joined_at` are `42501` from the client. `session_id` and `student_id` are in the update grant only because a PostgREST upsert re-sets them; the policies pin both to the student's own row.
+
+## lost_flags
+
+One row means this student has tapped "I'm lost" and not cleared it. **Readable only by its owner (and admins).**
+
+| Column | Type |
+|---|---|
+| `session_id` | `uuid not null → sessions` on delete cascade, `primary key (session_id, student_id)` |
+| `student_id` | `uuid not null → profiles` |
+| `at` | `timestamptz not null default now()` |
+
+**Policies:** "student reads own flag" (`select`), "student raises flag" (`insert`: own row, `is_live_session_student`), "student clears flag" (`delete`: own row), "admin reads all". **There is no staff policy.** Staff get only `session_summary.lost_count`, through `session_lost_count()`.
+
+Raise = `insert`, clear = `delete`. A second tap while the flag is up is a primary-key `CONFLICT`, which the client can ignore.
 
 ## status_history
 
-Append-only; replaces the capped `stateHistory[]` array. Written by a trigger whenever the derived state changes.
+Append-only; replaces the capped `stateHistory[]` array. Written only by triggers.
 
 | Column | Type |
 |---|---|
 | `id` | `bigint generated always as identity` PK |
 | `session_id` | `uuid not null → sessions` on delete cascade |
 | `student_id` | `uuid not null → profiles` |
-| `state` | `text not null` |
-| `step_order` | `int not null` |
+| `state` | `text not null check (state in ('error','behind','in_progress','done'))` — never `idle`, see below |
+| `step_order` | `int not null` — the student's `done_step_order` at that moment |
 | `at` | `timestamptz not null default now()` |
 
 **Indexes:** `(session_id, student_id, at)`.
 
-```sql
-alter table student_status  enable row level security;
-alter table status_history  enable row level security;
+**Policies:** "staff read history" (`is_session_staff`), "admin reads all". Students can't read it.
 
--- a student writes ONLY their own row, and only while the session is live
-create policy "student writes own status" on student_status for all
-  using  (student_id = auth.uid())
-  with check (student_id = auth.uid()
-              and (select status from sessions where id = session_id) = 'live');
+Two triggers write it:
 
--- staff read every status row in their session — but the table holds no code,
--- and `lost` is filtered out by the view they actually query
-create policy "staff read statuses" on student_status for select
-  using (public.is_course_staff((select course_id from sessions where id = session_id)));
+| Trigger | Fires on | Appends |
+|---|---|---|
+| `record_status_change` | insert, or update of `done_step_order` / `error`, on `student_status` | One row, if that student's derived state differs from **their last history row**. Compared with the last row, not `OLD`, so a heartbeat upsert that changes nothing writes nothing |
+| `record_checkpoint_states` | update of `sessions.current_step_id` | One row for **every** student whose state the new checkpoint changed. Without this, history would miss every "behind", because the students who fell behind never wrote anything |
 
-create policy "staff read history" on status_history for select
-  using (public.is_course_staff((select course_id from sessions where id = session_id)));
-```
+`idle` is never recorded. It depends on `now()`, so no write ever happens at the moment a student becomes idle.
 
 ### Views: `session_tiles` and `session_summary`
 
-`session_tiles` is the only thing the dashboard reads. It encodes the classifier from [05](./05-core-logic.md#4-status-classifier) in SQL, so the state cannot disagree with the rules:
+`session_tiles` is the only thing the dashboard reads. The classifier from [05](./05-core-logic.md#4-status-classifier) lives in one SQL function, `tile_state(done, error, target)`, which the view **and** both history triggers call, so the three can never disagree:
 
 ```sql
+create function public.tile_state(p_done int, p_error jsonb, p_target int) returns text
+language sql immutable set search_path = '' as $$
+    select case
+        when p_error is not null       then 'error'
+        when p_target = 0              then case when p_done >= 1 then 'done' else 'in_progress' end
+        when p_done >= p_target        then 'done'
+        when p_done = p_target - 1     then 'in_progress'
+        else 'behind'
+    end
+$$;
+
 create view public.session_tiles with (security_invoker = true) as
 select
-  ss.session_id,
-  ss.student_id,
-  p.name,
-  coalesce(st."order", 0)                                       as target_order,
-  ss.done_step_order                                            as step_order,
-  ss.error->>'key'                                              as error_key,
-  left(ss.error->>'message', 120)                               as error_preview,
-  ss.checks,
-  ss.last_seen_at,
-  case
-    when now() - ss.last_seen_at >
-         make_interval(secs => (s.settings->>'idleAfterSec')::int) then 'idle'
-    when ss.error is not null                                        then 'error'
-    when coalesce(st."order", 0) = 0 then
-         case when ss.done_step_order >= 1 then 'done' else 'in_progress' end
-    when ss.done_step_order >= coalesce(st."order", 0)               then 'done'
-    when ss.done_step_order  = coalesce(st."order", 0) - 1           then 'in_progress'
-    else 'behind'
-  end                                                           as state
-from student_status ss
-join sessions s  on s.id = ss.session_id
-join profiles p  on p.id = ss.student_id
-left join steps st on st.id = s.current_step_id;
+    ss.session_id,
+    ss.student_id,
+    p.name,
+    coalesce(st."order", 0)              as target_order,
+    ss.done_step_order                   as step_order,
+    ss.error->>'source'                  as error_source,
+    ss.error->>'key'                     as error_key,
+    left(ss.error->>'message', 120)      as error_preview,
+    ss.checks,
+    ss.last_seen_at,
+    case
+        when now() - ss.last_seen_at >
+             make_interval(secs => (s.settings->>'idleAfterSec')::numeric) then 'idle'
+        else public.tile_state(ss.done_step_order, ss.error, coalesce(st."order", 0))
+    end                                  as state
+from public.student_status ss
+join public.sessions s on s.id = ss.session_id
+join public.profiles p on p.id = ss.student_id
+left join public.steps st on st.id = s.current_step_id;
 ```
 
-`security_invoker = true` makes the view run with the caller's rights, so the RLS policies above still apply — **without it a view would leak every session's rows.**
+`security_invoker = true` makes the view run with the caller's rights, so the RLS policies above still apply — **without it a view would leak every session's rows.** A student querying it sees only their own tile.
+
+`passed_steps` (in the [09](./09-integration-contracts.md#7-cross-owner-signatures) contract) needs `help_requests`, so it is added to the view by the next migration.
 
 ```sql
 create view public.session_summary with (security_invoker = true) as
 select
-  session_id,
-  count(*)                                        as total,
-  count(*) filter (where state = 'done')          as done,
-  count(*) filter (where state = 'in_progress')   as in_progress,
-  count(*) filter (where state = 'error')         as error,
-  count(*) filter (where state = 'behind')        as behind,
-  count(*) filter (where state = 'idle')          as idle,
-  (select count(*) from student_status x
-    where x.session_id = t.session_id and x.lost)  as lost_count
-from session_tiles t group by session_id;
+    session_id,
+    count(*)                                        as total,
+    count(*) filter (where state = 'done')          as done,
+    count(*) filter (where state = 'in_progress')   as in_progress,
+    count(*) filter (where state = 'error')         as error,
+    count(*) filter (where state = 'behind')        as behind,
+    count(*) filter (where state = 'idle')          as idle,
+    public.session_lost_count(session_id)           as lost_count
+from public.session_tiles
+group by session_id;
 ```
 
-`lost_count` is an aggregate, so **no query a staff member can write returns who is lost.** That is the whole mechanism for T-PRIV-04.
+`lost_count` is a number from a function that reads `lost_flags` on the caller's behalf, so **no query a staff member can write returns who is lost.** That is the whole mechanism for T-PRIV-04. A student reading the summary gets `lost_count = null`.
+
+### Guards on taught lessons
+
+"Taught" means at least one session exists for the lesson. All raise `CONFLICT`, so the UI can offer Archive or explain:
+
+| Trigger | Refuses |
+|---|---|
+| `guard_taught_lesson` | Deleting a taught lesson, or moving it to another course |
+| `guard_taught_course` | Deleting a course that has any session. It fires before the delete cascades into the lessons, so the message talks about the course |
+| `guard_taught_steps` | Deleting a step, changing a step's `order`, or inserting a step anywhere but after the last one. **Rewording a step and appending new steps still work** — including through `replace_steps` and `delete_step` |
+| `check_session_step` | A checkpoint `step_id`, or a `current_step_id`, that belongs to another lesson (`BAD_REQUEST`) |
+
+To restructure a taught lesson, the prof makes a new lesson. The foreign keys back the triggers up: `sessions → lessons/courses` and `checkpoints → steps` do not cascade.
 
 ---
 
@@ -854,7 +906,7 @@ The contract, enforced by RLS policies and `security definer` RPCs. **Admin** is
 | Join a live session | ✅ | ✅ (as staff) | ✅ | — |
 | Report own status, tap Done, toggle "I'm lost", autosave, catch up | ✅ | — | — | — |
 | View class dashboard (tiles, counts, error groups) | ❌ | ✅ | ✅ | ✅ (read-only) |
-| See which student tapped "I'm lost" | ❌ | ❌ | ❌ | ✅ |
+| See which student tapped "I'm lost" (`lost_flags`) | ❌ | ❌ | ❌ | ✅ |
 | Send Check my work / Ask for help | ✅ | — | — | — |
 | Follow up on own replied request (max 3) | ✅ | — | — | — |
 | View help queue | ❌ | ✅ | ✅ | ✅ (read-only) |

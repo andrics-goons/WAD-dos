@@ -197,7 +197,7 @@ All of it goes through `src/api/*.api.js`; components never touch `supabase` dir
 | RPC | `catch_up(p_session_id, p_files)` | Writes the `before_catchup` snapshot **first**, then returns the latest checkpoint + snapshot id | Enrolled (if `allowCatchUp`) |
 | Query | `from('snapshots').select().eq('reason','before_catchup')` | My attempts — RLS makes "mine" automatic | Enrolled |
 | Query | `from('student_status').upsert({ … })` | Status on change + 30 s heartbeat. No `state` field exists to send | Enrolled |
-| Query | `from('student_status').update({ lost })` | Anonymous: staff can only read the aggregate | Enrolled |
+| Query | `from('lost_flags').insert({ session_id, student_id })` / `.delete()` | "I'm lost" / un-lost. Anonymous: staff can only read `lost_count` | Enrolled, live session |
 
 ### Help — `help.api.js` (Karin)
 
@@ -363,7 +363,7 @@ Students track `{ userId, name }` on join; staff read it for the live attendance
 | `session:join` / `session:leave` + rooms | `channel.subscribe()` / `unsubscribe()`; RLS does the membership check |
 | `status:update` (client → server, server classifies) | `upsert student_status` with raw signals; the **view** classifies |
 | `heartbeat` | Same upsert, touching `last_seen_at` every 30 s while the tab is visible |
-| `lost:toggle` | `update student_status set lost = …` on my own row |
+| `lost:toggle` | insert / delete my own `lost_flags` row |
 | `dashboard:tile` | Postgres Changes on `student_status` |
 | `dashboard:summary` | `session_summary` view + a Vue `computed`, throttled client-side to ≤ 1/s |
 | `help:new` / `help:updated` | Postgres Changes on `help_requests` |
