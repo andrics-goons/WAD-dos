@@ -92,6 +92,32 @@ export async function makeAdmin(id) {
   if (error) throw error
 }
 
+/**
+ * Messages the Edge Functions "sent" in EXTERNAL_APIS=mock mode, oldest first.
+ * Pass `since` (an id from a previous read) to see only what arrived after it.
+ */
+export async function readOutbox(channel, { since = 0 } = {}) {
+  const { data, error } = await service
+    .from('test_outbox')
+    .select('id, channel, payload, created_at')
+    .eq('channel', channel)
+    .gt('id', since)
+    .order('id')
+  if (error) throw error
+  return data
+}
+
+/** The newest outbox id right now — read it before acting, pass it to readOutbox as `since`. */
+export async function outboxMark() {
+  const { data, error } = await service
+    .from('test_outbox')
+    .select('id')
+    .order('id', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  return data[0]?.id ?? 0
+}
+
 /** Delete every user this file created; their profiles cascade. Call in afterAll. */
 export async function cleanup() {
   for (const id of created.splice(0)) await service.auth.admin.deleteUser(id)
