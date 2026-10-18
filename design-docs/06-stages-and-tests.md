@@ -402,7 +402,7 @@ The section the architecture change affects most. Each rule that used to be "no 
 | T-PRIV-01 | Tile and summary payloads contain no code | DB | `session_tiles` / `session_summary` expose no `files` column at all |
 | T-PRIV-02 | **Staff read a student's autosave** | RLS | Zero rows — the `snapshots` policy only admits help-request snapshots |
 | T-PRIV-03 | Staff read a snapshot through a help request | RLS | Exactly one row (the student sent it) |
-| T-PRIV-04 | **Lost identity never retrievable by staff** | RLS | Staff reading `student_status.lost` get zero rows; `session_summary.lost_count` is an aggregate (admins can read it — T-ADM-07) |
+| T-PRIV-04 | **Lost identity never retrievable by staff** | RLS | Staff reading `lost_flags` get zero rows; `student_status` has no `lost` column; `session_summary.lost_count` is an aggregate (admins can read the flags — T-ADM-07) |
 | T-PRIV-05 | Notes private | RLS | Another non-admin user's note is invisible |
 | T-PRIV-06 | **Every `public` table has RLS enabled** | RLS | `tables_without_rls()` returns empty |
 | T-PRIV-07 | **Every view uses `security_invoker`** | RLS | A view without it would leak all sessions; assert none exist |
@@ -423,7 +423,7 @@ Admins read everything and write only accounts. Most of these are negative tests
 | T-ADM-04 | **Admin changes their own role** | DB | `BAD_REQUEST`; role unchanged |
 | T-ADM-05 | Admin disables an account | E2E | That user can no longer sign in; re-enabling restores it; both audited |
 | T-ADM-06 | **Admin disables themselves** | DB | Refused |
-| T-ADM-07 | Admin reads any table | RLS | Snapshots, notes, `student_status.lost` and another prof's course all readable |
+| T-ADM-07 | Admin reads any table | RLS | Snapshots, notes, `lost_flags` and another prof's course all readable |
 | T-ADM-08 | **Admin cannot act inside a course** | RLS | `save_checkpoint`, `claim_help_request`, lesson updates and course edits by an admin → `FORBIDDEN` or zero rows |
 | T-ADM-09 | **Policy sweep** | RLS | Every `public` table has exactly one `admin reads all` `select` policy, and no admin policy for any other command |
 | T-ADM-10 | Logged-out caller is never an admin | RLS | `is_admin()` is `false` (not `null`) for the anon key |
