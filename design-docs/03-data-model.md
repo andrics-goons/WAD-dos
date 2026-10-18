@@ -817,8 +817,8 @@ T-PRIV-05 passes by construction — a note belonging to someone else is not a 4
 | `session_id` | `uuid` PK → `sessions` on delete cascade | One per ended session |
 | `course_id`, `lesson_id` | `uuid` | For cross-term trends |
 | `attendance` | `jsonb` | `{ joined, enrolled }` |
-| `steps` | `jsonb` | Per-step funnel — see [05](./05-core-logic.md#10-insights-report) |
-| `top_errors` | `jsonb` | Top 5, counts only |
+| `steps` | `jsonb` | Per-step funnel — see [05](./05-core-logic.md#10-insights-report): `[{ order, stepId, title, reachedDone, dropOff, errorStudents, peakBehind, medianMinutesToDone, catchUps, helpRequests, trouble }]` (the shape `seed.sql` writes and `buildReport` must produce) |
+| `top_errors` | `jsonb` | Top 5, counts only: `[{ key, students, stepOrder }]` |
 | `lost_peak` | `int` | Max simultaneous "I'm lost" |
 | `generated_at` | `timestamptz default now()` | |
 | `digest` | `jsonb` | `{ sentAt, recipients }` — counts only |

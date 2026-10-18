@@ -176,14 +176,12 @@ describe('sessions', () => {
   })
 
   it('nobody creates a session directly (start_session only)', async () => {
-    const { error } = await prof.client
-      .from('sessions')
-      .insert({
-        lesson_id: lesson.id,
-        course_id: course.id,
-        started_by: prof.id,
-        join_code: randomCode(),
-      })
+    const { error } = await prof.client.from('sessions').insert({
+      lesson_id: lesson.id,
+      course_id: course.id,
+      started_by: prof.id,
+      join_code: randomCode(),
+    })
     expect(error?.code).toBe('42501')
   })
 
@@ -476,6 +474,27 @@ describe('session_tiles: the classifier in SQL', () => {
       .eq('id', session.id)
     expect(codeOf(cp.error)).toBe('BAD_REQUEST')
     expect(codeOf(cur.error)).toBe('BAD_REQUEST')
+  })
+
+  it('a session can be INSERTED already on one of its own steps', async () => {
+    // Regression: the BEFORE INSERT check once looked up the not-yet-inserted session
+    const { data: foreign } = await service
+      .from('steps')
+      .select('id')
+      .eq('lesson_id', otherLesson.id)
+      .single()
+    const row = { lesson_id: lesson.id, course_id: course.id, started_by: prof.id, status: 'ended' }
+    const own = await service
+      .from('sessions')
+      .insert({ ...row, join_code: randomCode(), current_step_id: steps[1].id })
+      .select('id')
+      .single()
+    if (own.data) createdSessions.push(own.data.id)
+    const bad = await service
+      .from('sessions')
+      .insert({ ...row, join_code: randomCode(), current_step_id: foreign.id })
+    expect(own.error).toBeNull()
+    expect(codeOf(bad.error)).toBe('BAD_REQUEST')
   })
 })
 
