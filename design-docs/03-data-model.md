@@ -509,6 +509,7 @@ Append-only; replaces the capped `stateHistory[]` array. Written only by trigger
 | `student_id` | `uuid not null → profiles` |
 | `state` | `text not null check (state in ('error','behind','in_progress','done'))` — never `idle`, see below |
 | `step_order` | `int not null` — the student's `done_step_order` at that moment |
+| `error_key` | `text` — the error's `key` when `state = 'error'`, else null. Added by the help/notes/reports migration so the report can count its top errors after class: `student_status` keeps only the latest error |
 | `at` | `timestamptz not null default now()` |
 
 **Indexes:** `(session_id, student_id, at)`.
@@ -519,7 +520,7 @@ Two triggers write it:
 
 | Trigger | Fires on | Appends |
 |---|---|---|
-| `record_status_change` | insert, or update of `done_step_order` / `error`, on `student_status` | One row, if that student's derived state differs from **their last history row**. Compared with the last row, not `OLD`, so a heartbeat upsert that changes nothing writes nothing |
+| `record_status_change` | insert, or update of `done_step_order` / `error`, on `student_status` | One row, if that student's derived state differs from **their last history row** — or the state is still `error` but with a different `error_key`. Compared with the last row, not `OLD`, so a heartbeat upsert that changes nothing writes nothing |
 | `record_checkpoint_states` | update of `sessions.current_step_id` | One row for **every** student whose state the new checkpoint changed. Without this, history would miss every "behind", because the students who fell behind never wrote anything |
 
 `idle` is never recorded. It depends on `now()`, so no write ever happens at the moment a student becomes idle.
@@ -565,7 +566,7 @@ left join public.steps st on st.id = s.current_step_id;
 
 `security_invoker = true` makes the view run with the caller's rights, so the RLS policies above still apply — **without it a view would leak every session's rows.** A student querying it sees only their own tile.
 
-`passed_steps` (in the [09](./09-integration-contracts.md#7-cross-owner-signatures) contract) needs `help_requests`, so it is added to the view by the next migration.
+The help/notes/reports migration appends one more column, `passed_steps int[]`: the step orders this student's `check` requests were **passed** on, e.g. `{1,3}`. (`create or replace view` can only add columns at the end, so it comes after `state`.)
 
 ```sql
 create view public.session_summary with (security_invoker = true) as
@@ -614,27 +615,33 @@ To restructure a taught lesson, the prof makes a new lesson. The foreign keys ba
 
 **Rules**
 - `autosave`: **one per student per session** — `unique (session_id, student_id) where reason = 'autosave'`, written by `rpc('autosave_patch')`, which merges only the files that changed into the existing `files` jsonb rather than replacing the whole set. Debounced 5 s on the client; see [05 §2](./05-core-logic.md#2-files-cache--dependencies).
-- `before_catchup` and `help_request`: immutable, a new row each time.
+- `before_catchup` and `help_request`: immutable, a new row each time. **A trigger (`guard_snapshot_immutable`) refuses any update to them, or relabelling the autosave row** (`CONFLICT`), even from the RPCs that bypass RLS.
 - Staff read a snapshot **only** through the help request that references it.
+- `step_id` must be a step of the session's lesson (`check_session_step`, `BAD_REQUEST`).
+- `updated_at` (not in the original design) moves only on the autosave row — "last saved 12 s ago".
 
 **Indexes:** the partial unique above; `(session_id, student_id, reason, created_at desc)`.
 
-```sql
-alter table snapshots enable row level security;
+Migration: `supabase/migrations/20261018154409_help_notes_reports.sql` (snapshots, help requests, notes, reports).
 
-create policy "own snapshots" on snapshots for all
-  using (student_id = auth.uid()) with check (student_id = auth.uid());
+```sql
+alter table public.snapshots enable row level security;
+
+-- students only READ: autosave_patch, catch_up and the help RPCs write every row, so a
+-- snapshot already sent to a TA can't be edited afterwards
+create policy "student reads own snapshots" on public.snapshots
+    for select using (student_id = auth.uid());
 
 -- THE privacy rule. Staff reach a snapshot only via a help request pointing at it.
-create policy "staff read sent snapshots" on snapshots for select using (
-  exists (
-    select 1 from help_requests hr
-    join sessions s on s.id = hr.session_id
-    where hr.snapshot_id = snapshots.id
-      and public.is_course_staff(s.course_id)
-  )
-);
+create policy "staff read sent snapshots" on public.snapshots
+    for select using (public.is_sent_to_staff(id));
+
+create policy "admin reads all" on public.snapshots for select using (public.is_admin());
 ```
+
+`is_sent_to_staff(snap)` is a `security definer` helper: true when a help request with `snapshot_id = snap` exists in a session the caller staffs. It's a helper rather than an inline subquery so the policy doesn't depend on `help_requests`' own RLS.
+
+> **Changed from the first draft:** the policy was `own snapshots … for all`, which let a student update or delete a snapshot after sending it for help. Every write path is an RPC anyway, so students get `select` only.
 
 ---
 
@@ -674,15 +681,30 @@ create policy "staff read sent snapshots" on snapshots for select using (
 
 **Indexes:** `(session_id, status, created_at)`; `unique (session_id, student_id, type) where status in ('open','claimed')` — one active request per type per student, which is how T-HELP-06 returns a conflict without any application code.
 
-```sql
-alter table help_requests enable row level security;
+**Checks the table enforces itself** (so the RPCs can't get them wrong):
 
-create policy "student reads own requests" on help_requests for select using (student_id = auth.uid());
-create policy "staff read queue" on help_requests for select
-  using (public.is_course_staff((select course_id from sessions where id = session_id)));
--- all writes via rpc: create_help_request, claim_help_request, transition_help_request,
---                      follow_up_help_request
+| Rule | How | Error |
+|---|---|---|
+| In person only for `help`, and needs a seat | `check (not in_person or (type = 'help' and seat is set))` | `23514` |
+| Only a `check` can be `passed` | `check (status <> 'passed' or type = 'check')` | `23514` |
+| `claimed` always has a `claimed_by` | `check (status <> 'claimed' or claimed_by is not null)` | `23514` |
+| `follow_ups` 0–3, `message` ≤ 300, `thread` a JSON array ≤ 50 KB | column checks | `23514` |
+| `snapshot_id` is **this student's own `help_request` snapshot from this session** — never someone else's, and never their autosave row, which keeps changing (staff would be watching live code) | trigger `check_help_snapshot` | `BAD_REQUEST` |
+| `step_id` is a step of the session's lesson | trigger `check_session_step` | `BAD_REQUEST` |
+
+```sql
+alter table public.help_requests enable row level security;
+
+create policy "student reads own requests" on public.help_requests
+    for select using (student_id = auth.uid());
+create policy "staff read queue" on public.help_requests
+    for select using (public.is_session_staff(session_id));
+create policy "admin reads all" on public.help_requests for select using (public.is_admin());
+-- all writes via rpc (Karin): create_help_request, claim_help_request,
+--                             transition_help_request, follow_up_help_request
 ```
+
+`help_requests` is in the `supabase_realtime` publication, so the queue and the student's own requests update live. **The RPCs themselves are Karin's** and come in her migration; the two bodies below are the design.
 
 Claiming is race-free in one statement — zero rows updated **is** the conflict:
 
@@ -766,15 +788,25 @@ The waiting-time badge on the card counts from the latest `thread` entry, not `c
 | `body` | `text check (char_length(body) <= 2000)` | Required for `note` |
 | `created_at` / `updated_at` | `timestamptz` | |
 
-**Indexes:** `(user_id, session_id)`; GIN full-text on `to_tsvector('english', body)` for search.
+**Indexes:** `(user_id, session_id)`; GIN full-text on `to_tsvector('english', body)` for search. **`search()` must use that exact expression**, or Postgres can't use the index.
+
+- `user_id` defaults to `auth.uid()`, so the client never sends it.
+- A `note` needs a non-blank `body`; a `bookmark` doesn't (`23514`).
+- `(checkpoint_id, session_id) → checkpoints (id, session_id)`: the anchor must be a checkpoint of the **same** session (`23503`). Unchecked while `checkpoint_id` is null.
+- `user_id` cascades on delete: a note is private data that belongs to its author.
 
 ```sql
-alter table notes enable row level security;
-create policy "own notes" on notes for all
-  using (user_id = auth.uid()) with check (user_id = auth.uid());
+alter table public.notes enable row level security;
+create policy "own notes"        on public.notes for select using (user_id = auth.uid());
+create policy "write own notes"  on public.notes for insert
+    with check (user_id = auth.uid() and public.is_session_member(session_id));
+create policy "edit own notes"   on public.notes for update using (user_id = auth.uid())
+    with check (user_id = auth.uid() and public.is_session_member(session_id));
+create policy "delete own notes" on public.notes for delete using (user_id = auth.uid());
+create policy "admin reads all"  on public.notes for select using (public.is_admin());
 ```
 
-One policy, and T-PRIV-05 passes — a note belonging to someone else is not a 404 we have to remember to return, it simply isn't in the result set.
+T-PRIV-05 passes by construction — a note belonging to someone else is not a 404 we have to remember to return, it simply isn't in the result set. The insert and update checks add one thing the single `for all` policy in the first draft missed: you can only write notes on a session you belong to.
 
 ---
 
@@ -793,10 +825,29 @@ One policy, and T-PRIV-05 passes — a note belonging to someone else is not a 4
 
 Written by the `end-session` Edge Function (triggered by a Database Webhook when `sessions.status` becomes `ended`). The report page polls until the row exists.
 
+`(session_id, course_id, lesson_id) → sessions (id, course_id, lesson_id)` on delete cascade, so a report can't be filed under another course or lesson (`23503`). `attendance` is required; `steps` and `top_errors` default to `[]`, `lost_peak` to 0. Index `(course_id, lesson_id)` for trends.
+
 ```sql
-alter table session_reports enable row level security;
-create policy "staff read reports" on session_reports for select using (public.is_course_staff(course_id));
+alter table public.session_reports enable row level security;
+create policy "staff read reports" on public.session_reports
+    for select using (public.is_session_staff(session_id));
+create policy "admin reads all" on public.session_reports for select using (public.is_admin());
 ```
+
+The policy checks the **session**, not the row's `course_id`, so it can never disagree with where the session really ran.
+
+## lost_events (for `lost_peak`)
+
+`lost_flags` deletes a row when a student clears "I'm lost", so by the end of class the peak would be gone. A trigger on `lost_flags` appends `+1` on raise and `-1` on clear:
+
+| Column | Type |
+|---|---|
+| `id` | `bigint generated always as identity` PK |
+| `session_id` | `uuid not null → sessions` on delete cascade |
+| `delta` | `smallint not null check (delta in (1, -1))` |
+| `at` | `timestamptz not null default now()` |
+
+**No `student_id`.** Its only policy is `admin reads all`: even anonymous timestamps, next to the live tile grid, could hint at who tapped. Staff and the `end-session` function get the number from `session_lost_peak(sid)` — a `security definer` running sum, the peak for staff and admins, `null` for anyone else.
 
 ## test_outbox (local + test only)
 
