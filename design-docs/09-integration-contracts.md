@@ -86,7 +86,6 @@ export const Fn = Object.freeze({
   SPOTLIGHT: 'spotlight',
   HINT: 'hint',
   DIGEST: 'digest',
-  ADMIN_USERS: 'admin-users',     // disable / enable / password reset (admin only)
 })
 ```
 
@@ -257,7 +256,7 @@ Three layers, in this order:
 | Student actions | `is_enrolled(course_id)` |
 | Viewer actions (replay, library) | `is_course_member(course_id)` |
 | Admin: read anything | `is_admin()` — **one extra `select` policy per table**, never folded into the helpers above |
-| Admin: manage users | `is_admin()` inside `admin_list_users`, `admin_set_role` and the `admin-users` function |
+| Admin: manage users | `is_admin()` inside `admin_list_users` and `admin_set_role` |
 
 **Why admin isn't folded into `is_course_staff()`:** those helpers also guard *writes* (claiming help requests, saving checkpoints). Making them return true for admins would quietly give admins every staff write too. Keeping admin as a separate, `select`-only policy makes "admins read everything, write only accounts" true by construction — and the schema sweep test checks that no admin policy exists for any command but `select`.
 
@@ -269,7 +268,7 @@ Three layers, in this order:
 
 This is the section the architecture change affects most. Previously three of these rules were enforced by *absence* ("there is no endpoint that returns another student's autosave"). The browser now queries Postgres directly, so **absence is no longer a mechanism** — each rule is a policy, a view, or a column that does not exist.
 
-> **Scope: these rules protect students from course staff and from each other. Admins are excluded by design.** An admin is a platform operator who can read every table, including students' code and who tapped "I'm lost". So every claim below is about *staff and students*, and must be stated that way in the slides and Q&A — "the prof can't see your code unless you send it", never "nobody can". Admin **writes** are audited in `admin_audit`; admin **reads** are not, because Postgres cannot trigger on `select`. Keep the number of admin accounts to the minimum the demo needs.
+> **Scope: these rules protect students from course staff and from each other. Admins are excluded by design.** An admin is a platform operator who can read every table, including students' code and who tapped "I'm lost". So every claim below is about *staff and students*, and must be stated that way in the slides and Q&A — "the prof can't see your code unless you send it", never "nobody can". Admin actions are not logged. Keep the number of admin accounts to the minimum the demo needs.
 
 | Rule | Enforced by | Test |
 |---|---|---|
@@ -342,9 +341,8 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 |---|---|---|---|
 | `rpc('create_course')` | Andric | Courses page | `(p_code text, p_title text, p_term text, p_section text) → course row` — prof only; generates the enrol code; adds the caller to `course_staff` as `prof` |
 | `rpc('enrol_with_code')` | Andric | Enrol page | `(p_code text) → course row` — students and TAs; `NOT_FOUND` for a wrong or archived code |
-| `rpc('admin_list_users')` | Andric | Admin page | `() → [{ id, email, name, role, created_at, disabled }]` — `FORBIDDEN` unless admin |
-| `rpc('admin_set_role')` | Andric | Admin page | `(p_user_id uuid, p_role text) → profile row` — refuses the caller's own role; writes `admin_audit` |
-| `fn('admin-users')` | Andric | Admin page | `{ action: 'disable' \| 'enable' \| 'reset_password', userId } → { ok }` — service role; refuses self-disable; writes `admin_audit` |
+| `rpc('admin_list_users')` | Andric | Admin page | `() → [{ id, email, name, role, created_at }]` — `FORBIDDEN` unless admin |
+| `rpc('admin_set_role')` | Andric | Admin page | `(p_user_id uuid, p_role text) → [{ id, name, role }]` — refuses the caller's own role |
 | `rpc('add_course_staff')` | Andric | Course people page | `(p_course_id uuid, p_email text) → staff row` — owner only; `CONFLICT` if already staff or enrolled as a student |
 | `rpc('remove_course_student')` | Andric | Course people page | `(p_course_id uuid, p_user_id uuid) → void` — owner only |
 | `rpc('start_session')` | Ying Qi | Teach view | `(p_lesson_id uuid) → { session, join_code }` |
@@ -465,7 +463,7 @@ Full list in [02-tech-stack.md](./02-tech-stack.md#environment-variables).
 - [ ] **No RLS policy missing:** every table in `public` reports `relrowsecurity = true`
 - [ ] Every table has exactly one `admin reads all` `select` policy, and no admin policy for any other command
 - [ ] Signing up as Educator gives `prof`; signing up with any other role value gives `student`
-- [ ] An admin can change a role and disable an account; neither works on themselves; both appear in `admin_audit`
+- [ ] An admin can change another user's role, but not their own
 - [ ] Negative RLS tests pass (student cannot read another student's snapshot/status/notes)
 - [ ] Every page usable 375 → 1440 px, portrait and landscape, in Chrome
 - [ ] Load test: 40 simulated students within latency target, inside the Realtime free-tier cap

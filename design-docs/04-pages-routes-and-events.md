@@ -48,7 +48,7 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 | `/sessions/:id/report` | `ReportView` | Evan (page) · Andric (report data) | Staff | Cards stacked; funnel chart scrolls horizontally → 2-col grid: funnel, top errors, recurring steps, digest panel |
 | `/profile` | `ProfileView` | Ying Qi (profile) + Karin (Telegram link card) | Logged in | Single column |
 | `*` | `NotFoundView` | Ying Qi | Public | Friendly 404 with links back |
-| `/admin/users` | `AdminUsersView` | Andric | Admin | Searchable user table → name, email, role dropdown, joined, disabled; actions **Disable / Enable** and **Send password reset**. xs: one card per user; lg: table. The admin's own row has its role and disable controls locked |
+| `/admin/users` | `AdminUsersView` | Andric | Admin | Searchable user list → name, email, role dropdown, joined. Changing a role asks for confirmation. xs: one card per user; lg: table. The admin's own role is locked |
 
 ### Route guards
 
@@ -225,12 +225,12 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 
 ### Admin — `admin.api.js` (Andric)
 
+Call these: `listUsers()` and `setRole(userId, role)`. The list of users lives in `stores/admin.js`.
+
 | Kind | Call | What happens | Who |
 |---|---|---|---|
-| RPC | `admin_list_users()` | Every account with email, role, joined date and disabled state; emails come from `auth.users`, which only this definer function can join in | Admin |
-| RPC | `admin_set_role(p_user_id, p_role)` | Changes another user's role; refuses the caller's own; writes `admin_audit` | Admin |
-| Function | `admin-users` → `{ action: 'disable' \| 'enable' \| 'reset_password', userId }` | Uses Supabase's auth admin API with the service role; refuses self-disable; writes `admin_audit` | Admin |
-| Query | `from('admin_audit').select().order('at', { ascending: false })` | Who changed what, to whom, when | Admin |
+| RPC | `admin_list_users()` | Every account with email, role and joined date; emails come from `auth.users`, which only this definer function can join in | Admin |
+| RPC | `admin_set_role(p_user_id, p_role)` | Changes another user's role; refuses the caller's own | Admin |
 | Query | any table, via the normal pages | Admins read everything through one `admin reads all` policy per table — no separate admin copies of the pages | Admin |
 
 ### Reports & digests — `reports.api.js` (Andric; sending via Karin's function)
@@ -420,7 +420,6 @@ Unchanged — components never knew where the data came from, which is why this 
 |---|---|---|
 | Form validation fails | Message under each field; values kept | zod in `src/validators/` → form store (client-side, before the write) |
 | Wrong login | "Invalid email or password" (never says which) | Supabase Auth error, mapped to a generic message |
-| Account disabled by an admin | "This account has been disabled — contact your instructor" | Supabase Auth rejects the sign-in for a banned user; existing sessions end when their token expires (≤ 1 hour) |
 | Picked the wrong account type at sign-up | Profile page explains the role can't be changed by the user, and who to contact | The update policy locks `role`; an admin fixes it in `/admin/users` |
 | Not logged in on a protected page | Redirect to `/login?returnTo=…` | Router guard + an auth-state listener that clears the store on sign-out |
 | Not allowed (e.g. student opens `/s/:id/teach`) | Toast + redirect to `/courses` | Router guard on account role |

@@ -417,17 +417,15 @@ Admins read everything and write only accounts. Most of these are negative tests
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-ADM-01 | Student, TA or prof calls `admin_list_users` / `admin_set_role` / `admin-users` | RLS | `FORBIDDEN` for all three |
-| T-ADM-02 | Admin lists users | DB | Every account, with email, role and disabled state |
-| T-ADM-03 | Admin changes a user's role | DB | Role updated; one `admin_audit` row with from/to |
+| T-ADM-01 | Student, TA or prof calls `admin_list_users` / `admin_set_role` | RLS | `FORBIDDEN` for both |
+| T-ADM-02 | Admin lists users | DB | Every account, with email and role |
+| T-ADM-03 | Admin changes a user's role | DB | Role updated, and it takes effect (a promoted prof can create a course) |
 | T-ADM-04 | **Admin changes their own role** | DB | `BAD_REQUEST`; role unchanged |
-| T-ADM-05 | Admin disables an account | E2E | That user can no longer sign in; re-enabling restores it; both audited |
-| T-ADM-06 | **Admin disables themselves** | DB | Refused |
 | T-ADM-07 | Admin reads any table | RLS | Snapshots, notes, `lost_flags` and another prof's course all readable |
 | T-ADM-08 | **Admin cannot act inside a course** | RLS | `save_checkpoint`, `claim_help_request`, lesson updates and course edits by an admin → `FORBIDDEN` or zero rows |
 | T-ADM-09 | **Policy sweep** | RLS | Every `public` table has exactly one `admin reads all` `select` policy, and no admin policy for any other command |
 | T-ADM-10 | Logged-out caller is never an admin | RLS | `is_admin()` is `false` (not `null`) for the anon key |
-| T-ADM-11 | Admin users page at 375 px and 1280 px | E2E `@responsive` | Cards on xs, table on lg; the admin's own row has role and disable locked |
+| T-ADM-11 | Admin users page at 375 px and 1280 px | E2E `@responsive` | Cards on xs, table on lg; the admin's own role is locked |
 
 ### RESP — Responsive (Chrome) · tagged `@responsive`
 

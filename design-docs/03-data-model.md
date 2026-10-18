@@ -901,29 +901,22 @@ There is **no** admin `insert` / `update` / `delete` policy on any table. Admin 
 
 ### Managing users
 
+The one thing an admin writes is **another user's account role**. There is no account disabling, audit log or password-reset tool — out of scope for this project.
+
 | Action | Mechanism | Notes |
 |---|---|---|
-| List every user — name, email, role, joined, disabled | `rpc('admin_list_users')` | Emails live in `auth.users`, which the browser cannot read; this `security definer` function joins them in after checking `is_admin()` |
-| Change a user's role | `rpc('admin_set_role', user_id, role)` | Validates the role, refuses to change the caller's own role, writes an audit row |
-| Disable / re-enable an account | Edge Function `admin-users` → Supabase's auth admin API (`ban_duration`) | Needs the service-role key, so it is an Edge Function. **Disable, never delete**: other tables reference users without cascading, and deleting a user with class history would either fail or rewrite past reports. A disabled user's current session lasts until its token expires (≤ 1 hour) |
-| Send a password-reset email | Edge Function `admin-users` | For users locked out of their account |
+| List every user — name, email, role, joined | `rpc('admin_list_users')` | Emails live in `auth.users`, which the browser cannot read; this `security definer` function joins them in after checking `is_admin()` |
+| Change a user's role | `rpc('admin_set_role', user_id, role)` | Validates the role (`VALIDATION_FAILED`), refuses the caller's own (`BAD_REQUEST`), `NOT_FOUND` for no such user. **It changes the account type only** — who runs or takes a course comes from `course_staff` / `course_students`, which it doesn't touch |
 
-**"You can't change your own role"** (and can't disable yourself) is the only lock-out guard needed: only an admin can demote or disable an admin, and nobody can do it to themselves, so at least one working admin always remains.
+Migration: `supabase/migrations/20261018164039_admin.sql`. Both are RPCs: they touch only our own tables, so nothing needs the service-role key and there is no admin Edge Function.
+
+**"You can't change your own role"** is the only lock-out guard needed: only an admin can demote an admin, and nobody can demote themselves, so at least one admin always remains.
 
 All admin guards use `is distinct from` / `is_admin()`, never `<> 'admin'`: for a logged-out caller the role is `null`, and `null <> 'admin'` is `null`, which a guard would treat as *not* blocked.
 
-### `admin_audit`
+**Policy sweep.** `admin_policy_sweep()` returns one row per `public` table: RLS on, the number of `admin reads all` select policies, and the number of admin policies for any other command. T-ADM-09 asserts every table is `true / 1 / 0`, so a new table that forgets its admin policy (or adds an admin write) fails the suite. It reads the catalog, so it is granted to `service_role` only.
 
-| Column | Type |
-|---|---|
-| `id` | `bigint generated always as identity` PK |
-| `actor_id` | `uuid not null → profiles` |
-| `action` | `text not null` — `set_role`, `disable`, `enable`, `reset_password` |
-| `target_id` | `uuid → profiles` |
-| `detail` | `jsonb` — e.g. `{ "from": "prof", "to": "student" }` |
-| `at` | `timestamptz not null default now()` |
-
-Readable only by admins; written only by the admin functions. **Admin writes are audited; admin reads are not** — Postgres has no trigger on `select`, so "which admin looked at which snapshot" is not recorded. That is a known limit of this design, stated in the README.
+**Admin actions are not logged.** Postgres can't trigger on `select`, and role changes aren't recorded either — keep the number of admin accounts to the minimum the demo needs.
 
 ---
 
@@ -967,7 +960,7 @@ The contract, enforced by RLS policies and `security definer` RPCs. **Admin** is
 | Notes / bookmarks | Own only | Own only | Own only | Read all |
 | Export replay to GitHub | ✅ (own account) | ✅ | ✅ | — |
 | View insights report, send Telegram digest | ❌ | ✅ view | ✅ view + send | ✅ view |
-| **List users, change roles, disable accounts, send password resets** | ❌ | ❌ | ❌ | ✅ |
+| **List users, change their roles** | ❌ | ❌ | ❌ | ✅ |
 | Change own role | ❌ | ❌ | ❌ | ❌ |
 
 ---

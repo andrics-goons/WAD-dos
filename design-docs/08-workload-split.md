@@ -275,9 +275,9 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | **`test_outbox` table** — Karin's mocked Telegram/GitHub functions write here; tests read it **(new)** | `…_test_outbox.sql`, `readOutbox()` in `tests/unit/rls/_helpers.js` | ✅ |
 | Keep-alive cron so the free-tier project can't pause before Week 18 | GitHub Actions cron | ⬜ |
 | **Sign-up role choice**: trigger allow-list (`prof`, else `student`) + `register({ role })` **(new)** | `…_profiles.sql`, `src/api/auth.api.js` | ✅ |
-| **Admin role**: `app_role()` / `is_admin()` ✅ and `admin reads all` on every table so far ✅; `admin_audit` still to do **(new)** | `…_profiles.sql`, each layer's migration | ⬜ |
-| **Admin user management**: `admin_list_users`, `admin_set_role`, `admin-users` Edge Function **(new)** | new migration, `supabase/functions/admin-users/`, `src/api/admin.api.js` | ⬜ |
-| **Admin users page** — your one Vue page **(new)** | `views/AdminUsersView.vue` | ⬜ |
+| **Admin role**: `app_role()` / `is_admin()`, `admin reads all` on every table, and the policy sweep (T-ADM-09) **(new)** | `…_profiles.sql`, each layer's migration, `…_admin.sql` | ✅ |
+| **Admin user management**: `admin_list_users`, `admin_set_role` — role changes only **(new)** | `…_admin.sql`, `src/api/admin.api.js`, `stores/admin.js`, `tests/unit/rls/admin.test.js` | ✅ |
+| **Admin users page** — your one Vue page **(new)** | `views/AdminUsersView.vue` | ✅ |
 | Tests | T-PLAT-03, 09–21 · T-STAT-07–09, 11, 12 · T-PRIV-01–05, 08, 11 · T-INS-01–03, 05–08 · T-VAL-01, 06–08 · T-SEED-* · T-ADM-* · RLS suite | ⬜ |
 
 **Boundary:** owns the whole database contract — every table, policy, view and trigger — plus auth, sign-up roles, the admin role, the accounts/courses data layer, the insights data and the seed. Builds one page: `/admin/users`. Others request schema changes by PR to Andric.
