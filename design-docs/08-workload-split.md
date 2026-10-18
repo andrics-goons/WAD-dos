@@ -263,7 +263,7 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | · courses, `course_staff`, `course_students`, `is_course_*()` helpers, `create_course` / `enrol_with_code` / `add_course_staff` / `remove_course_student`, "read coursemates" | `…_courses.sql` | ✅ |
 | · lessons, steps, `files_valid()` / `files_include()`, `can_read_lesson()` / `can_edit_lesson()`, `replace_steps` / `delete_step`, the shared `set_updated_at()` trigger (also on profiles + courses) | `…_lessons.sql` | ✅ |
 | · sessions, checkpoints, `student_status`, `lost_flags`, `status_history` + the `session_tiles` / `session_summary` views + the Realtime channel policies **+ the taught-lesson guards** | `20261018153107_sessions.sql`, `tests/unit/rls/sessions.test.js` | ✅ |
-| · snapshots, help requests, notes, session reports | | ⬜ |
+| · snapshots, help requests, notes, session reports + `lost_events`, `session_tiles.passed_steps`, `status_history.error_key` | `20261018154409_help_notes_reports.sql`, `tests/unit/rls/help_notes_reports.test.js` | ✅ |
 | **Review every migration PR** — feature owners write their own RPCs **(moved)** | — | ⬜ |
 | Supabase client + error mapper | `src/lib/supabase.js`, `src/api/mapError.js` | ✅ |
 | Auth data access | `src/api/auth.api.js` | ✅ |
