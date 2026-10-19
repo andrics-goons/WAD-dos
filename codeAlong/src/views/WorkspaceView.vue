@@ -19,7 +19,6 @@
     stopWorkspace = await startWorkspace(
       webcontainer,
       workspaceStore.files,
-      "pnpm dev",
       (url) => (previewUrl.value = url)     // webcontainer generates a special url in order to view the vite project
     )
   })

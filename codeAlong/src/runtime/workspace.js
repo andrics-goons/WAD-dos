@@ -1,6 +1,6 @@
 import { toFileSystemTree } from "./webcontainer"
 
-export async function startWorkspace(webcontainer, files, devCommand, onServerReady) {
+export async function startWorkspace(webcontainer, files, onServerReady) {
     // mount files to the webcontainer
     // requires files to be in tree format 
     await webcontainer.mount(toFileSystemTree(files))
@@ -14,15 +14,15 @@ export async function startWorkspace(webcontainer, files, devCommand, onServerRe
         }
     })
 
-    // starts pnpm install after listener is registed, await only waits for process to start 
-    const install = await webcontainer.spawn("pnpm", ["install"])
-    // additional await to wait for the install to finish before moving on
-    const installExitCode = await install.exit
-    // error handler if promise fails
-    if (installExitCode !== 0) {
-        off()
-        throw new Error(`pnpm install failed: ${installExitCode}`)
-    }
+    // // starts pnpm install after listener is registed, await only waits for process to start 
+    // const install = await webcontainer.spawn("pnpm", ["install"])
+    // // additional await to wait for the install to finish before moving on
+    // const installExitCode = await install.exit
+    // // error handler if promise fails
+    // if (installExitCode !== 0) {
+    //     off()
+    //     throw new Error(`pnpm install failed: ${installExitCode}`)
+    // }
 
     // returning the stop function
     return () => {
