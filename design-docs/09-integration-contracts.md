@@ -25,6 +25,8 @@ shared/
 
 ```js
 export const Role = Object.freeze({ PROF: 'prof', TA: 'ta', STUDENT: 'student', ADMIN: 'admin' })
+// How each role is named in the UI
+export const RoleLabel = Object.freeze({ prof: 'Educator', ta: 'TA', student: 'Student', admin: 'Admin' })
 export const SignupRole = Object.freeze({ STUDENT: 'student', EDUCATOR: 'prof' })   // the only two a user may pick
 export const CourseRole = Object.freeze({ PROF: 'prof', TA: 'ta' })
 
@@ -127,7 +129,7 @@ const { data: { user } } = await supabase.auth.getUser()
 const { data: profile } = await supabase.from('profiles').select('id, name, role').eq('id', user.id).single()
 ```
 
-`authStore.user = { id, name, role }`. The router guard in [04](./04-pages-routes-and-events.md#route-guards) reads `role` from the profile. A missing or expired session sends the user to `/login?returnTo=…`.
+`authStore.user = { id, name, role }`. The router guard in [04](./04-pages-routes-and-events.md#route-guards) reads `role` from the profile. A missing or expired session sends the user to `/login?returnTo=…`. The store also listens to `supabase.auth.onAuthStateChange` (supabase-js syncs it across tabs): `SIGNED_OUT` from elsewhere clears the store and leaves any page that needs a login. The handler runs on the next tick, because awaiting another supabase call inside that callback can deadlock.
 
 ### Who am I, inside Postgres
 
@@ -404,7 +406,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Replay | `timeline-step-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
 | Reports | `report-funnel`, `report-top-errors`, `btn-send-digest` |
 | Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login` |
-| Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `btn-disable-<userId>`, `btn-reset-<userId>`, `input-user-search` |
+| Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `input-user-search` |
 
 ---
 

@@ -28,10 +28,12 @@ const AUTH = {
   invalid_credentials: ['UNAUTHENTICATED', 'Invalid email or password'],
   user_already_exists: ['CONFLICT', 'An account with that email already exists'],
   email_exists: ['CONFLICT', 'An account with that email already exists'],
-  weak_password: ['VALIDATION_FAILED', 'Password is too weak — use at least 8 characters'],
+  // 6 = minimum_password_length in supabase/config.toml (and the cloud project's Auth settings)
+  weak_password: ['VALIDATION_FAILED', 'Password is too weak — use at least 6 characters'],
   email_address_invalid: ['VALIDATION_FAILED', 'Enter a valid email address'],
   validation_failed: ['VALIDATION_FAILED', 'Enter a valid email address'], // badly formatted email on sign-up
   anonymous_provider_disabled: ['VALIDATION_FAILED', 'Enter your email and password'], // sign-up with an empty email
+  same_password: ['VALIDATION_FAILED', 'Choose a password different from your current one'],
   email_not_confirmed: ['UNAUTHENTICATED', 'Check your email to confirm your account first'],
   user_banned: ['FORBIDDEN', 'This account has been disabled — contact your instructor'],
   over_request_rate_limit: ['RATE_LIMITED', 'Too many attempts — wait a minute and try again'],

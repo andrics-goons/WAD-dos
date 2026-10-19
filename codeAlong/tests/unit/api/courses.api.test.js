@@ -83,12 +83,13 @@ describe('a prof creates and lists courses', () => {
     expect(await codeOf(create())).toBe('CONFLICT')
   })
 
-  it('updateCourse edits only the allowed fields', async () => {
-    const updated = await coursesApi.updateCourse(course.id, {
-      title: 'Web App Dev II',
-      owner_id: stu.id,
-    })
+  it('updateCourse renames the course', async () => {
+    const updated = await coursesApi.updateCourse(course.id, { title: 'Web App Dev II' })
     expect(updated).toMatchObject({ title: 'Web App Dev II', owner_id: prof.id })
+  })
+
+  it("the owner can't hand the course to someone else (the update policy refuses it)", async () => {
+    expect(await codeOf(coursesApi.updateCourse(course.id, { owner_id: stu.id }))).toBe('FORBIDDEN')
   })
 
   it('addStaff makes a student account a TA of this course', async () => {

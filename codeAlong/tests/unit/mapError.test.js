@@ -27,7 +27,8 @@ describe('mapError', () => {
     it.each([
       ['invalid_credentials', 'UNAUTHENTICATED', 'Invalid email or password'],
       ['user_already_exists', 'CONFLICT', 'An account with that email already exists'],
-      ['weak_password', 'VALIDATION_FAILED', 'Password is too weak — use at least 8 characters'],
+      ['weak_password', 'VALIDATION_FAILED', 'Password is too weak — use at least 6 characters'],
+      ['same_password', 'VALIDATION_FAILED', 'Choose a password different from your current one'],
       ['validation_failed', 'VALIDATION_FAILED', 'Enter a valid email address'],
       ['anonymous_provider_disabled', 'VALIDATION_FAILED', 'Enter your email and password'],
       ['user_banned', 'FORBIDDEN', 'This account has been disabled — contact your instructor'],
