@@ -203,7 +203,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-LES-04 | Delete step | E2E | Remaining steps renumbered |
 | T-LES-05 | Unsafe path / > 20 files / > 200 KB | DB | `files_valid()` / `octet_length` constraint rejects the insert |
 | T-LES-06 | Delete a lesson that was taught | DB | Trigger raises `CONFLICT` → UI offers Archive |
-| T-LES-07 | Student reads a lesson outside a session | RLS | Steps visible; `files` not selectable by a non-staff member |
+| T-LES-07 | What an enrolled student can read | RLS | A **draft** lesson and its steps: zero rows. A **ready** lesson: visible, with its steps and starter `files` (RLS can't hide one column; starter files aren't secret — see [03](./03-data-model.md#policies-1)) |
 | T-TODO-01 | JS, HTML and CSS comment forms parsed | Unit | 3 steps with correct files/lines |
 | T-TODO-02 | Numbered TODOs sorted by number across files | Unit | Order follows numbers, not file order |
 | T-TODO-03 | Same number in two files → one step, two refs | Unit | `todoRefs.length === 2` |
@@ -402,7 +402,7 @@ The section the architecture change affects most. Each rule that used to be "no 
 | T-PRIV-01 | Tile and summary payloads contain no code | DB | `session_tiles` / `session_summary` expose no `files` column at all |
 | T-PRIV-02 | **Staff read a student's autosave** | RLS | Zero rows — the `snapshots` policy only admits help-request snapshots |
 | T-PRIV-03 | Staff read a snapshot through a help request | RLS | Exactly one row (the student sent it) |
-| T-PRIV-04 | **Lost identity never retrievable by staff** | RLS | Staff reading `student_status.lost` get zero rows; `session_summary.lost_count` is an aggregate (admins can read it — T-ADM-07) |
+| T-PRIV-04 | **Lost identity never retrievable by staff** | RLS | Staff reading `lost_flags` get zero rows; `student_status` has no `lost` column; `session_summary.lost_count` is an aggregate (admins can read the flags — T-ADM-07) |
 | T-PRIV-05 | Notes private | RLS | Another non-admin user's note is invisible |
 | T-PRIV-06 | **Every `public` table has RLS enabled** | RLS | `tables_without_rls()` returns empty |
 | T-PRIV-07 | **Every view uses `security_invoker`** | RLS | A view without it would leak all sessions; assert none exist |
@@ -417,17 +417,15 @@ Admins read everything and write only accounts. Most of these are negative tests
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-ADM-01 | Student, TA or prof calls `admin_list_users` / `admin_set_role` / `admin-users` | RLS | `FORBIDDEN` for all three |
-| T-ADM-02 | Admin lists users | DB | Every account, with email, role and disabled state |
-| T-ADM-03 | Admin changes a user's role | DB | Role updated; one `admin_audit` row with from/to |
+| T-ADM-01 | Student, TA or prof calls `admin_list_users` / `admin_set_role` | RLS | `FORBIDDEN` for both |
+| T-ADM-02 | Admin lists users | DB | Every account, with email and role |
+| T-ADM-03 | Admin changes a user's role | DB | Role updated, and it takes effect (a promoted prof can create a course) |
 | T-ADM-04 | **Admin changes their own role** | DB | `BAD_REQUEST`; role unchanged |
-| T-ADM-05 | Admin disables an account | E2E | That user can no longer sign in; re-enabling restores it; both audited |
-| T-ADM-06 | **Admin disables themselves** | DB | Refused |
-| T-ADM-07 | Admin reads any table | RLS | Snapshots, notes, `student_status.lost` and another prof's course all readable |
+| T-ADM-07 | Admin reads any table | RLS | Snapshots, notes, `lost_flags` and another prof's course all readable |
 | T-ADM-08 | **Admin cannot act inside a course** | RLS | `save_checkpoint`, `claim_help_request`, lesson updates and course edits by an admin → `FORBIDDEN` or zero rows |
 | T-ADM-09 | **Policy sweep** | RLS | Every `public` table has exactly one `admin reads all` `select` policy, and no admin policy for any other command |
 | T-ADM-10 | Logged-out caller is never an admin | RLS | `is_admin()` is `false` (not `null`) for the anon key |
-| T-ADM-11 | Admin users page at 375 px and 1280 px | E2E `@responsive` | Cards on xs, table on lg; the admin's own row has role and disable locked |
+| T-ADM-11 | Admin users page at 375 px and 1280 px | E2E `@responsive` | Cards on xs, table on lg; the admin's own role is locked |
 
 ### RESP — Responsive (Chrome) · tagged `@responsive`
 

@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as authApi from '@/api/auth.api'
+import { useCoursesStore } from './courses'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -36,6 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout() {
     await authApi.logout()
     user.value = null
+    useCoursesStore().reset() // the next person on this browser mustn't see these courses
   }
 
   return { user, loaded, isAuthenticated, role, ensureLoaded, register, login, logout }

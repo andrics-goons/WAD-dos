@@ -261,22 +261,23 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | **The schema, one migration per layer** — each with its tables, helpers, RLS policies and RPCs **(moved)** | `supabase/migrations/` | |
 | · profiles, sign-up trigger, `app_role()`, `is_admin()` | `…_profiles.sql` | ✅ |
 | · courses, `course_staff`, `course_students`, `is_course_*()` helpers, `create_course` / `enrol_with_code` / `add_course_staff` / `remove_course_student`, "read coursemates" | `…_courses.sql` | ✅ |
-| · lessons, steps (+ `files_valid()`, the lesson-delete guard trigger) | next migration | ⬜ |
-| · sessions, checkpoints, `student_status`, `status_history` + the `session_tiles` / `session_summary` views + the Realtime channel policy | | ⬜ |
-| · snapshots, help requests, notes, session reports | | ⬜ |
+| · lessons, steps, `files_valid()` / `files_include()`, `can_read_lesson()` / `can_edit_lesson()`, `replace_steps` / `delete_step`, the shared `set_updated_at()` trigger (also on profiles + courses) | `…_lessons.sql` | ✅ |
+| · sessions, checkpoints, `student_status`, `lost_flags`, `status_history` + the `session_tiles` / `session_summary` views + the Realtime channel policies **+ the taught-lesson guards** | `20261018153107_sessions.sql`, `tests/unit/rls/sessions.test.js` | ✅ |
+| · snapshots, help requests, notes, session reports + `lost_events`, `session_tiles.passed_steps`, `status_history.error_key` | `20261018154409_help_notes_reports.sql`, `tests/unit/rls/help_notes_reports.test.js` | ✅ |
 | **Review every migration PR** — feature owners write their own RPCs **(moved)** | — | ⬜ |
 | Supabase client + error mapper | `src/lib/supabase.js`, `src/api/mapError.js` | ✅ |
 | Auth data access | `src/api/auth.api.js` | ✅ |
-| Courses data access (create, list, enrol, add TA, people) | `src/api/courses.api.js` | ⬜ |
-| **Enrol page** — typed code and `/enrol/:code` link, auto-submit **(new)** — route + `returnTo` through login/register done; the page itself needs `courses.api.js` | `views/EnrolView.vue` | ⬜ |
+| Courses data access (create, list, enrol, add TA, people) + courses store | `src/api/courses.api.js`, `src/stores/courses.js`, `tests/unit/api/courses.api.test.js` | ✅ |
+| **Enrol page** — typed code and `/enrol/:code` link, auto-submit **(new)**, `returnTo` through login/register | `views/EnrolView.vue` | ✅ |
 | Report builder + `end-session` function + trends RPC (the page is Evan's) | `shared/report-builder.js`, `supabase/functions/end-session/` | ⬜ |
-| Seed data + `seed:generate` (uses Evan's Mini Cart fixture) | `supabase/seed.sql`, `scripts/seed-generate.js` | ⬜ |
+| Seed data (Dylan's Mini Cart project; past + live sessions, reports) | `supabase/seed.sql`, `tests/unit/rls/seed.test.js` | ✅ |
+| `seed:generate` — check the seed against the real `parseTodos` / `buildReport` once they exist | `scripts/seed-generate.js` | ⬜ |
 | **`test_outbox` table** — Karin's mocked Telegram/GitHub functions write here; tests read it **(new)** | `…_test_outbox.sql`, `readOutbox()` in `tests/unit/rls/_helpers.js` | ✅ |
 | Keep-alive cron so the free-tier project can't pause before Week 18 | GitHub Actions cron | ⬜ |
 | **Sign-up role choice**: trigger allow-list (`prof`, else `student`) + `register({ role })` **(new)** | `…_profiles.sql`, `src/api/auth.api.js` | ✅ |
-| **Admin role**: `app_role()` / `is_admin()` ✅ and `admin reads all` on every table so far ✅; `admin_audit` still to do **(new)** | `…_profiles.sql`, each layer's migration | ⬜ |
-| **Admin user management**: `admin_list_users`, `admin_set_role`, `admin-users` Edge Function **(new)** | new migration, `supabase/functions/admin-users/`, `src/api/admin.api.js` | ⬜ |
-| **Admin users page** — your one Vue page **(new)** | `views/AdminUsersView.vue` | ⬜ |
+| **Admin role**: `app_role()` / `is_admin()`, `admin reads all` on every table, and the policy sweep (T-ADM-09) **(new)** | `…_profiles.sql`, each layer's migration, `…_admin.sql` | ✅ |
+| **Admin user management**: `admin_list_users`, `admin_set_role` — role changes only **(new)** | `…_admin.sql`, `src/api/admin.api.js`, `stores/admin.js`, `tests/unit/rls/admin.test.js` | ✅ |
+| **Admin users page** — your one Vue page **(new)** | `views/AdminUsersView.vue` | ✅ |
 | Tests | T-PLAT-03, 09–21 · T-STAT-07–09, 11, 12 · T-PRIV-01–05, 08, 11 · T-INS-01–03, 05–08 · T-VAL-01, 06–08 · T-SEED-* · T-ADM-* · RLS suite | ⬜ |
 
 **Boundary:** owns the whole database contract — every table, policy, view and trigger — plus auth, sign-up roles, the admin role, the accounts/courses data layer, the insights data and the seed. Builds one page: `/admin/users`. Others request schema changes by PR to Andric.
