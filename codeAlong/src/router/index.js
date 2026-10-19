@@ -33,7 +33,7 @@ const routes = [
     path: '/',
     name: 'landing',
     component: () => import('@/views/LandingView.vue'),
-    meta: { title: 'CodeAlong' },
+    meta: {}, // no title → the tab shows plain "CodeAlong" (see afterEach)
   },
   {
     path: '/login',
