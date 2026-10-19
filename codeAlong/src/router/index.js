@@ -33,7 +33,7 @@ const routes = [
     path: '/',
     name: 'landing',
     component: () => import('@/views/LandingView.vue'),
-    meta: { title: 'CodeAlong' },
+    meta: {}, // no title → the tab shows plain "CodeAlong" (see afterEach)
   },
   {
     path: '/login',
@@ -159,7 +159,7 @@ const routes = [
 
   // ── Admin ─────────────────────────────────────────────────────────────────
   {
-    // List users, change roles, disable accounts, send password resets.
+    // List users and change their roles.
     path: '/admin/users',
     name: 'admin-users',
     component: () => import('@/views/AdminUsersView.vue'),
