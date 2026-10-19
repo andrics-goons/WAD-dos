@@ -34,13 +34,14 @@ codeAlong/
     │   ├── tokens.css             ← ALL colours, fonts, spacing, radii, shadows, z-index (+ dark .ca-ide values)
     │   ├── base.css               ← points Bootstrap's own variables at our tokens; base element styles
     │   ├── components.css         ← .ca-btn, .ca-field/.ca-label/.ca-input, .ca-card, .ca-surface
-    │   └── layout.css             ← .ca-page, .ca-page-header, .ca-fill-viewport, .ca-eyebrow, .ca-grid, .ca-mono
+    │   └── layout.css             ← .ca-page, .ca-page-header, .ca-fill-viewport, .ca-eyebrow, .ca-mono
     ├── components/ui/
     │   ├── AppNavbar.vue          ← top bar (already mounted — never render it yourself)
     │   ├── AppToast.vue           ← toast stack (already mounted — use the toast store)
     │   ├── ConfirmModal.vue       ← confirm before destructive actions
     │   ├── EmptyState.vue         ← empty / not-found / no-access screens
     │   ├── StatusPill.vue         ← the 5 tile states (done, in_progress, error, behind, idle)
+    │   ├── JoinCodeInput.vue      ← the 6-box join code input
     │   └── tileStates.js          ← label + icon per tile state
     ├── stores/toast.js            ← useToastStore().show(text, variant)
     └── views/KitView.vue          ← the /_kit style guide page
@@ -65,10 +66,10 @@ All global CSS is already loaded by `main.js`. **Never import Bootstrap, fonts o
 - ❌ Hard-code a hex/rgb colour in a component (`color: #4f46e5`). Use a token. If a token is missing, ask Ying Qi to add one.
 - ❌ Use Bootstrap's `btn btn-primary` or `form-control`. Use `ca-btn ca-btn--primary` and `ca-input`. (A stray Bootstrap one won't look broken, but it won't match.)
 - ❌ Use Bootstrap JavaScript components (`data-bs-toggle`, `new bootstrap.Modal`). Use Vue state, and `ConfirmModal` for dialogs.
-- ❌ Add global CSS or new files to `src/styles/`. Page-specific CSS goes in that component's `<style scoped>`.
+- ❌ Add global CSS or new files to `src/styles/`. Use Bootstrap utilities and the kit classes first; if a page truly needs its own CSS, keep it to a few lines in that component's `<style scoped>`.
 - ❌ Load Google Fonts or any CDN stylesheet. The COOP/COEP headers WebContainer needs block cross-origin fonts. Fonts are self-hosted already.
 - ❌ Render your own navbar, toast, or modal backdrop.
-- ❌ Use inline `style=""` except to set the layout variables `--min` and `--gap` on `.ca-grid`, or a dynamic token like `:style="{ color: \`var(--ca-state-${state})\` }"`.
+- ❌ Use inline styles — no `style="…"` and no `:style`. To colour something by a student's state, use the `ca-state--<state>` classes (see StatusPill below).
 - ❌ Use `!important`, or fixed pixel widths that break at 375px.
 
 ---
@@ -163,7 +164,7 @@ onMounted(async () => {
     </div>
 
     <!-- lg and up: panes side by side · below lg: one pane at a time (tabs) -->
-    <div class="flex-grow-1 d-flex" style="min-height: 0">
+    <div class="flex-grow-1 d-flex overflow-hidden">
       <aside class="d-none d-lg-block border-end">…file tree…</aside>
       <section class="flex-grow-1">…editor…</section>
       <section class="d-none d-lg-block border-start">…preview…</section>
@@ -195,7 +196,7 @@ Bootstrap's breakpoints. A class with an infix applies **from that width upwards
 
 Patterns:
 - **Grid of cards that change at chosen breakpoints:** `row g-3` + `col-12 col-sm-6 col-lg-4`.
-- **Grid of cards that just fit as many as possible:** `<div class="ca-grid" style="--min: 16rem">` (optional `--gap: var(--ca-space-2)`). No breakpoint classes needed.
+- **Lots of small cards, a fixed number per row:** `row row-cols-2 row-cols-md-4 g-2`, with each card in a `<div class="col">`.
 - **Hide below md:** `d-none d-md-block`. **Show only below md:** `d-md-none`.
 - **Stack at xs, row from sm:** `d-flex flex-column flex-sm-row gap-2`.
 - In `<style scoped>`, media queries must use these exact pixel values, mobile-first, because CSS variables can't be used inside `@media`:
@@ -274,7 +275,6 @@ Patterns:
 | `ca-eyebrow` | Small uppercase label above a heading |
 | `ca-card` | White panel **with** padding (course cards, report cards, forms) |
 | `ca-surface` | White panel **without** padding (wraps lists, tables, EmptyState) |
-| `ca-grid` | Auto-fit card grid; set `--min` (column min width) and optional `--gap` |
 | `ca-fill-viewport` | Full height below the navbar (IDE pages) |
 | `ca-ide` | Dark IDE region (pair with `data-bs-theme="dark"`) |
 | `ca-mono` | Monospace text (join codes, file names, inline code-ish values) |
@@ -330,7 +330,16 @@ Example scoped style:
 <StatusPill :state="tile.state" size="sm" />             <!-- compact -->
 <StatusPill state="done" label="Step 4 · Done" />         <!-- custom label -->
 ```
-Props: `state` (required, a `TileState` value), `size` (`'md'` default | `'sm'`), `label` (override text). Renders `data-state="<state>"`. Need the label/icon elsewhere (e.g. a filter chip)? `import { tileStateMeta } from '@/components/ui/tileStates.js'` → `{ label, icon, hint }`.
+Props: `state` (required, a `TileState` value), `size` (`'md'` default | `'sm'`), `label` (override text). Renders `data-state="<state>"`. Need the label/icon elsewhere (e.g. a filter chip)? `import { tileStateMeta } from '@/components/ui/tileStates.js'` → `{ label, icon }`.
+
+**Colouring anything by state** (a dashboard tile, a chart bar): add the class `ca-state--done` (or `in_progress`, `error`, `behind`, `idle`) and use `var(--state)`, `var(--state-bg)` and `var(--state-fg)` in your scoped CSS — e.g. `` :class="`ca-state--${tile.state}`" `` with `.tile { border: 2px solid var(--state); background: var(--state-bg); }`.
+
+### `JoinCodeInput`: typing a join code
+
+```vue
+<JoinCodeInput v-model="code" :invalid="!!error" :disabled="joining" @complete="join" />
+```
+Six boxes, one character each. Letters are capitalised as you type, and keys that can't be in a code (`0`, `O`, `1`, `I`, `L`, symbols) are ignored, so the value is always clean — pass it straight to `join_session`. The cursor moves on as you type; Backspace steps back; pasting a code fills every box. Emits `complete` (with the code) once all six are filled, for auto-submit. Setting `v-model` from outside (e.g. `/join/:code` from a QR link) fills the boxes. Test id: `input-join-code` on the group.
 
 ### `EmptyState`: empty, not found, no access, error
 
@@ -360,7 +369,7 @@ async function endSession() {
   Students will see "Class ended" and their work is saved.
 </ConfirmModal>
 ```
-Props: `open` (use `v-model:open`), `title` (required), `confirmLabel`, `cancelLabel`, `variant` (`'primary'` | `'danger'`), `busy` (spinner + locks buttons). Emits `confirm`, `cancel`. **It does not close itself on confirm.** Set `open` to false when your action succeeds. Escape and backdrop click cancel (unless busy). Danger variant focuses Cancel first. Test ids: `confirm-modal`, `btn-confirm`, `btn-cancel`.
+Props: `open` (use `v-model:open`), `title` (required), `confirmLabel`, `cancelLabel`, `variant` (`'primary'` | `'danger'`), `busy` (spinner + locks buttons). Emits `confirm`, `cancel`. **It does not close itself on confirm.** Set `open` to false when your action succeeds. Escape and backdrop click cancel (unless busy). Danger variant focuses Cancel first. In tests, find it with `getByRole('dialog')` and its buttons by name.
 
 ### Toasts: the toast store
 
@@ -372,11 +381,11 @@ toast.show('Ana is already on this one', 'danger', { title: 'Already claimed' })
 toast.show('Reconnecting…', 'warning', { timeout: 0 })   // 0 = stays until dismissed; returns an id
 toast.dismiss(id)
 ```
-Variants: `'info'` (default), `'success'`, `'warning'`, `'danger'`. Auto-dismiss after 4s; max 4 on screen. Test id: `toast` with `data-variant`.
+Variants: `'info'` (default), `'success'`, `'warning'`, `'danger'`. Auto-dismiss after 4s; max 4 on screen. In tests, find them with `getByRole('status')` (or `getByRole('alert')` for danger).
 
 ### `AppNavbar`: don't render it
 
-Mounted once in `App.vue`. It has a `#status` slot for live indicators (e.g. Karin's `ConnectionPill`); to add something there, ask Ying Qi to wire it in `App.vue`. Test ids: `nav-home`, `nav-courses`, `nav-replays`, `nav-join`, `nav-login`, `nav-user`, `nav-profile`, `nav-signout`, `nav-toggle`.
+Mounted once in `App.vue`. It has a `#status` slot for live indicators (e.g. Karin's `ConnectionPill`); to add something there, ask Ying Qi to wire it in `App.vue`. Test ids (from doc 09): `nav-courses`, `nav-replays`, `nav-profile`; the rest are found by role, e.g. `getByRole('button', { name: 'Toggle navigation' })`.
 
 ### Shared constants
 

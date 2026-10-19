@@ -279,7 +279,7 @@ join_session  rpc('join_session', { p_join_code })
 save_checkpoint  rpc('save_checkpoint', …)
   1. session live (CONFLICT) + is_course_prof (FORBIDDEN)
   2. p_step_id must belong to session.lesson_id (BAD_REQUEST)
-  3. seq = coalesce(max(seq),0)+1; insert (retry once on the unique index)
+  3. lock the session row (select … for update), then seq = coalesce(max(seq),0)+1; insert
   4. update sessions set current_step_id = p_step_id
      → every row of session_tiles re-derives; students 2+ steps back become `behind`
        with no extra writes
@@ -339,9 +339,9 @@ Sent only from RPCs and Edge Functions via `realtime.send()`. Clients subscribe;
 
 | Event | Payload | Owner |
 |---|---|---|
-| `checkpoint:new` | `{ sessionId, seq, stepId, stepOrder, title, createdAt }` (files fetched on demand) | Ying Qi |
+| `checkpoint:new` | `{ sessionId, checkpointId, seq, stepId, stepOrder, title, filesHash, createdAt }` (files fetched on demand by `checkpointId`; `filesHash` lets the cache skip the download) | Ying Qi |
 | `session:settings` | `{ sessionId, allowCatchUp, hintsEnabled }` | Ying Qi |
-| `session:ended` | `{ sessionId, replayUrl }` | Ying Qi |
+| `session:ended` | `{ sessionId, replayUrl }` — `replayUrl` is a path (`/replays/<id>`); the browser adds its own origin | Ying Qi |
 | `spotlight:show` | `{ sessionId, errorPreview, excerpt: { path, startLine, code }, fix: { path, startLine, code } }` | Evan |
 | `spotlight:hide` | `{ sessionId }` | Evan |
 | `session:announce` | `{ sessionId, text, at }` — `text: null` clears | Karin |
