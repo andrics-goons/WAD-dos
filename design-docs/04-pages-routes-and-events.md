@@ -122,14 +122,16 @@ All of it goes through `src/api/*.api.js`; components never touch `supabase` dir
 
 ### Auth & profile — `auth.api.js` (Andric), Telegram bits (Karin)
 
+Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoaded`, `updateName(name)`, `changePassword({ currentPassword, newPassword })`. The store subscribes to `onAuthChange` on its first `ensureLoaded()`: **a logout in another tab clears this tab and sends it from any `auth` page to `/login?returnTo=…`**; a different account signing in from another tab replaces the user and clears the course list.
+
 | Kind | Call | What happens | Who |
 |---|---|---|---|
 | Auth | `auth.signUp({ email, password, options: { data: { name, role } } })` | Trigger creates the `profiles` row as `prof` if the user chose **Educator**, otherwise `student` — via an allow-list, since `role` comes from the browser | Any |
 | Auth | `auth.signInWithPassword(…)` | Session stored by `supabase-js`; platform rate-limits | Any |
 | Auth | `auth.signOut()` | Clears the local session | Any |
 | Query | `auth.getUser()` + `from('profiles').select().eq('id', uid).single()` | Current user on app load | Any |
-| Query | `from('profiles').update({ name })` | Own row only (policy forbids changing `role`) | Any |
-| Auth | `auth.updateUser({ password })` | Requires a fresh session | Any |
+| Query | `from('profiles').update({ name })` — `updateProfile({ name })` | Own row only (policy forbids changing `role`); 2–60 characters | Any |
+| Auth | `signInWithPassword` with the current password, then `auth.updateUser({ password })` — `changePassword({ currentPassword, newPassword })` | The current password is checked first ("Your current password is wrong"); the new one must be ≥ 6 characters and different | Any |
 | RPC | `issue_telegram_link_code()` | Writes a one-time code + expiry, returns `https://t.me/<bot>?start=<code>` | Any (Karin) |
 | Query | `from('profiles').update({ telegram_chat_id: null })` | Unlink | Any (Karin) |
 
