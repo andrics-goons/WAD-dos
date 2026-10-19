@@ -1,11 +1,8 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
-// App-wide toasts, rendered by components/ui/AppToast.vue (mounted once in App.vue).
-//   const toast = useToastStore()
-//   toast.show('Checkpoint saved', 'success')
-//   toast.show(mapped.message, 'danger', { timeout: 0 })   // 0 = stays until dismissed
-// Variants: 'info' | 'success' | 'warning' | 'danger'
+// Pop-up messages for the whole app: toast.show('Saved', 'success').
+// Types: info, success, warning, danger. They vanish after 4 seconds (timeout: 0 keeps one up).
 const DEFAULT_TIMEOUT_MS = 4000
 const MAX_VISIBLE = 4
 
@@ -19,7 +16,7 @@ export const useToastStore = defineStore('toast', () => {
     const id = nextId++
     messages.value.push({ id, text, variant, title })
 
-    // Oldest toasts drop off so a burst of events can't cover the screen
+    // only keep the 4 newest, so a burst of messages can't cover the screen
     while (messages.value.length > MAX_VISIBLE) dismiss(messages.value[0].id)
 
     if (timeout > 0) timers.set(id, setTimeout(() => dismiss(id), timeout))

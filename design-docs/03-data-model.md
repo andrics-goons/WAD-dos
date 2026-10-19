@@ -440,7 +440,7 @@ All `security definer`, for the same reason as the course helpers.
 
 **Policies:** "members read checkpoints" (`is_session_member`), "admin reads all". Inserts only via `rpc('save_checkpoint')`: it allocates `seq`, sets `current_step_id` and broadcasts.
 
-> Two "Save checkpoint" clicks at once race for the same `seq`. The unique index rejects the second; the RPC retries once with a fresh `seq` inside the same transaction.
+> Two "Save checkpoint" clicks at once would race for the same `seq`. `save_checkpoint` locks the session row first (`select … for update`), so the second save waits and takes the next number; the unique index is the backstop.
 
 ---
 

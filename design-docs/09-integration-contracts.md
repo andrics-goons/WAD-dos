@@ -297,9 +297,9 @@ Three mechanisms, each for one job. Channel name is always `session:<sessionId>`
 Sent from `security definer` RPCs and Edge Functions via `realtime.send()`; clients only subscribe.
 
 ```js
-'checkpoint:new'   { sessionId, seq, stepId, stepOrder, title, createdAt }
+'checkpoint:new'   { sessionId, checkpointId, seq, stepId, stepOrder, title, filesHash, createdAt }
 'session:settings' { sessionId, allowCatchUp, hintsEnabled }
-'session:ended'    { sessionId, replayUrl }
+'session:ended'    { sessionId, replayUrl }  // replayUrl is a path: /replays/<id>
 'spotlight:show'   { sessionId, errorPreview, excerpt: { path, startLine, code }, fix: { path, startLine, code } }
 'spotlight:hide'   { sessionId }
 'session:announce' { sessionId, text, at }      // text: null means the prof cleared it
@@ -325,6 +325,22 @@ The old `dashboard:summary` event is gone: counts, `lost_count` and error groups
 
 Each student tracks `{ userId, name }` on join. Staff read presence for the attendance count; `joined_at` is still written to `student_status` so the report survives after everyone disconnects. Presence is **not** used for idle — idle is `now() - last_seen_at > idle_after_sec`, computed in the view.
 
+### Using the live session from a page — the session store
+
+A browser tab can hold only **one** channel per class, so pages never open `session:<id>` themselves: `useSessionStore()` (`src/stores/session.js`) owns it.
+
+| Store | What it gives you |
+|---|---|
+| `open(sessionId)` / `close()` | Load the class and connect; call `close()` when leaving the page |
+| `session` | The session row plus `role` (`'staff'` / `'student'`), `steps` (in order), `lesson` (`{ title, files_hash, entry_file, dev_command }` — the starter project, no files) and `latest_checkpoint` (`{ id, seq, step_id, files_hash, created_at }` or null). Kept current by the channel: checkpoints, settings, announcement, spotlight, ended |
+| `currentStep` | The step of the latest checkpoint — step 1 before the first one |
+| `latestCheckpoint` | Shortcut for `session.latest_checkpoint`; download its files with `getCheckpointFiles(id)` (`checkpoints.api.js`) |
+| `isLive`, `isStaff` | Booleans |
+| `connection` | `'live' | 'reconnecting' | 'offline'` — for the connection pill. After a reconnect the store re-reads the session, so missed checkpoints aren't lost |
+| `present` | Staff only: `[{ userId, name }]` of students here now (students are tracked automatically) |
+| `onChange(table, handler)` | `'student_status'` (staff) or `'help_requests'` (staff: the queue; students: their own). Returns a `stop()` function |
+| `start(lessonId)`, `join(code)`, `saveCheckpoint(stepId, files, note)`, `updateSettings(changes)`, `end()` | The actions; results come back to every tab through the channel |
+
 ### Connection lifecycle
 
 ```
@@ -347,7 +363,7 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `rpc('admin_set_role')` | Andric | Admin page | `(p_user_id uuid, p_role text) → [{ id, name, role }]` — refuses the caller's own role |
 | `rpc('add_course_staff')` | Andric | Course people page | `(p_course_id uuid, p_email text) → staff row` — owner only; `CONFLICT` if already staff or enrolled as a student |
 | `rpc('remove_course_student')` | Andric | Course people page | `(p_course_id uuid, p_user_id uuid) → void` — owner only |
-| `rpc('start_session')` | Ying Qi | Teach view | `(p_lesson_id uuid) → { session, join_code }` |
+| `rpc('start_session')` | Ying Qi | Teach view | `(p_lesson_id uuid) → session row` (includes `join_code`) |
 | `rpc('join_session')` | Ying Qi | Join view | `(p_join_code text) → { session_id, role }` |
 | `rpc('save_checkpoint')` | Ying Qi | Teach view | `(p_session_id uuid, p_step_id uuid, p_files jsonb, p_note text) → checkpoint row` |
 | `rpc('end_session')` | Ying Qi | Teach view | `(p_session_id uuid) → session row` |

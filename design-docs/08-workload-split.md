@@ -129,7 +129,7 @@ Items marked **(moved)** changed owner in the [Week 8 rebalance](#rebalance-week
 | Session RPCs: start / join / end / settings (own migration, reviewed by Andric) | new migration | ⬜ |
 | Checkpoint RPC + broadcast | new migration | ⬜ |
 | Join codes (JS + SQL, same alphabet) | `shared/join-code.js`, `gen_join_code()` | ⬜ |
-| Client channel wrapper + session store | `src/realtime/sessionChannel.js`, `src/stores/session.js` | ⬜ |
+| Client channel wrapper + session store | `src/api/sessionChannel.api.js`, `src/stores/session.js` | ⬜ |
 | **Vue app shell, router + guards, auth/courses stores** **(moved)** | `src/main.js`, `App.vue`, `router/index.js`, `stores/auth.js`, `stores/courses.js` | ⬜ |
 | **UI kit + tokens** (navbar, toast, modal, empty state, status pill) **(moved)** | `components/ui/*`, `styles/tokens.css` | ⬜ |
 | **Landing, login, register, courses, course page shell, profile, 404** **(moved)** — register includes the **Student / Educator** choice; login and register both honour `returnTo` | `views/*` (those pages) | ⬜ |
