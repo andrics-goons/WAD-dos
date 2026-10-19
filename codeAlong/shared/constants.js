@@ -4,6 +4,13 @@
 // Ping the team channel before changing it.
 
 export const Role = Object.freeze({ PROF: 'prof', TA: 'ta', STUDENT: 'student', ADMIN: 'admin' })
+// How each role is named in the UI
+export const RoleLabel = Object.freeze({
+  prof: 'Educator',
+  ta: 'TA',
+  student: 'Student',
+  admin: 'Admin',
+})
 // The only two roles a user may pick at sign-up ("Educator" in the UI = prof)
 export const SignupRole = Object.freeze({ STUDENT: 'student', EDUCATOR: 'prof' })
 export const CourseRole = Object.freeze({ PROF: 'prof', TA: 'ta' })
@@ -86,5 +93,4 @@ export const Fn = Object.freeze({
   SPOTLIGHT: 'spotlight',
   HINT: 'hint',
   DIGEST: 'digest',
-  ADMIN_USERS: 'admin-users', // disable / enable / password reset (admin only)
 })

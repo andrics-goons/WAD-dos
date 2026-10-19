@@ -561,7 +561,7 @@ For each step *k* (with `t_k` = time of the checkpoint for step *k*):
 **Trouble score** (shown with its formula, so profs can trust it):
 `trouble_k = 0.4 × errorStudents/joined + 0.3 × dropOff/joined + 0.2 × catchUps/joined + 0.1 × helpRequests/joined`
 
-The report highlights the top 3 steps, the top 5 error groups and the peak "I'm lost" count.
+The report highlights the top 3 steps, the top 5 error groups and the peak "I'm lost" count. Error groups come from `status_history.error_key` (the live `student_status` row keeps only the latest error); the peak comes from `session_lost_peak()` over `lost_events`.
 
 **Trends across terms** (`rpc('lesson_trends')`): for every past session of the same lesson (or a lesson with the same title in a course with the same course code) **among the calling prof's own courses**, a step counts as *recurring trouble* if it was in the top 3 by trouble score in at least two sessions. Steps are matched by `step_id` when the lesson is reused, otherwise by normalised title. This is a SQL aggregate now rather than a JS loop over documents.
 

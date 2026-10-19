@@ -48,7 +48,7 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 | `/sessions/:id/report` | `ReportView` | Evan (page) · Andric (report data) | Staff | Cards stacked; funnel chart scrolls horizontally → 2-col grid: funnel, top errors, recurring steps, digest panel |
 | `/profile` | `ProfileView` | Ying Qi (profile) + Karin (Telegram link card) | Logged in | Single column |
 | `*` | `NotFoundView` | Ying Qi | Public | Friendly 404 with links back |
-| `/admin/users` | `AdminUsersView` | Andric | Admin | Searchable user table → name, email, role dropdown, joined, disabled; actions **Disable / Enable** and **Send password reset**. xs: one card per user; lg: table. The admin's own row has its role and disable controls locked |
+| `/admin/users` | `AdminUsersView` | Andric | Admin | Searchable user list → name, email, role dropdown, joined. Changing a role asks for confirmation. One Bootstrap list: each user stacks on xs and is a single row from lg. The admin's own role is locked |
 
 ### Route guards
 
@@ -122,18 +122,22 @@ All of it goes through `src/api/*.api.js`; components never touch `supabase` dir
 
 ### Auth & profile — `auth.api.js` (Andric), Telegram bits (Karin)
 
+Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoaded`, `updateName(name)`, `changePassword({ currentPassword, newPassword })`. The store subscribes to `onAuthChange` on its first `ensureLoaded()`: **a logout in another tab clears this tab and sends it from any `auth` page to `/login?returnTo=…`**.
+
 | Kind | Call | What happens | Who |
 |---|---|---|---|
 | Auth | `auth.signUp({ email, password, options: { data: { name, role } } })` | Trigger creates the `profiles` row as `prof` if the user chose **Educator**, otherwise `student` — via an allow-list, since `role` comes from the browser | Any |
 | Auth | `auth.signInWithPassword(…)` | Session stored by `supabase-js`; platform rate-limits | Any |
 | Auth | `auth.signOut()` | Clears the local session | Any |
 | Query | `auth.getUser()` + `from('profiles').select().eq('id', uid).single()` | Current user on app load | Any |
-| Query | `from('profiles').update({ name })` | Own row only (policy forbids changing `role`) | Any |
-| Auth | `auth.updateUser({ password })` | Requires a fresh session | Any |
+| Query | `from('profiles').update({ name })` — `updateProfile({ name })` | Own row only (policy forbids changing `role`); 2–60 characters | Any |
+| Auth | `signInWithPassword` with the current password, then `auth.updateUser({ password })` — `changePassword({ currentPassword, newPassword })` | The current password is checked first ("Your current password is wrong"); the new one must be ≥ 6 characters and different | Any |
 | RPC | `issue_telegram_link_code()` | Writes a one-time code + expiry, returns `https://t.me/<bot>?start=<code>` | Any (Karin) |
 | Query | `from('profiles').update({ telegram_chat_id: null })` | Unlink | Any (Karin) |
 
 ### Courses — `courses.api.js` (Andric)
+
+Call these, not the queries below: `listCourses({ includeArchived })`, `getCourse(id)`, `createCourse({ code, title, term, section })`, `enrolWithCode(code)`, `updateCourse(id, changes)`, `setArchived(id, archived)`, `deleteCourse(id)`, `listStaff(courseId)`, `listStudents(courseId)`, `addStaff(courseId, email)`, `removeStudent(courseId, userId)`, `enrolUrl(code)`. Course rows come back with **`myRole`** (`'prof' | 'ta' | 'student'`) and **`isOwner`**, for choosing what to show — RLS still enforces everything. People rows are `{ user_id, name, role | enrolled_at }`. Errors are `AppError`s from `mapError`. The list of my courses lives in `stores/courses.js` (`load`, `create`, `enrol`, cleared on logout).
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
@@ -142,7 +146,7 @@ All of it goes through `src/api/*.api.js`; components never touch `supabase` dir
 | RPC | `enrol_with_code(p_code)` | Matches a course I cannot yet read (case-insensitive, not archived), inserts my `course_students` row; enrolling twice is harmless. Used by the enrol page for both the typed code and the `/enrol/:code` link | Student or TA (not in a course they staff) |
 | Query | `from('courses').select().eq('id', id).single()` | Course; my role comes from the `course_staff`/`course_students` queries | Staff / enrolled |
 | Query | `from('courses').update(…).eq('id', id)` | Owner policy | Owner |
-| Query | `from('courses').delete().eq('id', id)` | FK cascades handle the rest | Owner |
+| Query | `from('courses').delete().eq('id', id)` | FK cascades handle the rest. **`CONFLICT` once the course has any session** — offer Archive (`update({ archived: true })`) instead | Owner |
 | RPC | `add_course_staff(p_course_id, p_email)` | Adds as TA, promoting `profiles.role` to `ta` if still `student`. Refuses someone already on staff or **currently enrolled as a student in this course** | Owner |
 | Query | `from('course_staff').select('role, profiles(name)')` + same for students | People tab (names only) | Staff |
 | RPC | `remove_course_student(p_course_id, p_user_id)` | Removes enrolment; past statuses stay for the report | Owner |
@@ -154,13 +158,13 @@ All of it goes through `src/api/*.api.js`; components never touch `supabase` dir
 | Query | `from('lessons').select().eq('course_id', id).ilike('title', …)` | Lesson library search | Staff / enrolled |
 | Query | `from('lessons').insert(…)` then RPC `replace_steps` | Create from uploaded files; `parseTodos` already ran **in the browser** | Prof |
 | Function | `github-import` → `{ repoUrl }` | Fetches files with the server token → returns files; client then parses and inserts | Prof (Ray Yien) |
-| Query | `from('lessons').select('*, steps(*)')` | Lesson with steps. **Students select only `steps`** — `files` is fetched from the session, not the lesson | Staff |
+| Query | `from('lessons').select('*, steps(*)').order('order', { referencedTable: 'steps' })` | Lesson with its steps, in order, in one query. Staff see every lesson; **enrolled students see non-draft lessons only**, including their starter `files` | Staff / enrolled |
 | Query | `from('lessons').update(…)` | Title/description/week/files/entry_file/dev_command/status | Prof |
 | — | `parseTodos(files, entryFile)` | Re-parse is a **pure function in the browser** — the old `POST /reparse` round-trip is gone | Prof |
-| RPC | `replace_steps(p_lesson_id, p_steps)` | Create/reorder/delete in one transaction, orders contiguous | Prof |
+| RPC | `replace_steps(p_lesson_id, p_steps)` | Create, update, reorder and delete in one transaction. Steps are renumbered 1, 2, 3… by list position (**any `order` sent is ignored**); ids from another lesson and blank titles are refused — full rules in [03](./03-data-model.md#rpcs-1) | Prof |
 | Query | `from('steps').update(…).eq('id', stepId)` | Edit one step | Prof |
 | RPC | `delete_step(p_step_id)` | Deletes and renumbers the rest | Prof |
-| Query | `from('lessons').delete().eq('id', id)` | A trigger raises `CONFLICT` if the lesson was ever taught → UI offers Archive | Prof |
+| Query | `from('lessons').delete().eq('id', id)` | Deletes the lesson and its steps. Once the sessions migration lands, a trigger raises `CONFLICT` if the lesson was ever taught → UI offers Archive. **Until then a taught lesson can be deleted** | Prof |
 
 ### Sessions & checkpoints — `sessions.api.js`, `checkpoints.api.js` (Ying Qi)
 
@@ -197,7 +201,7 @@ All of it goes through `src/api/*.api.js`; components never touch `supabase` dir
 | RPC | `catch_up(p_session_id, p_files)` | Writes the `before_catchup` snapshot **first**, then returns the latest checkpoint + snapshot id | Enrolled (if `allowCatchUp`) |
 | Query | `from('snapshots').select().eq('reason','before_catchup')` | My attempts — RLS makes "mine" automatic | Enrolled |
 | Query | `from('student_status').upsert({ … })` | Status on change + 30 s heartbeat. No `state` field exists to send | Enrolled |
-| Query | `from('student_status').update({ lost })` | Anonymous: staff can only read the aggregate | Enrolled |
+| Query | `from('lost_flags').insert({ session_id, student_id })` / `.delete()` | "I'm lost" / un-lost. Anonymous: staff can only read `lost_count` | Enrolled, live session |
 
 ### Help — `help.api.js` (Karin)
 
@@ -216,19 +220,19 @@ All of it goes through `src/api/*.api.js`; components never touch `supabase` dir
 |---|---|---|---|
 | Query | `from('sessions').select().eq('status','ended')` | Ended sessions in my courses (RLS); attendance from my `student_status` row | Any |
 | Query | `from('checkpoints').select('*, steps(title, order)').order('seq')` | Replay source; per-checkpoint diff stats computed client-side with `diffSummary` | Member |
-| Query | `from('notes').select/insert/update/delete` | One `own notes` policy covers all four | Author |
+| Query | `from('notes').select/insert/update/delete` | Own notes only. `user_id` defaults to the login, so don't send it | Author |
 | RPC | `search(p_q, p_course_id)` | Full-text over step titles, checkpoint notes and my own notes, ranked; input is parameterised so regex characters are literal | Any |
 | Auth | `auth.linkIdentity({ provider: 'github', scopes: 'public_repo' })` | Replaces the hand-rolled OAuth dance; Supabase holds the `provider_token` on the session | Any |
 | Function | `github-export` → `{ sessionId, repoName, private }` | Creates the repo and one commit per checkpoint via the Git Data API | Member with a fresh GitHub identity |
 
 ### Admin — `admin.api.js` (Andric)
 
+Call these: `listUsers()` and `setRole(userId, role)`. The list of users lives in `stores/admin.js`.
+
 | Kind | Call | What happens | Who |
 |---|---|---|---|
-| RPC | `admin_list_users()` | Every account with email, role, joined date and disabled state; emails come from `auth.users`, which only this definer function can join in | Admin |
-| RPC | `admin_set_role(p_user_id, p_role)` | Changes another user's role; refuses the caller's own; writes `admin_audit` | Admin |
-| Function | `admin-users` → `{ action: 'disable' \| 'enable' \| 'reset_password', userId }` | Uses Supabase's auth admin API with the service role; refuses self-disable; writes `admin_audit` | Admin |
-| Query | `from('admin_audit').select().order('at', { ascending: false })` | Who changed what, to whom, when | Admin |
+| RPC | `admin_list_users()` | Every account with email, role and joined date; emails come from `auth.users`, which only this definer function can join in | Admin |
+| RPC | `admin_set_role(p_user_id, p_role)` | Changes another user's role; refuses the caller's own | Admin |
 | Query | any table, via the normal pages | Admins read everything through one `admin reads all` policy per table — no separate admin copies of the pages | Admin |
 
 ### Reports & digests — `reports.api.js` (Andric; sending via Karin's function)
@@ -363,7 +367,7 @@ Students track `{ userId, name }` on join; staff read it for the live attendance
 | `session:join` / `session:leave` + rooms | `channel.subscribe()` / `unsubscribe()`; RLS does the membership check |
 | `status:update` (client → server, server classifies) | `upsert student_status` with raw signals; the **view** classifies |
 | `heartbeat` | Same upsert, touching `last_seen_at` every 30 s while the tab is visible |
-| `lost:toggle` | `update student_status set lost = …` on my own row |
+| `lost:toggle` | insert / delete my own `lost_flags` row |
 | `dashboard:tile` | Postgres Changes on `student_status` |
 | `dashboard:summary` | `session_summary` view + a Vue `computed`, throttled client-side to ≤ 1/s |
 | `help:new` / `help:updated` | Postgres Changes on `help_requests` |
@@ -418,7 +422,6 @@ Unchanged — components never knew where the data came from, which is why this 
 |---|---|---|
 | Form validation fails | Message under each field; values kept | zod in `src/validators/` → form store (client-side, before the write) |
 | Wrong login | "Invalid email or password" (never says which) | Supabase Auth error, mapped to a generic message |
-| Account disabled by an admin | "This account has been disabled — contact your instructor" | Supabase Auth rejects the sign-in for a banned user; existing sessions end when their token expires (≤ 1 hour) |
 | Picked the wrong account type at sign-up | Profile page explains the role can't be changed by the user, and who to contact | The update policy locks `role`; an admin fixes it in `/admin/users` |
 | Not logged in on a protected page | Redirect to `/login?returnTo=…` | Router guard + an auth-state listener that clears the store on sign-out |
 | Not allowed (e.g. student opens `/s/:id/teach`) | Toast + redirect to `/courses` | Router guard on account role |

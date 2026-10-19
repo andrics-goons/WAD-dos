@@ -29,9 +29,9 @@ All names below are fictional — don't use classmates' names in submitted data.
 |---|---|---|---|---|---|---|
 | IS216 | Web Application Development II | AY2026/27 T1 | G2 | `WAD2G2` | Prof Lee, Ana, Ben | Alex … Kim (11) |
 
-A second course, **IS216 G2 · AY2025/26 T1** (archived), holds one past session of the same lesson so "recurring trouble steps across terms" has data.
+A second course, **IS216 G2 · AY2025/26 T1** (archived, enrol code `WADG25`, Prof Lee + Ana), holds one past session of the same lesson so "recurring trouble steps across terms" has data.
 
-A third course, **IS216 G1 · AY2026/27 T1**, belongs to **Prof Tan** and holds one past session of a same-titled Mini Cart lesson. It exists to prove the per-prof boundary: Prof Lee must never see it, and Prof Lee's trends must never count its sessions.
+A third course, **IS216 G1 · AY2026/27 T1** (enrol code `TANWAD`), belongs to **Prof Tan** and holds one past session of a same-titled Mini Cart lesson. It exists to prove the per-prof boundary: Prof Lee must never see it, and Prof Lee's trends must never count its sessions.
 
 ### Seed lesson: "Week 6 · Mini Cart" (status `ready`)
 
@@ -78,51 +78,57 @@ Two things this changes:
 
 ### Seed past session (ended, current term)
 
+`MNCART`, Sunday 12 Oct 2026 14:00–15:35. Checkpoint *k* lands at 14:00 + 10*k* min; each student marks it Done a few minutes later.
+
 | Data | Contents | Demonstrates |
 |---|---|---|
-| 8 checkpoints | One per step, with short prof notes | Replay, GitHub export |
-| 11 `student_status` rows with `status_history` | Most students fine; 6 hit `props.items` vs `items` at Step 4; 3 fall behind at Step 7 | Insights funnel, Step 4 as top trouble step |
-| 5 help requests | 2 passed checks, 2 replied helps, 1 resolved in-person | Help history in replay; Spotlight source |
-| 4 notes/bookmarks | Alex's notes on Steps 4 and 7 | Notes + search |
-| `session_reports` row | Pre-built | Report page renders immediately |
+| 8 checkpoints | One per step, with short prof notes. **Each is the real code at that step**: the starter with TODOs 1…*k* solved, so replay shows the project growing | Replay, GitHub export |
+| 11 `student_status` rows + 176 `status_history` rows | 8 finish; **6 hit `ReferenceError: items is not defined` at Step 4** (`items` instead of `props.items`); **3 never finish Step 7** and end `behind`. History is written exactly as the triggers would have, with real timestamps | Insights funnel, Step 4 as top trouble step |
+| 18 snapshots | Everyone's autosave, 2 `before_catchup` (Eli, Ivan), 5 `help_request` | Privacy: a TA sees only the 5 sent ones |
+| 5 help requests | 2 passed checks, 2 replied helps on the Step 4 bug, 1 in-person resolved (Gus, seat C14) | Help history in replay; Spotlight source |
+| 4 notes/bookmarks | Alex's notes on Steps 4 and 7, anchored to those checkpoints | Notes + search |
+| 12 `lost_events` | Three lost at once during Step 4, three again near the end | `lost_peak` = 3 |
+| `session_reports` row | Literal counts matching the history above, per the [05 §10](./05-core-logic.md#10-insights-report) definitions: Step 4 trouble 0.236 (top), Step 7 drop-off 3. `seed.test.js` checks them against the history | Report page renders immediately |
 
-### Seed script outline
+### Seed older reports (for trends)
 
-Seeding is now `supabase/seed.sql`, applied automatically by `supabase db reset` — so "reset the database" and "seed the database" are the same command, and idempotency is free: the reset drops and re-creates everything from the migrations before the seed runs.
+| Session | Course | Report | Why |
+|---|---|---|---|
+| `MNCT25`, Oct 2025 | IS216 G2 · AY2025/26 T1 (archived), Prof Lee | 24 of 27 joined; **Step 4 top trouble again** | "Recurring trouble across terms" has something to find |
+| `TANMCT`, Oct 2026 | IS216 G1 · AY2026/27 T1, Prof Tan | 30 of 32 joined; Step 2 top trouble | Must **never** appear in Prof Lee's reports or trends (T-INS-08) |
 
-```sql
--- supabase/seed.sql   (runs after every migration on `supabase db reset`)
+These two have report rows only — no checkpoints or history — because a report is counts only.
 
--- 1. Auth users. Passwords are hashed by Supabase's own crypt(), never by us.
---    The on_auth_user_created trigger creates each profiles row as 'student'.
-insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_user_meta_data)
-values
-  ('00000000-0000-0000-0000-000000000001', 'prof@codealong.test',
-   crypt('pass1234', gen_salt('bf')), now(), '{"name":"Prof Lee"}'),
-  ('00000000-0000-0000-0000-000000000002', 'ta.ana@codealong.test',
-   crypt('pass1234', gen_salt('bf')), now(), '{"name":"Ana Lim"}'),
-  -- … 13 more, fixed uuids so every other insert can reference them
-  ;
+### Seed live session — `CART42`
 
--- 2. Roles. Profs could self-register as Educators, but the seed sets them directly
---    so they exist with fixed ids. TAs and the admin can never be self-registered.
-update public.profiles set role = 'prof'  where id in ('…0001', '…0016');
-update public.profiles set role = 'ta'    where id in ('…0002', '…0003');
-update public.profiles set role = 'admin' where id = '…0017';
+Until `start_session` exists, nobody can start a class from the app, so the seed leaves one running in IS216 G2: 3 checkpoints, an announcement, and five students showing one of each tile state.
 
--- 3. Courses (current + archived last term), course_staff, course_students
--- 4. Lesson from the Mini Cart fixture + its 8 steps
--- 5. Past sessions: checkpoints, student_status, status_history, snapshots,
---    help_requests, notes
--- 6. session_reports row for each ended session
-```
+| Student | `done_step_order` | Tile |
+|---|:---:|---|
+| Alex, Eli | 3 | `done` |
+| Chen | 2 | `in_progress` — and has tapped **I'm lost** (staff see `lost_count = 1`) |
+| Bea | 2 | `error`, `source: 'build'` — mistyped the `ItemCard` import; her help request is **open** in the queue |
+| Dana | 1 | `behind` |
 
-Two things that used to be JavaScript now need care in SQL:
+The live session's `idleAfterSec` is **3600**, not 180, so the tiles stay un-idle for an hour after `pnpm db:reset`; after that they all show `idle`. **End it or reset before recording the demo**, which starts its own session.
 
-- **Fixed uuids.** The old script could pass objects around in memory. Here every id is written literally (`00000000-…-0001`) so later inserts can reference earlier rows. Keep them readable and grouped by table.
-- **`parseTodos` and `buildReport` can no longer run inside the seed.** They are JS, and `seed.sql` is SQL. So the Mini Cart steps and the seeded report are written out as literal rows, generated once by `pnpm seed:generate` — a small Node script that imports the same `shared/` functions and prints the SQL. That keeps the guarantee we wanted (seed data matches what the real code produces) without a JS seed runner. **Owner: Andric**, with the lesson fixture written together with Evan.
+### How `seed.sql` is built
 
-> Generating the seeded steps and report with the real `parseTodos` and `buildReport` means seed data always matches what the app would produce.
+`supabase/seed.sql` runs automatically after the migrations on every `supabase db reset`, so "reset" and "seed" are the same command and there is nothing to clean up. **T-SEED-01:** two resets in a row give identical counts in every table.
+
+| Part | How |
+|---|---|
+| Accounts | Inserted into `auth.users` **and `auth.identities`** with `crypt('pass1234', gen_salt('bf'))` — the same bcrypt Supabase Auth uses. The token columns are set to `''`, not null; Supabase Auth can't log in a user whose tokens are null. The `on_auth_user_created` trigger makes each profile; one `update` then sets the roles |
+| Fixed ids | Grouped by table, readable: users `…0000-0000000000NN` (NN = the # above), courses `…0001-…N`, lessons `…0002-…N`, steps `…0003-00000000N00K`, sessions `…0004-…N` |
+| Starter files | **Copied from Dylan's `src/stores/seed/miniCartSeed.js`**, the same project the workspace boots — one source for both. If that project changes, re-copy the list |
+| Checkpoint code | A table of patches (step, file, exact text → replacement). The code at checkpoint *k* = the starter with patches 1…*k* applied. **A patch whose text is missing raises an error**, so a change to the starter breaks the seed loudly instead of seeding wrong code |
+| Steps' `todo_refs` | Computed from the starter: every file and line containing `TODO k:` — what `parseTodos` produces |
+| The reports | Plain `insert`s of literal counts. The past session's match its history, and `seed.test.js` checks that they still do |
+| Helpers | Built in a scratch `seed` schema that the file drops at the end |
+
+`tests/unit/rls/seed.test.js` checks it all (T-SEED-02/03 plus the privacy rules on the seeded data). It skips itself when the database hasn't been seeded.
+
+> **Still to do — `pnpm seed:generate`.** The plan was to generate the steps and the report with the real `parseTodos` and `buildReport`. Neither exists yet, so the steps are derived in SQL and the reports are written out by hand. Once they land, a small Node script should check the seed against them.
 
 ---
 

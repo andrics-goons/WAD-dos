@@ -34,8 +34,9 @@ export const anonClient = () => createClient(stack.url, stack.anonKey, noSession
 /** Bypasses RLS. Test setup and verification only — never in app code. */
 export const service = createClient(stack.url, stack.serviceKey, noSession)
 
-let counter = 0
-export const uniqueEmail = (tag) => `${tag}-${Date.now()}-${counter++}@codealong.test`
+// A random id, not a timestamp: Vitest runs test files in parallel, and two files
+// creating users in the same millisecond produced identical emails.
+export const uniqueEmail = (tag) => `${tag}-${crypto.randomUUID()}@codealong.test`
 
 const created = []
 /** Register a user created outside createUser (e.g. a real signUp) for cleanup. */
