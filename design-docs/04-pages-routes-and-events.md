@@ -48,7 +48,7 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 | `/sessions/:id/report` | `ReportView` | Evan (page) · Andric (report data) | Staff | Cards stacked; funnel chart scrolls horizontally → 2-col grid: funnel, top errors, recurring steps, digest panel |
 | `/profile` | `ProfileView` | Ying Qi (profile) + Karin (Telegram link card) | Logged in | Single column |
 | `*` | `NotFoundView` | Ying Qi | Public | Friendly 404 with links back |
-| `/admin/users` | `AdminUsersView` | Andric | Admin | Searchable user list → name, email, role dropdown, joined. Changing a role asks for confirmation. xs: one card per user; lg: table. The admin's own role is locked |
+| `/admin/users` | `AdminUsersView` | Andric | Admin | Searchable user list → name, email, role dropdown, joined. Changing a role asks for confirmation. One Bootstrap list: each user stacks on xs and is a single row from lg. The admin's own role is locked |
 
 ### Route guards
 

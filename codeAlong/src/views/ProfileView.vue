@@ -3,12 +3,11 @@ import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import { useToastStore } from '@/stores/toast'
+import { RoleLabel } from '@shared/constants'
 
 const auth = useAuthStore()
 const router = useRouter()
 const toast = useToastStore()
-
-const ROLE_LABEL = { student: 'Student', ta: 'TA', prof: 'Educator', admin: 'Admin' }
 
 const isSubmitting = ref(false)
 const errMsg = ref('')
@@ -78,7 +77,7 @@ async function savePassword() {
   <template v-if="auth.user">
     <h1>Profile</h1>
     <p>User: {{ auth.user.name }}</p>
-    <p>Role: {{ ROLE_LABEL[auth.role] ?? auth.role }}</p>
+    <p>Role: {{ RoleLabel[auth.role] ?? auth.role }}</p>
     <!-- the update policy locks role, so explain who can change it (04: error states) -->
     <p class="text-body-secondary">
       Picked the wrong account type? You can't change it yourself — ask an admin.

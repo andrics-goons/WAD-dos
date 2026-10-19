@@ -25,6 +25,8 @@ shared/
 
 ```js
 export const Role = Object.freeze({ PROF: 'prof', TA: 'ta', STUDENT: 'student', ADMIN: 'admin' })
+// How each role is named in the UI
+export const RoleLabel = Object.freeze({ prof: 'Educator', ta: 'TA', student: 'Student', admin: 'Admin' })
 export const SignupRole = Object.freeze({ STUDENT: 'student', EDUCATOR: 'prof' })   // the only two a user may pick
 export const CourseRole = Object.freeze({ PROF: 'prof', TA: 'ta' })
 
@@ -404,7 +406,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Replay | `timeline-step-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
 | Reports | `report-funnel`, `report-top-errors`, `btn-send-digest` |
 | Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login` |
-| Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `btn-disable-<userId>`, `btn-reset-<userId>`, `input-user-search` |
+| Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `input-user-search` |
 
 ---
 

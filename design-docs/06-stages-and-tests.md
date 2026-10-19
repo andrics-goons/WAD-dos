@@ -425,7 +425,7 @@ Admins read everything and write only accounts. Most of these are negative tests
 | T-ADM-08 | **Admin cannot act inside a course** | RLS | `save_checkpoint`, `claim_help_request`, lesson updates and course edits by an admin → `FORBIDDEN` or zero rows |
 | T-ADM-09 | **Policy sweep** | RLS | Every `public` table has exactly one `admin reads all` `select` policy, and no admin policy for any other command |
 | T-ADM-10 | Logged-out caller is never an admin | RLS | `is_admin()` is `false` (not `null`) for the anon key |
-| T-ADM-11 | Admin users page at 375 px and 1280 px | E2E `@responsive` | Cards on xs, table on lg; the admin's own role is locked |
+| T-ADM-11 | Admin users page at 375 px and 1280 px | E2E `@responsive` | Users stack on xs, one row each on lg; the admin's own role is locked |
 
 ### RESP — Responsive (Chrome) · tagged `@responsive`
 
