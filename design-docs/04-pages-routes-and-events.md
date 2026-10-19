@@ -220,7 +220,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 |---|---|---|---|
 | Query | `from('sessions').select().eq('status','ended')` | Ended sessions in my courses (RLS); attendance from my `student_status` row | Any |
 | Query | `from('checkpoints').select('*, steps(title, order)').order('seq')` | Replay source; per-checkpoint diff stats computed client-side with `diffSummary` | Member |
-| Query | `from('notes').select/insert/update/delete` | Own notes only; insert/update also need membership of the session. `user_id` defaults to the login, so don't send it | Author |
+| Query | `from('notes').select/insert/update/delete` | Own notes only. `user_id` defaults to the login, so don't send it | Author |
 | RPC | `search(p_q, p_course_id)` | Full-text over step titles, checkpoint notes and my own notes, ranked; input is parameterised so regex characters are literal | Any |
 | Auth | `auth.linkIdentity({ provider: 'github', scopes: 'public_repo' })` | Replaces the hand-rolled OAuth dance; Supabase holds the `provider_token` on the session | Any |
 | Function | `github-export` → `{ sessionId, repoName, private }` | Creates the repo and one commit per checkpoint via the Git Data API | Member with a fresh GitHub identity |

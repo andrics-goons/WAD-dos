@@ -449,11 +449,11 @@ select '00000000-0000-0000-0004-000000000001', seed.u(n),
   from seed.past;
 
 -- Snapshots: everyone's autosave, plus Eli's and Ivan's code just before they caught up.
-insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at, updated_at)
+insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at)
 select '00000000-0000-0000-0004-000000000001', seed.u(n),
        seed.step(1, case when behind then 7 else 8 end), 'autosave',
        seed.files_at(case when behind then 6 else 8 end),
-       timestamptz '2026-10-12 14:00+08' + make_interval(mins => join_min), '2026-10-12 15:34+08'
+       timestamptz '2026-10-12 14:00+08' + make_interval(mins => join_min)
   from seed.past;
 
 insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at)

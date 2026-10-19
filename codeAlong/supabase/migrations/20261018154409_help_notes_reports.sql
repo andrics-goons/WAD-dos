@@ -23,8 +23,7 @@ create table public.snapshots (
                     public.files_valid(files) and octet_length(files::text) <= 200000
                 ),
     files_hash  text generated always as (md5(files::text)) stored,
-    created_at  timestamptz not null default now(),
-    updated_at  timestamptz not null default now()                  -- moves only for autosave
+    created_at  timestamptz not null default now()
 );
 
 -- one autosave row per student per session; autosave_patch merges into it
@@ -49,17 +48,13 @@ create table public.help_requests (
                           ),
     claimed_by            uuid references public.profiles(id),
     -- [{ role: 'staff' | 'student', author_id, body, at }], text only — never code
-    thread                jsonb not null default '[]' check (
-                              jsonb_typeof(thread) = 'array' and octet_length(thread::text) <= 50000
-                          ),
+    thread                jsonb not null default '[]',
     follow_ups            int not null default 0 check (follow_ups between 0 and 3),   -- MAX_FOLLOW_UPS
     telegram_notified_at  timestamptz,
     created_at            timestamptz not null default now(),       -- queue order; a follow-up keeps it
     updated_at            timestamptz not null default now(),
     constraint help_in_person_needs_seat
-        check (not in_person or (type = 'help' and nullif(trim(seat), '') is not null)),
-    constraint help_only_checks_pass check (status <> 'passed' or type = 'check'),
-    constraint help_claimed_has_claimer check (status <> 'claimed' or claimed_by is not null)
+        check (not in_person or (type = 'help' and nullif(trim(seat), '') is not null))
 );
 
 create index help_requests_queue_idx on public.help_requests (session_id, status, created_at);
@@ -67,45 +62,34 @@ create index help_requests_queue_idx on public.help_requests (session_id, status
 create unique index help_requests_one_active_idx on public.help_requests (session_id, student_id, type)
     where status in ('open', 'claimed');
 
--- lets a note's checkpoint be checked against the note's session
-alter table public.checkpoints add constraint checkpoints_id_session_unique unique (id, session_id);
-
 create table public.notes (
     id             uuid primary key default gen_random_uuid(),
     user_id        uuid not null default auth.uid() references public.profiles(id) on delete cascade,
     session_id     uuid not null references public.sessions(id) on delete cascade,
-    checkpoint_id  uuid,                                             -- anchor in the replay
+    checkpoint_id  uuid references public.checkpoints(id),           -- anchor in the replay
     kind           text not null check (kind in ('note', 'bookmark')),
     body           text check (char_length(body) <= 2000),
     created_at     timestamptz not null default now(),
     updated_at     timestamptz not null default now(),
-    constraint notes_body_required check (kind = 'bookmark' or nullif(trim(body), '') is not null),
-    -- the checkpoint must be from the same session (unchecked while checkpoint_id is null)
-    constraint notes_checkpoint_fk foreign key (checkpoint_id, session_id)
-        references public.checkpoints (id, session_id) on delete set null (checkpoint_id)
+    constraint notes_body_required check (kind = 'bookmark' or nullif(trim(body), '') is not null)
 );
 
 create index notes_user_session_idx on public.notes (user_id, session_id);
 -- search() must use this exact expression to hit the index
 create index notes_body_search_idx on public.notes using gin (to_tsvector('english', body));
 
--- lets a report's course and lesson be checked against its session
-alter table public.sessions add constraint sessions_id_course_lesson_unique unique (id, course_id, lesson_id);
-
 -- One per ended session, counts only — no student_id anywhere (T-INS-05).
 -- Written by the end-session Edge Function with the service role.
 create table public.session_reports (
-    session_id    uuid primary key,
-    course_id     uuid not null,                                     -- for cross-term trends
-    lesson_id     uuid not null,
+    session_id    uuid primary key references public.sessions(id) on delete cascade,
+    course_id     uuid not null references public.courses(id),       -- for cross-term trends
+    lesson_id     uuid not null references public.lessons(id),
     attendance    jsonb not null,                                    -- { joined, enrolled }
     steps         jsonb not null default '[]',                       -- per-step funnel (05 §10)
     top_errors    jsonb not null default '[]',                       -- top 5, counts only
     lost_peak     int not null default 0 check (lost_peak >= 0),
     generated_at  timestamptz not null default now(),
-    digest        jsonb,                                             -- { sentAt, recipients }
-    constraint session_reports_session_fk foreign key (session_id, course_id, lesson_id)
-        references public.sessions (id, course_id, lesson_id) on delete cascade
+    digest        jsonb                                              -- { sentAt, recipients }
 );
 
 create index session_reports_course_lesson_idx on public.session_reports (course_id, lesson_id);
@@ -181,19 +165,9 @@ create policy "staff read queue" on public.help_requests
 create policy "admin reads all" on public.help_requests
     for select using (public.is_admin());
 
--- notes: private to the author, and only on sessions they belong to
+-- notes: private to the author
 create policy "own notes" on public.notes
-    for select using (user_id = auth.uid());
-
-create policy "write own notes" on public.notes
-    for insert with check (user_id = auth.uid() and public.is_session_member(session_id));
-
-create policy "edit own notes" on public.notes
-    for update using (user_id = auth.uid())
-    with check (user_id = auth.uid() and public.is_session_member(session_id));
-
-create policy "delete own notes" on public.notes
-    for delete using (user_id = auth.uid());
+    for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 create policy "admin reads all" on public.notes
     for select using (public.is_admin());
@@ -248,27 +222,10 @@ left join public.steps st on st.id = s.current_step_id;
 
 -- Triggers ------------------------------------
 
-create trigger set_updated_at before update on public.snapshots
-    for each row execute function public.set_updated_at();
 create trigger set_updated_at before update on public.help_requests
     for each row execute function public.set_updated_at();
 create trigger set_updated_at before update on public.notes
     for each row execute function public.set_updated_at();
-
--- Only the autosave row changes. A before_catchup or help_request snapshot is a record of
--- what the student had at that moment, even for the RPCs that bypass RLS.
-create function public.guard_snapshot_immutable() returns trigger
-language plpgsql security definer set search_path = '' as $$
-begin
-    if old.reason <> 'autosave' or new.reason <> 'autosave' then
-        raise exception 'CONFLICT|That snapshot is a saved record and can''t be changed'
-            using errcode = 'P0001';
-    end if;
-    return new;
-end $$;
-
-create trigger guard_snapshot_immutable before update on public.snapshots
-    for each row execute function public.guard_snapshot_immutable();
 
 -- A help request may only expose the requester's own help_request snapshot from the same
 -- session. Never their autosave row: that keeps changing, so staff would see live code.
@@ -291,33 +248,6 @@ end $$;
 create trigger check_help_snapshot
     before insert or update of snapshot_id, student_id, session_id on public.help_requests
     for each row execute function public.check_help_snapshot();
-
--- check_session_step (from the sessions migration) now also covers snapshots and help
--- requests: every table but sessions names its columns step_id / session_id.
-create or replace function public.check_session_step() returns trigger
-language plpgsql security definer set search_path = '' as $$
-declare
-    -- through jsonb because the tables name their columns differently, and plpgsql
-    -- errors on new.step_id for a sessions row even inside a branch that never runs
-    r      jsonb := to_jsonb(new);
-    v_step uuid  := (case tg_table_name when 'sessions' then r->>'current_step_id' else r->>'step_id' end)::uuid;
-    v_sid  uuid  := (case tg_table_name when 'sessions' then r->>'id' else r->>'session_id' end)::uuid;
-begin
-    if v_step is not null and not exists (
-        select 1 from public.steps st
-          join public.sessions s on s.lesson_id = st.lesson_id
-         where st.id = v_step and s.id = v_sid
-    ) then
-        raise exception 'BAD_REQUEST|That step belongs to a different lesson' using errcode = 'P0001';
-    end if;
-    return new;
-end $$;
-
-create trigger check_session_step before insert or update of step_id on public.snapshots
-    for each row execute function public.check_session_step();
-
-create trigger check_session_step before insert or update of step_id on public.help_requests
-    for each row execute function public.check_session_step();
 
 -- lost_events: +1 when a flag is raised, -1 when it's cleared
 create function public.record_lost_event() returns trigger

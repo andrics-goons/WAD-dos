@@ -77,7 +77,7 @@ Seeded accounts all use the password `pass1234` (list in `design-docs/07`): `pro
 Andric owns the schema; others request changes by PR. See `design-docs/03` and `09 §4–5`.
 
 - **Keep it simple.** Write the simplest SQL, RPC or Edge Function that does the job and works. No extra tables, columns, triggers, checks, helpers or edge-case handling the feature doesn't need. Build what was asked, not what might be useful later.
-- **Never edit a migration that is on `main`.** Add a new one.
+- **Until the cloud project goes live, migrations on `main` may be edited** — then everyone runs `pnpm exec supabase db reset` after pulling. Once it's live, never edit one; add a new migration instead.
 - **Every table:** RLS enabled, its policies, and exactly one `create policy "admin reads all" … for select using (public.is_admin())`. No admin write policies. The policy sweep test (T-ADM-09) fails otherwise.
 - **A policy must never query its own table** (Postgres error 42P17, infinite recursion). Go through a `security definer` helper: `is_course_staff`, `is_course_prof`, `is_enrolled`, `is_course_member`, `is_session_member`, `is_session_staff`, `can_read_lesson`, `can_edit_lesson`.
 - **Functions and helpers:** `security definer`, `set search_path = ''`, every name schema-qualified (`public.x`, `auth.uid()`).
