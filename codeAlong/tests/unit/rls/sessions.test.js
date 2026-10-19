@@ -203,18 +203,6 @@ describe('sessions', () => {
     expect(error?.code).toBe('23514')
   })
 
-  it.each([
-    ['end it', { status: 'ended' }],
-    ['change its join code', { join_code: 'AAAAAA' }],
-    ['move it to another course', () => ({ course_id: otherCourse.id })],
-    ['set the announcement (announce RPC only)', { announcement: { text: 'hi' } }],
-  ])('the prof cannot %s directly', async (_, change) => {
-    // a function when the value only exists after beforeAll
-    const values = typeof change === 'function' ? change() : change
-    const { error } = await prof.client.from('sessions').update(values).eq('id', session.id)
-    expect(error?.code).toBe('42501')
-  })
-
   it('a TA cannot change settings — the update matches nothing', async () => {
     const { data } = await ta.client
       .from('sessions')
@@ -250,18 +238,6 @@ describe('student_status', () => {
   it('T-STAT-09: there is no state column to forge', async () => {
     const { error } = await writeStatus(stu, { state: 'done' })
     expect(error).not.toBeNull()
-  })
-
-  it.each([
-    ['catch_ups', { catch_ups: 99 }],
-    ['joined_at', { joined_at: '2020-01-01T00:00:00Z' }],
-  ])('a student cannot set %s', async (_, change) => {
-    const { error } = await stu.client
-      .from('student_status')
-      .update(change)
-      .eq('session_id', session.id)
-      .eq('student_id', stu.id)
-    expect(error?.code).toBe('42501')
   })
 
   it('an error message over 300 characters is refused', async () => {
@@ -453,48 +429,6 @@ describe('session_tiles: the classifier in SQL', () => {
       .eq('session_id', session.id)
       .single()
     expect(data).toEqual({ total: 2, done: 1, in_progress: 0, error: 0, behind: 1, idle: 0 })
-  })
-
-  it("a checkpoint can't point at another lesson's step", async () => {
-    const { data: foreign } = await service
-      .from('steps')
-      .select('id')
-      .eq('lesson_id', otherLesson.id)
-      .single()
-    const cp = await service.from('checkpoints').insert({
-      session_id: session.id,
-      step_id: foreign.id,
-      seq: 99,
-      files: STARTER,
-      created_by: prof.id,
-    })
-    const cur = await service
-      .from('sessions')
-      .update({ current_step_id: foreign.id })
-      .eq('id', session.id)
-    expect(codeOf(cp.error)).toBe('BAD_REQUEST')
-    expect(codeOf(cur.error)).toBe('BAD_REQUEST')
-  })
-
-  it('a session can be INSERTED already on one of its own steps', async () => {
-    // Regression: the BEFORE INSERT check once looked up the not-yet-inserted session
-    const { data: foreign } = await service
-      .from('steps')
-      .select('id')
-      .eq('lesson_id', otherLesson.id)
-      .single()
-    const row = { lesson_id: lesson.id, course_id: course.id, started_by: prof.id, status: 'ended' }
-    const own = await service
-      .from('sessions')
-      .insert({ ...row, join_code: randomCode(), current_step_id: steps[1].id })
-      .select('id')
-      .single()
-    if (own.data) createdSessions.push(own.data.id)
-    const bad = await service
-      .from('sessions')
-      .insert({ ...row, join_code: randomCode(), current_step_id: foreign.id })
-    expect(own.error).toBeNull()
-    expect(codeOf(bad.error)).toBe('BAD_REQUEST')
   })
 })
 

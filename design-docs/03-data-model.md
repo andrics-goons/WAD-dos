@@ -388,12 +388,12 @@ Migration: `supabase/migrations/20261018153107_sessions.sql`.
 | Column | Type | Notes |
 |---|---|---|
 | `id` | `uuid` PK | |
-| `lesson_id` | `uuid not null` | `(lesson_id, course_id) → lessons (id, course_id)`, no cascade |
-| `course_id` | `uuid not null → courses` | Denormalised so every policy is one hop. The composite foreign key above means it **can't disagree with the lesson's course** |
+| `lesson_id` | `uuid not null → lessons` | No cascade |
+| `course_id` | `uuid not null → courses` | Denormalised so every policy is one hop. `start_session` copies it from the lesson |
 | `started_by` | `uuid not null → profiles` | |
 | `join_code` | `text not null check (join_code ~ '^[A-Z0-9]{6}$')` | From `JOIN_CODE_ALPHABET` |
 | `status` | `text not null default 'live' check (status in ('live','ended'))` | |
-| `current_step_id` | `uuid → steps` | Step of the latest checkpoint. A trigger refuses a step from another lesson (`BAD_REQUEST`) |
+| `current_step_id` | `uuid → steps` | Step of the latest checkpoint |
 | `settings` | `jsonb not null default '{"allowCatchUp":true,"hintsEnabled":false,"idleAfterSec":180}' check (session_settings_valid(settings))` | Prof toggles during class. **All three keys are required on every update**, and `idleAfterSec` must be a number from 30 to 3600 — the view casts it, so one bad value would break every tile |
 | `spotlight` | `jsonb check (≤ 20 000 bytes)` | Anonymised excerpt, or null |
 | `announcement` | `jsonb check (announcement is null or char_length(announcement->>'text') between 1 and 200)` | `{ text, at }` — the prof's current class announcement, or null. Stored so late joiners and reconnecting students see it, not just whoever was subscribed at the moment it was sent. Written only by `rpc('announce')`, so the broadcast always accompanies the write |
@@ -404,14 +404,7 @@ Migration: `supabase/migrations/20261018153107_sessions.sql`.
 
 **Policies:** "members read sessions" (`is_course_member`), "prof updates sessions" (`is_course_prof`, `using` and `with check`), "admin reads all". No insert or delete policy: sessions are created by `start_session` and never deleted.
 
-**Column grants.** RLS decides which *rows* a user may touch; it can't say which *columns*. So the migration also does:
-
-```sql
-revoke update on public.sessions from anon, authenticated;
-grant update (settings, spotlight) on public.sessions to authenticated;
-```
-
-The prof writes `settings` and `spotlight` directly (see [04](./04-pages-routes-and-events.md)). `status`, `ended_at`, `current_step_id`, `announcement`, `join_code` and `course_id` are changed only by the session RPCs, which are `security definer` and so not limited by these grants. A direct update of any other column is `42501`.
+The prof writes `settings` and `spotlight` directly (see [04](./04-pages-routes-and-events.md)); everything else on a session is changed by the session RPCs. The update policy's `with check` stops a prof moving a session into a course they don't run.
 
 `start_session`, `join_session`, `save_checkpoint` and `end_session` (Ying Qi), `announce` (Karin) and `catch_up` (Ray Yien) are RPCs — a client cannot be trusted to allocate a unique join code or decide its own role. Full bodies in [05-core-logic.md](./05-core-logic.md#3-session-lifecycle). **They are not in this migration**; each owner adds theirs. Until `start_session` exists, tests create sessions with the service role.
 
@@ -464,9 +457,9 @@ All `security definer`, for the same reason as the course helpers.
 | `done_step_order` | `int not null default 0 check (done_step_order >= 0)` | Highest step marked Done |
 | `error` | `jsonb check (null, or an object whose message ≤ 300)` | `{ source: 'runtime' \| 'build', name, message, file, line, key, shapeKey, at }`. Send SQL `null` to clear it. **Build errors have their code frame stripped before they get here** — see [05 §1](./05-core-logic.md#1-client-side-runtime-webcontainer) |
 | `checks` | `jsonb` | `{ passed, total }` — only when automatic checks exist (COULD) |
-| `catch_ups` | `int not null default 0` | Times the student loaded a checkpoint. **Written only by `rpc('catch_up')`** |
+| `catch_ups` | `int not null default 0` | Times the student loaded a checkpoint. Incremented by `rpc('catch_up')` |
 | `last_seen_at` | `timestamptz not null default now()` | Heartbeat or any event |
-| `joined_at` | `timestamptz not null default now()` | Attendance for digests. **Not writable by the student** |
+| `joined_at` | `timestamptz not null default now()` | Attendance for digests |
 
 **Indexes:** the primary key (it starts with `session_id`). Added to the `supabase_realtime` publication, so staff can subscribe to it.
 
@@ -481,8 +474,6 @@ All `security definer`, for the same reason as the course helpers.
 | "admin reads all" | `select` |
 
 No delete policy: the row is the attendance record. Staff can't write a row, because they aren't enrolled.
-
-**Column grants:** the student may insert and update `session_id, student_id, done_step_order, error, checks, last_seen_at` only. `catch_ups` and `joined_at` are `42501` from the client. `session_id` and `student_id` are in the update grant only because a PostgREST upsert re-sets them; the policies pin both to the student's own row.
 
 ## lost_flags
 
@@ -594,7 +585,6 @@ group by session_id;
 | `guard_taught_lesson` | Deleting a taught lesson, or moving it to another course |
 | `guard_taught_course` | Deleting a course that has any session. It fires before the delete cascades into the lessons, so the message talks about the course |
 | `guard_taught_steps` | Deleting a step, changing a step's `order`, or inserting a step anywhere but after the last one. **Rewording a step and appending new steps still work** — including through `replace_steps` and `delete_step` |
-| `check_session_step` | A checkpoint `step_id`, or a `current_step_id`, that belongs to another lesson (`BAD_REQUEST`) |
 
 To restructure a taught lesson, the prof makes a new lesson. The foreign keys back the triggers up: `sessions → lessons/courses` and `checkpoints → steps` do not cascade.
 
@@ -615,10 +605,8 @@ To restructure a taught lesson, the prof makes a new lesson. The foreign keys ba
 
 **Rules**
 - `autosave`: **one per student per session** — `unique (session_id, student_id) where reason = 'autosave'`, written by `rpc('autosave_patch')`, which merges only the files that changed into the existing `files` jsonb rather than replacing the whole set. Debounced 5 s on the client; see [05 §2](./05-core-logic.md#2-files-cache--dependencies).
-- `before_catchup` and `help_request`: immutable, a new row each time. **A trigger (`guard_snapshot_immutable`) refuses any update to them, or relabelling the autosave row** (`CONFLICT`), even from the RPCs that bypass RLS.
+- `before_catchup` and `help_request`: a new row each time, never updated. Students have no write policy at all, so only the RPCs can write snapshots.
 - Staff read a snapshot **only** through the help request that references it.
-- `step_id` must be a step of the session's lesson (`check_session_step`, `BAD_REQUEST`).
-- `updated_at` (not in the original design) moves only on the autosave row — "last saved 12 s ago".
 
 **Indexes:** the partial unique above; `(session_id, student_id, reason, created_at desc)`.
 
@@ -681,16 +669,15 @@ create policy "admin reads all" on public.snapshots for select using (public.is_
 
 **Indexes:** `(session_id, status, created_at)`; `unique (session_id, student_id, type) where status in ('open','claimed')` — one active request per type per student, which is how T-HELP-06 returns a conflict without any application code.
 
-**Checks the table enforces itself** (so the RPCs can't get them wrong):
+**Checks the table enforces itself:**
 
 | Rule | How | Error |
 |---|---|---|
 | In person only for `help`, and needs a seat | `check (not in_person or (type = 'help' and seat is set))` | `23514` |
-| Only a `check` can be `passed` | `check (status <> 'passed' or type = 'check')` | `23514` |
-| `claimed` always has a `claimed_by` | `check (status <> 'claimed' or claimed_by is not null)` | `23514` |
-| `follow_ups` 0–3, `message` ≤ 300, `thread` a JSON array ≤ 50 KB | column checks | `23514` |
+| `follow_ups` 0–3, `message` ≤ 300 | column checks | `23514` |
 | `snapshot_id` is **this student's own `help_request` snapshot from this session** — never someone else's, and never their autosave row, which keeps changing (staff would be watching live code) | trigger `check_help_snapshot` | `BAD_REQUEST` |
-| `step_id` is a step of the session's lesson | trigger `check_session_step` | `BAD_REQUEST` |
+
+The status transitions (only a `check` can be `passed`, `claimed` needs a claimer, …) are enforced by Karin's `transition_help_request`, not by the table.
 
 ```sql
 alter table public.help_requests enable row level security;
@@ -792,21 +779,16 @@ The waiting-time badge on the card counts from the latest `thread` entry, not `c
 
 - `user_id` defaults to `auth.uid()`, so the client never sends it.
 - A `note` needs a non-blank `body`; a `bookmark` doesn't (`23514`).
-- `(checkpoint_id, session_id) → checkpoints (id, session_id)`: the anchor must be a checkpoint of the **same** session (`23503`). Unchecked while `checkpoint_id` is null.
 - `user_id` cascades on delete: a note is private data that belongs to its author.
 
 ```sql
 alter table public.notes enable row level security;
-create policy "own notes"        on public.notes for select using (user_id = auth.uid());
-create policy "write own notes"  on public.notes for insert
-    with check (user_id = auth.uid() and public.is_session_member(session_id));
-create policy "edit own notes"   on public.notes for update using (user_id = auth.uid())
-    with check (user_id = auth.uid() and public.is_session_member(session_id));
-create policy "delete own notes" on public.notes for delete using (user_id = auth.uid());
-create policy "admin reads all"  on public.notes for select using (public.is_admin());
+create policy "own notes" on public.notes for all
+    using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "admin reads all" on public.notes for select using (public.is_admin());
 ```
 
-T-PRIV-05 passes by construction — a note belonging to someone else is not a 404 we have to remember to return, it simply isn't in the result set. The insert and update checks add one thing the single `for all` policy in the first draft missed: you can only write notes on a session you belong to.
+T-PRIV-05 passes by construction — a note belonging to someone else is not a 404 we have to remember to return, it simply isn't in the result set.
 
 ---
 
@@ -825,7 +807,7 @@ T-PRIV-05 passes by construction — a note belonging to someone else is not a 4
 
 Written by the `end-session` Edge Function (triggered by a Database Webhook when `sessions.status` becomes `ended`). The report page polls until the row exists.
 
-`(session_id, course_id, lesson_id) → sessions (id, course_id, lesson_id)` on delete cascade, so a report can't be filed under another course or lesson (`23503`). `attendance` is required; `steps` and `top_errors` default to `[]`, `lost_peak` to 0. Index `(course_id, lesson_id)` for trends.
+`session_id → sessions` on delete cascade; `course_id → courses` and `lesson_id → lessons` for trends. `attendance` is required; `steps` and `top_errors` default to `[]`, `lost_peak` to 0. Index `(course_id, lesson_id)` for trends.
 
 ```sql
 alter table public.session_reports enable row level security;
