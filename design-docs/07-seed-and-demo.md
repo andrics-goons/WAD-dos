@@ -88,7 +88,7 @@ Two things this changes:
 | 5 help requests | 2 passed checks, 2 replied helps on the Step 4 bug, 1 in-person resolved (Gus, seat C14) | Help history in replay; Spotlight source |
 | 4 notes/bookmarks | Alex's notes on Steps 4 and 7, anchored to those checkpoints | Notes + search |
 | 12 `lost_events` | Three lost at once during Step 4, three again near the end | `lost_peak` = 3 |
-| `session_reports` row | **Computed in SQL from the history above** with the [05 §10](./05-core-logic.md#10-insights-report) definitions: Step 4 trouble 0.236 (top), Step 7 drop-off 3 | Report page renders immediately |
+| `session_reports` row | Literal counts matching the history above, per the [05 §10](./05-core-logic.md#10-insights-report) definitions: Step 4 trouble 0.236 (top), Step 7 drop-off 3. `seed.test.js` checks them against the history | Report page renders immediately |
 
 ### Seed older reports (for trends)
 
@@ -123,12 +123,12 @@ The live session's `idleAfterSec` is **3600**, not 180, so the tiles stay un-idl
 | Starter files | **Copied from Dylan's `src/stores/seed/miniCartSeed.js`**, the same project the workspace boots — one source for both. If that project changes, re-copy the list |
 | Checkpoint code | A table of patches (step, file, exact text → replacement). The code at checkpoint *k* = the starter with patches 1…*k* applied. **A patch whose text is missing raises an error**, so a change to the starter breaks the seed loudly instead of seeding wrong code |
 | Steps' `todo_refs` | Computed from the starter: every file and line containing `TODO k:` — what `parseTodos` produces |
-| The past report | Computed from the seeded history, so it can't disagree with the replay |
+| The reports | Plain `insert`s of literal counts. The past session's match its history, and `seed.test.js` checks that they still do |
 | Helpers | Built in a scratch `seed` schema that the file drops at the end |
 
 `tests/unit/rls/seed.test.js` checks it all (T-SEED-02/03 plus the privacy rules on the seeded data). It skips itself when the database hasn't been seeded.
 
-> **Still to do — `pnpm seed:generate`.** The plan was to generate the steps and the report with the real `parseTodos` and `buildReport`. Neither exists yet, so the steps are derived and the report computed in SQL instead. Once they land, a small Node script should check the seed against them.
+> **Still to do — `pnpm seed:generate`.** The plan was to generate the steps and the report with the real `parseTodos` and `buildReport`. Neither exists yet, so the steps are derived in SQL and the reports are written out by hand. Once they land, a small Node script should check the seed against them.
 
 ---
 
