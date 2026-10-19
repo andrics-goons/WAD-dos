@@ -522,111 +522,71 @@ select '00000000-0000-0000-0004-000000000001', delta, timestamptz '2026-10-12 14
 
 
 -- 8. Reports ------------------------------------
--- The past session's report is COMPUTED from the history above with the 05 §10
--- definitions, so the report and the replay can't disagree. Swap for buildReport's
--- output once shared/report-builder.js exists.
+-- Literal counts in the shape buildReport must produce (05 §10). seed.test.js checks the
+-- past session's numbers against its history. Replace with buildReport's output once
+-- shared/report-builder.js exists.
 --
 -- steps[]: { order, stepId, title, reachedDone, dropOff, errorStudents, peakBehind,
 --            medianMinutesToDone, catchUps, helpRequests, trouble }
+--   trouble = (0.4 × errorStudents + 0.3 × dropOff + 0.2 × catchUps + 0.1 × helpRequests) / joined
 
+-- the past session (MNCART): these numbers match its history above — 6 errors at step 4,
+-- 3 never finish step 7, Eli and Ivan's two catch-ups, peak of 3 lost at once
 insert into public.session_reports (session_id, course_id, lesson_id, attendance, steps, top_errors, lost_peak, generated_at)
-with
-sess as (
-    select * from public.sessions where id = '00000000-0000-0000-0004-000000000001'
-),
-joined as (
-    select count(*)::int as n from public.student_status ss, sess where ss.session_id = sess.id
-),
-cp as (
-    select st."order" as k, st.id as step_id, st.title, c.created_at as t_k,
-           coalesce(lag(c.created_at) over (order by c.seq), sess.started_at) as t_prev,
-           coalesce(lead(c.created_at) over (order by c.seq), sess.ended_at) as t_next
-      from public.checkpoints c
-      join public.steps st on st.id = c.step_id
-      cross join sess
-     where c.session_id = sess.id
-),
-hist as (
-    select h.* from public.status_history h, sess where h.session_id = sess.id
-),
-reach as (
-    select cp.k,
-           (select count(*) from (
-                select student_id from hist where state = 'done'
-                 group by student_id having max(step_order) >= cp.k) x)::int as reached
-      from cp
-),
-per_step as (
-    select cp.k, cp.step_id, cp.title, r.reached,
-           coalesce(lag(r.reached) over (order by cp.k), (select n from joined)) - r.reached as drop_off,
-           (select count(distinct student_id) from hist
-             where state = 'error' and step_order = cp.k - 1)::int as error_students,
-           (select count(distinct student_id) from hist
-             where state = 'behind' and at >= cp.t_k and at < cp.t_next)::int as peak_behind,
-           (select round(percentile_cont(0.5) within group (
-                       order by extract(epoch from first_done - cp.t_prev) / 60)::numeric, 1)
-              from (select min(at) as first_done from hist
-                     where state = 'done' and step_order >= cp.k group by student_id) d) as median_min,
-           (select count(*) from public.snapshots sn, sess
-             where sn.session_id = sess.id and sn.reason = 'before_catchup' and sn.step_id = cp.step_id)::int as catch_ups,
-           (select count(*) from public.help_requests hr, sess
-             where hr.session_id = sess.id and hr.step_id = cp.step_id)::int as help_requests
-      from cp join reach r using (k)
-)
-select sess.id, sess.course_id, sess.lesson_id,
-       jsonb_build_object('joined', (select n from joined),
-                          'enrolled', (select count(*) from public.course_students cs where cs.course_id = sess.course_id)),
-       (select jsonb_agg(jsonb_build_object(
-                   'order', k, 'stepId', step_id, 'title', title,
-                   'reachedDone', reached, 'dropOff', drop_off, 'errorStudents', error_students,
-                   'peakBehind', peak_behind, 'medianMinutesToDone', median_min,
-                   'catchUps', catch_ups, 'helpRequests', help_requests,
-                   'trouble', round((0.4 * error_students + 0.3 * drop_off + 0.2 * catch_ups
-                                     + 0.1 * help_requests)::numeric / (select n from joined), 3))
-               order by k)
-          from per_step),
-       (select coalesce(jsonb_agg(jsonb_build_object('key', key, 'students', students, 'stepOrder', step)
-                                  order by students desc, key), '[]')
-          from (select error_key as key, count(distinct student_id)::int as students, min(step_order) + 1 as step
-                  from hist where state = 'error' group by error_key
-                 order by students desc limit 5) e),
-       (select coalesce(max(running), 0) from (
-            select sum(delta) over (order by id) as running
-              from public.lost_events le where le.session_id = sess.id) x),
-       sess.ended_at + interval '1 minute'
-  from sess;
+values (
+    '00000000-0000-0000-0004-000000000001', '00000000-0000-0000-0001-000000000001', '00000000-0000-0000-0002-000000000001',
+    '{"joined": 11, "enrolled": 11}',
+    $r$[
+        { "order": 1, "stepId": "00000000-0000-0000-0003-000000001001", "title": "Create the Vue app with a list of categories", "reachedDone": 11, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": 15.0, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 },
+        { "order": 2, "stepId": "00000000-0000-0000-0003-000000001002", "title": "Fetch items for the selected category with axios", "reachedDone": 11, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": 15.0, "catchUps": 0, "helpRequests": 1, "trouble": 0.009 },
+        { "order": 3, "stepId": "00000000-0000-0000-0003-000000001003", "title": "Create the ItemCard component with an items prop", "reachedDone": 11, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": 15.0, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 },
+        { "order": 4, "stepId": "00000000-0000-0000-0003-000000001004", "title": "Emit add-to-cart from ItemCard", "reachedDone": 11, "dropOff": 0, "errorStudents": 6, "peakBehind": 0, "medianMinutesToDone": 16.0, "catchUps": 0, "helpRequests": 2, "trouble": 0.236 },
+        { "order": 5, "stepId": "00000000-0000-0000-0003-000000001005", "title": "Add the item to the cart in the parent (increase quantity if it's already there)", "reachedDone": 11, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": 15.0, "catchUps": 0, "helpRequests": 1, "trouble": 0.009 },
+        { "order": 6, "stepId": "00000000-0000-0000-0003-000000001006", "title": "Show the cart total with a computed property", "reachedDone": 11, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": 15.0, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 },
+        { "order": 7, "stepId": "00000000-0000-0000-0003-000000001007", "title": "Save the cart to localStorage and load it on start", "reachedDone": 8, "dropOff": 3, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": 14.0, "catchUps": 2, "helpRequests": 1, "trouble": 0.127 },
+        { "order": 8, "stepId": "00000000-0000-0000-0003-000000001008", "title": "Add Reset and Checkout buttons (POST /api/checkout)", "reachedDone": 8, "dropOff": 0, "errorStudents": 0, "peakBehind": 3, "medianMinutesToDone": 14.0, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 }
+    ]$r$,
+    $r$[{"key": "ReferenceError: items is not defined", "students": 6, "stepOrder": 4}]$r$,
+    3, '2026-10-12 15:36+08'
+);
 
--- The two older runs: literal counts (they have no history rows to compute from).
--- Last term's Step 4 is the top trouble step again — that's what makes it "recurring".
--- Prof Tan's class struggled with step 2 instead, and must never show up in Prof Lee's trends.
-create function seed.literal_report(p_session uuid, p_lesson int, p_joined int, p_enrolled int,
-                                    p_reached int[], p_errors int[], p_help int[], p_top_error text,
-                                    p_top_step int, p_lost int)
-returns void language sql as $$
-    insert into public.session_reports (session_id, course_id, lesson_id, attendance, steps, top_errors, lost_peak, generated_at)
-    select s.id, s.course_id, s.lesson_id,
-           jsonb_build_object('joined', p_joined, 'enrolled', p_enrolled),
-           (select jsonb_agg(jsonb_build_object(
-                       'order', k, 'stepId', seed.step(p_lesson, k), 'title', t.title,
-                       'reachedDone', p_reached[k],
-                       'dropOff', coalesce(p_reached[k - 1], p_joined) - p_reached[k],
-                       'errorStudents', p_errors[k], 'peakBehind', 0, 'medianMinutesToDone', null,
-                       'catchUps', 0, 'helpRequests', p_help[k],
-                       'trouble', round((0.4 * p_errors[k] + 0.3 * (coalesce(p_reached[k - 1], p_joined) - p_reached[k])
-                                         + 0.1 * p_help[k])::numeric / p_joined, 3))
-                   order by k)
-              from generate_series(1, 8) k join seed.step_titles t using (k)),
-           jsonb_build_array(jsonb_build_object('key', p_top_error, 'students', p_errors[p_top_step], 'stepOrder', p_top_step)),
-           p_lost, s.ended_at + interval '1 minute'
-      from public.sessions s where s.id = p_session
-$$;
+-- last term (MNCT25): step 4 is the top trouble step again, so it shows as recurring
+insert into public.session_reports (session_id, course_id, lesson_id, attendance, steps, top_errors, lost_peak, generated_at)
+values (
+    '00000000-0000-0000-0004-000000000002', '00000000-0000-0000-0001-000000000002', '00000000-0000-0000-0002-000000000002',
+    '{"joined": 24, "enrolled": 27}',
+    $r$[
+        { "order": 1, "stepId": "00000000-0000-0000-0003-000000002001", "title": "Create the Vue app with a list of categories", "reachedDone": 24, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 },
+        { "order": 2, "stepId": "00000000-0000-0000-0003-000000002002", "title": "Fetch items for the selected category with axios", "reachedDone": 24, "dropOff": 0, "errorStudents": 1, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.021 },
+        { "order": 3, "stepId": "00000000-0000-0000-0003-000000002003", "title": "Create the ItemCard component with an items prop", "reachedDone": 23, "dropOff": 1, "errorStudents": 2, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.050 },
+        { "order": 4, "stepId": "00000000-0000-0000-0003-000000002004", "title": "Emit add-to-cart from ItemCard", "reachedDone": 19, "dropOff": 4, "errorStudents": 9, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 5, "trouble": 0.221 },
+        { "order": 5, "stepId": "00000000-0000-0000-0003-000000002005", "title": "Add the item to the cart in the parent (increase quantity if it's already there)", "reachedDone": 19, "dropOff": 0, "errorStudents": 1, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.017 },
+        { "order": 6, "stepId": "00000000-0000-0000-0003-000000002006", "title": "Show the cart total with a computed property", "reachedDone": 18, "dropOff": 1, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.017 },
+        { "order": 7, "stepId": "00000000-0000-0000-0003-000000002007", "title": "Save the cart to localStorage and load it on start", "reachedDone": 17, "dropOff": 1, "errorStudents": 2, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.050 },
+        { "order": 8, "stepId": "00000000-0000-0000-0003-000000002008", "title": "Add Reset and Checkout buttons (POST /api/checkout)", "reachedDone": 17, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 }
+    ]$r$,
+    $r$[{"key": "ReferenceError: items is not defined", "students": 9, "stepOrder": 4}]$r$,
+    5, '2025-10-13 15:36+08'
+);
 
-select seed.literal_report('00000000-0000-0000-0004-000000000002', 2, 24, 27,
-    array[24, 24, 23, 19, 19, 18, 17, 17], array[0, 1, 2, 9, 1, 0, 2, 0], array[0, 1, 1, 5, 0, 1, 1, 0],
-    'ReferenceError: items is not defined', 4, 5);
-select seed.literal_report('00000000-0000-0000-0004-000000000003', 3, 30, 32,
-    array[29, 24, 23, 23, 22, 22, 21, 21], array[1, 8, 2, 2, 1, 0, 1, 0], array[1, 4, 1, 1, 0, 0, 1, 0],
-    'TypeError: Cannot read properties of undefined (reading ''data'')', 2, 4);
+-- Prof Tan's run (TANMCT): step 2 instead — must never show up in Prof Lee's trends
+insert into public.session_reports (session_id, course_id, lesson_id, attendance, steps, top_errors, lost_peak, generated_at)
+values (
+    '00000000-0000-0000-0004-000000000003', '00000000-0000-0000-0001-000000000003', '00000000-0000-0000-0002-000000000003',
+    '{"joined": 30, "enrolled": 32}',
+    $r$[
+        { "order": 1, "stepId": "00000000-0000-0000-0003-000000003001", "title": "Create the Vue app with a list of categories", "reachedDone": 29, "dropOff": 1, "errorStudents": 1, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.027 },
+        { "order": 2, "stepId": "00000000-0000-0000-0003-000000003002", "title": "Fetch items for the selected category with axios", "reachedDone": 24, "dropOff": 5, "errorStudents": 8, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 4, "trouble": 0.170 },
+        { "order": 3, "stepId": "00000000-0000-0000-0003-000000003003", "title": "Create the ItemCard component with an items prop", "reachedDone": 23, "dropOff": 1, "errorStudents": 2, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.040 },
+        { "order": 4, "stepId": "00000000-0000-0000-0003-000000003004", "title": "Emit add-to-cart from ItemCard", "reachedDone": 23, "dropOff": 0, "errorStudents": 2, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.030 },
+        { "order": 5, "stepId": "00000000-0000-0000-0003-000000003005", "title": "Add the item to the cart in the parent (increase quantity if it's already there)", "reachedDone": 22, "dropOff": 1, "errorStudents": 1, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.023 },
+        { "order": 6, "stepId": "00000000-0000-0000-0003-000000003006", "title": "Show the cart total with a computed property", "reachedDone": 22, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 },
+        { "order": 7, "stepId": "00000000-0000-0000-0003-000000003007", "title": "Save the cart to localStorage and load it on start", "reachedDone": 21, "dropOff": 1, "errorStudents": 1, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.027 },
+        { "order": 8, "stepId": "00000000-0000-0000-0003-000000003008", "title": "Add Reset and Checkout buttons (POST /api/checkout)", "reachedDone": 21, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 }
+    ]$r$,
+    $r$[{"key": "TypeError: Cannot read properties of undefined (reading 'data')", "students": 8, "stepOrder": 2}]$r$,
+    4, '2026-10-13 11:36+08'
+);
 
 
 -- 9. The live session (CART42) ------------------------------------

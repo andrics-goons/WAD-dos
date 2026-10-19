@@ -127,7 +127,7 @@ const { data: { user } } = await supabase.auth.getUser()
 const { data: profile } = await supabase.from('profiles').select('id, name, role').eq('id', user.id).single()
 ```
 
-`authStore.user = { id, name, role }`. The router guard in [04](./04-pages-routes-and-events.md#route-guards) reads `role` from the profile. A missing or expired session sends the user to `/login?returnTo=…`. The store also listens to `supabase.auth.onAuthStateChange` (supabase-js syncs it across tabs): `SIGNED_OUT` from elsewhere clears the store and leaves any page that needs a login; `SIGNED_IN` as a different user reloads the profile. The handler runs on the next tick, because awaiting another supabase call inside that callback can deadlock.
+`authStore.user = { id, name, role }`. The router guard in [04](./04-pages-routes-and-events.md#route-guards) reads `role` from the profile. A missing or expired session sends the user to `/login?returnTo=…`. The store also listens to `supabase.auth.onAuthStateChange` (supabase-js syncs it across tabs): `SIGNED_OUT` from elsewhere clears the store and leaves any page that needs a login. The handler runs on the next tick, because awaiting another supabase call inside that callback can deadlock.
 
 ### Who am I, inside Postgres
 

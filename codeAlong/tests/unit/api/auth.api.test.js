@@ -131,14 +131,6 @@ describe('the store follows auth changes it did not make', () => {
     expect(auth.user.name).toBe('Alex Tan')
   })
 
-  it('a different account signing in (another tab) replaces the user', async () => {
-    useCoursesStore().courses = [{ id: 'stale' }]
-    await supabase.auth.signInWithPassword({ email: bea.email, password: 'newpass99' })
-    await settle()
-    expect(auth.user).toMatchObject({ id: bea.id, name: 'Bea Koh' })
-    expect(useCoursesStore().courses).toEqual([]) // Alex's courses are gone
-  })
-
   it('a logout from elsewhere (another tab) clears the store', async () => {
     useCoursesStore().courses = [{ id: 'stale' }]
     await supabase.auth.signOut()

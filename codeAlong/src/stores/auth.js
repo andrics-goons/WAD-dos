@@ -59,24 +59,17 @@ export const useAuthStore = defineStore('auth', () => {
 
   function watchAuth() {
     if (subscription) return
-    subscription = authApi.onAuthChange((event, session) => {
+    subscription = authApi.onAuthChange((event) => {
       // supabase-js can deadlock if this callback awaits another supabase call,
       // so do the work on the next tick instead
-      setTimeout(() => handleAuthEvent(event, session), 0)
+      if (event === 'SIGNED_OUT') setTimeout(handleSignOut, 0)
     }).data.subscription
   }
 
-  async function handleAuthEvent(event, session) {
-    if (event === 'SIGNED_OUT') {
-      if (user.value === null) return // this tab logged out itself; logout() already cleared
-      clear()
-      await leaveProtectedPage()
-    } else if (event === 'SIGNED_IN' && session?.user.id !== user.value?.id) {
-      // a different account logged in from another tab: show that one, not stale data
-      useCoursesStore().reset()
-      user.value = await authApi.getCurrentUser()
-      loaded.value = true
-    }
+  async function handleSignOut() {
+    if (user.value === null) return // this tab logged out itself; logout() already cleared
+    clear()
+    await leaveProtectedPage()
   }
 
   // Logged out from another tab (or the session ended) while on a page that needs a login
