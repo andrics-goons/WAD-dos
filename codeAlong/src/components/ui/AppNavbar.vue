@@ -36,9 +36,9 @@ async function signOut() {
 
 <template>
   <header class="ca-navbar">
-    <nav class="ca-navbar__inner" aria-label="Main">
+    <nav class="ca-navbar__inner">
       <RouterLink :to="{ name: 'landing' }" class="ca-brand" data-testid="nav-home">
-        <span class="ca-brand__mark" aria-hidden="true"><i class="bi bi-code-slash" /></span>
+        <span class="ca-brand__mark"><i class="bi bi-code-slash" /></span>
         <span class="ca-brand__name">CodeAlong</span>
       </RouterLink>
 
@@ -50,16 +50,13 @@ async function signOut() {
       <button
         type="button"
         class="ca-navbar__toggle ca-btn ca-btn--ghost ca-btn--icon"
-        :aria-expanded="menuOpen"
-        aria-controls="ca-nav-links"
-        aria-label="Toggle navigation"
         data-testid="nav-toggle"
         @click="menuOpen = !menuOpen"
       >
         <i class="bi" :class="menuOpen ? 'bi-x-lg' : 'bi-list'" />
       </button>
 
-      <div id="ca-nav-links" class="ca-navbar__links" :class="{ 'is-open': menuOpen }">
+      <div class="ca-navbar__links" :class="{ 'is-open': menuOpen }">
         <RouterLink
           v-for="l in links"
           :key="l.testid"
@@ -68,32 +65,30 @@ async function signOut() {
           active-class="is-active"
           :data-testid="l.testid"
         >
-          <i class="bi" :class="l.icon" aria-hidden="true" />{{ l.label }}
+          <i class="bi" :class="l.icon" />{{ l.label }}
         </RouterLink>
 
         <RouterLink :to="{ name: 'join' }" class="ca-btn ca-btn--primary ca-btn--sm ca-navbar__join" data-testid="nav-join">
-          <i class="bi bi-box-arrow-in-right" aria-hidden="true" />Join a class
+          <i class="bi bi-box-arrow-in-right" />Join a class
         </RouterLink>
 
         <div v-if="auth.isAuthenticated" class="ca-user">
           <button
             type="button"
             class="ca-user__btn"
-            :aria-expanded="userMenuOpen"
-            aria-haspopup="menu"
             data-testid="nav-user"
             @click="userMenuOpen = !userMenuOpen"
           >
-            <span class="ca-avatar" aria-hidden="true">{{ auth.user.name?.[0] ?? '?' }}</span>
+            <span class="ca-avatar">{{ auth.user.name?.[0] ?? '?' }}</span>
             <span class="ca-user__name">{{ auth.user.name }}</span>
-            <i class="bi bi-chevron-down ca-user__chev" aria-hidden="true" />
+            <i class="bi bi-chevron-down ca-user__chev" />
           </button>
-          <div v-if="userMenuOpen" class="ca-user__menu" role="menu">
-            <RouterLink :to="{ name: 'profile' }" class="ca-user__item" role="menuitem" data-testid="nav-profile">
-              <i class="bi bi-person" aria-hidden="true" />Profile
+          <div v-if="userMenuOpen" class="ca-user__menu">
+            <RouterLink :to="{ name: 'profile' }" class="ca-user__item" data-testid="nav-profile">
+              <i class="bi bi-person" />Profile
             </RouterLink>
-            <button type="button" class="ca-user__item" role="menuitem" data-testid="nav-signout" @click="signOut">
-              <i class="bi bi-box-arrow-right" aria-hidden="true" />Sign out
+            <button type="button" class="ca-user__item" data-testid="nav-signout" @click="signOut">
+              <i class="bi bi-box-arrow-right" />Sign out
             </button>
           </div>
         </div>

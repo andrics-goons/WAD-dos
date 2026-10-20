@@ -72,10 +72,9 @@ async function register() {
                 type="password"
                 class="ca-input"
                 required
-                aria-describedby="password-hint"
                 data-testid="input-password"
               />
-              <p id="password-hint" class="ca-field-hint mb-0">At least 6 characters</p>
+              <p class="ca-field-hint mb-0">At least 6 characters</p>
             </div>
 
             <!-- the sign-up trigger allows only these two; ta and admin come later -->
@@ -115,11 +114,7 @@ async function register() {
               :disabled="isSubmitting"
               data-testid="btn-register"
             >
-              <span
-                v-if="isSubmitting"
-                class="spinner-border spinner-border-sm"
-                aria-hidden="true"
-              />
+              <span v-if="isSubmitting" class="spinner-border spinner-border-sm" />
               Create account
             </button>
           </form>

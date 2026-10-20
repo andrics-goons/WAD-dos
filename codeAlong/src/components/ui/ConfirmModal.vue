@@ -66,14 +66,8 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <Transition name="ca-modal">
       <div v-if="open" class="ca-modal-backdrop" @click.self="cancel">
-        <div
-          class="ca-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="ca-confirm-title"
-          data-testid="confirm-modal"
-        >
-          <h2 id="ca-confirm-title" class="ca-modal__title">{{ title }}</h2>
+        <div class="ca-modal" data-testid="confirm-modal">
+          <h2 class="ca-modal__title">{{ title }}</h2>
           <div class="ca-modal__body"><slot /></div>
           <div class="ca-modal__actions">
             <button
@@ -95,7 +89,7 @@ onBeforeUnmount(() => {
               data-testid="btn-confirm"
               @click="emit('confirm')"
             >
-              <span v-if="busy" class="spinner-border spinner-border-sm" aria-hidden="true" />
+              <span v-if="busy" class="spinner-border spinner-border-sm" />
               {{ confirmLabel }}
             </button>
           </div>

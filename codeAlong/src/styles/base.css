@@ -122,7 +122,6 @@ samp {
 
 /* Keyboard users always see where they are (rule of thumb: visibility of status) */
 a:focus-visible,
-[role='button']:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--ca-brand);
   outline-offset: 2px;

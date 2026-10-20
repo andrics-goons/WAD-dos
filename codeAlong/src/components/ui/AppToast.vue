@@ -14,18 +14,17 @@ const ICONS = {
 
 <template>
   <!-- xs: full width along the bottom · sm and up: bottom-right, 22rem wide -->
-  <div class="ca-toasts" aria-live="polite" aria-atomic="false">
+  <div class="ca-toasts">
     <TransitionGroup name="ca-toast">
       <div
         v-for="m in toast.messages"
         :key="m.id"
         class="ca-toast"
         :class="`ca-toast--${m.variant}`"
-        :role="m.variant === 'danger' ? 'alert' : 'status'"
         data-testid="toast"
         :data-variant="m.variant"
       >
-        <i class="bi ca-toast__icon" :class="ICONS[m.variant] ?? ICONS.info" aria-hidden="true" />
+        <i class="bi ca-toast__icon" :class="ICONS[m.variant] ?? ICONS.info" />
         <div class="ca-toast__body">
           <div v-if="m.title" class="ca-toast__title">{{ m.title }}</div>
           <div>{{ m.text }}</div>
@@ -33,7 +32,6 @@ const ICONS = {
         <button
           type="button"
           class="btn-close"
-          aria-label="Dismiss"
           data-testid="btn-toast-dismiss"
           @click="toast.dismiss(m.id)"
         />

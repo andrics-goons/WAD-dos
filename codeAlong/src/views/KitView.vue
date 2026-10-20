@@ -193,9 +193,9 @@ function fakeConfirm() {
       <div class="d-flex flex-wrap align-items-center gap-2">
         <button class="ca-btn ca-btn--primary ca-btn--sm">--sm</button>
         <button class="ca-btn ca-btn--primary ca-btn--lg">--lg Join a class</button>
-        <button class="ca-btn ca-btn--secondary ca-btn--icon" aria-label="Settings"><i class="bi bi-gear" /></button>
+        <button class="ca-btn ca-btn--secondary ca-btn--icon"><i class="bi bi-gear" /></button>
         <button class="ca-btn ca-btn--primary" disabled>
-          <span class="spinner-border spinner-border-sm" aria-hidden="true" />Saving…
+          <span class="spinner-border spinner-border-sm" />Saving…
         </button>
       </div>
     </section>
@@ -233,7 +233,7 @@ function fakeConfirm() {
           </div>
           <div class="col-12">
             <div class="form-check form-switch">
-              <input id="kit-switch" class="form-check-input" type="checkbox" role="switch" checked />
+              <input id="kit-switch" class="form-check-input" type="checkbox" checked />
               <label class="form-check-label" for="kit-switch">Allow catch-up</label>
             </div>
           </div>
@@ -313,7 +313,7 @@ function fakeConfirm() {
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2 p-3 border-top">
           <StatusPill v-for="s in TileStateOrder" :key="s" :state="s" />
-          <input class="ca-input ms-md-auto kit-ide__input" placeholder="Dark input" aria-label="Dark input example" />
+          <input class="ca-input ms-md-auto kit-ide__input" placeholder="Dark input" />
           <button class="ca-btn ca-btn--secondary ca-btn--sm">Secondary</button>
         </div>
       </div>

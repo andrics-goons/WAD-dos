@@ -14,7 +14,7 @@ defineProps({
 
 <template>
   <div class="ca-empty text-center" :class="{ 'ca-empty--compact': compact }" data-testid="empty-state">
-    <div class="ca-empty__icon" aria-hidden="true"><i class="bi" :class="icon" /></div>
+    <div class="ca-empty__icon"><i class="bi" :class="icon" /></div>
     <h2 class="ca-empty__title">{{ title }}</h2>
     <div v-if="$slots.default" class="ca-empty__body text-body-secondary"><slot /></div>
     <div v-if="$slots.actions" class="d-flex flex-wrap justify-content-center gap-2">

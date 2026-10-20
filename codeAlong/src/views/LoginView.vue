@@ -74,11 +74,7 @@ async function login() {
               :disabled="isSubmitting"
               data-testid="btn-login"
             >
-              <span
-                v-if="isSubmitting"
-                class="spinner-border spinner-border-sm"
-                aria-hidden="true"
-              />
+              <span v-if="isSubmitting" class="spinner-border spinner-border-sm" />
               Log in
             </button>
           </form>

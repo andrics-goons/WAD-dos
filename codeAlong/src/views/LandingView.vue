@@ -77,7 +77,7 @@ const features = [
               class="ca-btn ca-btn--primary ca-btn--lg"
               data-testid="landing-join"
             >
-              <i class="bi bi-box-arrow-in-right" aria-hidden="true" />Join a class
+              <i class="bi bi-box-arrow-in-right" />Join a class
             </RouterLink>
             <RouterLink
               v-if="auth.isAuthenticated"
@@ -103,15 +103,9 @@ const features = [
 
         <!-- Static preview of the prof's class dashboard -->
         <div class="col-12 col-lg-6">
-          <div
-            class="ca-card landing__preview"
-            role="img"
-            aria-label="Example class dashboard: 24 students as coloured tiles, 13 done, 5 in progress, 3 with an error, 2 behind, and one common error shared by 3 students"
-          >
+          <div class="ca-card landing__preview">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-              <span class="landing__live"
-                ><span class="landing__live-dot" aria-hidden="true" />Live</span
-              >
+              <span class="landing__live"><span class="landing__live-dot" />Live</span>
               <span class="fw-semibold">Week 6 · Mini Cart</span>
               <span class="text-body-secondary small ms-auto">Step 4 of 8</span>
             </div>
@@ -131,15 +125,12 @@ const features = [
                 v-for="t in previewTiles"
                 :key="t.id"
                 class="landing__tile"
-                :style="{
-                  '--tile': `var(--ca-state-${t.state})`,
-                  '--tile-bg': `var(--ca-state-${t.state}-bg)`,
-                }"
+                :class="`landing__tile--${t.state}`"
               />
             </div>
 
             <div class="landing__group">
-              <i class="bi bi-x-octagon-fill" aria-hidden="true" />
+              <i class="bi bi-x-octagon-fill" />
               <span class="ca-mono small text-truncate">ReferenceError: items is not defined</span>
               <span class="landing__group-count">×3</span>
             </div>
@@ -149,12 +140,12 @@ const features = [
     </section>
 
     <!-- ── Features ───────────────────────────────────────────────────── -->
-    <section class="ca-page pt-0" aria-labelledby="landing-features">
-      <h2 id="landing-features" class="visually-hidden">What CodeAlong does</h2>
+    <section class="ca-page pt-0">
+      <h2 class="visually-hidden">What CodeAlong does</h2>
       <div class="row g-3">
         <div v-for="f in features" :key="f.title" class="col-12 col-md-4">
           <article class="ca-card h-100">
-            <div class="landing__icon mb-3" aria-hidden="true">
+            <div class="landing__icon mb-3">
               <i class="bi" :class="f.icon" />
             </div>
             <div class="ca-eyebrow mb-1">{{ f.who }}</div>
@@ -166,7 +157,7 @@ const features = [
 
       <!-- Our unique angle (proposal objective 5) -->
       <div class="landing__privacy mt-4">
-        <i class="bi bi-shield-lock" aria-hidden="true" />
+        <i class="bi bi-shield-lock" />
         <p class="mb-0">
           <strong>Privacy by design.</strong> Staff see your progress, never your code — unless you
           send it to them. "I'm lost" is anonymous: the prof only sees how many.
@@ -183,7 +174,7 @@ const features = [
           class="ca-btn ca-btn--primary ca-btn--block"
           data-testid="landing-join-sticky"
         >
-          <i class="bi bi-box-arrow-in-right" aria-hidden="true" />Join a class
+          <i class="bi bi-box-arrow-in-right" />Join a class
         </RouterLink>
       </div>
     </Transition>
@@ -263,6 +254,26 @@ const features = [
   .landing__tiles {
     grid-template-columns: repeat(12, 1fr);
   }
+}
+.landing__tile--done {
+  --tile: var(--ca-state-done);
+  --tile-bg: var(--ca-state-done-bg);
+}
+.landing__tile--in_progress {
+  --tile: var(--ca-state-in_progress);
+  --tile-bg: var(--ca-state-in_progress-bg);
+}
+.landing__tile--error {
+  --tile: var(--ca-state-error);
+  --tile-bg: var(--ca-state-error-bg);
+}
+.landing__tile--behind {
+  --tile: var(--ca-state-behind);
+  --tile-bg: var(--ca-state-behind-bg);
+}
+.landing__tile--idle {
+  --tile: var(--ca-state-idle);
+  --tile-bg: var(--ca-state-idle-bg);
 }
 .landing__tile {
   aspect-ratio: 1;

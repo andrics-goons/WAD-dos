@@ -83,7 +83,7 @@
   box-shadow: 0 0 0 3px var(--ca-brand-ring);
 }
 .ca-btn:disabled,
-.ca-btn[aria-disabled='true'] {
+.ca-btn--disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }

@@ -17,16 +17,11 @@ const meta = computed(() => tileStateMeta(props.state))
   <span
     class="ca-pill"
     :class="`ca-pill--${size}`"
-    :style="{
-      '--pill-bg': `var(--ca-state-${state}-bg)`,
-      '--pill-fg': `var(--ca-state-${state}-fg)`,
-      '--pill-dot': `var(--ca-state-${state})`,
-    }"
     :data-state="state"
     :title="meta.hint"
     data-testid="status-pill"
   >
-    <i class="bi" :class="meta.icon" aria-hidden="true" />
+    <i class="bi" :class="meta.icon" />
     <span>{{ label ?? meta.label }}</span>
   </span>
 </template>
@@ -43,6 +38,31 @@ const meta = computed(() => tileStateMeta(props.state))
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
+}
+.ca-pill[data-state='done'] {
+  --pill-bg: var(--ca-state-done-bg);
+  --pill-fg: var(--ca-state-done-fg);
+  --pill-dot: var(--ca-state-done);
+}
+.ca-pill[data-state='in_progress'] {
+  --pill-bg: var(--ca-state-in_progress-bg);
+  --pill-fg: var(--ca-state-in_progress-fg);
+  --pill-dot: var(--ca-state-in_progress);
+}
+.ca-pill[data-state='error'] {
+  --pill-bg: var(--ca-state-error-bg);
+  --pill-fg: var(--ca-state-error-fg);
+  --pill-dot: var(--ca-state-error);
+}
+.ca-pill[data-state='behind'] {
+  --pill-bg: var(--ca-state-behind-bg);
+  --pill-fg: var(--ca-state-behind-fg);
+  --pill-dot: var(--ca-state-behind);
+}
+.ca-pill[data-state='idle'] {
+  --pill-bg: var(--ca-state-idle-bg);
+  --pill-fg: var(--ca-state-idle-fg);
+  --pill-dot: var(--ca-state-idle);
 }
 .ca-pill .bi {
   color: var(--pill-dot);

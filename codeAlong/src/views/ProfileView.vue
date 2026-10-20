@@ -80,7 +80,7 @@ async function savePassword() {
         data-testid="btn-logout"
         @click="logout()"
       >
-        <i class="bi bi-box-arrow-right" aria-hidden="true" />Log out
+        <i class="bi bi-box-arrow-right" />Log out
       </button>
     </div>
 
@@ -116,11 +116,7 @@ async function savePassword() {
                 :disabled="savingName || name.trim() === auth.user.name"
                 data-testid="btn-save-name"
               >
-                <span
-                  v-if="savingName"
-                  class="spinner-border spinner-border-sm"
-                  aria-hidden="true"
-                />
+                <span v-if="savingName" class="spinner-border spinner-border-sm" />
                 Save name
               </button>
             </div>
@@ -167,11 +163,7 @@ async function savePassword() {
                 :disabled="savingPassword"
                 data-testid="btn-change-password"
               >
-                <span
-                  v-if="savingPassword"
-                  class="spinner-border spinner-border-sm"
-                  aria-hidden="true"
-                />
+                <span v-if="savingPassword" class="spinner-border spinner-border-sm" />
                 Change password
               </button>
             </div>
