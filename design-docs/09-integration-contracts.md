@@ -25,6 +25,8 @@ shared/
 
 ```js
 export const Role = Object.freeze({ PROF: 'prof', TA: 'ta', STUDENT: 'student', ADMIN: 'admin' })
+// How each role is named in the UI
+export const RoleLabel = Object.freeze({ prof: 'Educator', ta: 'TA', student: 'Student', admin: 'Admin' })
 export const SignupRole = Object.freeze({ STUDENT: 'student', EDUCATOR: 'prof' })   // the only two a user may pick
 export const CourseRole = Object.freeze({ PROF: 'prof', TA: 'ta' })
 
@@ -86,7 +88,6 @@ export const Fn = Object.freeze({
   SPOTLIGHT: 'spotlight',
   HINT: 'hint',
   DIGEST: 'digest',
-  ADMIN_USERS: 'admin-users',     // disable / enable / password reset (admin only)
 })
 ```
 
@@ -128,7 +129,7 @@ const { data: { user } } = await supabase.auth.getUser()
 const { data: profile } = await supabase.from('profiles').select('id, name, role').eq('id', user.id).single()
 ```
 
-`authStore.user = { id, name, role }`. The router guard in [04](./04-pages-routes-and-events.md#route-guards) reads `role` from the profile. A missing or expired session sends the user to `/login?returnTo=…`.
+`authStore.user = { id, name, role }`. The router guard in [04](./04-pages-routes-and-events.md#route-guards) reads `role` from the profile. A missing or expired session sends the user to `/login?returnTo=…`. The store also listens to `supabase.auth.onAuthStateChange` (supabase-js syncs it across tabs): `SIGNED_OUT` from elsewhere clears the store and leaves any page that needs a login. The handler runs on the next tick, because awaiting another supabase call inside that callback can deadlock.
 
 ### Who am I, inside Postgres
 
@@ -178,15 +179,22 @@ $$;
 Private Broadcast channels are authorized by RLS on `realtime.messages`, so a student cannot subscribe to another course's session channel:
 
 ```sql
+-- true only for exactly 'session:<uuid>' where the caller is a member; a malformed
+-- topic is false rather than a uuid cast error
+create function public.is_session_channel_member(topic text) returns boolean ...
+
 create policy "members read session channel" on realtime.messages
-for select to authenticated using (
-  realtime.topic() like 'session:%'
-  and (public.is_session_member(split_part(realtime.topic(), ':', 2)::uuid)
-       or public.is_admin())
-);
+    for select to authenticated
+    using (public.is_session_channel_member(realtime.topic()) or public.is_admin());
+
+create policy "members track presence" on realtime.messages
+    for insert to authenticated
+    with check (extension = 'presence' and public.is_session_channel_member(realtime.topic()));
 ```
 
-Only Edge Functions and `security definer` RPCs send on these channels (clients subscribe, they never broadcast), so there is no `insert` policy for `authenticated`.
+Only Edge Functions and `security definer` RPCs **broadcast** on these channels; clients subscribe. Tracking presence is a write, though, so members may insert presence messages and nothing else. Admins can listen but not track presence, so they never inflate the attendance count.
+
+Clients must subscribe with `{ config: { private: true } }`, or the channel is public and none of this applies.
 
 ---
 
@@ -250,7 +258,7 @@ Three layers, in this order:
 | Student actions | `is_enrolled(course_id)` |
 | Viewer actions (replay, library) | `is_course_member(course_id)` |
 | Admin: read anything | `is_admin()` — **one extra `select` policy per table**, never folded into the helpers above |
-| Admin: manage users | `is_admin()` inside `admin_list_users`, `admin_set_role` and the `admin-users` function |
+| Admin: manage users | `is_admin()` inside `admin_list_users` and `admin_set_role` |
 
 **Why admin isn't folded into `is_course_staff()`:** those helpers also guard *writes* (claiming help requests, saving checkpoints). Making them return true for admins would quietly give admins every staff write too. Keeping admin as a separate, `select`-only policy makes "admins read everything, write only accounts" true by construction — and the schema sweep test checks that no admin policy exists for any command but `select`.
 
@@ -262,14 +270,14 @@ Three layers, in this order:
 
 This is the section the architecture change affects most. Previously three of these rules were enforced by *absence* ("there is no endpoint that returns another student's autosave"). The browser now queries Postgres directly, so **absence is no longer a mechanism** — each rule is a policy, a view, or a column that does not exist.
 
-> **Scope: these rules protect students from course staff and from each other. Admins are excluded by design.** An admin is a platform operator who can read every table, including students' code and who tapped "I'm lost". So every claim below is about *staff and students*, and must be stated that way in the slides and Q&A — "the prof can't see your code unless you send it", never "nobody can". Admin **writes** are audited in `admin_audit`; admin **reads** are not, because Postgres cannot trigger on `select`. Keep the number of admin accounts to the minimum the demo needs.
+> **Scope: these rules protect students from course staff and from each other. Admins are excluded by design.** An admin is a platform operator who can read every table, including students' code and who tapped "I'm lost". So every claim below is about *staff and students*, and must be stated that way in the slides and Q&A — "the prof can't see your code unless you send it", never "nobody can". Admin actions are not logged. Keep the number of admin accounts to the minimum the demo needs.
 
 | Rule | Enforced by | Test |
 |---|---|---|
 | Staff never read a student's autosave or `before_catchup` snapshot | `snapshots` SELECT policy: own rows, **or** a row referenced by a `help_requests` the staff can see | T-PRIV-02 |
 | A student's code reaches staff **only** via a help request they sent, or an anonymised Spotlight excerpt | Same policy + `spotlight` Edge Function | T-PRIV-03 |
 | Dashboard data contains no code | `student_status` has **no** `files` column, and `session_tiles` selects none | T-PRIV-01 |
-| "I'm lost" is only ever a count **to staff** | `student_status.lost` is readable only by its owner (and admins); staff read `session_summary`, which exposes `lost_count` and no ids | T-PRIV-04 |
+| "I'm lost" is only ever a count **to staff** | The flag is a row in `lost_flags`, readable only by its owner (and admins) — not a column of `student_status`, which staff read and receive over Postgres Changes. Staff read `session_summary`, which exposes `lost_count` and no ids | T-PRIV-04 |
 | A student cannot forge their tile state | There is **no** `state` column. `session_tiles` derives it in SQL from `done_step_order`, `error`, `last_seen_at` | T-STAT-09 |
 | Notes are private to the author (admins excepted) | `notes` policies keyed on `user_id = auth.uid()` | T-PRIV-05 |
 | **Admins read, but write only accounts** | One `admin reads all` `select` policy per table; no admin policy for any other command; admin writes only through the admin functions | T-ADM-* |
@@ -289,9 +297,9 @@ Three mechanisms, each for one job. Channel name is always `session:<sessionId>`
 Sent from `security definer` RPCs and Edge Functions via `realtime.send()`; clients only subscribe.
 
 ```js
-'checkpoint:new'   { sessionId, seq, stepId, stepOrder, title, createdAt }
+'checkpoint:new'   { sessionId, checkpointId, seq, stepId, stepOrder, title, filesHash, createdAt }
 'session:settings' { sessionId, allowCatchUp, hintsEnabled }
-'session:ended'    { sessionId, replayUrl }
+'session:ended'    { sessionId, replayUrl }  // replayUrl is a path: /replays/<id>
 'spotlight:show'   { sessionId, errorPreview, excerpt: { path, startLine, code }, fix: { path, startLine, code } }
 'spotlight:hide'   { sessionId }
 'session:announce' { sessionId, text, at }      // text: null means the prof cleared it
@@ -317,6 +325,22 @@ The old `dashboard:summary` event is gone: counts, `lost_count` and error groups
 
 Each student tracks `{ userId, name }` on join. Staff read presence for the attendance count; `joined_at` is still written to `student_status` so the report survives after everyone disconnects. Presence is **not** used for idle — idle is `now() - last_seen_at > idle_after_sec`, computed in the view.
 
+### Using the live session from a page — the session store
+
+A browser tab can hold only **one** channel per class, so pages never open `session:<id>` themselves: `useSessionStore()` (`src/stores/session.js`) owns it.
+
+| Store | What it gives you |
+|---|---|
+| `open(sessionId)` / `close()` | Load the class and connect; call `close()` when leaving the page |
+| `session` | The session row plus `role` (`'staff'` / `'student'`), `steps` (in order), `lesson` (`{ title, files_hash, entry_file, dev_command }` — the starter project, no files) and `latest_checkpoint` (`{ id, seq, step_id, files_hash, created_at }` or null). Kept current by the channel: checkpoints, settings, announcement, spotlight, ended |
+| `currentStep` | The step of the latest checkpoint — step 1 before the first one |
+| `latestCheckpoint` | Shortcut for `session.latest_checkpoint`; download its files with `getCheckpointFiles(id)` (`checkpoints.api.js`) |
+| `isLive`, `isStaff` | Booleans |
+| `connection` | `'live' | 'reconnecting' | 'offline'` — for the connection pill. After a reconnect the store re-reads the session, so missed checkpoints aren't lost |
+| `present` | Staff only: `[{ userId, name }]` of students here now (students are tracked automatically) |
+| `onChange(table, handler)` | `'student_status'` (staff) or `'help_requests'` (staff: the queue; students: their own). Returns a `stop()` function |
+| `start(lessonId)`, `join(code)`, `saveCheckpoint(stepId, files, note)`, `updateSettings(changes)`, `end()` | The actions; results come back to every tab through the channel |
+
 ### Connection lifecycle
 
 ```
@@ -335,12 +359,11 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 |---|---|---|---|
 | `rpc('create_course')` | Andric | Courses page | `(p_code text, p_title text, p_term text, p_section text) → course row` — prof only; generates the enrol code; adds the caller to `course_staff` as `prof` |
 | `rpc('enrol_with_code')` | Andric | Enrol page | `(p_code text) → course row` — students and TAs; `NOT_FOUND` for a wrong or archived code |
-| `rpc('admin_list_users')` | Andric | Admin page | `() → [{ id, email, name, role, created_at, disabled }]` — `FORBIDDEN` unless admin |
-| `rpc('admin_set_role')` | Andric | Admin page | `(p_user_id uuid, p_role text) → profile row` — refuses the caller's own role; writes `admin_audit` |
-| `fn('admin-users')` | Andric | Admin page | `{ action: 'disable' \| 'enable' \| 'reset_password', userId } → { ok }` — service role; refuses self-disable; writes `admin_audit` |
+| `rpc('admin_list_users')` | Andric | Admin page | `() → [{ id, email, name, role, created_at }]` — `FORBIDDEN` unless admin |
+| `rpc('admin_set_role')` | Andric | Admin page | `(p_user_id uuid, p_role text) → [{ id, name, role }]` — refuses the caller's own role |
 | `rpc('add_course_staff')` | Andric | Course people page | `(p_course_id uuid, p_email text) → staff row` — owner only; `CONFLICT` if already staff or enrolled as a student |
 | `rpc('remove_course_student')` | Andric | Course people page | `(p_course_id uuid, p_user_id uuid) → void` — owner only |
-| `rpc('start_session')` | Ying Qi | Teach view | `(p_lesson_id uuid) → { session, join_code }` |
+| `rpc('start_session')` | Ying Qi | Teach view | `(p_lesson_id uuid) → session row` (includes `join_code`) |
 | `rpc('join_session')` | Ying Qi | Join view | `(p_join_code text) → { session_id, role }` |
 | `rpc('save_checkpoint')` | Ying Qi | Teach view | `(p_session_id uuid, p_step_id uuid, p_files jsonb, p_note text) → checkpoint row` |
 | `rpc('end_session')` | Ying Qi | Teach view | `(p_session_id uuid) → session row` |
@@ -350,9 +373,10 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `rpc('claim_help_request')` | Karin | Help queue | `(p_request_id uuid) → request row` (raises `CONFLICT\|…` if taken) |
 | `rpc('transition_help_request')` | Karin | Help review | `(p_request_id uuid, p_to text, p_reply text) → request row` — a reply is **appended to `thread`**, never overwritten |
 | `rpc('follow_up_help_request')` | Karin | Student help panel | `(p_request_id uuid, p_message text, p_files jsonb) → request row` — `replied → open`, fresh snapshot, max `MAX_FOLLOW_UPS` |
-| `rpc('replace_steps')` | Evan | Lesson editor | `(p_lesson_id uuid, p_steps jsonb) → steps[]` |
-| `view session_tiles` | Andric | Evan (dashboard) | `(session_id, student_id, name, state, step_order, error_source, error_key, error_preview, passed_steps, checks, last_seen_at)` — `error_source` is `'runtime'` or `'build'`, so the dashboard can label a group "won't compile" vs "throws" |
-| `view session_summary` | Andric | Evan (summary bar) | `(session_id, total, done, in_progress, error, behind, idle, lost_count)` |
+| `rpc('replace_steps')` | Andric (written with the lessons schema; Evan calls it) | Lesson editor | `(p_lesson_id uuid, p_steps jsonb) → steps[]` — renumbers 1…n by list position, ignoring any `order` sent; refuses blank titles and other lessons' step ids |
+| `rpc('delete_step')` | Andric (with the lessons schema) | Lesson editor | `(p_step_id uuid) → void` — deletes and renumbers |
+| `view session_tiles` | Andric | Evan (dashboard) | `(session_id, student_id, name, state, target_order, step_order, error_source, error_key, error_preview, passed_steps, checks, last_seen_at)` — `error_source` is `'runtime'` or `'build'`, so the dashboard can label a group "won't compile" vs "throws". `passed_steps` is `int[]` of step orders whose `check` was passed, and comes last in the actual column order |
+| `view session_summary` | Andric | Evan (summary bar) | `(session_id, total, done, in_progress, error, behind, idle, lost_count)` — `lost_count` is `null` for anyone but staff and admins |
 | `normalizeError` | Evan | Dylan (before writing status) | `({ name, message }) => { key, shapeKey }` |
 | `parseBuildError` | Dylan | Dylan (dev-server output) | `(stdout: string) => { name, message, file, line } \| null` — **drops the code frame**; run before `normalizeError` |
 | `container.mount(files)` / `boot()` | Dylan | Evan (teach preview), Ray Yien (replay preview) | The one WebContainer runtime; nobody builds a second |
@@ -397,8 +421,9 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |
 | Replay | `timeline-step-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
 | Reports | `report-funnel`, `report-top-errors`, `btn-send-digest` |
-| Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login` |
-| Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `btn-disable-<userId>`, `btn-reset-<userId>`, `input-user-search` |
+| Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login`, `link-register`, `link-login` |
+| Profile | `input-profile-name`, `btn-save-name`, `input-current-password`, `input-new-password`, `btn-change-password`, `btn-logout` |
+| Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `input-user-search` |
 
 ---
 
@@ -457,7 +482,7 @@ Full list in [02-tech-stack.md](./02-tech-stack.md#environment-variables).
 - [ ] **No RLS policy missing:** every table in `public` reports `relrowsecurity = true`
 - [ ] Every table has exactly one `admin reads all` `select` policy, and no admin policy for any other command
 - [ ] Signing up as Educator gives `prof`; signing up with any other role value gives `student`
-- [ ] An admin can change a role and disable an account; neither works on themselves; both appear in `admin_audit`
+- [ ] An admin can change another user's role, but not their own
 - [ ] Negative RLS tests pass (student cannot read another student's snapshot/status/notes)
 - [ ] Every page usable 375 → 1440 px, portrait and landscape, in Chrome
 - [ ] Load test: 40 simulated students within latency target, inside the Realtime free-tier cap

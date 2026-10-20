@@ -1,14 +1,5 @@
-/* ─────────────────────────────────────────────────────────────────────────────
-   Bootstrap bridge + base.
-
-   Bootstrap's pre-built CSS (imported in main.js) does the reset, the grid,
-   the breakpoints and the layout utilities. This file points Bootstrap's own
-   CSS variables at OUR tokens, so its utilities (text-primary, bg-body-tertiary,
-   text-body-secondary, border, link colour, focus rings) match the theme
-   instead of default Bootstrap blue.
-
-   Declared on both :root and .ca-ide so the dark IDE region flips too.
-   ───────────────────────────────────────────────────────────────────────────── */
+/* Bootstrap does our layout, but its colours are blue by default.
+   This file points Bootstrap's own variables at our colours so everything matches. */
 
 :root,
 .ca-ide {
@@ -17,10 +8,10 @@
   --bs-body-font-family: var(--ca-font-sans);
   --bs-font-monospace: var(--ca-font-mono);
   --bs-emphasis-color: var(--ca-text);
-  --bs-secondary-color: var(--ca-text-muted); /* .text-body-secondary */
+  --bs-secondary-color: var(--ca-text-muted);
   --bs-secondary-bg: var(--ca-surface-muted);
-  --bs-tertiary-bg: var(--ca-surface-muted); /* .bg-body-tertiary */
-  --bs-border-color: var(--ca-border); /* .border, .border-top, … */
+  --bs-tertiary-bg: var(--ca-surface-muted);
+  --bs-border-color: var(--ca-border);
   --bs-border-radius: var(--ca-radius);
   --bs-border-radius-sm: var(--ca-radius-sm);
   --bs-border-radius-lg: var(--ca-radius-lg);
@@ -28,15 +19,18 @@
   --bs-link-hover-color: var(--ca-brand-hover);
   --bs-code-color: var(--ca-brand-hover);
   --bs-focus-ring-color: var(--ca-brand-ring);
+  /* the light indigo used by bg-primary-subtle and alert-primary */
+  --bs-primary-bg-subtle: var(--ca-brand-subtle);
+  --bs-primary-border-subtle: var(--ca-border);
+  --bs-primary-text-emphasis: var(--ca-brand-hover);
 }
 .ca-ide {
   --bs-link-hover-color: var(--ca-ide-accent);
   --bs-code-color: var(--ca-ide-accent);
 }
 
-/* Theme colours for Bootstrap's text-*, bg-*, border-* utilities.
-   Keep these hex / rgb values in sync with tokens.css (the -rgb triplets can't use var()).
-   (-rgb versions are what .text-primary / .bg-primary actually read.) */
+/* Bootstrap reads these as plain numbers, so they're copied from tokens.css.
+   If a brand colour changes there, change it here too. */
 :root {
   --bs-primary: #4f46e5;
   --bs-primary-rgb: 79, 70, 229;
@@ -52,8 +46,8 @@
   --bs-link-hover-color-rgb: 67, 56, 202;
 }
 
-/* Use .ca-btn and .ca-input (components.css). These few overrides only exist so a
-   stray Bootstrap .btn-primary or .form-control doesn't show up Bootstrap-blue. */
+/* We use .ca-btn and .ca-input instead, but in case Bootstrap's own button or
+   input sneaks in, this keeps it indigo rather than blue. */
 .btn-primary {
   --bs-btn-bg: var(--ca-brand);
   --bs-btn-border-color: var(--ca-brand);
@@ -84,19 +78,40 @@
   border-color: var(--ca-brand);
 }
 
-/* ── Base additions on top of Bootstrap's reboot ──────────────────────────── */
+/* Page-wide basics */
 body {
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: 'cv11', 'ss01'; /* Inter: clearer 1 / l / I — matters for join codes */
+  font-feature-settings: 'cv11', 'ss01'; /* makes 1, l and I easier to tell apart */
 }
 
-/* Calmer, consistent heading sizes than Bootstrap's defaults */
-h1, .h1 { font-size: var(--ca-text-2xl); }
-h2, .h2 { font-size: var(--ca-text-xl); }
-h3, .h3 { font-size: var(--ca-text-lg); }
-h4, .h4, h5, .h5, h6, .h6 { font-size: var(--ca-text-base); }
-h1, h2, h3, h4, h5, h6 {
+/* Smaller, calmer headings than Bootstrap's */
+h1,
+.h1 {
+  font-size: var(--ca-text-2xl);
+}
+h2,
+.h2 {
+  font-size: var(--ca-text-xl);
+}
+h3,
+.h3 {
+  font-size: var(--ca-text-lg);
+}
+h4,
+.h4,
+h5,
+.h5,
+h6,
+.h6 {
+  font-size: var(--ca-text-base);
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -120,9 +135,8 @@ samp {
   background: var(--ca-surface-muted);
 }
 
-/* Keyboard users always see where they are (rule of thumb: visibility of status) */
+/* A clear outline so keyboard users can see where they are */
 a:focus-visible,
-[role='button']:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--ca-brand);
   outline-offset: 2px;
