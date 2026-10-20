@@ -154,11 +154,12 @@ describe('join_session', () => {
     expect(data).toEqual({ session_id: session.id, role: 'student' })
   })
 
-  it('the code must match exactly (the join boxes only allow capitals)', async () => {
-    const lower = await stu.client.rpc('join_session', {
-      p_join_code: session.join_code.toLowerCase(),
+  it('the code works in any case and with stray spaces (e.g. a hand-typed /join link)', async () => {
+    const { data, error } = await stu.client.rpc('join_session', {
+      p_join_code: ` ${session.join_code.toLowerCase()} `,
     })
-    expect(codeOf(lower.error)).toBe('NOT_FOUND')
+    expect(error).toBeNull()
+    expect(data.session_id).toBe(session.id)
   })
 
   it('the prof and TAs join as staff', async () => {
@@ -256,6 +257,15 @@ describe('save_checkpoint', () => {
   it('a step from another lesson is refused', async () => {
     const [other] = (await prof.client.from('steps').select().eq('lesson_id', otherLesson.id)).data
     expect(codeOf((await saveAs(prof, session, other)).error)).toBe('BAD_REQUEST')
+  })
+
+  it('a checkpoint with no files is a validation error, not "Something went wrong"', async () => {
+    const { error } = await prof.client.rpc('save_checkpoint', {
+      p_session_id: session.id,
+      p_step_id: steps[0].id,
+      p_files: null,
+    })
+    expect(codeOf(error)).toBe('VALIDATION_FAILED')
   })
 
   it('T-SESS-06: students receive checkpoint:new straight away (without the files)', async () => {

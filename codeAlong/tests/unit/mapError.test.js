@@ -44,6 +44,7 @@ describe('mapError', () => {
   describe('Postgres errors', () => {
     it.each([
       ['23505', 'CONFLICT'],
+      ['23502', 'VALIDATION_FAILED'],
       ['23503', 'NOT_FOUND'],
       ['23514', 'VALIDATION_FAILED'],
       ['42501', 'FORBIDDEN'],

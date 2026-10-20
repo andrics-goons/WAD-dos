@@ -12,6 +12,18 @@ export function languageOf(path) {
   return path.includes('.') && LANGUAGES.includes(ext) ? ext : null
 }
 
+// False for a path files_valid() rejects: only letters, digits, _ - . and /, at most 120
+// characters, relative, and no '..'. One such file would make the database refuse the
+// whole save, so it's left out like an unsupported file type ("my notes.js" → false).
+export function isStorablePath(path) {
+  return (
+    path.length <= 120 &&
+    /^[A-Za-z0-9_\-./]+$/.test(path) &&
+    !path.includes('..') &&
+    !path.startsWith('/')
+  )
+}
+
 // True for files that are never uploaded (Limits.SYNC_IGNORE): 'node_modules/**' matches that
 // folder at any depth, '*.log' any file ending in .log, and 'pnpm-lock.yaml' that exact name
 export function isSyncIgnored(path) {
@@ -42,7 +54,7 @@ const estimateBytes = (files) =>
 // `synced` map (keep it only once the save succeeds), and whether the project is over the limits.
 export async function planAutosave(tree, synced) {
   const files = tree
-    .filter((f) => languageOf(f.path) && !isSyncIgnored(f.path))
+    .filter((f) => languageOf(f.path) && isStorablePath(f.path) && !isSyncIgnored(f.path))
     .map((f) => ({ path: f.path, language: languageOf(f.path), content: f.content }))
 
   const hashes = {}
