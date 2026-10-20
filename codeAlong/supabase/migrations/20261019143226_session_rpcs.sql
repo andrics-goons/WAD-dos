@@ -93,8 +93,9 @@ begin
         raise exception 'UNAUTHENTICATED|Log in first' using errcode = 'P0001';
     end if;
 
-    -- exact match: the join page only lets students type capital letters and allowed digits
-    select * into s from public.sessions where join_code = p_join_code and status = 'live';
+    -- "cart42" or " CART42" from a link or a paste still finds CART42
+    select * into s from public.sessions
+     where join_code = upper(trim(p_join_code)) and status = 'live';
     if not found then
         raise exception 'NOT_FOUND|No live class with that code' using errcode = 'P0001';
     end if;
