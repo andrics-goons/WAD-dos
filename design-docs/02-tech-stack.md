@@ -79,9 +79,6 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   │   ├── auth.api.js   courses.api.js   lessons.api.js   sessions.api.js
 │   │   ├── checkpoints.api.js   workspace.api.js   dashboard.api.js
 │   │   └── help.api.js   replays.api.js   notes.api.js   reports.api.js
-│   ├── realtime/
-│   │   ├── sessionChannel.js    ← subscribe: broadcast + postgres_changes + presence
-│   │   └── presence.js
 │   ├── stores/                  ← Pinia: auth, courses, session, workspace, dashboard, help, replay
 │   ├── validators/              ← zod schemas, one per form
 │   ├── views/                   ← one file per page (see 04-pages-routes-and-events.md)
@@ -202,7 +199,7 @@ The last line is the part worth noticing: because the tile state is **derived** 
 ### Concrete example: prof saves a checkpoint
 
 1. **Prof** clicks **Save checkpoint** in `TeachView.vue` → `sessionStore.saveCheckpoint()` → `sessions.api.js` → `supabase.rpc('save_checkpoint', { p_session_id, p_step_id, p_files, p_note })`.
-2. **The RPC** (`security definer`) checks `is_course_prof(course_id)` and `status = 'live'`, allocates `seq` (retrying once on the unique index), inserts the `checkpoints` row, sets `sessions.current_step_id`, and calls `realtime.send()` on `session:<id>` with `checkpoint:new`.
+2. **The RPC** (`security definer`) checks `is_course_prof(course_id)` and `status = 'live'`, allocates `seq` (locking the session row so two saves can't take the same number), inserts the `checkpoints` row, sets `sessions.current_step_id`, and calls `realtime.send()` on `session:<id>` with `checkpoint:new`.
 3. **Students' browsers** receive the broadcast: a toast appears, the "Load checkpoint" button updates, the step list advances.
 4. **Staff browsers** receive the same broadcast and re-read `session_summary`; tiles that are now two or more steps behind come back as `behind` from the view, because `target_order` changed.
 5. **Postgres** has the checkpoint; replay later reads them in `seq` order.

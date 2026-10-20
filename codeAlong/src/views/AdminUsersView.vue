@@ -125,7 +125,6 @@ async function confirmRole() {
               class="ca-input"
               :value="user.role"
               :disabled="isMe(user) || busyId === user.id"
-              :aria-label="`Role for ${user.name}`"
               :data-testid="`select-role-${user.id}`"
               @change="askRole(user, $event)"
             >
