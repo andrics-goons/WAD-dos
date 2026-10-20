@@ -41,7 +41,7 @@
   box-shadow: 0 0 0 3px var(--ca-brand-ring);
 }
 .ca-btn:disabled,
-.ca-btn[aria-disabled='true'] {
+.ca-btn--disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -118,7 +118,7 @@
 }
 
 /* Form fields: wrap each one in .ca-field, with .ca-label and .ca-input inside.
-   Mark a wrong field with aria-invalid="true" — it turns red and screen readers announce it. */
+   Mark a wrong field with the ca-input--invalid class — it turns red. */
 .ca-field {
   display: flex;
   flex-direction: column;
@@ -156,10 +156,10 @@
   background: var(--ca-surface-muted);
   cursor: not-allowed;
 }
-.ca-input[aria-invalid='true'] {
+.ca-input--invalid {
   border-color: var(--ca-danger);
 }
-.ca-input[aria-invalid='true']:focus {
+.ca-input--invalid:focus {
   box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25);
 }
 textarea.ca-input {

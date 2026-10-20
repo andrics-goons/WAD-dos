@@ -247,8 +247,8 @@ Patterns:
 <div class="ca-field">
   <label class="ca-label" for="email">Email</label>
   <input id="email" v-model="email" type="email" class="ca-input"
-         :aria-invalid="!!errors.email" aria-describedby="email-err" data-testid="input-email" />
-  <p v-if="errors.email" id="email-err" class="ca-field-error">{{ errors.email }}</p>
+         :class="{ 'ca-input--invalid': errors.email }" data-testid="input-email" />
+  <p v-if="errors.email" class="ca-field-error">{{ errors.email }}</p>
   <p v-else class="ca-field-hint">Use your school email</p>
 </div>
 ```
@@ -261,7 +261,7 @@ Patterns:
 | `ca-field-hint` | Small grey helper text |
 | `ca-field-error` | Red error text (zod message) |
 
-- **Invalid state comes from `aria-invalid="true"`**, not an `is-invalid` class. This also gets read out by screen readers.
+- **Invalid state comes from the `ca-input--invalid` class** (red border, red focus ring), not Bootstrap's `is-invalid`.
 - Multi-column forms: `<div class="row g-3"><div class="col-12 col-sm-6 ca-field">…</div>…</div>`.
 - Toggle: Bootstrap's switch (already brand-coloured):
   `<div class="form-check form-switch"><input id="x" class="form-check-input" type="checkbox" role="switch" v-model="on"><label class="form-check-label" for="x">Allow catch-up</label></div>`.
@@ -398,7 +398,7 @@ Never hard-code `'in_progress'` or `200` when a constant exists. This file is a 
 
 ## 9. Accessibility checklist (part of "usable" in the rubric)
 
-- Every input has a `<label for>`; errors use `aria-invalid` + `aria-describedby`.
+- Every input has a `<label for>`; an invalid input gets `ca-input--invalid` and its message in `ca-field-error`.
 - Icon-only buttons have `aria-label`; decorative icons have `aria-hidden="true"`.
 - Status is never colour-only: use `StatusPill` or icon + text.
 - Don't remove focus outlines. The kit already shows an indigo focus ring on keyboard focus.

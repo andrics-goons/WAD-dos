@@ -219,11 +219,11 @@ function fakeConfirm() {
       <div class="d-flex flex-wrap align-items-center gap-2">
         <button class="ca-btn ca-btn--primary ca-btn--sm">--sm</button>
         <button class="ca-btn ca-btn--primary ca-btn--lg">--lg Join a class</button>
-        <button class="ca-btn ca-btn--secondary ca-btn--icon" aria-label="Settings">
+        <button class="ca-btn ca-btn--secondary ca-btn--icon">
           <i class="bi bi-gear" />
         </button>
         <button class="ca-btn ca-btn--primary" disabled>
-          <span class="spinner-border spinner-border-sm" aria-hidden="true" />Saving…
+          <span class="spinner-border spinner-border-sm" />Saving…
         </button>
       </div>
     </section>
@@ -233,7 +233,7 @@ function fakeConfirm() {
       <h2>Forms</h2>
       <p class="text-body-secondary small">
         <code>ca-field</code> + <code>ca-label</code> + <code>ca-input</code>; errors via
-        <code>aria-invalid</code> and <code>ca-field-error</code>. Toggles use Bootstrap's
+        <code>ca-input--invalid</code> and <code>ca-field-error</code>. Toggles use Bootstrap's
         <code>form-check form-switch</code>.
       </p>
       <form class="ca-card" novalidate @submit.prevent>
@@ -255,11 +255,9 @@ function fakeConfirm() {
               id="kit-pw"
               v-model="password"
               type="password"
-              class="ca-input"
-              aria-invalid="true"
-              aria-describedby="kit-pw-err"
+              class="ca-input ca-input--invalid"
             />
-            <p id="kit-pw-err" class="ca-field-error">Password must be at least 8 characters</p>
+            <p class="ca-field-error">Password must be at least 8 characters</p>
           </div>
           <div class="col-12 col-sm-6 ca-field">
             <label class="ca-label" for="kit-select">Week</label>
@@ -274,7 +272,6 @@ function fakeConfirm() {
                 id="kit-switch"
                 class="form-check-input"
                 type="checkbox"
-                role="switch"
                 checked
               />
               <label class="form-check-label" for="kit-switch">Allow catch-up</label>
@@ -398,7 +395,6 @@ function addToCart() {
           <input
             class="ca-input w-auto ms-md-auto"
             placeholder="Dark input"
-            aria-label="Dark input example"
           />
           <button class="ca-btn ca-btn--secondary ca-btn--sm">Secondary</button>
         </div>
