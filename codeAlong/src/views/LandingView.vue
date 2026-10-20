@@ -75,7 +75,7 @@ const features = [
               :to="{ name: 'join' }"
               class="ca-btn ca-btn--primary ca-btn--lg"
             >
-              <i class="bi bi-box-arrow-in-right" aria-hidden="true" />Join a class
+              <i class="bi bi-box-arrow-in-right" />Join a class
             </RouterLink>
             <RouterLink
               v-if="auth.isAuthenticated"
@@ -101,12 +101,10 @@ const features = [
         <div class="col-12 col-lg-6">
           <div
             class="ca-card shadow-lg"
-            role="img"
-            aria-label="Example class dashboard: 24 students as coloured tiles, 13 done, 5 in progress, 3 with an error, 2 behind, and one common error shared by 3 students"
           >
             <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
               <span class="ca-pill ca-pill--sm ca-state--error">
-                <i class="bi bi-broadcast" aria-hidden="true" />Live
+                <i class="bi bi-broadcast" />Live
               </span>
               <span class="fw-semibold">Week 6 · Mini Cart</span>
               <span class="text-body-secondary small ms-auto">Step 4 of 8</span>
@@ -127,7 +125,7 @@ const features = [
             </div>
 
             <div class="ca-pill ca-state--error w-100 py-2">
-              <i class="bi bi-x-octagon-fill" aria-hidden="true" />
+              <i class="bi bi-x-octagon-fill" />
               <span class="ca-mono text-truncate">ReferenceError: items is not defined</span>
               <span class="ms-auto">×3</span>
             </div>
@@ -137,12 +135,12 @@ const features = [
     </section>
 
     <!-- Features -->
-    <section class="ca-page pt-0" aria-labelledby="landing-features">
-      <h2 id="landing-features" class="visually-hidden">What CodeAlong does</h2>
+    <section class="ca-page pt-0">
+      <h2 class="visually-hidden">What CodeAlong does</h2>
       <div class="row g-3">
         <div v-for="f in features" :key="f.title" class="col-12 col-md-4">
           <article class="ca-card h-100">
-            <i class="bi fs-3 text-primary" :class="f.icon" aria-hidden="true" />
+            <i class="bi fs-3 text-primary" :class="f.icon" />
             <div class="ca-eyebrow mt-2 mb-1">{{ f.who }}</div>
             <h3 class="mb-2">{{ f.title }}</h3>
             <p class="text-body-secondary mb-0">{{ f.body }}</p>
@@ -152,7 +150,7 @@ const features = [
 
       <!-- our privacy promise -->
       <div class="alert alert-primary d-flex gap-3 mt-4 mb-0">
-        <i class="bi bi-shield-lock fs-4" aria-hidden="true" />
+        <i class="bi bi-shield-lock fs-4" />
         <p class="mb-0">
           <strong>Privacy by design.</strong> Staff see your progress, never your code — unless you
           send it to them. "I'm lost" is anonymous: the prof only sees how many.
@@ -167,7 +165,7 @@ const features = [
         class="position-fixed bottom-0 start-0 end-0 z-3 d-md-none p-3 bg-body border-top shadow"
       >
         <RouterLink :to="{ name: 'join' }" class="ca-btn ca-btn--primary ca-btn--block">
-          <i class="bi bi-box-arrow-in-right" aria-hidden="true" />Join a class
+          <i class="bi bi-box-arrow-in-right" />Join a class
         </RouterLink>
       </div>
     </Transition>

@@ -20,7 +20,7 @@ const meta = computed(() => tileStateMeta(props.state))
     :data-state="state"
     data-testid="status-pill"
   >
-    <i class="bi" :class="meta.icon" aria-hidden="true" />
+    <i class="bi" :class="meta.icon" />
     <span>{{ label ?? meta.label }}</span>
   </span>
 </template>
