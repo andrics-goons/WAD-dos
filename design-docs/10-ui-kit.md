@@ -4,6 +4,8 @@
 > If you are an AI assistant building a page for this project, **follow this document exactly**. When something you need isn't covered here, stop and say so rather than inventing a new style.
 >
 > Live reference: run `pnpm dev` and open **http://localhost:5173/_kit**. It renders every token, class and component listed below.
+>
+> `AGENTS.md` is the team rulebook. If anything here disagrees with it, **`AGENTS.md` wins**.
 
 ---
 
@@ -58,7 +60,8 @@ All global CSS is already loaded by `main.js`. **Never import Bootstrap, fonts o
 - Use **`ca-` classes for anything with a look**: buttons, inputs, cards and panels.
 - In `<style scoped>`, use **only `var(--ca-…)` tokens** for colours, spacing, radii, shadows and fonts.
 - Write the **xs (phone) layout first**, then add breakpoint classes for larger screens.
-- Give every interactive element a **`data-testid`** (convention: `design-docs/09-integration-contracts.md` §9).
+- Use **`data-testid` only with the values listed** in `design-docs/09-integration-contracts.md` §9 (the Playwright contract). Don't invent new ones.
+- Pair every input with a **`<label for>`**. Mark a wrong one with the **`ca-input--invalid`** class and put the message in a **`ca-field-error`** paragraph.
 - Show **icon + text** for any status. Colour is never the only signal.
 - Every data view needs **loading, empty, and error states**. RLS returns zero rows (not an error) for data you can't see, so "empty" must be handled.
 
@@ -71,6 +74,8 @@ All global CSS is already loaded by `main.js`. **Never import Bootstrap, fonts o
 - ❌ Render your own navbar, toast, or modal backdrop.
 - ❌ Use inline styles — no `style="…"` and no `:style`. To colour something by a student's state, use the `ca-state--<state>` classes (see StatusPill below).
 - ❌ Use `!important`, or fixed pixel widths that break at 375px.
+- ❌ Add ARIA attributes — no `aria-*` (`aria-label`, `aria-hidden`, `aria-invalid`, `aria-describedby`, …) and no `role`.
+- ❌ Add attributes an element doesn't need. The only extras allowed are doc-09 `data-testid`s, `id` / `for` pairing a label with its input, and `alt` on images.
 
 ---
 
@@ -110,13 +115,13 @@ onMounted(async () => {
         <h1>My courses</h1>
       </div>
       <button class="ca-btn ca-btn--primary" data-testid="btn-new-course">
-        <i class="bi bi-plus-lg" aria-hidden="true" />New course
+        <i class="bi bi-plus-lg" />New course
       </button>
     </div>
 
     <!-- Loading -->
     <div v-if="loading" class="d-flex justify-content-center py-5">
-      <span class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading…</span></span>
+      <span class="spinner-border text-primary"><span class="visually-hidden">Loading…</span></span>
     </div>
 
     <!-- Error -->
@@ -231,10 +236,10 @@ Patterns:
 | `ca-btn--link` | Looks like a link, behaves like a button |
 | `ca-btn--sm` / `ca-btn--lg` | Size |
 | `ca-btn--block` | Full width |
-| `ca-btn--icon` | Square icon-only button. **Needs `aria-label`** |
+| `ca-btn--icon` | Square icon-only button. Put its name in a hidden span inside it: `<i class="bi bi-gear" /><span class="visually-hidden">Settings</span>` |
 
-- Icons go inside with no extra spacing class (the button has a gap): `<i class="bi bi-plus-lg" aria-hidden="true" />New`.
-- Loading: `<button class="ca-btn ca-btn--primary" :disabled="saving"><span v-if="saving" class="spinner-border spinner-border-sm" aria-hidden="true" />Save</button>`.
+- Icons go inside with no extra spacing class (the button has a gap): `<i class="bi bi-plus-lg" />New`.
+- Loading: `<button class="ca-btn ca-btn--primary" :disabled="saving"><span v-if="saving" class="spinner-border spinner-border-sm" />Save</button>`.
 - `<RouterLink class="ca-btn ca-btn--primary">` works too.
 - **How it works:** `.ca-btn` defines four settings (`--btn-bg`, `--btn-bg-hover`, `--btn-fg`, `--btn-border`) and its styles only read them; each variant just changes the settings. To make a one-off coloured button in a scoped style, set the settings rather than `background`:
   ```css
@@ -264,7 +269,7 @@ Patterns:
 - **Invalid state comes from the `ca-input--invalid` class** (red border, red focus ring), not Bootstrap's `is-invalid`.
 - Multi-column forms: `<div class="row g-3"><div class="col-12 col-sm-6 ca-field">…</div>…</div>`.
 - Toggle: Bootstrap's switch (already brand-coloured):
-  `<div class="form-check form-switch"><input id="x" class="form-check-input" type="checkbox" role="switch" v-model="on"><label class="form-check-label" for="x">Allow catch-up</label></div>`.
+  `<div class="form-check form-switch"><input id="x" class="form-check-input" type="checkbox" v-model="on"><label class="form-check-label" for="x">Allow catch-up</label></div>`.
 
 ### Panels & layout: `components.css`, `layout.css`
 
@@ -284,7 +289,7 @@ Muted text: Bootstrap's `text-body-secondary`. Small text: `small`.
 
 ### Icons
 
-Bootstrap Icons: `<i class="bi bi-check-circle-fill" aria-hidden="true" />`. Browse at https://icons.getbootstrap.com. Decorative icons get `aria-hidden="true"`; an icon-only button gets `aria-label`.
+Bootstrap Icons: `<i class="bi bi-check-circle-fill" />`. Browse at https://icons.getbootstrap.com. If a button has only an icon, put its name in a `visually-hidden` span inside it.
 
 ---
 
@@ -369,7 +374,7 @@ async function endSession() {
   Students will see "Class ended" and their work is saved.
 </ConfirmModal>
 ```
-Props: `open` (use `v-model:open`), `title` (required), `confirmLabel`, `cancelLabel`, `variant` (`'primary'` | `'danger'`), `busy` (spinner + locks buttons). Emits `confirm`, `cancel`. **It does not close itself on confirm.** Set `open` to false when your action succeeds. Escape and backdrop click cancel (unless busy). Danger variant focuses Cancel first. In tests, find it with `getByRole('dialog')` and its buttons by name.
+Props: `open` (use `v-model:open`), `title` (required), `confirmLabel`, `cancelLabel`, `variant` (`'primary'` | `'danger'`), `busy` (spinner + locks buttons). Emits `confirm`, `cancel`. **It does not close itself on confirm.** Set `open` to false when your action succeeds. Escape and backdrop click cancel (unless busy). Danger variant focuses Cancel first. In tests, find its buttons by their text, e.g. `getByRole('button', { name: 'End session' })`.
 
 ### Toasts: the toast store
 
@@ -381,11 +386,11 @@ toast.show('Ana is already on this one', 'danger', { title: 'Already claimed' })
 toast.show('Reconnecting…', 'warning', { timeout: 0 })   // 0 = stays until dismissed; returns an id
 toast.dismiss(id)
 ```
-Variants: `'info'` (default), `'success'`, `'warning'`, `'danger'`. Auto-dismiss after 4s; max 4 on screen. In tests, find them with `getByRole('status')` (or `getByRole('alert')` for danger).
+Variants: `'info'` (default), `'success'`, `'warning'`, `'danger'`. Auto-dismiss after 4s; max 4 on screen. In tests, find a toast by its text, e.g. `getByText('Checkpoint saved')`.
 
 ### `AppNavbar`: don't render it
 
-Mounted once in `App.vue`. It has a `#status` slot for live indicators (e.g. Karin's `ConnectionPill`); to add something there, ask Ying Qi to wire it in `App.vue`. Test ids (from doc 09): `nav-courses`, `nav-replays`, `nav-profile`; the rest are found by role, e.g. `getByRole('button', { name: 'Toggle navigation' })`.
+Mounted once in `App.vue`. It has a `#status` slot for live indicators (e.g. Karin's `ConnectionPill`); to add something there, ask Ying Qi to wire it in `App.vue`. Test ids (from doc 09): `nav-courses`, `nav-replays`, `nav-profile`. Find the other links and buttons by their text, e.g. `getByRole('link', { name: 'Join a class' })`.
 
 ### Shared constants
 
@@ -396,10 +401,10 @@ Never hard-code `'in_progress'` or `200` when a constant exists. This file is a 
 
 ---
 
-## 9. Accessibility checklist (part of "usable" in the rubric)
+## 9. Usability checklist (part of "usable" in the rubric)
 
 - Every input has a `<label for>`; an invalid input gets `ca-input--invalid` and its message in `ca-field-error`.
-- Icon-only buttons have `aria-label`; decorative icons have `aria-hidden="true"`.
+- An icon-only button has its name in a `visually-hidden` span. No ARIA attributes (see `AGENTS.md`).
 - Status is never colour-only: use `StatusPill` or icon + text.
 - Don't remove focus outlines. The kit already shows an indigo focus ring on keyboard focus.
 - Use real `<button>` for actions and `<RouterLink>`/`<a>` for navigation.
@@ -412,7 +417,7 @@ Never hard-code `'in_progress'` or `200` when a constant exists. This file is a 
 - [ ] No hex/rgb colours, no Bootstrap `btn`/`form-control`, no Bootstrap JS, no new global CSS
 - [ ] Loading, empty and error states exist (EmptyState for empty/forbidden)
 - [ ] Works at **375px** and **1280px** with no horizontal scroll; checked each breakpoint the page uses
-- [ ] `data-testid` on every interactive element
+- [ ] `data-testid` only where doc 09 lists one; no ARIA attributes
 - [ ] Destructive actions go through `ConfirmModal`; feedback through `toast.show`
 - [ ] Screenshots at 375px and 1280px in the PR
 
