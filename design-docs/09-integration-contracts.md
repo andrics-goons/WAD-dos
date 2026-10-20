@@ -405,7 +405,8 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |
 | Replay | `timeline-step-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
 | Reports | `report-funnel`, `report-top-errors`, `btn-send-digest` |
-| Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login` |
+| Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login`, `link-register`, `link-login` |
+| Profile | `input-profile-name`, `btn-save-name`, `input-current-password`, `input-new-password`, `btn-change-password`, `btn-logout` |
 | Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `input-user-search` |
 
 ---

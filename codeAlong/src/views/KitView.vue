@@ -204,7 +204,7 @@ function fakeConfirm() {
     <section class="kit-section">
       <h2>Forms</h2>
       <p class="text-body-secondary small">
-        <code>ca-field</code> + <code>ca-label</code> + <code>ca-input</code>; errors via <code>aria-invalid</code> and
+        <code>ca-field</code> + <code>ca-label</code> + <code>ca-input</code>; errors via <code>ca-input--invalid</code> and
         <code>ca-field-error</code>. Toggles use Bootstrap's <code>form-check form-switch</code>.
       </p>
       <form class="ca-card" novalidate @submit.prevent>
@@ -220,11 +220,9 @@ function fakeConfirm() {
               id="kit-pw"
               v-model="password"
               type="password"
-              class="ca-input"
-              aria-invalid="true"
-              aria-describedby="kit-pw-err"
+              class="ca-input ca-input--invalid"
             />
-            <p id="kit-pw-err" class="ca-field-error">Password must be at least 8 characters</p>
+            <p class="ca-field-error">Password must be at least 8 characters</p>
           </div>
           <div class="col-12 col-sm-6 ca-field">
             <label class="ca-label" for="kit-select">Week</label>

@@ -10,18 +10,15 @@ const router = useRouter()
 const toast = useToastStore()
 
 const isSubmitting = ref(false)
-const errMsg = ref('')
 
 async function logout() {
   isSubmitting.value = true
-  errMsg.value = ''
   try {
     await auth.logout()
     router.replace('/login')
     toast.show('Logged Out Successfully', 'success')
   } catch (error) {
-    console.log(error)
-    errMsg.value = error.message
+    toast.show(error.message, 'danger')
   } finally {
     isSubmitting.value = false
   }
@@ -74,49 +71,113 @@ async function savePassword() {
 <template>
   <!-- v-if: after a logout (here or in another tab) user is null for a moment before
        the page changes, and every auth.user.x below would throw -->
-  <template v-if="auth.user">
-    <h1>Profile</h1>
-    <p>User: {{ auth.user.name }}</p>
-    <p>Role: {{ RoleLabel[auth.role] ?? auth.role }}</p>
-    <!-- the update policy locks role, so explain who can change it (04: error states) -->
-    <p class="text-body-secondary">
-      Picked the wrong account type? You can't change it yourself — ask an admin.
-    </p>
+  <div v-if="auth.user" class="ca-page">
+    <div class="ca-page-header">
+      <h1>Profile</h1>
+      <button
+        class="ca-btn ca-btn--secondary"
+        :disabled="isSubmitting"
+        data-testid="btn-logout"
+        @click="logout()"
+      >
+        <i class="bi bi-box-arrow-right" aria-hidden="true" />Log out
+      </button>
+    </div>
 
-    <h2>Change name</h2>
-    <form @submit.prevent="saveName()">
-      <label for="profile-name">Name:</label>
-      <input id="profile-name" v-model="name" required minlength="2" maxlength="60" />
-      <button type="submit" :disabled="savingName || name.trim() === auth.user.name">Save</button>
-    </form>
-    <p v-if="nameError" role="alert">{{ nameError }}</p>
+    <div class="row g-3">
+      <div class="col-12 col-lg-6">
+        <div class="ca-card h-100">
+          <h2 class="h3">Account</h2>
+          <p class="mb-1">
+            Role: <strong>{{ RoleLabel[auth.role] ?? auth.role }}</strong>
+          </p>
+          <!-- the update policy locks role, so explain who can change it (04: error states) -->
+          <p class="text-body-secondary small mb-4">
+            Picked the wrong account type? You can't change it yourself — ask an admin.
+          </p>
 
-    <h2>Change password</h2>
-    <form @submit.prevent="savePassword()">
-      <label for="current-password">Current password:</label>
-      <input
-        id="current-password"
-        v-model="currentPassword"
-        type="password"
-        autocomplete="current-password"
-        required
-      />
-      <br />
-      <label for="new-password">New password:</label>
-      <input
-        id="new-password"
-        v-model="newPassword"
-        type="password"
-        autocomplete="new-password"
-        required
-        minlength="6"
-      />
-      <br />
-      <button type="submit" :disabled="savingPassword">Change password</button>
-    </form>
-    <p v-if="passwordError" role="alert">{{ passwordError }}</p>
+          <form class="d-flex flex-column gap-3" @submit.prevent="saveName()">
+            <div class="ca-field">
+              <label class="ca-label" for="profile-name">Name</label>
+              <input
+                id="profile-name"
+                v-model="name"
+                class="ca-input"
+                required
+                :class="{ 'ca-input--invalid': nameError }"
+                data-testid="input-profile-name"
+              />
+              <p v-if="nameError" class="ca-field-error mb-0">{{ nameError }}</p>
+            </div>
+            <div>
+              <button
+                type="submit"
+                class="ca-btn ca-btn--primary"
+                :disabled="savingName || name.trim() === auth.user.name"
+                data-testid="btn-save-name"
+              >
+                <span
+                  v-if="savingName"
+                  class="spinner-border spinner-border-sm"
+                  aria-hidden="true"
+                />
+                Save name
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
 
-    <button :disabled="isSubmitting" @click="logout()">Logout</button>
-    <p v-if="errMsg">{{ errMsg }}</p>
-  </template>
+      <div class="col-12 col-lg-6">
+        <div class="ca-card h-100">
+          <h2 class="h3">Password</h2>
+          <form class="d-flex flex-column gap-3" @submit.prevent="savePassword()">
+            <div class="ca-field">
+              <label class="ca-label" for="current-password">Current password</label>
+              <input
+                id="current-password"
+                v-model="currentPassword"
+                type="password"
+                class="ca-input"
+                required
+                :class="{ 'ca-input--invalid': passwordError }"
+                data-testid="input-current-password"
+              />
+            </div>
+            <div class="ca-field">
+              <label class="ca-label" for="new-password">New password</label>
+              <input
+                id="new-password"
+                v-model="newPassword"
+                type="password"
+                class="ca-input"
+                required
+                :class="{ 'ca-input--invalid': passwordError }"
+                data-testid="input-new-password"
+              />
+              <p v-if="passwordError" class="ca-field-error mb-0">
+                {{ passwordError }}
+              </p>
+              <p v-else class="ca-field-hint mb-0">At least 6 characters</p>
+            </div>
+            <div>
+              <button
+                type="submit"
+                class="ca-btn ca-btn--primary"
+                :disabled="savingPassword"
+                data-testid="btn-change-password"
+              >
+                <span
+                  v-if="savingPassword"
+                  class="spinner-border spinner-border-sm"
+                  aria-hidden="true"
+                />
+                Change password
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>

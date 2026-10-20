@@ -162,11 +162,11 @@
 /* ── Form fields ──────────────────────────────────────────────────────────────
    <div class="ca-field">
      <label class="ca-label" for="email">Email</label>
-     <input id="email" class="ca-input" :aria-invalid="!!errors.email" aria-describedby="email-err" />
-     <p v-if="errors.email" id="email-err" class="ca-field-error">{{ errors.email }}</p>
+     <input id="email" class="ca-input" :class="{ 'ca-input--invalid': errors.email }" />
+     <p v-if="errors.email" class="ca-field-error">{{ errors.email }}</p>
    </div>
    .ca-input works on <input>, <select> and <textarea>.
-   Invalid state comes from aria-invalid="true" (also good for screen readers). */
+   Invalid state comes from the ca-input--invalid class. */
 .ca-field {
   display: flex;
   flex-direction: column;
@@ -204,10 +204,10 @@
   background: var(--ca-surface-muted);
   cursor: not-allowed;
 }
-.ca-input[aria-invalid='true'] {
+.ca-input--invalid {
   border-color: var(--ca-danger);
 }
-.ca-input[aria-invalid='true']:focus {
+.ca-input--invalid:focus {
   box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25);
 }
 textarea.ca-input {
