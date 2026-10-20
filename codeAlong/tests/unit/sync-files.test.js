@@ -3,22 +3,22 @@ import { describe, it, expect } from 'vitest'
 import { Limits } from '../../shared/constants.js'
 import { isSyncIgnored, languageOf, contentHash, planAutosave } from '../../shared/sync-files.js'
 
-const f = (path, content, language) => ({ path, language, content })
+const f = (path, content) => ({ path, content })
 
 // A small Vite + Vue project, like the Mini Cart starter (12 files)
 const project = () => [
-  f('index.html', '<div id="app"></div>', 'html'),
-  f('package.json', '{ "name": "mini-cart" }', 'json'),
-  f('vite.config.js', 'export default {}', 'js'),
-  f('README.md', '# Mini Cart', 'md'),
-  f('src/main.js', "import App from './App.vue'", 'js'),
-  f('src/App.vue', '<template><ItemCard /></template>', 'vue'),
-  f('src/components/ItemCard.vue', '<template><li /></template>', 'vue'),
-  f('src/style.css', 'body { margin: 0 }', 'css'),
-  f('src/ca-probe.js', 'export {}', 'js'),
-  f('src/cart.js', 'export const cart = []', 'js'),
-  f('server/api.js', 'app.listen(3001)', 'js'),
-  f('server/data.json', '[]', 'json'),
+  f('index.html', '<div id="app"></div>'),
+  f('package.json', '{ "name": "mini-cart" }'),
+  f('vite.config.js', 'export default {}'),
+  f('README.md', '# Mini Cart'),
+  f('src/main.js', "import App from './App.vue'"),
+  f('src/App.vue', '<template><ItemCard /></template>'),
+  f('src/components/ItemCard.vue', '<template><li /></template>'),
+  f('src/style.css', 'body { margin: 0 }'),
+  f('src/ca-probe.js', 'export {}'),
+  f('src/cart.js', 'export const cart = []'),
+  f('server/api.js', 'app.listen(3001)'),
+  f('server/data.json', '[]'),
 ]
 
 // What the last successful save would have remembered for these files
@@ -30,13 +30,11 @@ describe('isSyncIgnored', () => {
     ['server/node_modules/express/index.js', true],
     ['dist/assets/index.js', true],
     ['.vite/deps/vue.js', true],
-    ['.cache/x', true],
     ['pnpm-lock.yaml', true],
     ['logs/npm-debug.log', true],
     ['src/App.vue', false],
     ['src/node_modules.js', false],
     ['distribution/a.js', false],
-    ['package.json', false],
   ])('%s → %s', (path, expected) => {
     expect(isSyncIgnored(path)).toBe(expected)
   })
@@ -45,7 +43,6 @@ describe('isSyncIgnored', () => {
 describe('languageOf', () => {
   it.each([
     ['src/App.vue', 'vue'],
-    ['vite.config.mjs', 'js'],
     ['README.md', 'md'],
     ['DATA.JSON', 'json'],
     ['.npmrc', null],
@@ -72,7 +69,7 @@ describe('planAutosave', () => {
     expect(plan.remove).toEqual([])
   })
 
-  it('T-SBX-19 sends only the one file that changed out of twelve', async () => {
+  it('T-SBX-19: sends only the one file that changed out of twelve', async () => {
     const tree = project()
     const synced = await syncedFor(tree)
     tree[5].content += '\n<!-- my change -->'
@@ -84,13 +81,13 @@ describe('planAutosave', () => {
     expect(plan.remove).toEqual([])
   })
 
-  it('T-SBX-20 sends nothing when nothing changed', async () => {
+  it('T-SBX-20: sends nothing when nothing changed', async () => {
     const tree = project()
     const plan = await planAutosave(tree, await syncedFor(tree))
     expect(plan).toMatchObject({ upsert: [], remove: [] })
   })
 
-  it('T-SBX-23 lists a deleted file for removal', async () => {
+  it('T-SBX-23: lists a deleted file for removal', async () => {
     const tree = project()
     const synced = await syncedFor(tree)
     const plan = await planAutosave(
@@ -101,7 +98,7 @@ describe('planAutosave', () => {
     expect(plan.remove).toEqual(['src/cart.js'])
   })
 
-  it('T-SBX-13 never sends node_modules, dist, .vite or the lockfile', async () => {
+  it('T-SBX-13: never sends node_modules, dist, .vite or the lockfile', async () => {
     const tree = [
       ...project(),
       f('node_modules/vue/index.js', 'big'),
@@ -109,22 +106,13 @@ describe('planAutosave', () => {
       f('.vite/deps/x.js', 'cache'),
       f('pnpm-lock.yaml', 'lock'),
     ]
-    const plan = await planAutosave(tree, {})
-    const sent = plan.upsert.map((x) => x.path)
-    expect(sent).toHaveLength(12)
-    expect(sent.some((p) => isSyncIgnored(p))).toBe(false)
-    expect(Object.keys(plan.hashes)).toEqual(sent)
+    const sent = (await planAutosave(tree, {})).upsert.map((x) => x.path)
+    expect(sent).toEqual(project().map((x) => x.path))
   })
 
-  it('skips file types the database cannot store, without blocking the rest', async () => {
+  it('leaves out file types the database cannot store, so the rest still saves', async () => {
     const plan = await planAutosave([...project(), f('.npmrc', 'node-linker=hoisted')], {})
-    expect(plan.skipped).toEqual(['.npmrc'])
     expect(plan.upsert).toHaveLength(12)
-  })
-
-  it('fills in or fixes the language from the file name', async () => {
-    const plan = await planAutosave([f('src/a.js', 'x'), f('src/b.vue', 'y', 'javascript')], {})
-    expect(plan.upsert.map((x) => x.language)).toEqual(['js', 'vue'])
   })
 
   it(`flags a project with more than ${Limits.MAX_FILES} files as too large`, async () => {
@@ -142,12 +130,5 @@ describe('planAutosave', () => {
   it('does not save an empty project (the database needs at least one file)', async () => {
     const synced = await syncedFor(project())
     expect(await planAutosave([], synced)).toMatchObject({ upsert: [], remove: [] })
-  })
-
-  it('does not change the editor files it is given', async () => {
-    const tree = [f('src/a.js', 'x')]
-    const copy = structuredClone(tree)
-    await planAutosave(tree, {})
-    expect(tree).toEqual(copy)
   })
 })

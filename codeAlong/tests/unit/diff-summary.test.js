@@ -23,7 +23,7 @@ describe('diffSummary', () => {
       [f('src/App.vue', text(checkpoint), 'vue')],
     ).files
 
-    it('T-CATCH-04 points the first difference at the typo line', () => {
+    it('T-CATCH-04: points the first difference at the typo line', () => {
       expect(file.path).toBe('src/App.vue')
       expect(file.status).toBe('modified')
       expect(file.firstDiffLine).toBe(22)
@@ -67,7 +67,7 @@ describe('diffSummary', () => {
   })
 
   // Formatting differences shouldn't show up as "things you missed"
-  describe('T-CATCH-05 whitespace-only changes are ignored', () => {
+  describe('T-CATCH-05: whitespace-only changes are ignored', () => {
     it('ignores indentation and trailing spaces', () => {
       const before = '<template>\n  <div>{{ total }}</div>\n</template>\n'
       const after = '<template>\n    <div>{{ total }}</div>   \n</template>\n'

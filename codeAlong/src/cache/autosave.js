@@ -4,7 +4,7 @@
 // IndexedDB so a page refresh doesn't re-upload everything.
 //
 //   const saver = createAutosave({ sessionId, userId, onStatus })
-//   saver.autosave(files)   // call on every edit, with the editor's [{ path, language, content }]
+//   saver.autosave(files)   // on every edit, with the editor's [{ path, content }]
 //   await saver.stop()      // when leaving the workspace: saves anything still pending
 
 import { Limits } from '@shared/constants.js'
@@ -16,27 +16,13 @@ import { idbGet, idbSet } from './idb.js'
 const RETRY_BASE_MS = 2_000
 const RETRY_MAX_MS = 30_000
 
-const idbStore = { get: idbGet, set: idbSet }
-
-// onStatus({ state, skipped, error }) — state is one of:
-//   'pending'   edits waiting for the debounce      'saving'    request in flight
-//   'saved'     everything is up to date            'retrying'  last save failed, will retry
-//   'too_large' over MAX_FILES / MAX_SNAPSHOT_BYTES, nothing sent until files are removed
-//   'error'     something unexpected broke (a bug rather than the network)
-// save / store / debounceMs / flushOnHide can be swapped out in tests.
-export function createAutosave({
-  sessionId,
-  userId,
-  onStatus = () => {},
-  save = autosavePatch,
-  store = idbStore,
-  debounceMs = Limits.AUTOSAVE_DEBOUNCE_MS,
-  flushOnHide = Limits.AUTOSAVE_FLUSH_ON_HIDE,
-}) {
+// onStatus(state): 'pending' (waiting to save), 'saving', 'saved', 'retrying' (last save
+// failed), 'too_large' (over MAX_FILES / MAX_SNAPSHOT_BYTES, so nothing is sent) or 'error'
+export function createAutosave({ sessionId, userId, onStatus = () => {} }) {
   // Keyed by user too: lab PCs are shared, and someone else's hashes would make us skip files
   const key = `synced:${userId}:${sessionId}`
   let latest = null // newest file list from the editor
-  let synced = null // { path: hash } of the last good save, loaded from IndexedDB on first use
+  let synced = null // { path: hash } of the last good save
   let timer = null
   let retries = 0
   let stopped = false
@@ -44,36 +30,31 @@ export function createAutosave({
 
   async function saveNow() {
     if (!latest) return
-    synced ??= (await store.get(key)) ?? {}
+    synced ??= (await idbGet(key)) ?? {}
     const plan = await planAutosave(latest, synced)
-    const { skipped } = plan
-
-    if (plan.tooLarge) return onStatus({ state: 'too_large', skipped })
+    if (plan.tooLarge) return onStatus('too_large')
     // Nothing changed since the last save: no request at all
-    if (!plan.upsert.length && !plan.remove.length) return onStatus({ state: 'saved', skipped })
+    if (!plan.upsert.length && !plan.remove.length) return onStatus('saved')
 
-    onStatus({ state: 'saving', skipped })
+    onStatus('saving')
     try {
-      await save(sessionId, plan.upsert, plan.remove)
-    } catch (error) {
+      await autosavePatch(sessionId, plan.upsert, plan.remove)
+    } catch {
       // Keep the old hashes, so the retry sends the same changes again
       retries += 1
       schedule(Math.min(RETRY_BASE_MS * 2 ** (retries - 1), RETRY_MAX_MS))
-      return onStatus({ state: 'retrying', skipped, error })
+      return onStatus('retrying')
     }
-
-    // Only now that the server has the files do we remember them as synced
     retries = 0
     synced = plan.hashes
-    await store.set(key, synced)
-    onStatus({ state: 'saved', skipped })
+    await idbSet(key, synced)
+    onStatus('saved')
   }
 
-  // Save now (cancelling any waiting timer); resolves when that save has finished
+  // Save now, cancelling the countdown; resolves when that save has finished
   function flush() {
     clearTimeout(timer)
-    timer = null
-    queue = queue.then(saveNow).catch((error) => onStatus({ state: 'error', error }))
+    queue = queue.then(saveNow).catch(() => onStatus('error'))
     return queue
   }
 
@@ -83,36 +64,29 @@ export function createAutosave({
     timer = setTimeout(flush, ms)
   }
 
-  // Called on every edit: remember the files and restart the 5 s countdown
+  // On every edit: remember the files and restart the 5 s countdown
   function autosave(tree) {
     if (stopped) return
     latest = tree
-    onStatus({ state: 'pending' })
-    schedule(debounceMs)
+    onStatus('pending')
+    schedule(Limits.AUTOSAVE_DEBOUNCE_MS)
   }
 
-  // Save immediately when the student switches tab, minimises or closes the page
-  const onVisibility = () => document.visibilityState === 'hidden' && flush()
-  const listen = flushOnHide && typeof window !== 'undefined'
-  if (listen) {
-    document.addEventListener('visibilitychange', onVisibility)
-    window.addEventListener('pagehide', flush)
-    window.addEventListener('blur', flush)
-  }
+  // Save straight away when the student switches tab, leaves the window or closes the page
+  const onHide = () => document.visibilityState === 'hidden' && flush()
+  document.addEventListener('visibilitychange', onHide)
+  window.addEventListener('blur', flush)
+  window.addEventListener('pagehide', flush)
 
-  // Stop listening and save whatever is still pending
   async function stop() {
     stopped = true
-    if (listen) {
-      document.removeEventListener('visibilitychange', onVisibility)
-      window.removeEventListener('pagehide', flush)
-      window.removeEventListener('blur', flush)
-    }
+    document.removeEventListener('visibilitychange', onHide)
+    window.removeEventListener('blur', flush)
+    window.removeEventListener('pagehide', flush)
     await flush()
-    clearTimeout(timer)
   }
 
-  // Wait for any save already running, without starting a new one
+  // Wait for a save that's already running, without starting another
   const idle = () => queue
 
   return { autosave, flush, stop, idle }
