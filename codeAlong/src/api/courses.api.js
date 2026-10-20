@@ -78,16 +78,10 @@ export async function enrolWithCode(code) {
 
 /** Owner only. Send just the fields that changed: code, title, term, section. */
 export async function updateCourse(id, changes) {
-  const allowed = {}
-  for (const key of ['code', 'title', 'term', 'section']) {
-    if (changes[key] !== undefined) allowed[key] = changes[key].trim()
-  }
-  if (allowed.code) allowed.code = allowed.code.toUpperCase()
-
   // RLS hides the row from a non-owner, so .single() finds nothing → NOT_FOUND
   const { data, error } = await supabase
     .from('courses')
-    .update(allowed)
+    .update(changes)
     .eq('id', id)
     .select(COURSE)
     .single()

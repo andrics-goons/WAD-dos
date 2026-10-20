@@ -1,9 +1,14 @@
-// Shared enums and limits — imported by the Vue app (Vite) and the Edge Functions (Deno).
-// Nothing in shared/ may touch the DOM, window, Deno or the network.
-// This file is a team contract: copied from design-docs/09-integration-contracts.md §1.
-// Ping the team channel before changing it.
+// Fixed values the whole team uses (roles, states, limits…), so nobody types them by hand.
+// Copied from design doc 09 — tell the team before changing anything here.
 
 export const Role = Object.freeze({ PROF: 'prof', TA: 'ta', STUDENT: 'student', ADMIN: 'admin' })
+// How each role is named in the UI
+export const RoleLabel = Object.freeze({
+  prof: 'Educator',
+  ta: 'TA',
+  student: 'Student',
+  admin: 'Admin',
+})
 // The only two roles a user may pick at sign-up ("Educator" in the UI = prof)
 export const SignupRole = Object.freeze({ STUDENT: 'student', EDUCATOR: 'prof' })
 export const CourseRole = Object.freeze({ PROF: 'prof', TA: 'ta' })
@@ -18,7 +23,7 @@ export const TileState = Object.freeze({
   BEHIND: 'behind',
   IDLE: 'idle',
 })
-// Grid sort order: most actionable first
+// order for the dashboard: students who need help first
 export const TileStateOrder = [
   TileState.ERROR,
   TileState.BEHIND,
@@ -48,7 +53,7 @@ export const NoteKind = Object.freeze({ NOTE: 'note', BOOKMARK: 'bookmark' })
 export const Limits = Object.freeze({
   MAX_FILES: 40, // a bare Vite scaffold is already ~10 files
   MAX_SNAPSHOT_BYTES: 200_000, // this is what protects the 5 GB egress budget
-  // Never synced to Postgres: dependency and build output live only in WebContainer
+  // files that never get saved to the database (installed packages, build output)
   SYNC_IGNORE: ['node_modules/**', 'dist/**', '.vite/**', '.cache/**', 'pnpm-lock.yaml', '*.log'],
   BOOT_TIMEOUT_MS: 30_000, // no server-ready → "your project didn't start"
   INSTALL_TIMEOUT_MS: 120_000, // still streaming, but show a "still installing" state
@@ -69,7 +74,7 @@ export const Limits = Object.freeze({
   ANNOUNCE_MAX_CHARS: 200,
 })
 
-// Realtime broadcast event names (channel `session:<id>`)
+// names of the live messages sent to everyone in a class
 export const RtEvent = Object.freeze({
   CHECKPOINT_NEW: 'checkpoint:new',
   SESSION_SETTINGS: 'session:settings',
@@ -79,7 +84,7 @@ export const RtEvent = Object.freeze({
   ANNOUNCE: 'session:announce', // text null = cleared
 })
 
-// Edge Function names (supabase.functions.invoke)
+// names of the server functions
 export const Fn = Object.freeze({
   GITHUB_IMPORT: 'github-import',
   GITHUB_EXPORT: 'github-export',
