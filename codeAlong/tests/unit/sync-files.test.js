@@ -1,7 +1,13 @@
 // Unit tests for shared/sync-files.js — what autosave decides to upload
 import { describe, it, expect } from 'vitest'
 import { Limits } from '../../shared/constants.js'
-import { isSyncIgnored, languageOf, contentHash, planAutosave } from '../../shared/sync-files.js'
+import {
+  isSyncIgnored,
+  isStorablePath,
+  languageOf,
+  contentHash,
+  planAutosave,
+} from '../../shared/sync-files.js'
 
 const f = (path, content) => ({ path, content })
 
@@ -38,6 +44,20 @@ describe('isSyncIgnored', () => {
   ])('%s → %s', (path, expected) => {
     expect(isSyncIgnored(path)).toBe(expected)
   })
+})
+
+describe('isStorablePath', () => {
+  it.each(['src/App.vue', 'server/data.json', 'src/my-cart_v2.js', '.env.example.md'])(
+    'accepts %s',
+    (path) => expect(isStorablePath(path)).toBe(true),
+  )
+  it.each([
+    'src/my notes.js',
+    'src/über.js',
+    '../secret.js',
+    '/etc/passwd.js',
+    `src/${'a'.repeat(120)}.js`,
+  ])('rejects %s', (path) => expect(isStorablePath(path)).toBe(false))
 })
 
 describe('languageOf', () => {
@@ -108,6 +128,11 @@ describe('planAutosave', () => {
     ]
     const sent = (await planAutosave(tree, {})).upsert.map((x) => x.path)
     expect(sent).toEqual(project().map((x) => x.path))
+  })
+
+  it('leaves out a file name the database would refuse, so the rest still saves', async () => {
+    const plan = await planAutosave([f('src/main.js', 'ok'), f('src/my notes.js', 'x')], {})
+    expect(plan.upsert.map((x) => x.path)).toEqual(['src/main.js'])
   })
 
   it('leaves out file types the database cannot store, so the rest still saves', async () => {

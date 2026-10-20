@@ -15,9 +15,20 @@ import { idbGet, idbSet } from './idb.js'
 // After a failed save, retry after 2 s, 4 s, 8 s … up to 30 s
 const RETRY_BASE_MS = 2_000
 const RETRY_MAX_MS = 30_000
+// Errors that will fail the same way every time, so retrying only sends useless requests.
+// Anything else (offline, server hiccup, rate limit) is retried.
+const NO_RETRY = [
+  'CONFLICT',
+  'FORBIDDEN',
+  'UNAUTHENTICATED',
+  'NOT_FOUND',
+  'BAD_REQUEST',
+  'VALIDATION_FAILED',
+]
 
 // onStatus(state): 'pending' (waiting to save), 'saving', 'saved', 'retrying' (last save
-// failed), 'too_large' (over MAX_FILES / MAX_SNAPSHOT_BYTES, so nothing is sent) or 'error'
+// failed), 'too_large' (over MAX_FILES / MAX_SNAPSHOT_BYTES, so nothing is sent), 'ended'
+// (the class has ended, so saving has stopped) or 'error' (refused; tried again on the next edit)
 export function createAutosave({ sessionId, userId, onStatus = () => {} }) {
   // Keyed by user too: lab PCs are shared, and someone else's hashes would make us skip files
   const key = `synced:${userId}:${sessionId}`
@@ -39,7 +50,12 @@ export function createAutosave({ sessionId, userId, onStatus = () => {} }) {
     onStatus('saving')
     try {
       await autosavePatch(sessionId, plan.upsert, plan.remove)
-    } catch {
+    } catch (error) {
+      if (error.code === 'CONFLICT') {
+        stopped = true // the class has ended: nothing more will save
+        return onStatus('ended')
+      }
+      if (NO_RETRY.includes(error.code)) return onStatus('error')
       // Keep the old hashes, so the retry sends the same changes again
       retries += 1
       schedule(Math.min(RETRY_BASE_MS * 2 ** (retries - 1), RETRY_MAX_MS))

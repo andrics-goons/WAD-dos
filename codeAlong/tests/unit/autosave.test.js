@@ -111,6 +111,35 @@ describe('autosave', () => {
     expect(autosavePatch).toHaveBeenCalledTimes(3)
   })
 
+  it('stops saving once the class has ended, instead of retrying', async () => {
+    const { saver, statuses } = setup()
+    autosavePatch.mockRejectedValue(Object.assign(new Error('ended'), { code: 'CONFLICT' }))
+    saver.autosave(project())
+    await saver.flush()
+    expect(statuses.at(-1)).toBe('ended')
+
+    await vi.advanceTimersByTimeAsync(60_000)
+    saver.autosave(project()) // more typing after the class ended
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(autosavePatch).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not retry a save the server refused (e.g. FORBIDDEN), but tries again on the next edit', async () => {
+    const { saver, statuses } = setup()
+    autosavePatch.mockRejectedValueOnce(Object.assign(new Error('no'), { code: 'FORBIDDEN' }))
+    saver.autosave(project())
+    await saver.flush()
+    expect(statuses.at(-1)).toBe('error')
+
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(autosavePatch).toHaveBeenCalledTimes(1) // no automatic retry
+
+    saver.autosave([...project(), f('src/d.js', 'd')])
+    await vi.advanceTimersByTimeAsync(5_000)
+    await saver.idle()
+    expect(autosavePatch).toHaveBeenCalledTimes(2)
+  })
+
   it('does not send a project that is too large, and does not keep retrying it', async () => {
     const { saver, statuses } = setup()
     saver.autosave(Array.from({ length: 41 }, (_, i) => f(`src/f${i}.js`, 'x')))
