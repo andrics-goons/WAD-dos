@@ -65,7 +65,8 @@ describe('DiffView', () => {
     const before = [f('a.js', 'if (x) {\n  go()\n}\n')]
     const after = [f('a.js', 'if (x) {\n      go()\n}\n\n')]
     const w = mountDiff({ before, after })
-    expect(byTestId(w, 'empty-state').text()).toContain('No differences')
+    // Found by its text: EmptyState has no test id (AGENTS.md allows only the ones in doc 09)
+    expect(w.find('h2').text()).toBe('No differences')
     expect(w.findAll('[data-testid="diff-row"]')).toHaveLength(0)
   })
 
