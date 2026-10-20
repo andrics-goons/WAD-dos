@@ -48,7 +48,7 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 | `/sessions/:id/report` | `ReportView` | Evan (page) · Andric (report data) | Staff | Cards stacked; funnel chart scrolls horizontally → 2-col grid: funnel, top errors, recurring steps, digest panel |
 | `/profile` | `ProfileView` | Ying Qi (profile) + Karin (Telegram link card) | Logged in | Single column |
 | `*` | `NotFoundView` | Ying Qi | Public | Friendly 404 with links back |
-| `/admin/users` | `AdminUsersView` | Andric | Admin | Searchable user list → name, email, role dropdown, joined. Changing a role asks for confirmation. xs: one card per user; lg: table. The admin's own role is locked |
+| `/admin/users` | `AdminUsersView` | Andric | Admin | Searchable user list → name, email, role dropdown, joined. Changing a role asks for confirmation. One Bootstrap list: each user stacks on xs and is a single row from lg. The admin's own role is locked |
 
 ### Route guards
 
@@ -122,14 +122,16 @@ All of it goes through `src/api/*.api.js`; components never touch `supabase` dir
 
 ### Auth & profile — `auth.api.js` (Andric), Telegram bits (Karin)
 
+Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoaded`, `updateName(name)`, `changePassword({ currentPassword, newPassword })`. The store subscribes to `onAuthChange` on its first `ensureLoaded()`: **a logout in another tab clears this tab and sends it from any `auth` page to `/login?returnTo=…`**.
+
 | Kind | Call | What happens | Who |
 |---|---|---|---|
 | Auth | `auth.signUp({ email, password, options: { data: { name, role } } })` | Trigger creates the `profiles` row as `prof` if the user chose **Educator**, otherwise `student` — via an allow-list, since `role` comes from the browser | Any |
 | Auth | `auth.signInWithPassword(…)` | Session stored by `supabase-js`; platform rate-limits | Any |
 | Auth | `auth.signOut()` | Clears the local session | Any |
 | Query | `auth.getUser()` + `from('profiles').select().eq('id', uid).single()` | Current user on app load | Any |
-| Query | `from('profiles').update({ name })` | Own row only (policy forbids changing `role`) | Any |
-| Auth | `auth.updateUser({ password })` | Requires a fresh session | Any |
+| Query | `from('profiles').update({ name })` — `updateProfile({ name })` | Own row only (policy forbids changing `role`); 2–60 characters | Any |
+| Auth | `signInWithPassword` with the current password, then `auth.updateUser({ password })` — `changePassword({ currentPassword, newPassword })` | The current password is checked first ("Your current password is wrong"); the new one must be ≥ 6 characters and different | Any |
 | RPC | `issue_telegram_link_code()` | Writes a one-time code + expiry, returns `https://t.me/<bot>?start=<code>` | Any (Karin) |
 | Query | `from('profiles').update({ telegram_chat_id: null })` | Unlink | Any (Karin) |
 
@@ -218,7 +220,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 |---|---|---|---|
 | Query | `from('sessions').select().eq('status','ended')` | Ended sessions in my courses (RLS); attendance from my `student_status` row | Any |
 | Query | `from('checkpoints').select('*, steps(title, order)').order('seq')` | Replay source; per-checkpoint diff stats computed client-side with `diffSummary` | Member |
-| Query | `from('notes').select/insert/update/delete` | Own notes only; insert/update also need membership of the session. `user_id` defaults to the login, so don't send it | Author |
+| Query | `from('notes').select/insert/update/delete` | Own notes only. `user_id` defaults to the login, so don't send it | Author |
 | RPC | `search(p_q, p_course_id)` | Full-text over step titles, checkpoint notes and my own notes, ranked; input is parameterised so regex characters are literal | Any |
 | Auth | `auth.linkIdentity({ provider: 'github', scopes: 'public_repo' })` | Replaces the hand-rolled OAuth dance; Supabase holds the `provider_token` on the session | Any |
 | Function | `github-export` → `{ sessionId, repoName, private }` | Creates the repo and one commit per checkpoint via the Git Data API | Member with a fresh GitHub identity |
@@ -277,7 +279,7 @@ join_session  rpc('join_session', { p_join_code })
 save_checkpoint  rpc('save_checkpoint', …)
   1. session live (CONFLICT) + is_course_prof (FORBIDDEN)
   2. p_step_id must belong to session.lesson_id (BAD_REQUEST)
-  3. seq = coalesce(max(seq),0)+1; insert (retry once on the unique index)
+  3. lock the session row (select … for update), then seq = coalesce(max(seq),0)+1; insert
   4. update sessions set current_step_id = p_step_id
      → every row of session_tiles re-derives; students 2+ steps back become `behind`
        with no extra writes
@@ -337,9 +339,9 @@ Sent only from RPCs and Edge Functions via `realtime.send()`. Clients subscribe;
 
 | Event | Payload | Owner |
 |---|---|---|
-| `checkpoint:new` | `{ sessionId, seq, stepId, stepOrder, title, createdAt }` (files fetched on demand) | Ying Qi |
+| `checkpoint:new` | `{ sessionId, checkpointId, seq, stepId, stepOrder, title, filesHash, createdAt }` (files fetched on demand by `checkpointId`; `filesHash` lets the cache skip the download) | Ying Qi |
 | `session:settings` | `{ sessionId, allowCatchUp, hintsEnabled }` | Ying Qi |
-| `session:ended` | `{ sessionId, replayUrl }` | Ying Qi |
+| `session:ended` | `{ sessionId, replayUrl }` — `replayUrl` is a path (`/replays/<id>`); the browser adds its own origin | Ying Qi |
 | `spotlight:show` | `{ sessionId, errorPreview, excerpt: { path, startLine, code }, fix: { path, startLine, code } }` | Evan |
 | `spotlight:hide` | `{ sessionId }` | Evan |
 | `session:announce` | `{ sessionId, text, at }` — `text: null` clears | Karin |

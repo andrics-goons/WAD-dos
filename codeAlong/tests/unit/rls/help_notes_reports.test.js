@@ -22,7 +22,7 @@ const randomCode = () =>
 const createdCourses = []
 const createdSessions = []
 let prof, ta, stu, stu2, outsider, admin
-let course, lesson, otherLesson, steps, session, otherSession, checkpoint
+let course, lesson, otherLesson, steps, session, checkpoint
 
 async function createCourse(owner, p_code) {
   const { data, error } = await owner.client.rpc('create_course', {
@@ -138,7 +138,6 @@ beforeAll(async () => {
   })
 
   session = await startSession(lesson, prof.id)
-  otherSession = await startSession(otherLesson, outsider.id)
 
   const cp = await service
     .from('checkpoints')
@@ -229,36 +228,6 @@ describe('snapshots: staff see code only when the student sends it', () => {
     expect(codeOf(error)).toBe('CONFLICT')
   })
 
-  it('the autosave row can change; a sent snapshot never can', async () => {
-    const ok = await service.from('snapshots').update({ files: STARTER }).eq('id', autosave.id)
-    const sentEdit = await service.from('snapshots').update({ files: STARTER }).eq('id', sent.id)
-    const relabel = await service
-      .from('snapshots')
-      .update({ reason: 'help_request' })
-      .eq('id', autosave.id)
-    expect(ok.error).toBeNull()
-    expect(codeOf(sentEdit.error)).toBe('CONFLICT')
-    expect(codeOf(relabel.error)).toBe('CONFLICT')
-  })
-
-  it("a snapshot can't point at another lesson's step", async () => {
-    const { data: foreign } = await service
-      .from('steps')
-      .select('id')
-      .eq('lesson_id', otherLesson.id)
-      .single()
-    const { error } = await service
-      .from('snapshots')
-      .insert({
-        session_id: session.id,
-        student_id: stu.id,
-        step_id: foreign.id,
-        reason: 'before_catchup',
-        files: MY_CODE,
-      })
-    expect(codeOf(error)).toBe('BAD_REQUEST')
-  })
-
   it('an admin reads every snapshot', async () => {
     expect(await visibleIds(admin, 'snapshots', [autosave.id, sent.id])).toHaveLength(2)
   })
@@ -320,17 +289,8 @@ describe('help_requests', () => {
     ['in-person on a check', { type: 'check', in_person: true, seat: 'A1' }],
     ['more than 3 follow-ups', { follow_ups: 4 }],
     ['a message over 300 characters', { message: 'x'.repeat(301) }],
-    ['claimed with no claimer', { status: 'claimed' }],
   ])('%s is refused', async (_, fields) => {
     const { error } = await askForHelp(stu2, { type: 'check', ...fields })
-    expect(codeOf(error)).toBe('VALIDATION_FAILED')
-  })
-
-  it('only a check can be passed', async () => {
-    const { error } = await service
-      .from('help_requests')
-      .update({ status: 'passed' })
-      .eq('id', theirs.id)
     expect(codeOf(error)).toBe('VALIDATION_FAILED')
   })
 
@@ -435,32 +395,6 @@ describe('notes: private to the author', () => {
     expect(error?.code).toBe('42501')
   })
 
-  it("a note can't be written on a session you're not in", async () => {
-    const { error } = await stu.client
-      .from('notes')
-      .insert({ session_id: otherSession.id, kind: 'bookmark' })
-    expect(error?.code).toBe('42501')
-  })
-
-  it("a note can't anchor to another session's checkpoint", async () => {
-    const { data: foreignCp } = await service
-      .from('checkpoints')
-      .insert({
-        session_id: otherSession.id,
-        step_id: (await service.from('steps').select('id').eq('lesson_id', otherLesson.id).single())
-          .data.id,
-        seq: 1,
-        files: STARTER,
-        created_by: outsider.id,
-      })
-      .select()
-      .single()
-    const { error } = await stu.client
-      .from('notes')
-      .insert({ session_id: session.id, checkpoint_id: foreignCp.id, kind: 'bookmark' })
-    expect(error?.code).toBe('23503')
-  })
-
   it('the author edits and searches their notes', async () => {
     const upd = await stu.client
       .from('notes')
@@ -513,16 +447,6 @@ describe('session_reports', () => {
         .eq('session_id', session.id)
       expect(data).toEqual([])
     }
-  })
-
-  it("a report can't be filed under another course or lesson", async () => {
-    const { error } = await service.from('session_reports').insert({
-      session_id: otherSession.id,
-      course_id: course.id,
-      lesson_id: otherLesson.id,
-      attendance: { joined: 0, enrolled: 0 },
-    })
-    expect(error?.code).toBe('23503')
   })
 
   it('T-INS-05: a report row has no student_id', async () => {

@@ -6,13 +6,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
-// Cross-origin isolation. The student workspace runs projects in a StackBlitz
-// WebContainer, which needs SharedArrayBuffer, which the browser only allows on a
-// cross-origin-isolated page. Without these two headers the workspace can't boot.
-// - credentialless (not require-corp): require-corp would also demand a CORP header
-//   on every cross-origin file, which breaks CDN assets.
-// - The SAME headers are set for production in vercel.json — keep the two in sync.
-// See design-docs/02-tech-stack.md "Deployment".
+// The in-browser coding sandbox only starts if the page sends these two security headers.
+// Same headers as vercel.json (the live site) — change both together.
 const crossOriginIsolation = {
   'Cross-Origin-Embedder-Policy': 'credentialless',
   'Cross-Origin-Opener-Policy': 'same-origin',
@@ -75,7 +70,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
-      // shared/ is imported by both the Vue app and the Edge Functions (see design-docs/09 §1)
+      // code shared by the website and the server functions
       '@shared': fileURLToPath(new URL('./shared', import.meta.url)),
     },
   },

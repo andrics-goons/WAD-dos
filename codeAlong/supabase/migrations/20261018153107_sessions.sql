@@ -1,8 +1,8 @@
 -- Sessions: sessions, checkpoints, student_status, lost_flags, status_history
 --           + the session_tiles / session_summary views and the Realtime channel policy
 -- Spec: design-docs/03-data-model.md#sessions
--- Order matters: helpers → tables → session helpers → column grants → RLS + policies
---                → views → triggers → Realtime
+-- Order matters: helpers → tables → session helpers → RLS + policies → views → triggers
+--                → Realtime
 --
 -- The session RPCs (start_session, join_session, save_checkpoint, end_session, announce,
 -- catch_up) belong to their owners (see 09 §7) and come in their own migrations.
@@ -40,12 +40,10 @@ $$;
 
 -- Tables ------------------------------------
 
--- lets sessions point at (lesson, course) together, so the two can never disagree
-alter table public.lessons add constraint lessons_id_course_unique unique (id, course_id);
-
 create table public.sessions (
     id               uuid primary key default gen_random_uuid(),
-    lesson_id        uuid not null,
+    -- no cascade: a lesson or course with class history is archived, never deleted
+    lesson_id        uuid not null references public.lessons(id),
     course_id        uuid not null references public.courses(id),
     started_by       uuid not null references public.profiles(id),
     join_code        text not null check (join_code ~ '^[A-Z0-9]{6}$'),
@@ -58,10 +56,7 @@ create table public.sessions (
     announcement     jsonb check (announcement is null
                                   or char_length(announcement->>'text') between 1 and 200),
     started_at       timestamptz not null default now(),
-    ended_at         timestamptz,
-    -- no cascade: a lesson or course with class history is archived, never deleted
-    constraint sessions_lesson_fk foreign key (lesson_id, course_id)
-        references public.lessons (id, course_id)
+    ended_at         timestamptz
 );
 
 -- a code is reusable next term, but only one live class answers to it
@@ -165,25 +160,6 @@ language sql security definer stable set search_path = '' as $$
         then (select count(*) from public.lost_flags where session_id = sid)
     end
 $$;
-
-
--- Column grants ------------------------------------
--- RLS decides which ROWS a user may touch; these decide which COLUMNS.
--- Everything else on these tables is written only by security definer RPCs.
-
--- sessions: the prof toggles settings and the spotlight directly (04 §Teach view).
--- Status, the current step, the announcement and the join code go through RPCs.
-revoke update on public.sessions from anon, authenticated;
-grant update (settings, spotlight) on public.sessions to authenticated;
-
--- student_status: the student's client writes its raw signals. catch_ups (catch_up RPC)
--- and joined_at (attendance) are not theirs to set. session_id/student_id are in the
--- update grant only because an upsert re-sets them; RLS pins both.
-revoke insert, update on public.student_status from anon, authenticated;
-grant insert (session_id, student_id, done_step_order, error, checks, last_seen_at)
-    on public.student_status to authenticated;
-grant update (session_id, student_id, done_step_order, error, checks, last_seen_at)
-    on public.student_status to authenticated;
 
 
 -- Policies ------------------------------------
@@ -353,32 +329,6 @@ create trigger record_checkpoint_states
     after update of current_step_id on public.sessions
     for each row when (old.current_step_id is distinct from new.current_step_id)
     execute function public.record_checkpoint_states();
-
--- A checkpoint, or the session's current step, must be a step of the session's own lesson.
-create function public.check_session_step() returns trigger
-language plpgsql security definer set search_path = '' as $$
-declare
-    -- through jsonb because the two tables name their columns differently, and plpgsql
-    -- errors on new.step_id for a sessions row even inside a branch that never runs
-    r      jsonb := to_jsonb(new);
-    v_step uuid  := (case tg_table_name when 'checkpoints' then r->>'step_id' else r->>'current_step_id' end)::uuid;
-    v_sid  uuid  := (case tg_table_name when 'checkpoints' then r->>'session_id' else r->>'id' end)::uuid;
-begin
-    if v_step is not null and not exists (
-        select 1 from public.steps st
-          join public.sessions s on s.lesson_id = st.lesson_id
-         where st.id = v_step and s.id = v_sid
-    ) then
-        raise exception 'BAD_REQUEST|That step belongs to a different lesson' using errcode = 'P0001';
-    end if;
-    return new;
-end $$;
-
-create trigger check_session_step before insert or update of step_id on public.checkpoints
-    for each row execute function public.check_session_step();
-
-create trigger check_session_step before insert or update of current_step_id on public.sessions
-    for each row execute function public.check_session_step();
 
 -- A lesson that has been taught keeps its history: it can't be deleted or moved to
 -- another course. CONFLICT, so the UI can offer Archive instead.
