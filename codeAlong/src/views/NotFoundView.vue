@@ -2,8 +2,7 @@
 import { useAuthStore } from '@/stores/auth'
 import EmptyState from '@/components/ui/EmptyState.vue'
 
-// Catch-all route. vercel.json sends every path to index.html, so unknown URLs
-// reach Vue's router and land here instead of a Vercel 404.
+// Shown for any link that doesn't exist, with buttons to get back on track.
 const auth = useAuthStore()
 </script>
 
@@ -17,23 +16,13 @@ const auth = useAuthStore()
             v-if="auth.isAuthenticated"
             :to="{ name: 'courses' }"
             class="ca-btn ca-btn--primary"
-            data-testid="notfound-courses"
           >
             My courses
           </RouterLink>
-          <RouterLink
-            v-else
-            :to="{ name: 'landing' }"
-            class="ca-btn ca-btn--primary"
-            data-testid="notfound-home"
-          >
+          <RouterLink v-else :to="{ name: 'landing' }" class="ca-btn ca-btn--primary">
             Go to the home page
           </RouterLink>
-          <RouterLink
-            :to="{ name: 'join' }"
-            class="ca-btn ca-btn--secondary"
-            data-testid="notfound-join"
-          >
+          <RouterLink :to="{ name: 'join' }" class="ca-btn ca-btn--secondary">
             Join a class
           </RouterLink>
         </template>

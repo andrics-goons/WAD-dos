@@ -1,19 +1,9 @@
 <script setup>
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
-// Confirm before anything destructive (End session, Delete lesson, Remove student).
-// Rule of thumb: error prevention. Pure Vue — no Bootstrap JS needed.
-//
-//   <ConfirmModal
-//     v-model:open="confirmEnd"
-//     title="End this class?"
-//     confirm-label="End session"
-//     variant="danger"
-//     :busy="ending"
-//     @confirm="endSession"
-//   >
-//     Students will see "Class ended" and their work is saved.
-//   </ConfirmModal>
+// An "Are you sure?" pop-up for risky actions like ending a class or deleting a lesson.
+// Use: <ConfirmModal v-model:open="show" title="End class?" variant="danger" @confirm="end">
+// Escape or clicking outside cancels. It doesn't close itself — set open to false when done.
 const props = defineProps({
   open: { type: Boolean, default: false },
   title: { type: String, required: true },
@@ -46,7 +36,7 @@ watch(
       document.body.style.overflow = 'hidden'
       document.addEventListener('keydown', onKeydown)
       await nextTick()
-      // Destructive actions start focused on Cancel, so a stray Enter is harmless
+      // for risky actions, start on Cancel so an accidental Enter does nothing
       ;(props.variant === 'danger' ? cancelBtn : confirmBtn).value?.focus()
     } else {
       document.body.style.overflow = ''
@@ -64,18 +54,18 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <Transition name="ca-modal">
+    <Transition name="ca-fade">
       <div v-if="open" class="ca-modal-backdrop" @click.self="cancel">
-        <div class="ca-modal" data-testid="confirm-modal">
-          <h2 class="ca-modal__title">{{ title }}</h2>
-          <div class="ca-modal__body"><slot /></div>
-          <div class="ca-modal__actions">
+        <div class="ca-modal">
+          <h2 class="fs-5">{{ title }}</h2>
+          <div class="text-body-secondary mb-4"><slot /></div>
+          <!-- phones: stacked, confirm on top · bigger screens: side by side on the right -->
+          <div class="d-flex flex-column-reverse flex-sm-row justify-content-sm-end gap-2">
             <button
               ref="cancelBtn"
               type="button"
               class="ca-btn ca-btn--secondary"
               :disabled="busy"
-              data-testid="btn-cancel"
               @click="cancel"
             >
               {{ cancelLabel }}
@@ -86,7 +76,6 @@ onBeforeUnmount(() => {
               class="ca-btn"
               :class="`ca-btn--${variant}`"
               :disabled="busy"
-              data-testid="btn-confirm"
               @click="emit('confirm')"
             >
               <span v-if="busy" class="spinner-border spinner-border-sm" />
@@ -98,57 +87,3 @@ onBeforeUnmount(() => {
     </Transition>
   </Teleport>
 </template>
-
-<style scoped>
-.ca-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--ca-z-modal);
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: var(--ca-backdrop);
-}
-.ca-modal {
-  width: 100%;
-  max-width: 28rem;
-  padding: 1.5rem;
-  background: var(--ca-surface);
-  color: var(--ca-text);
-  border-radius: var(--ca-radius-lg);
-  box-shadow: var(--ca-shadow-lg);
-}
-.ca-modal__title {
-  font-size: var(--ca-text-lg);
-}
-.ca-modal__body {
-  margin-bottom: var(--ca-space-5);
-  color: var(--ca-text-muted);
-}
-/* xs: stacked full-width buttons, primary on top · sm and up (576px+): right-aligned row */
-.ca-modal__actions {
-  display: flex;
-  flex-direction: column-reverse;
-  gap: var(--ca-space-2);
-}
-@media (min-width: 576px) {
-  .ca-modal__actions {
-    flex-direction: row;
-    justify-content: flex-end;
-  }
-}
-.ca-modal-enter-active,
-.ca-modal-leave-active {
-  transition: opacity 0.15s ease;
-}
-.ca-modal-enter-from,
-.ca-modal-leave-to {
-  opacity: 0;
-}
-@media (prefers-reduced-motion: reduce) {
-  .ca-modal-enter-active,
-  .ca-modal-leave-active {
-    transition: none;
-  }
-}
-</style>

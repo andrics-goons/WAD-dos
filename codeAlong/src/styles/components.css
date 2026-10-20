@@ -1,62 +1,21 @@
-/* ─────────────────────────────────────────────────────────────────────────────
-   Our look: buttons, form fields, panels. (Bootstrap provides the rest —
-   form-switch, spinner-border, btn-close — already themed via base.css.)
-   Examples of every class are on /_kit.
+/* Our buttons, form fields and panels. Everything starts with ca- so it never
+   clashes with other code. Examples of each one are on /_kit. */
 
-   Naming: everything we own starts with ca- (so it never clashes with lesson
-   code or CodeMirror). Variants use a double dash: .ca-btn--primary.
-   ───────────────────────────────────────────────────────────────────────────── */
-
-/* ── Buttons ──────────────────────────────────────────────────────────────────
-   <button class="ca-btn ca-btn--primary">Save checkpoint</button>
-   Variants: --primary (main action on a screen) · --secondary (alternatives)
-             --success · --warning · --danger (destructive, behind ConfirmModal)
-             --ghost (toolbar / icon buttons) · --link
-   Sizes:    --sm · --lg      Modifiers: --block (full width) · --icon (square)
-
-   HOW THE BUTTON IS BUILT: "settings" variables
-   ──────────────────────────────────────────────
-   There are two levels of variables here:
-     --ca-…   THEME settings for the whole app, defined in tokens.css
-              (e.g. --ca-brand = indigo)
-     --btn-…  COMPONENT settings for just this button — "which theme colour
-              does this button use?" (e.g. --btn-bg = var(--ca-brand))
-
-   So  --btn-bg: var(--ca-surface);  reads as "this button's background
-   setting = the theme's surface colour (white)". It's a variable whose
-   value is another variable.
-
-   .ca-btn does two things:
-     Step 1 — sets default values for the four settings (a plain white button)
-     Step 2 — writes the real styles ONCE, reading only the settings:
-              background: var(--btn-bg);  color: var(--btn-fg); …
-   Each variant (.ca-btn--primary, --danger, …) then changes ONLY the
-   settings, never the styles. For <button class="ca-btn ca-btn--primary">:
-     1. .ca-btn says  "background = whatever --btn-bg is"   (default: white)
-     2. .ca-btn--primary comes later and sets --btn-bg to indigo
-     3. so the button's background ends up indigo
-
-   Why not just write  .ca-btn--primary { background: #4f46e5; … }  instead?
-     • hover, focus and disabled rules are written once in .ca-btn, and every
-       variant gets them automatically
-     • a new variant is just four lines of settings
-     • no hex codes here — change the brand in tokens.css and every button follows
-     • the dark IDE works for free: inside .ca-ide, --ca-surface is dark grey,
-       so a secondary button there turns dark with no extra class */
+/* Buttons: <button class="ca-btn ca-btn--primary">Save</button>
+   Each button has four "settings" (--btn-bg, --btn-fg …). The styles below only read them,
+   so a variant like --primary just changes the settings — hover/focus come for free. */
 .ca-btn {
-  /* Step 1: settings, with defaults = a plain secondary button */
-  --btn-bg: var(--ca-surface); /* background colour (white) */
-  --btn-bg-hover: var(--ca-surface-muted); /* background on hover (light grey) */
-  --btn-fg: var(--ca-text); /* text/icon colour (dark) */
-  --btn-border: var(--ca-border-strong); /* border colour (grey) */
-
-  /* Step 2: the actual styles — they only ever read the settings above */
+  /* the settings — default is a plain white button */
+  --btn-bg: var(--ca-surface);
+  --btn-bg-hover: var(--ca-surface-muted);
+  --btn-fg: var(--ca-text);
+  --btn-border: var(--ca-border-strong);
 
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--ca-space-2);
-  min-height: 2.5rem; /* 40px — comfortable tap target */
+  min-height: 2.5rem; /* big enough to tap on a phone */
   padding: 0 var(--ca-space-4);
   border: 1px solid var(--btn-border);
   border-radius: var(--ca-radius);
@@ -73,7 +32,6 @@
     border-color 0.15s ease,
     box-shadow 0.15s ease;
 }
-/* Written once, works for every variant: hover just swaps to that variant's --btn-bg-hover */
 .ca-btn:hover:not(:disabled) {
   background: var(--btn-bg-hover);
   text-decoration: none;
@@ -88,9 +46,9 @@
   cursor: not-allowed;
 }
 
-/* Variants: each one only overrides the four --btn-* settings from Step 1 */
+/* Variants — each one only changes the settings */
 .ca-btn--primary {
-  --btn-bg: var(--ca-brand); /* indigo instead of white */
+  --btn-bg: var(--ca-brand);
   --btn-bg-hover: var(--ca-brand-hover);
   --btn-fg: var(--ca-on-brand);
   --btn-border: transparent;
@@ -99,7 +57,7 @@
   background: var(--ca-brand-active);
 }
 .ca-btn--secondary {
-  /* the default look, named so intent is clear in templates */
+  /* same as the default; the name just makes templates easier to read */
 }
 .ca-btn--success {
   --btn-bg: var(--ca-success);
@@ -159,14 +117,8 @@
   width: 2rem;
 }
 
-/* ── Form fields ──────────────────────────────────────────────────────────────
-   <div class="ca-field">
-     <label class="ca-label" for="email">Email</label>
-     <input id="email" class="ca-input" :class="{ 'ca-input--invalid': errors.email }" />
-     <p v-if="errors.email" class="ca-field-error">{{ errors.email }}</p>
-   </div>
-   .ca-input works on <input>, <select> and <textarea>.
-   Invalid state comes from the ca-input--invalid class. */
+/* Form fields: wrap each one in .ca-field, with .ca-label and .ca-input inside.
+   Mark a wrong field with the ca-input--invalid class — it turns red. */
 .ca-field {
   display: flex;
   flex-direction: column;
@@ -186,7 +138,7 @@
   border-radius: var(--ca-radius);
   background: var(--ca-surface);
   color: var(--ca-text);
-  font-size: var(--ca-text-base); /* 16px stops iOS zooming on focus */
+  font-size: var(--ca-text-base); /* 16px stops iPhones zooming in on tap */
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
@@ -217,7 +169,8 @@ textarea.ca-input {
 select.ca-input {
   appearance: none;
   padding-right: var(--ca-space-6);
-  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
     linear-gradient(135deg, currentColor 50%, transparent 50%);
   background-position:
     calc(100% - 1.1rem) 55%,
@@ -239,9 +192,7 @@ select.ca-input {
   color: #fca5a5;
 }
 
-/* ── Panels ───────────────────────────────────────────────────────────────────
-   .ca-surface — a white panel on the off-white page (border + soft shadow)
-   .ca-card    — a surface with padding; use for course cards, report cards */
+/* Panels: .ca-surface is a plain white box, .ca-card is the same with padding inside */
 .ca-surface {
   background: var(--ca-surface);
   border: 1px solid var(--ca-border);
@@ -259,4 +210,233 @@ select.ca-input {
   .ca-card {
     padding: var(--ca-space-5);
   }
+}
+
+/* Student states: add ca-state--done (or error, behind…) to any element, then use
+   var(--state), var(--state-bg) and var(--state-fg) for its colours. */
+.ca-state--done {
+  --state: var(--ca-state-done);
+  --state-bg: var(--ca-state-done-bg);
+  --state-fg: var(--ca-state-done-fg);
+}
+.ca-state--in_progress {
+  --state: var(--ca-state-in_progress);
+  --state-bg: var(--ca-state-in_progress-bg);
+  --state-fg: var(--ca-state-in_progress-fg);
+}
+.ca-state--error {
+  --state: var(--ca-state-error);
+  --state-bg: var(--ca-state-error-bg);
+  --state-fg: var(--ca-state-error-fg);
+}
+.ca-state--behind {
+  --state: var(--ca-state-behind);
+  --state-bg: var(--ca-state-behind-bg);
+  --state-fg: var(--ca-state-behind-fg);
+}
+.ca-state--idle {
+  --state: var(--ca-state-idle);
+  --state-bg: var(--ca-state-idle-bg);
+  --state-fg: var(--ca-state-idle-fg);
+}
+
+/* StatusPill */
+.ca-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.25em 0.65em;
+  border-radius: var(--ca-radius-pill);
+  background: var(--state-bg);
+  color: var(--state-fg);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ca-pill .bi {
+  color: var(--state);
+}
+.ca-pill--sm {
+  padding: 0.2em 0.5em;
+  font-size: 0.6875rem;
+}
+
+/* EmptyState */
+.ca-empty {
+  max-width: 28rem;
+}
+.ca-empty__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: var(--ca-brand-subtle);
+  color: var(--ca-brand);
+  font-size: 1.5rem;
+}
+
+/* Join code boxes: square-ish, shrinking a little on small phones */
+.ca-join-box {
+  flex: 0 1 3rem;
+  min-width: 0;
+  height: 3.5rem;
+  padding: 0;
+  font-family: var(--ca-font-mono);
+  font-size: var(--ca-text-xl);
+}
+
+/* Navbar */
+.ca-navbar {
+  z-index: var(--ca-z-navbar);
+  height: var(--ca-navbar-height);
+  background: var(--ca-surface);
+}
+.ca-brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  border-radius: var(--ca-radius);
+  background: var(--ca-brand);
+  color: var(--ca-on-brand);
+}
+.ca-navlink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ca-space-2);
+  padding: var(--ca-space-2) var(--ca-space-3);
+  border-radius: var(--ca-radius);
+  color: var(--ca-text-muted);
+  font-weight: 500;
+  text-decoration: none;
+}
+.ca-navlink:hover,
+.ca-navlink.is-active {
+  color: var(--ca-brand);
+  background: var(--ca-brand-subtle);
+  text-decoration: none;
+}
+.ca-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--ca-brand-subtle);
+  color: var(--ca-brand);
+  text-transform: uppercase;
+}
+/* phones: the links drop down under the bar · tablets and up: in a row on the right */
+.ca-navbar__links {
+  display: none;
+  position: absolute;
+  top: 100%;
+  inset-inline: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--ca-space-1);
+  padding: var(--ca-space-3) var(--ca-space-4);
+  background: var(--ca-surface);
+  border-bottom: 1px solid var(--ca-border);
+  box-shadow: var(--ca-shadow);
+}
+.ca-navbar__links.is-open {
+  display: flex;
+}
+@media (min-width: 768px) {
+  .ca-navbar__links {
+    display: flex;
+    position: static;
+    flex-direction: row;
+    align-items: center;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+  }
+}
+
+/* ConfirmModal */
+.ca-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--ca-z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--ca-space-4);
+  background: var(--ca-backdrop);
+}
+.ca-modal {
+  width: 100%;
+  max-width: 28rem;
+  padding: var(--ca-space-5);
+  background: var(--ca-surface);
+  border-radius: var(--ca-radius-lg);
+  box-shadow: var(--ca-shadow-lg);
+}
+
+/* Toasts: phones full width at the bottom · bigger screens bottom-right */
+.ca-toasts {
+  position: fixed;
+  z-index: var(--ca-z-toast);
+  inset-inline: var(--ca-space-3);
+  bottom: calc(var(--ca-space-3) + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--ca-space-2);
+  pointer-events: none;
+}
+@media (min-width: 576px) {
+  .ca-toasts {
+    inset-inline: auto var(--ca-space-5);
+    width: 22rem;
+  }
+}
+.ca-toast {
+  --accent: var(--ca-info);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ca-space-3);
+  padding: var(--ca-space-3);
+  background: var(--ca-surface);
+  border: 1px solid var(--ca-border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--ca-radius);
+  box-shadow: var(--ca-shadow-lg);
+  pointer-events: auto;
+}
+.ca-toast--success {
+  --accent: var(--ca-success);
+}
+.ca-toast--warning {
+  --accent: var(--ca-warning);
+}
+.ca-toast--danger {
+  --accent: var(--ca-danger);
+}
+.ca-toast__icon {
+  color: var(--accent);
+  font-size: 1.1rem;
+}
+
+/* Fade in/out for pop-ups: <Transition name="ca-fade"> */
+.ca-fade-enter-active,
+.ca-fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+.ca-fade-enter-from,
+.ca-fade-leave-to {
+  opacity: 0;
+}
+
+/* "Skip to content" link, shown only when tabbing with the keyboard */
+.ca-skip {
+  position: absolute;
+  z-index: calc(var(--ca-z-toast) + 1);
+  top: var(--ca-space-2);
+  left: var(--ca-space-2);
+  padding: var(--ca-space-2) var(--ca-space-4);
+  background: var(--ca-surface);
+  border-radius: var(--ca-radius);
+  box-shadow: var(--ca-shadow);
 }
