@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import { writeToContainer, debounceByPath } from "../sync.js"
+import { writeToContainer, debounceByPath } from "@/runtime/sync.js"
 
 // Fake WebContainer: only the fs part, recording every mkdir and writeFile call
 function fakeWebContainer() {

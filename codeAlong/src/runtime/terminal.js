@@ -2,8 +2,6 @@
 import { Terminal as XTerm } from "@xterm/xterm"
 // xterm's stylesheet
 import "@xterm/xterm/css/xterm.css"
-// future import for resizing n shit
-// import { FitAddon } from "@xterm/addon-fit"
 
 
 export function createTerminal(el) {

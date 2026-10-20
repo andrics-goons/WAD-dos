@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest"
-import { connectShell } from "../shell.js"
+import { connectShell } from "@/runtime/shell.js"
 
 // Fake WebContainer: spawn() returns a fake shell process that
 // prints `outputText`, records what it's sent, and records resize/kill calls.

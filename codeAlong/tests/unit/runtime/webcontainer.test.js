@@ -10,7 +10,7 @@ let getWebContainer
 beforeEach(async () => {
     boot.mockClear()
     vi.resetModules()
-    ;({ getWebContainer } = await import("../webcontainer.js"))
+    ;({ getWebContainer } = await import("@/runtime/webcontainer.js"))
 })
 
 describe("getWebContainer", () => {

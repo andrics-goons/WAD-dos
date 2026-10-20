@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from "vitest"
-import { createTerminal } from "../terminal.js"
+import { createTerminal } from "@/runtime/terminal.js"
 
 // jsdom has no matchMedia, but xterm calls it in open(), so give it a do-nothing version
 window.matchMedia = () => ({
