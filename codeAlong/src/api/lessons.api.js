@@ -28,6 +28,8 @@ export function toLesson(row) {
     createdBy: row.created_by,
     createdAt: row.created_at,
     steps: row.steps ? row.steps.map(toStep) : undefined,
+    // taught once it has a session: then it can't be deleted and its steps can't be reordered
+    taught: (row.sessions?.[0]?.count ?? 0) > 0,
   }
 }
 
@@ -78,7 +80,11 @@ export function toLessonPatch(changes) {
 // lessons
 
 // make a draft lesson, then save its steps (steps come from parseTodos)
-export async function createLesson(courseId, { title, week, description, files, entryFile, source }, steps) {
+export async function createLesson(
+  courseId,
+  { title, week, description, files, entryFile, source },
+  steps,
+) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -125,11 +131,11 @@ export async function listLessons(courseId, { search } = {}) {
   return data.map(toLesson)
 }
 
-// one lesson with its files and steps
+// one lesson with its files, steps and whether it has been taught
 export async function getLesson(lessonId) {
   const { data, error } = await supabase
     .from('lessons')
-    .select(`${LESSON_DETAIL}, steps(*)`)
+    .select(`${LESSON_DETAIL}, steps(*), sessions(count)`)
     .eq('id', lessonId)
     .order('order', { referencedTable: 'steps' })
     .single()
@@ -171,7 +177,12 @@ export async function updateStep(stepId, { title, description }) {
   if (title !== undefined) patch.title = title
   if (description !== undefined) patch.description = description
 
-  const { data, error } = await supabase.from('steps').update(patch).eq('id', stepId).select().single()
+  const { data, error } = await supabase
+    .from('steps')
+    .update(patch)
+    .eq('id', stepId)
+    .select()
+    .single()
   if (error) throw mapError(error)
   return toStep(data)
 }

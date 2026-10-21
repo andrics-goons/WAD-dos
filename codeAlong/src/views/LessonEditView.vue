@@ -97,6 +97,9 @@ onMounted(async () => {
 
 // steps
 
+// once taught, the class history refers to these step numbers, so the order is fixed
+const taught = computed(() => !!lesson.value?.taught)
+
 // what StepList shows: number from the position, file and line from the first todo
 const planSteps = computed(() =>
   steps.value.map((s, i) => ({
@@ -105,6 +108,8 @@ const planSteps = computed(() =>
     file: s.todoRefs?.[0]?.file,
     line: s.todoRefs?.[0]?.line,
     status: 'todo',
+    // saved steps of a taught lesson can't be removed, new ones still can
+    locked: taught.value && !!s.id,
   })),
 )
 
@@ -305,6 +310,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             <i class="bi bi-arrow-repeat" />Re-parse TODOs
           </button>
           <button
+            v-if="taught"
+            type="button"
+            class="ca-btn ca-btn--sm"
+            @click="confirmArchive = true"
+          >
+            <i class="bi bi-archive" />Archive lesson
+          </button>
+          <button
+            v-else
             type="button"
             class="ca-btn ca-btn--danger ca-btn--sm"
             @click="confirmDelete = true"
@@ -380,6 +394,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
               v-if="planSteps.length"
               :steps="planSteps"
               editable
+              :fixed-order="taught"
               @move-up="move($event, -1)"
               @move-down="move($event, 1)"
               @edit="startEdit"
@@ -390,7 +405,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
               Add one, or re-parse the TODOs in the starter files.
             </EmptyState>
           </div>
-          <p class="ca-field-hint mt-2">
+          <p v-if="taught" class="ca-field-hint mt-2">
+            This lesson has been taught, so its steps can be reworded and added to, but not
+            reordered or removed.
+          </p>
+          <p v-else class="ca-field-hint mt-2">
             Steps come from <span class="ca-mono">// TODO</span> comments. Drag (desktop) or use the
             arrows to reorder, then save.
           </p>

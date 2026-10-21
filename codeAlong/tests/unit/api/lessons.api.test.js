@@ -150,6 +150,7 @@ describe('a prof makes and edits a lesson', () => {
     const loaded = await getLesson(lesson.id)
     expect(loaded.files).toEqual(FILES)
     expect(loaded.steps.map((s) => s.order)).toEqual([1, 2, 3])
+    expect(loaded.taught).toBe(false)
   })
 
   it('getLesson says NOT_FOUND for a lesson that does not exist', async () => {
@@ -202,6 +203,7 @@ describe('a prof makes and edits a lesson', () => {
     createdSessions.push(session.id)
 
     expect(await codeOf(deleteLesson(lesson.id))).toBe('CONFLICT')
+    expect((await getLesson(lesson.id)).taught).toBe(true)
   })
 })
 

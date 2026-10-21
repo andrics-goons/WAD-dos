@@ -342,4 +342,36 @@ describe('LessonEditView', () => {
     await clickText('Save')
     expect(savedSteps().map((s) => s.id)).toEqual(['st-2', 'st-3', 'st-1'])
   })
+
+  describe('a lesson that has been taught', () => {
+    const buttonsIn = (order) =>
+      wrapper
+        .find(`[data-testid="step-item-${order}"]`)
+        .findAll('button')
+        .map((b) => b.text().trim())
+
+    it("can't reorder or remove its saved steps, only reword them", async () => {
+      await open(lesson({ taught: true }))
+      expect(buttonsIn(1)).toEqual(['Edit'])
+      expect(wrapper.find('[data-testid="step-item-1"]').attributes('draggable')).toBe('false')
+      expect(wrapper.text()).toContain('has been taught')
+    })
+
+    it('can still remove a step added since the last save', async () => {
+      await open(lesson({ taught: true }))
+      await clickText('Add step')
+      await fill('step-title', 'Add a checkout button')
+      await confirmModal()
+      expect(buttonsIn(4)).toEqual(['Edit', 'Delete step'])
+    })
+
+    it('T-LES-06: offers archive instead of delete', async () => {
+      await open(lesson({ taught: true }))
+      expect(wrapper.findAll('button').some((b) => b.text().trim() === 'Delete lesson')).toBe(false)
+      await clickText('Archive lesson')
+      await confirmModal()
+      expect(api.deleteLesson).not.toHaveBeenCalled()
+      expect(api.updateLesson).toHaveBeenCalledWith('les-1', { status: 'archived' })
+    })
+  })
 })

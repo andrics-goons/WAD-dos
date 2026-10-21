@@ -3,6 +3,8 @@
 defineProps({
   steps: { type: Array, required: true },
   editable: { type: Boolean, default: false },
+  // a taught lesson keeps its step order, so no arrows or dragging
+  fixedOrder: { type: Boolean, default: false },
 })
 const emit = defineEmits(['move-up', 'move-down', 'edit', 'delete', 'reorder'])
 
@@ -26,13 +28,13 @@ function onDrop(i) {
       class="list-group-item d-flex align-items-center gap-3"
       :class="{ 'bg-primary-subtle': s.status === 'current' }"
       :data-testid="`step-item-${s.order}`"
-      :draggable="editable"
+      :draggable="editable && !fixedOrder"
       @dragstart="onDragStart($event, i)"
       @dragover.prevent
       @drop.prevent="onDrop(i)"
     >
       <i
-        v-if="editable"
+        v-if="editable && !fixedOrder"
         class="bi bi-grip-vertical step__grip d-none d-lg-inline text-body-secondary"
         title="Drag to reorder"
       />
@@ -56,6 +58,7 @@ function onDrop(i) {
       <span v-if="s.status === 'current'" class="badge rounded-pill text-bg-primary">Now</span>
       <div v-if="editable" class="d-flex gap-1">
         <button
+          v-if="!fixedOrder"
           type="button"
           class="ca-btn ca-btn--ghost ca-btn--icon ca-btn--sm"
           :disabled="i === 0"
@@ -65,6 +68,7 @@ function onDrop(i) {
           <i class="bi bi-arrow-up" /><span class="visually-hidden">Move up</span>
         </button>
         <button
+          v-if="!fixedOrder"
           type="button"
           class="ca-btn ca-btn--ghost ca-btn--icon ca-btn--sm"
           :disabled="i === steps.length - 1"
@@ -76,6 +80,7 @@ function onDrop(i) {
           Edit
         </button>
         <button
+          v-if="!s.locked"
           type="button"
           class="ca-btn ca-btn--ghost ca-btn--icon ca-btn--sm text-danger"
           @click="$emit('delete', s)"
