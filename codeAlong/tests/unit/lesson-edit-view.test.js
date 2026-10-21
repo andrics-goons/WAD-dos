@@ -17,6 +17,12 @@ const push = vi.hoisted(() => vi.fn())
 vi.mock('vue-router', async (original) => ({ ...(await original()), useRouter: () => ({ push }) }))
 
 import LessonEditView from '@/views/LessonEditView.vue'
+import FileTree from '@/components/workspace/FileTree.vue'
+import CodeEditor from '@/components/workspace/CodeEditor.vue'
+
+// codemirror needs a real browser to lay out text, so the editor is a stand-in here.
+// the tests still check what it's given and what it sends back
+const stubs = { CodeEditor: true }
 
 function lesson(overrides = {}) {
   return {
@@ -69,7 +75,7 @@ async function open(data = lesson()) {
   pinia = createPinia()
   wrapper = mount(LessonEditView, {
     props: { id: 'les-1' },
-    global: { plugins: [pinia] },
+    global: { plugins: [pinia], stubs },
     attachTo: document.body,
   })
   await flushPromises()
@@ -140,16 +146,50 @@ describe('LessonEditView', () => {
     expect(api.getLesson).toHaveBeenCalledWith('les-1')
     expect(wrapper.text()).toContain('Week 6 · Mini Cart')
     expect(stepTitles()).toEqual(['Make the page', 'Fetch items', 'Show the total'])
-    expect(wrapper.findAll('button').some((b) => b.text().trim() === 'app.js')).toBe(true)
+    expect(wrapper.findComponent(FileTree).props('filePaths')).toEqual(['index.html', 'src/app.js'])
     // the entry file is open first
-    expect(wrapper.find('.code').text()).toContain('TODO 1: Make the page')
+    const editor = wrapper.findComponent(CodeEditor)
+    expect(editor.props('selectedFile')).toBe('index.html')
+    expect(editor.props('selectedCode')).toContain('TODO 1: Make the page')
+  })
+
+  it('opens the file picked in the file tree', async () => {
+    await open()
+    wrapper.findComponent(FileTree).vm.$emit('update:selectedFile', 'src/app.js')
+    await flushPromises()
+    const editor = wrapper.findComponent(CodeEditor)
+    expect(editor.props('selectedFile')).toBe('src/app.js')
+    expect(editor.props('selectedCode')).toContain('TODO 2: Fetch items')
+  })
+
+  it('saves an edited starter file', async () => {
+    await open()
+    wrapper.findComponent(CodeEditor).vm.$emit('update:selectedCode', '<!-- TODO 1: Build it -->\n')
+    await flushPromises()
+    await clickText('Save')
+    expect(api.updateLesson).toHaveBeenCalledWith('les-1', {
+      files: [
+        { path: 'index.html', language: 'html', content: '<!-- TODO 1: Build it -->\n' },
+        lesson().files[1],
+      ],
+    })
+    expect(api.replaceSteps).not.toHaveBeenCalled()
+  })
+
+  it('re-parses the TODOs from the edited files', async () => {
+    await open()
+    wrapper.findComponent(CodeEditor).vm.$emit('update:selectedCode', '<!-- TODO 1: Build it -->\n')
+    await flushPromises()
+    await clickText('Re-parse TODOs')
+    await confirmModal()
+    expect(stepTitles()[0]).toBe('Build it')
   })
 
   it('shows a message when the lesson cannot be loaded', async () => {
     api.getLesson.mockRejectedValue(new AppError('NOT_FOUND', 'Lesson not found', { status: 404 }))
     wrapper = mount(LessonEditView, {
       props: { id: 'nope' },
-      global: { plugins: [createPinia()] },
+      global: { plugins: [createPinia()], stubs },
       attachTo: document.body,
     })
     await flushPromises()

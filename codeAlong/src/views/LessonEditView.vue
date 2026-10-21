@@ -11,6 +11,8 @@ import { useToastStore } from '@/stores/toast'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import StepList from '@/components/lesson/StepList.vue'
+import CodeEditor from '@/components/workspace/CodeEditor.vue'
+import FileTree from '@/components/workspace/FileTree.vue'
 
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
@@ -49,6 +51,7 @@ const lessonChanges = computed(() => {
   for (const [field, value] of Object.entries(details.value)) {
     if (value !== saved[field]) changes[field] = value
   }
+  if (filesChanged.value) changes.files = files.value
   return changes
 })
 const dirty = computed(() => stepsChanged.value || Object.keys(lessonChanges.value).length > 0)
@@ -60,46 +63,22 @@ const detailsOf = (l) => ({
   status: l.status,
 })
 
-// files
+// files: a working copy the prof edits, saved with everything else
 
-const files = computed(() => lesson.value?.files ?? [])
+const files = ref([])
 const activeFile = ref('')
+const filePaths = computed(() => files.value.map((f) => f.path))
 
-// vs code style explorer, folders one level deep. placeholder until ray yien's FileTree exists
-const openFolders = ref(new Set(['src', 'server']))
-const tree = computed(() => {
-  const folders = {}
-  const rootFiles = []
-  for (const { path } of files.value) {
-    const slash = path.indexOf('/')
-    if (slash === -1) rootFiles.push({ path, name: path })
-    else (folders[path.slice(0, slash)] ??= []).push({ path, name: path.slice(slash + 1) })
-  }
-  return { folders: Object.entries(folders).sort(([a], [b]) => a.localeCompare(b)), rootFiles }
+// what the editor shows and edits: the open file's content
+const activeCode = computed({
+  get: () => files.value.find((f) => f.path === activeFile.value)?.content ?? '',
+  set: (content) => {
+    files.value = files.value.map((f) => (f.path === activeFile.value ? { ...f, content } : f))
+  },
 })
-function toggleFolder(name) {
-  const next = new Set(openFolders.value)
-  if (next.has(name)) next.delete(name)
-  else next.add(name)
-  openFolders.value = next
-}
-
-const ICON_BY_EXT = {
-  html: 'bi-filetype-html',
-  json: 'bi-filetype-json',
-  js: 'bi-filetype-js',
-  css: 'bi-filetype-css',
-  md: 'bi-filetype-md',
-}
-const iconFor = (path) => ICON_BY_EXT[path.split('.').pop()] ?? 'bi-file-earmark-code'
-const fileName = (path) => path.split('/').pop()
-const crumbs = computed(() => (activeFile.value ? activeFile.value.split('/') : []))
-
-// read only for now, dylan's CodeEditor will replace this
-const codeLines = computed(() => {
-  const content = files.value.find((f) => f.path === activeFile.value)?.content ?? ''
-  return content.replace(/\n$/, '').split('\n')
-})
+const filesChanged = computed(
+  () => !!lesson.value && JSON.stringify(files.value) !== JSON.stringify(lesson.value.files),
+)
 
 onMounted(async () => {
   try {
@@ -107,6 +86,7 @@ onMounted(async () => {
     lesson.value = l
     details.value = detailsOf(l)
     setSavedSteps(l.steps ?? [])
+    files.value = structuredClone(l.files)
     activeFile.value = l.entryFile ?? l.files[0]?.path ?? ''
   } catch (err) {
     loadError.value = err.message
@@ -228,8 +208,14 @@ async function save() {
   saving.value = true
   try {
     if (Object.keys(lessonChanges.value).length) {
-      const updated = await lessons.update(props.id, lessonChanges.value)
-      lesson.value = { ...lesson.value, ...detailsOf(updated) }
+      const changes = lessonChanges.value
+      const updated = await lessons.update(props.id, changes)
+      // keep the files as sent, the db can hand them back with the keys in another order
+      lesson.value = {
+        ...lesson.value,
+        ...detailsOf(updated),
+        files: changes.files ?? lesson.value.files,
+      }
     }
     if (stepsChanged.value) setSavedSteps(await lessons.saveSteps(props.id, steps.value))
     toast.show('Lesson saved', 'success')
@@ -363,77 +349,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                 <i class="bi bi-x-lg" /><span class="visually-hidden">Close file editor</span>
               </button>
             </div>
-            <div class="row g-0 flex-grow-1">
-              <!-- Explorer -->
-              <nav class="col-5 col-md-4 pb-2 border-end bg-body-tertiary">
-                <div class="ca-eyebrow px-3 py-2">Explorer</div>
-                <ul class="list-unstyled m-0">
-                  <li v-for="[folder, children] in tree.folders" :key="folder">
-                    <button
-                      type="button"
-                      class="ca-btn ca-btn--ghost ca-btn--sm w-100 justify-content-start gap-1 rounded-0 px-2"
-                      @click="toggleFolder(folder)"
-                    >
-                      <i
-                        class="bi tree__chev small text-body-secondary"
-                        :class="openFolders.has(folder) ? 'bi-chevron-down' : 'bi-chevron-right'"
-                      />
-                      <i
-                        class="bi text-body-secondary"
-                        :class="openFolders.has(folder) ? 'bi-folder2-open' : 'bi-folder'"
-                      />
-                      <span class="text-truncate">{{ folder }}</span>
-                    </button>
-                    <ul v-show="openFolders.has(folder)" class="list-unstyled m-0">
-                      <li v-for="f in children" :key="f.path">
-                        <button
-                          type="button"
-                          class="ca-btn ca-btn--ghost ca-btn--sm w-100 justify-content-start gap-1 rounded-0 px-2 ps-4"
-                          :class="{ 'bg-primary-subtle': f.path === activeFile }"
-                          :title="f.path"
-                          @click="activeFile = f.path"
-                        >
-                          <i class="bi text-body-secondary" :class="iconFor(f.path)" />
-                          <span class="text-truncate">{{ f.name }}</span>
-                        </button>
-                      </li>
-                    </ul>
-                  </li>
-                  <li v-for="f in tree.rootFiles" :key="f.path">
-                    <button
-                      type="button"
-                      class="ca-btn ca-btn--ghost ca-btn--sm w-100 justify-content-start gap-1 rounded-0 px-2"
-                      :class="{ 'bg-primary-subtle': f.path === activeFile }"
-                      :title="f.path"
-                      @click="activeFile = f.path"
-                    >
-                      <span class="tree__chev" />
-                      <i class="bi text-body-secondary" :class="iconFor(f.path)" />
-                      <span class="text-truncate">{{ f.name }}</span>
-                    </button>
-                  </li>
-                </ul>
-              </nav>
-
-              <!-- Editor: tab, breadcrumb, line numbers -->
-              <div class="col-7 col-md-8 d-flex flex-column overflow-hidden bg-body">
-                <div v-if="activeFile" class="d-flex border-bottom bg-body-tertiary">
-                  <span
-                    class="d-inline-flex align-items-center gap-2 px-3 py-2 small bg-body border-top border-2 border-primary"
-                  >
-                    <i class="bi" :class="iconFor(activeFile)" />{{ fileName(activeFile) }}
-                  </span>
-                </div>
-                <div
-                  class="ca-mono d-flex align-items-center gap-1 px-3 py-1 small text-body-secondary"
-                >
-                  <template v-for="(c, i) in crumbs" :key="i">
-                    <i v-if="i" class="bi bi-chevron-right" />{{ c }}
-                  </template>
-                </div>
-                <pre
-                  class="code ca-mono small m-0 px-3 py-2 flex-grow-1 overflow-auto"
-                ><code v-for="(line, i) in codeLines" :key="i" class="d-block"><span class="code__ln d-inline-block me-3 text-end text-body-secondary user-select-none">{{ i + 1 }}</span>{{ line }}</code></pre>
+            <div class="files-pane row g-0 flex-grow-1">
+              <div class="col-5 col-md-4 border-end">
+                <FileTree v-model:selected-file="activeFile" :file-paths="filePaths" />
+              </div>
+              <div class="col-7 col-md-8 overflow-hidden">
+                <!-- :key remounts the editor per file, it only reads its code when it mounts -->
+                <CodeEditor
+                  :key="activeFile"
+                  v-model:selected-code="activeCode"
+                  :selected-file="activeFile"
+                />
               </div>
             </div>
           </section>
@@ -582,15 +508,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 </template>
 
 <style scoped>
-/* placeholders until ray yien's FileTree and dylan's CodeEditor exist */
-.tree__chev {
-  width: 1rem;
-}
-.code {
+.files-pane {
   min-height: 20rem;
-}
-.code__ln {
-  width: 2ch;
 }
 
 /* bottom sheet below lg, inline next to the steps from lg */
