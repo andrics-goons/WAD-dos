@@ -56,8 +56,8 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <Transition name="ca-fade">
       <div v-if="open" class="ca-modal-backdrop" @click.self="cancel">
-        <div class="ca-modal" role="dialog" aria-modal="true" aria-labelledby="ca-confirm-title">
-          <h2 id="ca-confirm-title" class="fs-5">{{ title }}</h2>
+        <div class="ca-modal">
+          <h2 class="fs-5">{{ title }}</h2>
           <div class="text-body-secondary mb-4"><slot /></div>
           <!-- phones: stacked, confirm on top · bigger screens: side by side on the right -->
           <div class="d-flex flex-column-reverse flex-sm-row justify-content-sm-end gap-2">
@@ -78,7 +78,7 @@ onBeforeUnmount(() => {
               :disabled="busy"
               @click="emit('confirm')"
             >
-              <span v-if="busy" class="spinner-border spinner-border-sm" aria-hidden="true" />
+              <span v-if="busy" class="spinner-border spinner-border-sm" />
               {{ confirmLabel }}
             </button>
           </div>

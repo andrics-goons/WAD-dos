@@ -83,8 +83,6 @@ function onPaste(i, event) {
 <template>
   <div
     class="d-flex justify-content-center gap-2"
-    role="group"
-    aria-label="Join code"
     data-testid="input-join-code"
   >
     <input
@@ -98,8 +96,7 @@ function onPaste(i, event) {
       autocapitalize="characters"
       autocomplete="off"
       spellcheck="false"
-      :aria-label="`Character ${i + 1} of ${LENGTH}`"
-      :aria-invalid="invalid || undefined"
+      :class="{ 'ca-input--invalid': invalid }"
       :disabled="disabled"
       @input="onInput(i, $event)"
       @keydown="onKeydown(i, $event)"

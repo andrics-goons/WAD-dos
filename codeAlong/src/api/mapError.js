@@ -42,6 +42,7 @@ const AUTH = {
 // Postgres / PostgREST errors (from supabase.from / .rpc)
 const DB = {
   23505: ['CONFLICT', 'That already exists'], // unique violation
+  23502: ['VALIDATION_FAILED', 'Some required information is missing'], // not-null violation
   23503: ['NOT_FOUND', 'That no longer exists'], // foreign key violation
   23514: ['VALIDATION_FAILED', 'Some of that information is not valid'], // check constraint
   42501: ['FORBIDDEN', "You don't have permission to do that"], // RLS said no

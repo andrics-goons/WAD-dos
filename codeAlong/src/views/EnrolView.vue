@@ -62,7 +62,7 @@ onMounted(() => {
           id="enrol-code"
           v-model="enrolCode"
           class="ca-input ca-mono fs-4 text-uppercase"
-          :aria-invalid="!!errorMsg"
+          :class="{ 'ca-input--invalid': errorMsg }"
           data-testid="input-enrol-code"
         />
       </div>

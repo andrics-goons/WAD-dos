@@ -10,7 +10,7 @@ defineProps({
 
 <template>
   <div class="ca-empty text-center mx-auto px-3" :class="compact ? 'py-4' : 'py-5'">
-    <div class="ca-empty__icon mb-3" aria-hidden="true"><i class="bi" :class="icon" /></div>
+    <div class="ca-empty__icon mb-3"><i class="bi" :class="icon" /></div>
     <h2 class="fs-5 mb-2">{{ title }}</h2>
     <div v-if="$slots.default" class="text-body-secondary mb-4"><slot /></div>
     <div v-if="$slots.actions" class="d-flex flex-wrap justify-content-center gap-2">

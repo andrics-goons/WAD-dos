@@ -70,7 +70,8 @@ Seeded accounts all use the password `pass1234` (list in `design-docs/07`): `pro
 - **No inline styles.** No `style="…"`. Avoid `<style>` blocks in components; if one is truly needed, keep it to a few scoped lines.
 - **Don't define custom patterns.** Follow the ones already in the codebase (component → store → api, the kit classes, Bootstrap utilities). No new CSS naming schemes, helpers or abstractions when an existing one fits.
 - **Keep it simple.** Write the simplest code that works. No speculative options, wrappers or configuration nobody asked for.
-- **Only the attributes an element needs.** The exceptions are the ones that are needed: `data-testid` values listed in `design-docs/09` (the Playwright contract), `id` / `for` pairing a label with its input, and `alt` / `aria-label` where there's no visible text.
+- **Only the attributes an element needs.** The exceptions are the ones that are needed: `data-testid` values listed in `design-docs/09` (the Playwright contract), `id` / `for` pairing a label with its input, and `alt` on images.
+- **No ARIA attributes.** Don't add `aria-*` (`aria-label`, `aria-hidden`, `aria-invalid`, `aria-describedby`, …) or `role`. This overrides the accessibility notes in `design-docs/10-ui-kit.md`. Mark an invalid input with the `ca-input--invalid` class and put its message in a `ca-field-error` paragraph: `:class="{ 'ca-input--invalid': errorMsg }"`.
 
 ## Database rules
 
