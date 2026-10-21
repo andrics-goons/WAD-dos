@@ -55,15 +55,12 @@ export function followUpHelpRequest(requestId, { message, files }) {
 }
 
 /** The session's requests, oldest first (queue order). Staff see all; a student sees their own. */
-export async function listHelpRequests(sessionId, { statuses } = {}) {
-  let query = supabase
+export async function listHelpRequests(sessionId) {
+  const { data, error } = await supabase
     .from('help_requests')
     .select(REQUEST_WITH_CONTEXT)
     .eq('session_id', sessionId)
     .order('created_at', { ascending: true })
-  if (statuses) query = query.in('status', statuses)
-
-  const { data, error } = await query
   if (error) throw mapError(error)
   return data
 }
