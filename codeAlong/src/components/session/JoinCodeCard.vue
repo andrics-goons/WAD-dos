@@ -1,25 +1,58 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useToastStore } from '@/stores/toast'
 
-defineProps({ code: { type: String, required: true } })
+const props = defineProps({ code: { type: String, required: true } })
 
+const toast = useToastStore()
 const open = ref(true)
+const joinUrl = computed(() => `${window.location.origin}/join/${props.code}`)
+
+async function copyLink() {
+  try {
+    await navigator.clipboard.writeText(joinUrl.value)
+    toast.show('Join link copied', 'success')
+  } catch {
+    toast.show("Couldn't copy, select the link and copy it instead", 'warning')
+  }
+}
 </script>
 
 <template>
-  <div class="card">
-    <button type="button" class="card-header d-flex justify-content-between w-100 text-start" @click="open = !open">
-      <span>Join code</span>
-      <span>{{ open ? '▾' : '▸' }}</span>
+  <div class="ca-surface">
+    <button
+      type="button"
+      class="ca-btn ca-btn--ghost w-100 justify-content-between px-3"
+      @click="open = !open"
+    >
+      <span class="fw-semibold">Join code</span>
+      <i class="bi" :class="open ? 'bi-chevron-up' : 'bi-chevron-down'" />
     </button>
-    <div v-show="open" class="card-body d-flex align-items-center gap-3 flex-wrap">
-      <div class="border rounded d-flex align-items-center justify-content-center fw-bold" style="width: 96px; height: 96px">QR</div>
-      <div>
-        <small class="text-secondary text-uppercase">Students enter</small>
-        <div class="h2 font-monospace mb-0">{{ code }}</div>
-        <small class="text-secondary">codealong.app/join/{{ code }}</small>
-        <div><button type="button" class="btn btn-sm btn-outline-secondary mt-2">Copy link</button></div>
+    <div v-show="open" class="d-flex flex-wrap align-items-center gap-3 px-3 pb-3">
+      <!-- placeholder until QrDisplay exists -->
+      <div
+        class="qr d-flex flex-shrink-0 align-items-center justify-content-center border rounded fs-2 text-body-secondary"
+      >
+        <i class="bi bi-qr-code" />
+      </div>
+      <div class="overflow-hidden">
+        <div class="ca-eyebrow">Students enter</div>
+        <div class="code ca-mono fs-2 fw-bold lh-sm" data-testid="join-code">{{ code }}</div>
+        <div class="small text-body-secondary text-truncate">{{ joinUrl }}</div>
+        <button type="button" class="ca-btn ca-btn--sm mt-2" @click="copyLink">
+          <i class="bi bi-clipboard" />Copy link
+        </button>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.qr {
+  width: 6rem;
+  height: 6rem;
+}
+.code {
+  letter-spacing: 0.1em;
+}
+</style>

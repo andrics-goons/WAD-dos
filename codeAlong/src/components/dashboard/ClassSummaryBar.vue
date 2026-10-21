@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
-import { stateMeta } from '@/mock/profMock'
+import { TileStateOrder } from '@shared/constants.js'
+import { tileStateMeta } from '@/components/ui/tileStates.js'
 
 const props = defineProps({
   counts: { type: Object, required: true },
@@ -10,39 +11,73 @@ const props = defineProps({
 })
 defineEmits(['filter'])
 
-const order = ['error', 'behind', 'working', 'idle', 'done']
-const segments = computed(() => order.map((key) => ({ key, ...stateMeta[key], n: props.counts[key] ?? 0 })))
+// Most actionable first: error → behind → in progress → idle → done
+const segments = computed(() =>
+  TileStateOrder.map((key) => ({ key, ...tileStateMeta(key), n: props.counts[key] ?? 0 })),
+)
+const percent = (n) => (props.total ? (n / props.total) * 100 : 0)
 </script>
 
 <template>
-  <div class="card">
-    <div class="card-body d-flex flex-wrap align-items-center gap-2">
-      <button
-        type="button"
-        class="btn btn-sm rounded-pill"
-        :class="active === 'all' ? 'btn-dark' : 'btn-outline-dark'"
-        @click="$emit('filter', 'all')"
+  <div class="ca-surface overflow-hidden">
+    <div class="d-flex flex-wrap align-items-center gap-2 p-3">
+      <div class="d-flex flex-wrap gap-2">
+        <button
+          type="button"
+          class="chip ca-btn ca-btn--sm rounded-pill"
+          :class="{ active: active === 'all' }"
+          @click="$emit('filter', 'all')"
+        >
+          <strong>{{ total }}</strong> All
+        </button>
+        <button
+          v-for="s in segments"
+          :key="s.key"
+          type="button"
+          class="chip ca-btn ca-btn--sm rounded-pill"
+          :class="[`ca-state--${s.key}`, { active: active === s.key }]"
+          :data-testid="`summary-${s.key}`"
+          @click="$emit('filter', s.key)"
+        >
+          <i class="bi" :class="s.icon" />
+          <strong>{{ s.n }}</strong> {{ s.label }}
+        </button>
+      </div>
+      <span
+        class="ms-auto small text-body-secondary"
+        title="Anonymous: shows a count only, never who"
+        data-testid="lost-count"
       >
-        <strong>{{ total }}</strong> All
-      </button>
-      <button
-        v-for="s in segments"
-        :key="s.key"
-        type="button"
-        class="btn btn-sm rounded-pill"
-        :class="active === s.key ? s.btn : s.btnOutline"
-        @click="$emit('filter', s.key)"
-      >
-        <span aria-hidden="true">{{ s.icon }}</span> <strong>{{ s.n }}</strong> {{ s.label }}
-      </button>
-      <span class="ms-auto small" title="Anonymous: shows a count only, never who">
-        🙋 <strong>{{ lostCount }}</strong> “I'm lost”
+        <i class="bi bi-life-preserver" />
+        <strong>{{ lostCount }}</strong> “I'm lost”
       </span>
     </div>
-    <div class="progress-stacked rounded-0" role="img" aria-label="Class progress bar">
-      <div v-for="s in segments" :key="s.key" class="progress" :style="{ width: (s.n / total) * 100 + '%' }">
-        <div class="progress-bar" :class="s.bg" />
+    <!-- the segment widths are data, so they're the one inline style here -->
+    <div class="bar progress-stacked rounded-0">
+      <div
+        v-for="s in segments"
+        :key="s.key"
+        class="progress"
+        :style="{ width: `${percent(s.n)}%` }"
+      >
+        <div class="progress-bar" :class="`ca-state--${s.key}`" />
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.chip .bi {
+  color: var(--state);
+}
+.chip.active {
+  border-color: var(--state, var(--ca-text));
+  box-shadow: inset 0 0 0 1px var(--state, var(--ca-text));
+}
+.bar {
+  --bs-progress-height: 6px;
+}
+.bar .progress-bar {
+  background-color: var(--state);
+}
+</style>
