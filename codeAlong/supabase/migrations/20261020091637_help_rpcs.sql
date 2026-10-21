@@ -19,6 +19,7 @@ create function public.create_help_request(
 ) returns public.help_requests
 language plpgsql security definer set search_path = '' as $$
 declare
+    s     public.sessions;
     snap  uuid;
     r     public.help_requests;
 begin
@@ -26,10 +27,16 @@ begin
         raise exception 'UNAUTHENTICATED|Log in first' using errcode = 'P0001';
     end if;
     -- not enrolled looks the same as not existing, so session ids can't be probed
-    if not exists (
-        select 1 from public.sessions s where s.id = p_session_id and public.is_enrolled(s.course_id)
-    ) then
+    select * into s from public.sessions where id = p_session_id;
+    if not found or not public.is_enrolled(s.course_id) then
         raise exception 'NOT_FOUND|That class wasn''t found' using errcode = 'P0001';
+    end if;
+    if s.status is distinct from 'live' then
+        raise exception 'CONFLICT|This class has ended' using errcode = 'P0001';
+    end if;
+    -- the step comes from the student's browser, so check it's one of this lesson's steps
+    if not exists (select 1 from public.steps where id = p_step_id and lesson_id = s.lesson_id) then
+        raise exception 'BAD_REQUEST|That step isn''t part of this lesson' using errcode = 'P0001';
     end if;
 
     insert into public.snapshots (session_id, student_id, step_id, reason, files)
@@ -156,6 +163,9 @@ begin
     if auth.uid() is null then
         raise exception 'UNAUTHENTICATED|Log in first' using errcode = 'P0001';
     end if;
+    if nullif(trim(coalesce(p_message, '')), '') is null then
+        raise exception 'VALIDATION_FAILED|Say what''s still not working' using errcode = 'P0001';
+    end if;
     if char_length(p_message) > 300 then
         raise exception 'VALIDATION_FAILED|Keep your message under 300 characters' using errcode = 'P0001';
     end if;
@@ -190,3 +200,38 @@ begin
 
     return r;
 end $$;
+
+
+-- In-person ping ------------------------------------
+-- A new in-person request calls the telegram-notify Edge Function, which messages the
+-- course's staff. pg_net sends it after the transaction commits, so creating the request
+-- never waits on Telegram.
+--
+-- The function's address and the service-role key come from Vault, so no secret is in this
+-- file. Set them once per environment (03-data-model.md, "In-person ping"); until then the
+-- trigger does nothing.
+
+create extension if not exists pg_net with schema extensions;
+
+create function public.ping_in_person_help() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+    v_url text := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url');
+    v_key text := (select decrypted_secret from vault.decrypted_secrets where name = 'service_role_key');
+begin
+    if v_url is null or v_key is null then
+        return null; -- not set up in this environment
+    end if;
+    perform net.http_post(
+        url     := v_url || '/functions/v1/telegram-notify',
+        body    := jsonb_build_object('requestId', new.id),
+        headers := jsonb_build_object('Content-Type', 'application/json',
+                                      'Authorization', 'Bearer ' || v_key)
+    );
+    return null;
+end $$;
+
+create trigger ping_in_person_help
+    after insert on public.help_requests
+    for each row when (new.in_person)
+    execute function public.ping_in_person_help();

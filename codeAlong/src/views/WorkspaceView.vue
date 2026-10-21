@@ -15,7 +15,7 @@
 
   // WebContainer needs SharedArrayBuffer, which only exists on a cross-origin isolated page
   // (the headers in vite.config.js / vercel.json). Checked before rendering anything, since
-  // Terminal.vue mounts before this view does and would otherwise start booting first.
+  // TerminalPanel.vue mounts before this view does and would otherwise start booting first.
   const isolated = window.crossOriginIsolated === true
   const bootError = ref(isolated ? "" : "This page isn't cross-origin isolated, so the workspace can't run here.")
 

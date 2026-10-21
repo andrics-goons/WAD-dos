@@ -711,6 +711,26 @@ begin
 end $$;
 ```
 
+`create_help_request` also refuses a class that has ended (`CONFLICT`) and a step that isn't part of the session's lesson (`BAD_REQUEST`). The step id comes from the student's browser, and the table no longer checks it. A follow-up needs a non-blank message (`VALIDATION_FAILED`).
+
+### In-person ping
+
+A trigger on `help_requests` (`ping_in_person_help`, after insert where `in_person`) calls the `telegram-notify` Edge Function through `pg_net`. The call is queued and sent **after the transaction commits**, so a Telegram outage can never fail the student's request. `telegram-notify` then reads the request with the service role, messages the course's staff who linked Telegram, and sets `telegram_notified_at`.
+
+The function's address and the service-role key are read from **Vault**, so no secret is in a migration. **Until both are set, the trigger does nothing** — that is why tests and fresh checkouts never call Telegram. Set them once per environment, in the SQL editor:
+
+```sql
+-- local (pnpm exec supabase status shows the key)
+select vault.create_secret('http://host.docker.internal:54321', 'project_url');
+select vault.create_secret('<service role key>', 'service_role_key');
+
+-- cloud: the project URL and service-role key from Project Settings → API
+select vault.create_secret('https://<ref>.supabase.co', 'project_url');
+select vault.create_secret('<service role key>', 'service_role_key');
+```
+
+`supabase db reset` wipes Vault, so run the local pair again after a reset. To check it worked: `select status_code, content from net._http_response order by id desc limit 1;` should show `200` from `telegram-notify`.
+
 ### Follow-ups
 
 Before this, `replied` was terminal — a student whose problem wasn't fixed by the reply had to open a brand-new request, go to the back of the queue, and probably reach a different TA with none of the context. A follow-up reopens **the same request** instead:

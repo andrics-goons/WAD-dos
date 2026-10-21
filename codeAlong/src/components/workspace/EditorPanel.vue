@@ -2,7 +2,7 @@
     import { ref, computed } from "vue"
     import CodeEditor from "./CodeEditor.vue"
     import FileTree from "./FileTree.vue"
-    import Terminal from "./Terminal.vue"
+    import TerminalPanel from "./TerminalPanel.vue"
 
     const props = defineProps({
         filePaths: { type: Array, default: () => [] },
@@ -101,7 +101,7 @@
                     <span>Terminal</span>
                 </div>
                 <div class="pane-body terminal-body">
-                    <Terminal />
+                    <TerminalPanel />
                 </div>
             </div>
 

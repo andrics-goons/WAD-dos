@@ -118,7 +118,7 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   ├── functions/               ← Deno; one folder per function
 │   │   ├── _shared/cors.ts, supabaseAdmin.ts, outbox.ts
 │   │   ├── telegram-webhook/    ← Karin — receives /start <code>, /stop, /help
-│   │   ├── telegram-notify/     ← Karin — in-person ping (invoked by DB webhook)
+│   │   ├── telegram-notify/     ← Karin — in-person ping (called by a pg_net trigger)
 │   │   ├── github-import/       ← Ray Yien
 │   │   ├── github-export/       ← Ray Yien — one commit per checkpoint
 │   │   ├── spotlight/           ← Evan — anonymised excerpt
