@@ -506,14 +506,14 @@ replied ──[student: "still NaN after I changed it"]──▶ open
 ```
 rpc('create_help_request')  → row committed
         │
-        ▼ Database Webhook on insert where in_person = true
+        ▼ trigger on insert where in_person = true → pg_net (03, "In-person ping")
    telegram-notify (Edge Function)
         1. service role: read request + student name + step title + staff chat ids
         2. fetch Telegram sendMessage (HTML-escaped)
         3. update help_requests.telegram_notified_at
 ```
 
-Because the row is **already committed** before the webhook fires, a Telegram outage can never fail the student's action — the request exists, `telegram_notified_at` stays null, and the student sees "TA notified in app only". That used to need an explicit try/catch in the controller; it is now structural.
+Because the row is **already committed** before the call is sent, a Telegram outage can never fail the student's action — the request exists, `telegram_notified_at` stays null, and the student sees "TA notified in app only". That used to need an explicit try/catch in the controller; it is now structural.
 
 Example ping:
 

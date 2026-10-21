@@ -7,6 +7,7 @@
 //
 // .env.telegram.local holds TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID. It is git-ignored
 // (*.local) and must never be committed or put in a VITE_ variable, which would ship to the browser.
+import process from 'node:process'
 import { createTelegramSender, formatInPersonPing, sendWithRetry } from '../shared/telegram.js'
 
 const token = process.env.TELEGRAM_BOT_TOKEN

@@ -298,7 +298,7 @@ create_help_request  rpc('create_help_request', …)
   2. insert snapshots { reason: 'help_request' }, then help_requests { snapshot_id }
      → the partial unique index raises CONFLICT "You already have a request waiting"
   3. Staff see it via their postgres_changes subscription on help_requests (no code in the row)
-  4. If in_person: a Database Webhook invokes `telegram-notify`
+  4. If in_person: a trigger calls `telegram-notify` through pg_net (03, "In-person ping")
      (a Telegram failure only clears telegram_notified_at and shows the student
       "TA notified in app only" — it never fails the request, because the row is
       already committed before the webhook fires)

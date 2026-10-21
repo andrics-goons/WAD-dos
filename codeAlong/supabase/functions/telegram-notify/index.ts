@@ -6,8 +6,6 @@ import { handleNotify, type NotifyDb, type PingContext } from './handler.ts'
 
 const admin = supabaseAdmin()
 
-// UNVERIFIED: written against design-docs/03-data-model.md. help_requests, steps, sessions and
-// lessons are not in a migration yet, so re-check these table/column names once they land.
 const db: NotifyDb = {
   async getPingContext(requestId): Promise<PingContext | null> {
     const { data: r, error } = await admin

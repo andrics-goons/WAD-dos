@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest'
-import { userClient, service, cleanup, anonClient } from './_helpers.js'
+import { userClient, service, cleanup } from './_helpers.js'
 import { mapError } from '@/api/mapError'
 
 const codeOf = (error) => mapError(error)?.code
@@ -159,6 +159,31 @@ describe('create_help_request', () => {
     expect(after.count).toBe(before.count)
     await stu.client.rpc('transition_help_request', { p_request_id: first.id, p_to: 'cancelled' })
   })
+
+  it("a step from another lesson is refused (the step id comes from the student's browser)", async () => {
+    const { data: other } = await prof.client
+      .from('lessons')
+      .insert({ course_id: course.id, title: 'Week 7', files: STARTER, entry_file: 'index.html' })
+      .select()
+      .single()
+    const { data: otherSteps } = await prof.client.rpc('replace_steps', {
+      p_lesson_id: other.id,
+      p_steps: [{ title: 'Something else' }],
+    })
+    const { error } = await ask(stu, { p_step_id: otherSteps[0].id })
+    expect(codeOf(error)).toBe('BAD_REQUEST')
+  })
+
+  it('a class that has ended takes no new requests', async () => {
+    const ended = await startSession(lesson, prof.id, { status: 'ended' })
+    const { error } = await ask(stu, { p_session_id: ended.id })
+    expect(codeOf(error)).toBe('CONFLICT')
+  })
+
+  it('an in-person request still works where the Telegram ping is not set up', async () => {
+    const { error } = await ask(stu, { p_type: 'help', p_in_person: true, p_seat: 'B12' })
+    expect(error).toBeNull()
+  })
 })
 
 describe('claim_help_request', () => {
@@ -304,6 +329,12 @@ describe('follow_up_help_request', () => {
     const { error } = await followUp(stu, id)
     expect(codeOf(error)).toBe('BAD_REQUEST')
     expect((await rowOf(id)).follow_ups).toBe(3)
+  })
+
+  it('a follow-up needs a message', async () => {
+    const r = await replied(stu, ta)
+    expect(codeOf((await followUp(stu, r.id, '   ')).error)).toBe('VALIDATION_FAILED')
+    expect((await rowOf(r.id)).status).toBe('replied')
   })
 
   it('T-HELP-17: only a replied request can be followed up', async () => {

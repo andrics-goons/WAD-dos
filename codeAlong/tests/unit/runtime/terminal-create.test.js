@@ -45,7 +45,7 @@ describe("createTerminal", () => {
         expect(term.options.cursorBlink).toBe(true)
     })
 
-    it("gives a different terminal on every call (one per Terminal.vue)", () => {
+    it("gives a different terminal on every call (one per TerminalPanel.vue)", () => {
         const a = createTerminal(newDiv())
         const b = createTerminal(newDiv())
         made.push(a, b)

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { mount, flushPromises } from "@vue/test-utils"
-import Terminal from "@/components/workspace/Terminal.vue"
+import TerminalPanel from "@/components/workspace/TerminalPanel.vue"
 import { getWebContainer } from "@/runtime/webcontainer.js"
 import { connectShell } from "@/runtime/shell.js"
 
@@ -25,11 +25,11 @@ beforeEach(() => {
     vi.mocked(connectShell).mockReset()
 })
 
-describe("Terminal.vue", () => {
+describe("TerminalPanel.vue", () => {
     it("on unmount, kills the shell and destroys the terminal", async () => {
         const disconnect = vi.fn()
         connectShell.mockResolvedValue(disconnect)
-        const wrapper = mount(Terminal)
+        const wrapper = mount(TerminalPanel)
         await flushPromises()
         wrapper.unmount()
         expect(disconnect).toHaveBeenCalledOnce()
@@ -40,7 +40,7 @@ describe("Terminal.vue", () => {
     it("doesn't start a shell if it unmounted while the WebContainer was booting", async () => {
         const boot = deferred()
         getWebContainer.mockReturnValue(boot.promise)
-        const wrapper = mount(Terminal)
+        const wrapper = mount(TerminalPanel)
         wrapper.unmount()
         boot.resolve({})
         await flushPromises()
@@ -51,7 +51,7 @@ describe("Terminal.vue", () => {
     it("kills the shell straight away if it unmounted while the shell was starting", async () => {
         const spawn = deferred()
         connectShell.mockReturnValue(spawn.promise)
-        const wrapper = mount(Terminal)
+        const wrapper = mount(TerminalPanel)
         await flushPromises()
         wrapper.unmount()
         const disconnect = vi.fn()
@@ -62,7 +62,7 @@ describe("Terminal.vue", () => {
 
     it("explains in the terminal when the WebContainer fails to boot", async () => {
         getWebContainer.mockRejectedValue(new Error("boom"))
-        mount(Terminal)
+        mount(TerminalPanel)
         await flushPromises()
         expect(term.written).toContain("Couldn't start the terminal: boom")
     })

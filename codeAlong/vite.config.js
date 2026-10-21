@@ -74,12 +74,4 @@ export default defineConfig({
       '@shared': fileURLToPath(new URL('./shared', import.meta.url)),
     },
   },
-
-  // ESSENTIAL FOR WEBCONTAINER TO RUN, needs SharedArrayBuffer
-  server: {
-    headers: {
-      'Cross-Origin-Embedder-Policy': 'require-corp',
-      'Cross-Origin-Opener-Policy': 'same-origin',
-    },
-  },
 })
