@@ -13,7 +13,9 @@ export function normalizeError({ name, message } = {}) {
   const errorName = name || 'Error'
 
   // only the first line, the rest is usually a stack trace
-  let m = String(message ?? '').split('\n')[0].trim()
+  let m = String(message ?? '')
+    .split('\n')[0]
+    .trim()
 
   m = m
     .replace(/\s+at\s+\S+$/, '') // " at app.js:22:15" on the end
@@ -47,7 +49,10 @@ export function normalizeError({ name, message } = {}) {
 //
 //   each group: { stepOrder, key, shapeKey, count, source, preview, studentIds, lastAt, variants: [{ key, count, preview }] }
 
-export function groupErrors(tiles, { min = Limits.ERROR_GROUP_MIN, presentCount = tiles.length } = {}) {
+export function groupErrors(
+  tiles,
+  { min = Limits.ERROR_GROUP_MIN, presentCount = tiles.length } = {},
+) {
   // same step and same exact error
   const byKey = new Map()
   for (const t of tiles) {
@@ -55,7 +60,12 @@ export function groupErrors(tiles, { min = Limits.ERROR_GROUP_MIN, presentCount 
     const id = `${t.stepOrder}\u0000${t.errorKey}`
     let v = byKey.get(id)
     if (!v) {
-      v = { stepOrder: t.stepOrder, key: t.errorKey, shapeKey: t.errorShapeKey || t.errorKey, tiles: [] }
+      v = {
+        stepOrder: t.stepOrder,
+        key: t.errorKey,
+        shapeKey: t.errorShapeKey || t.errorKey,
+        tiles: [],
+      }
       byKey.set(id, v)
     }
     v.tiles.push(t)
@@ -88,7 +98,11 @@ export function groupErrors(tiles, { min = Limits.ERROR_GROUP_MIN, presentCount 
       preview: top.tiles[0].errorPreview ?? '',
       studentIds: all.map((t) => t.studentId),
       lastAt: Math.max(...all.map((t) => Date.parse(t.lastSeenAt) || 0)),
-      variants: variants.map((v) => ({ key: v.key, count: v.tiles.length, preview: v.tiles[0].errorPreview ?? '' })),
+      variants: variants.map((v) => ({
+        key: v.key,
+        count: v.tiles.length,
+        preview: v.tiles[0].errorPreview ?? '',
+      })),
     })
   }
 

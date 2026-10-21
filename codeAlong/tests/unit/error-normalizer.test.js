@@ -14,23 +14,36 @@ describe('normalizeError', () => {
     })
   })
 
-  // T-ERRG-01
-  it('gives the same key when only the line or column differs', () => {
-    const a = normalizeError({ name: 'TypeError', message: "Cannot read properties of undefined (reading 'price') at App.vue:31:12" })
-    const b = normalizeError({ name: 'TypeError', message: "Cannot read properties of undefined (reading 'price') at App.vue:33:7" })
+  it('T-ERRG-01: gives the same key when only the line or column differs', () => {
+    const a = normalizeError({
+      name: 'TypeError',
+      message: "Cannot read properties of undefined (reading 'price') at App.vue:31:12",
+    })
+    const b = normalizeError({
+      name: 'TypeError',
+      message: "Cannot read properties of undefined (reading 'price') at App.vue:33:7",
+    })
     expect(a.key).toBe(b.key)
   })
 
   it('replaces urls', () => {
-    const a = normalizeError({ name: 'Error', message: 'Failed to load http://localhost:5173/api/items?cat=1' })
-    const b = normalizeError({ name: 'Error', message: 'Failed to load https://abc.webcontainer.io/api/items?cat=2' })
+    const a = normalizeError({
+      name: 'Error',
+      message: 'Failed to load http://localhost:5173/api/items?cat=1',
+    })
+    const b = normalizeError({
+      name: 'Error',
+      message: 'Failed to load https://abc.webcontainer.io/api/items?cat=2',
+    })
     expect(a.key).toBe('Error: Failed to load <url>')
     expect(a.key).toBe(b.key)
   })
 
-  // T-ERRG-02
-  it('masks numbers', () => {
-    const { key, shapeKey } = normalizeError({ name: 'AxiosError', message: 'Request failed with status code 404' })
+  it('T-ERRG-02: masks numbers', () => {
+    const { key, shapeKey } = normalizeError({
+      name: 'AxiosError',
+      message: 'Request failed with status code 404',
+    })
     expect(key).toBe('AxiosError: Request failed with status code <n>')
     expect(shapeKey).toBe(key)
   })
@@ -41,8 +54,7 @@ describe('normalizeError', () => {
     expect(a.key).toBe(b.key)
   })
 
-  // T-ERRG-03
-  it('keeps typos apart in the key but together in the shape', () => {
+  it('T-ERRG-03: keeps typos apart in the key but together in the shape', () => {
     const items = normalizeError({ name: 'ReferenceError', message: 'items is not defined' })
     const itmes = normalizeError({ name: 'ReferenceError', message: 'itmes is not defined' })
     expect(items.key).toBe('ReferenceError: items is not defined')
@@ -53,7 +65,10 @@ describe('normalizeError', () => {
   })
 
   it('handles "is not a function" with dotted names', () => {
-    const { key, shapeKey } = normalizeError({ name: 'TypeError', message: 'cart.value.map is not a function' })
+    const { key, shapeKey } = normalizeError({
+      name: 'TypeError',
+      message: 'cart.value.map is not a function',
+    })
     expect(key).toBe('TypeError: cart.value.map is not a function')
     expect(shapeKey).toBe('TypeError: <id> is not a function')
   })
@@ -64,7 +79,10 @@ describe('normalizeError', () => {
   })
 
   it('only looks at the first line', () => {
-    const { key } = normalizeError({ name: 'Error', message: 'boom\n    at foo (app.js:1:1)\n    at bar (app.js:2:2)' })
+    const { key } = normalizeError({
+      name: 'Error',
+      message: 'boom\n    at foo (app.js:1:1)\n    at bar (app.js:2:2)',
+    })
     expect(key).toBe('Error: boom')
   })
 

@@ -5,7 +5,7 @@ import { miniCartFiles, miniCartEntryFile } from '../fixtures/miniCart.js'
 const f = (path, content) => ({ path, content })
 
 describe('parseTodos', () => {
-  it('T-TODO-01 reads JS, HTML and CSS comment forms', () => {
+  it('T-TODO-01: reads JS, HTML and CSS comment forms', () => {
     const steps = parseTodos([
       f('app.js', '// TODO 1: Fetch the items\n/* TODO 3: Show the total */'),
       f('index.html', '<h1>Hi</h1>\n<!-- TODO 2 - Show the item list -->'),
@@ -20,13 +20,16 @@ describe('parseTodos', () => {
     expect(steps[1].todoRefs).toEqual([{ file: 'index.html', line: 2 }])
   })
 
-  it('T-TODO-02 sorts numbered TODOs by number, not file order', () => {
-    const steps = parseTodos([f('a.js', '// TODO 3: third'), f('b.js', '// TODO 1: first\n// TODO 2: second')])
+  it('T-TODO-02: sorts numbered TODOs by number, not file order', () => {
+    const steps = parseTodos([
+      f('a.js', '// TODO 3: third'),
+      f('b.js', '// TODO 1: first\n// TODO 2: second'),
+    ])
     expect(steps.map((s) => s.title)).toEqual(['First', 'Second', 'Third'])
     expect(steps.map((s) => s.order)).toEqual([1, 2, 3])
   })
 
-  it('T-TODO-03 merges the same number in two files into one step with two refs', () => {
+  it('T-TODO-03: merges the same number in two files into one step with two refs', () => {
     const steps = parseTodos([
       f('index.html', '<!-- TODO 3: Build the card -->'),
       f('app.js', '// TODO 3: Build the card'),
@@ -35,31 +38,38 @@ describe('parseTodos', () => {
     expect(steps[0].todoRefs).toHaveLength(2)
   })
 
-  it('T-TODO-04 appends unnumbered TODOs after numbered ones, in scan order', () => {
-    const steps = parseTodos([f('a.js', '// TODO: loose one\n// TODO 1: numbered\n// TODO: loose two')])
+  it('T-TODO-04: appends unnumbered TODOs after numbered ones, in scan order', () => {
+    const steps = parseTodos([
+      f('a.js', '// TODO: loose one\n// TODO 1: numbered\n// TODO: loose two'),
+    ])
     expect(steps.map((s) => s.title)).toEqual(['Numbered', 'Loose one', 'Loose two'])
   })
 
   it('scans the entry file first', () => {
-    const steps = parseTodos([f('a.js', '// TODO: from a'), f('main.js', '// TODO: from main')], 'main.js')
+    const steps = parseTodos(
+      [f('a.js', '// TODO: from a'), f('main.js', '// TODO: from main')],
+      'main.js',
+    )
     expect(steps.map((s) => s.title)).toEqual(['From main', 'From a'])
   })
 
-  it('returns one fallback step when there are no TODOs', () => {
+  it('T-TODO-06: returns one fallback step when there are no TODOs', () => {
     expect(parseTodos([f('a.js', 'const x = 1')])).toEqual([
       { order: 1, title: 'Complete the exercise', description: '', todoRefs: [] },
     ])
   })
 
-  it('closes gaps (1, 2, 5 -> 1, 2, 3) and keeps the original number in the description', () => {
+  it('T-TODO-05: closes gaps (1, 2, 5 -> 1, 2, 3) and keeps the original number in the description', () => {
     const steps = parseTodos([f('a.js', '// TODO 1: a\n// TODO 2: b\n// TODO 5: c')])
     expect(steps.map((s) => s.order)).toEqual([1, 2, 3])
     expect(steps[2].description).toBe('Originally TODO 5')
     expect(steps[0].description).toBe('')
   })
 
-  it('ignores TODO inside a string literal', () => {
-    const steps = parseTodos([f('a.js', 'const s = "// TODO 1: not real"\nconst t = `\n// TODO 2: also string\n`')])
+  it('T-TODO-07: ignores TODO inside a string literal', () => {
+    const steps = parseTodos([
+      f('a.js', 'const s = "// TODO 1: not real"\nconst t = `\n// TODO 2: also string\n`'),
+    ])
     expect(steps[0].title).toBe('Complete the exercise')
   })
 

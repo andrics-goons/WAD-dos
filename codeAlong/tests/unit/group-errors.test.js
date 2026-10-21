@@ -3,16 +3,31 @@ import { groupErrors, normalizeError } from '../../shared/error-normalizer.js'
 
 // fake student tile with the same fields the dashboard will get from session_tiles
 let nextId = 1
-function tile({ step = 4, name = 'ReferenceError', message, source = 'runtime', at = '2026-10-17T10:00:00Z' } = {}) {
+function tile({
+  step = 4,
+  name = 'ReferenceError',
+  message,
+  source = 'runtime',
+  at = '2026-10-17T10:00:00Z',
+} = {}) {
   const base = { studentId: `s${nextId++}`, stepOrder: step, lastSeenAt: at }
   if (!message) return { ...base, errorKey: null, errorShapeKey: null }
   const { key, shapeKey } = normalizeError({ name, message })
-  return { ...base, errorKey: key, errorShapeKey: shapeKey, errorSource: source, errorPreview: message }
+  return {
+    ...base,
+    errorKey: key,
+    errorShapeKey: shapeKey,
+    errorSource: source,
+    errorPreview: message,
+  }
 }
 
 describe('groupErrors', () => {
   it('puts students with the same mistake on the same step into one group', () => {
-    const tiles = [tile({ message: 'items is not defined' }), tile({ message: 'items is not defined' })]
+    const tiles = [
+      tile({ message: 'items is not defined' }),
+      tile({ message: 'items is not defined' }),
+    ]
     const groups = groupErrors(tiles)
     expect(groups).toHaveLength(1)
     expect(groups[0]).toMatchObject({
@@ -31,7 +46,11 @@ describe('groupErrors', () => {
       tile({ step: 4, message: 'items is not defined' }),
       tile({ step: 4, message: 'items is not defined' }),
     ]
-    expect(groupErrors(tiles).map((g) => g.stepOrder).sort()).toEqual([3, 4])
+    expect(
+      groupErrors(tiles)
+        .map((g) => g.stepOrder)
+        .sort(),
+    ).toEqual([3, 4])
   })
 
   it('shows typos of the same mistake as one group with variants', () => {
@@ -62,8 +81,7 @@ describe('groupErrors', () => {
     expect(groupErrors(tiles)).toHaveLength(2)
   })
 
-  // T-ERRG-04
-  it('leaves out mistakes only one student has', () => {
+  it('T-ERRG-04: leaves out mistakes only one student has', () => {
     const tiles = [
       tile({ message: 'items is not defined' }),
       tile({ message: 'items is not defined' }),
@@ -74,10 +92,12 @@ describe('groupErrors', () => {
     expect(groups[0].key).toBe('ReferenceError: items is not defined')
   })
 
-  // T-ERRG-04: 40 students means 10% is 4, so a group of 3 isn't enough
-  it('raises the bar to 10% of the class when that is bigger', () => {
+  // 40 students means 10% is 4, so a group of 3 isn't enough
+  it('T-ERRG-04: raises the bar to 10% of the class when that is bigger', () => {
     const three = Array.from({ length: 3 }, () => tile({ message: 'items is not defined' }))
-    const four = Array.from({ length: 4 }, () => tile({ name: 'TypeError', message: 'cart.push is not a function' }))
+    const four = Array.from({ length: 4 }, () =>
+      tile({ name: 'TypeError', message: 'cart.push is not a function' }),
+    )
     const groups = groupErrors([...three, ...four], { presentCount: 40 })
     expect(groups.map((g) => g.count)).toEqual([4])
   })
