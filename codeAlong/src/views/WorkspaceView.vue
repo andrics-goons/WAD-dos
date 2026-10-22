@@ -20,6 +20,8 @@
   const bootError = ref(isolated ? "" : "This page isn't cross-origin isolated, so the workspace can't run here.")
 
   const previewUrl = ref("")
+  // below xl: which of the editor and the preview is on screen
+  const showPreview = ref(false)
   let stopWorkspace
   // set on unmount, so a boot that finishes after the user has left doesn't leave a listener behind
   let unmounted = false
@@ -59,21 +61,25 @@
 
     <template v-else>
       <!-- boot failed: keep the editor so the student's code is still visible, but say why nothing runs -->
-      <div v-if="bootError" class="alert alert-danger" role="alert">
+      <div v-if="bootError" class="alert alert-danger">
         {{ bootError }} Try reloading the page.
       </div>
 
+      <!-- xl and up: editor and preview side by side. Below xl only one shows at a time and
+           the button in each pane header swaps them. d-none only hides the box, so the
+           terminal and the running preview survive the swap -->
       <div class="workspace-layout">
-        <div class="workspace-box">
+        <div class="workspace-box" :class="{ 'd-none d-xl-block': showPreview }">
           <EditorPanel
             :file-paths="workspaceStore.filePaths"
             v-model:selected-file="workspaceStore.selectedFile"
             v-model:selected-code="workspaceStore.selectedCode"
+            @show-preview="showPreview = true"
           />
         </div>
 
-        <div class="preview-box">
-          <PreviewPanel :preview-url="previewUrl" />
+        <div class="preview-box" :class="{ 'd-none d-xl-block': !showPreview }">
+          <PreviewPanel :preview-url="previewUrl" @show-editor="showPreview = false" />
         </div>
       </div>
     </template>
