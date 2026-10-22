@@ -10,9 +10,10 @@
         selectedCode: { type: String, default: "" },
     })
 
-    const emit = defineEmits(["update:selectedFile", "update:selectedCode"])
+    const emit = defineEmits(["update:selectedFile", "update:selectedCode", "show-preview"])
 
-    const collapsed = ref(false)
+    // below md (phones) the file tree starts collapsed, so the editor gets the width
+    const collapsed = ref(window.matchMedia("(max-width: 767.98px)").matches)
     const terminalOpen = ref(true)
 
     // used as filebadge next to filename in codeeditor
@@ -31,7 +32,6 @@
                     class="toggle-btn"
                     type="button"
                     :title="collapsed ? 'Show files' : 'Hide files'"
-                    :aria-expanded="!collapsed"
                     @click="collapsed = !collapsed"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-layout-sidebar" viewBox="0 0 16 16">
@@ -60,7 +60,6 @@
                     :class="{ active: terminalOpen }"
                     type="button"
                     :title="terminalOpen ? 'Hide terminal' : 'Show terminal'"
-                    :aria-expanded="terminalOpen"
                     @click="terminalOpen = !terminalOpen"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-terminal" viewBox="0 0 16 16">
@@ -82,6 +81,18 @@
                 <div class="pane-header">
                     <span class="file-badge">{{ fileType }}</span>
                     <span>{{ selectedFile }}</span>
+                    <!-- below xl the preview isn't beside the editor, so this swaps to it -->
+                    <button
+                        class="toggle-btn ms-auto d-xl-none"
+                        type="button"
+                        title="Show preview"
+                        @click="emit('show-preview')"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
+                            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/>
+                            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
+                        </svg>
+                    </button>
                 </div>
                 <div class="pane-body">
                     <!-- :key remounts the editor when the file changes, since it only reads selectedCode on mount -->
@@ -125,9 +136,14 @@
         min-height: 0;
     }
     .tree-pane {
-        width: 280px;
+        width: 160px;
         flex-shrink: 0;
         border-right: 1px solid #181a1f;
+    }
+    @media (min-width: 768px) {
+        .tree-pane {
+            width: 280px;
+        }
     }
     /* shrinks to a strip just wide enough for the toggle button */
     .tree-pane.collapsed {
