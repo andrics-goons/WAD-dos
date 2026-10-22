@@ -15,6 +15,15 @@ export const useCoursesStore = defineStore('courses', () => {
     return courses.value
   }
 
+  // one course for its page, with myRole / isOwner (not cached: the page always wants fresh data)
+  const get = (id) => coursesApi.getCourse(id)
+
+  // the People tab (names only); students see just themselves in listStudents
+  const listStaff = (courseId) => coursesApi.listStaff(courseId)
+  const listStudents = (courseId) => coursesApi.listStudents(courseId)
+  const addStaff = (courseId, email) => coursesApi.addStaff(courseId, email)
+  const removeStudent = (courseId, userId) => coursesApi.removeStudent(courseId, userId)
+
   async function create(form) {
     const course = await coursesApi.createCourse(form)
     courses.value = [course, ...courses.value]
@@ -34,5 +43,17 @@ export const useCoursesStore = defineStore('courses', () => {
     loaded.value = false
   }
 
-  return { courses, loaded, load, create, enrol, reset }
+  return {
+    courses,
+    loaded,
+    load,
+    get,
+    listStaff,
+    listStudents,
+    addStaff,
+    removeStudent,
+    create,
+    enrol,
+    reset,
+  }
 })

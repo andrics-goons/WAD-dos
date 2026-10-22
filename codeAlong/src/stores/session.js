@@ -28,6 +28,8 @@ export const useSessionStore = defineStore('session', () => {
 
   // A prof starts a class, a student joins one — both return the session id to open.
   const start = (lessonId) => sessionsApi.startSession(lessonId)
+  // every class in a course, newest first (the course page's Sessions tab)
+  const listForCourse = (courseId) => sessionsApi.listSessions(courseId)
   const join = (joinCode) => sessionsApi.joinSession(joinCode)
 
   async function open(id) {
@@ -131,6 +133,7 @@ export const useSessionStore = defineStore('session', () => {
     isLive,
     isStaff,
     start,
+    listForCourse,
     join,
     open,
     close,
