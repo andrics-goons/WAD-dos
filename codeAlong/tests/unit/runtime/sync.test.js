@@ -63,8 +63,7 @@ describe("debounceByPath", () => {
         vi.advanceTimersByTime(100)
         sync("a.js", "hey")
         vi.advanceTimersByTime(300)
-        expect(fn).toHaveBeenCalledOnce()
-        expect(fn).toHaveBeenCalledWith("a.js", "hey")
+        expect(fn).toHaveBeenCalledExactlyOnceWith("a.js", "hey")
     })
 
     // Easy to get wrong: switching files quickly must not drop the first file's last edit

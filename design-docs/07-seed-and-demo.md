@@ -143,6 +143,7 @@ The live session's `idleAfterSec` is **3600**, not 180, so the tiles stay un-idl
 | ☐ | `pnpm simulate --session <code> --students 25` ready in a terminal, so the dashboard looks like a real class |
 | ☐ | Supabase project **awake** (it pauses when idle) — open the dashboard and run one query the day before |
 | ☐ | Telegram open on a phone (screen-mirrored) logged in as the TA |
+| ☐ | The two Vault secrets for the in-person ping are set on that database ([03, "In-person ping"](./03-data-model.md#in-person-ping)) — `db:reset` wipes them |
 | ☐ | GitHub repo page open in a tab (Q&A slide 11) |
 | ☐ | Screen recording at 1920×1080, browser zoom 110% for readability |
 | ☐ | Notifications off on every device |
