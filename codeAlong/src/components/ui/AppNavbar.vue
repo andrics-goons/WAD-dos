@@ -22,6 +22,7 @@ watch(
 )
 
 const links = [
+  { to: { name: 'home' }, label: 'Home', icon: 'bi-house', testid: 'nav-home' },
   { to: { name: 'courses' }, label: 'Courses', icon: 'bi-grid', testid: 'nav-courses' },
   { to: { name: 'replays' }, label: 'Replays', icon: 'bi-collection-play', testid: 'nav-replays' },
 ]
@@ -37,7 +38,7 @@ async function signOut() {
   <header class="ca-navbar sticky-top border-bottom">
     <nav class="d-flex align-items-center gap-3 h-100 px-3 px-md-4">
       <RouterLink
-        :to="{ name: 'landing' }"
+        :to="{ name: auth.isAuthenticated ? 'home' : 'landing' }"
         class="d-inline-flex align-items-center gap-2 fw-bold text-body text-decoration-none"
       >
         <span class="ca-brand-mark"><i class="bi bi-code-slash" /></span>
@@ -55,6 +56,7 @@ async function signOut() {
         @click="menuOpen = !menuOpen"
       >
         <i class="bi" :class="menuOpen ? 'bi-x-lg' : 'bi-list'" />
+        <span class="visually-hidden">Menu</span>
       </button>
 
       <!-- phones: drops down under the bar when ☰ is tapped · tablets and up: always in a row -->
@@ -75,21 +77,13 @@ async function signOut() {
         </RouterLink>
 
         <div v-if="auth.isAuthenticated" class="dropdown">
-          <button
-            type="button"
-            class="ca-btn ca-btn--ghost"
-            @click="userMenuOpen = !userMenuOpen"
-          >
+          <button type="button" class="ca-btn ca-btn--ghost" @click="userMenuOpen = !userMenuOpen">
             <span class="ca-avatar">{{ auth.user.name?.[0] ?? '?' }}</span>
             <span class="text-truncate text-body">{{ auth.user.name }}</span>
             <i class="bi bi-chevron-down small" />
           </button>
           <div class="dropdown-menu dropdown-menu-end" :class="{ show: userMenuOpen }">
-            <RouterLink
-              :to="{ name: 'profile' }"
-              class="dropdown-item"
-              data-testid="nav-profile"
-            >
+            <RouterLink :to="{ name: 'profile' }" class="dropdown-item" data-testid="nav-profile">
               <i class="bi bi-person me-2" />Profile
             </RouterLink>
             <button type="button" class="dropdown-item" @click="signOut">
