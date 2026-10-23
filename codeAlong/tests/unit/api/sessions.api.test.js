@@ -151,6 +151,28 @@ describe('sessions.api + checkpoints.api', () => {
   })
 })
 
+// The local live-messaging server sleeps when nobody is connected. Waking up, it takes a moment
+// to reconnect to the database, and a message sent in that gap is lost. So before testing live
+// messages, nudge a setting until the store has actually heard one.
+async function warmUp(store, session) {
+  for (let i = 0; i < 20; i++) {
+    const hintsEnabled = i % 2 === 0
+    await prof.client
+      .from('sessions')
+      .update({ settings: { ...session.settings, hintsEnabled } })
+      .eq('id', session.id)
+    try {
+      await vi.waitFor(() => expect(store.session.settings.hintsEnabled).toBe(hintsEnabled), {
+        timeout: 1000,
+      })
+      return
+    } catch {
+      // not heard yet — try again
+    }
+  }
+  throw new Error('live messages never arrived')
+}
+
 describe('session store (a student following a live class)', () => {
   let session, store
 
@@ -169,7 +191,8 @@ describe('session store (a student following a live class)', () => {
     expect(store.steps).toHaveLength(2)
     expect(store.isStaff).toBe(false)
     await vi.waitFor(() => expect(store.connection).toBe('live'), { timeout: 10_000 })
-  }, 15_000)
+    await warmUp(store, session)
+  }, 30_000)
 
   it('T-SESS-03: before the first checkpoint, the student is on Step 1', () => {
     expect(store.currentStep.title).toBe('Create the app')
