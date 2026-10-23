@@ -59,27 +59,6 @@ async function listen(client, sessionId, event) {
   return { next: message }
 }
 
-// The local live-messaging server sleeps when nobody is connected. Waking up, it takes a moment
-// to reconnect to the database, and a message sent in that gap is lost. So before the tests,
-// nudge a class's settings until a student has actually heard one.
-async function warmUp(session) {
-  const channel = stu.client.channel(`session:${session.id}`, { config: { private: true } })
-  let heard = false
-  channel.on('broadcast', { event: 'session:settings' }, () => (heard = true))
-  await new Promise((resolve) =>
-    channel.subscribe((status) => status === 'SUBSCRIBED' && resolve()),
-  )
-  for (let i = 0; i < 20 && !heard; i++) {
-    await prof.client
-      .from('sessions')
-      .update({ settings: { ...session.settings, hintsEnabled: i % 2 === 0 } })
-      .eq('id', session.id)
-    await new Promise((resolve) => setTimeout(resolve, 500))
-  }
-  await stu.client.removeChannel(channel)
-  if (!heard) throw new Error('live messages never arrived')
-}
-
 beforeAll(async () => {
   ;[prof, ta, stu, stu2, outsider] = await Promise.all([
     userClient({ name: 'Prof Lee', role: 'prof' }),
@@ -120,9 +99,7 @@ beforeAll(async () => {
     p_lesson_id: otherLesson.id,
     p_steps: [{ title: 'Elsewhere' }],
   })
-
-  await warmUp((await startAs(prof)).data)
-}, 30_000)
+})
 
 afterAll(async () => {
   // sessions first: they stop courses and lessons being deleted
