@@ -9,7 +9,7 @@ import { useToastStore } from '@/stores/toast'
  *   roles: [...]  → account role (profiles.role) must be in this list; otherwise toast + /courses.
  *                   Admins pass every role check: they can read everything, and the RPCs
  *                   still refuse any write an admin isn't allowed to make.
- *   guest: true   → only for signed-out visitors; signed-in users go to /courses
+ *   guest: true   → only for signed-out visitors; signed-in users go to /home
  *   title:        → appended to the document title
  *
  * These guards are UX, not security. The browser talks to Postgres directly, so the
@@ -33,7 +33,7 @@ const routes = [
     path: '/',
     name: 'landing',
     component: () => import('@/views/LandingView.vue'),
-    meta: {}, // no title → the tab shows plain "CodeAlong" (see afterEach)
+    meta: { guest: true }, // no title → the tab shows plain "CodeAlong" (see afterEach)
   },
   {
     path: '/login',
@@ -49,6 +49,13 @@ const routes = [
   },
 
   // ── Any signed-in user ────────────────────────────────────────────────────
+  {
+    // where you land once logged in: live classes + your courses
+    path: '/home',
+    name: 'home',
+    component: () => import('@/views/HomeView.vue'),
+    meta: { auth: true, title: 'Home' },
+  },
   {
     path: '/courses',
     name: 'courses',
@@ -200,7 +207,7 @@ router.beforeEach(async (to) => {
   if (!auth.loaded) await auth.ensureLoaded()
 
   if (to.meta.guest && auth.isAuthenticated) {
-    return { name: 'courses' }
+    return { name: 'home' }
   }
 
   if (to.meta.auth && !auth.isAuthenticated) {
