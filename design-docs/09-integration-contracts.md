@@ -412,7 +412,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 
 | Area | Examples |
 |---|---|
-| Navigation | `nav-courses`, `nav-replays`, `nav-profile`, `nav-connection-pill` |
+| Navigation | `nav-home`, `nav-courses`, `nav-replays`, `nav-profile`, `nav-connection-pill` |
 | Courses | `course-card-<code>`, `btn-new-course`, `btn-enrol-course`, `input-enrol-code`, `btn-enrol`, `enrol-link`, `btn-copy-enrol-link`, `enrol-qr` |
 | Lessons | `lesson-row-<slug>`, `lesson-start-<slug>`, `step-item-<order>`, `btn-step-up-<order>` |
 | Session | `join-code`, `join-qr`, `input-join-code`, `btn-save-checkpoint`, `btn-end-session`, `toast-checkpoint`, `input-announce`, `btn-announce`, `btn-clear-announce`, `announcement-banner` |

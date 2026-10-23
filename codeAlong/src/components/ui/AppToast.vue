@@ -27,7 +27,9 @@ const ICONS = {
           <div v-if="m.title" class="fw-semibold">{{ m.title }}</div>
           <div>{{ m.text }}</div>
         </div>
-        <button type="button" class="btn-close" @click="toast.dismiss(m.id)" />
+        <button type="button" class="btn-close" @click="toast.dismiss(m.id)">
+          <span class="visually-hidden">Dismiss</span>
+        </button>
       </div>
     </TransitionGroup>
   </div>
