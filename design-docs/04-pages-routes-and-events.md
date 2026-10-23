@@ -13,7 +13,6 @@ Register /register             Join session      /join[/:code]    Help review   
                                Replays           /replays         New lesson        /courses/:id/lessons/new (prof)
                                Replay viewer     /replays/:id     Insights report   /sessions/:id/report
                                Profile           /profile
-                               Home              /home
 
 ADMIN
 ─────
@@ -32,8 +31,7 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 
 | Path | View | Owner | Who | Layout: xs (375–575 px) → lg/xl (≥ 992 px) |
 |---|---|---|---|---|
-| `/` | `LandingView` | Ying Qi | Public (logged-in users go to `/home`) | Hero + 3 feature cards stacked → hero left, cards in a row; "Join a class" CTA always visible |
-| `/home` | `HomeView` | Ying Qi | Logged in | Where you land after logging in. "Live now" (live classes across your courses, with Open class / Help queue / Join by your role in that course) and your first 3 courses, stacked → 7 + 5 cols. Students and TAs get a "Join with a code" button |
+| `/` | `LandingView` | Ying Qi | Public | Hero + 3 feature cards stacked → hero left, cards in a row; "Join a class" CTA always visible |
 | `/login`, `/register` | `LoginView`, `RegisterView` | Ying Qi | Public | Full-width card → centred card max 420 px |
 | `/courses` | `CoursesView` | Ying Qi | Logged in | Course cards 1 col → 3 cols; prof sees "New course"; student sees **"Enrol in a course"**, which opens `/enrol` |
 | `/courses/:id` | `CourseView` | Ying Qi (shell) + Ray Yien (lesson library) | Staff / enrolled | Tabs (Lessons · Sessions · People) → same tabs, lessons as a table with search. **The owner sees a "Share enrolment" card**: the enrol code, a **Copy link** button for `<APP_URL>/enrol/<code>`, and its QR |

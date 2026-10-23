@@ -29,7 +29,7 @@ async function register() {
     })
 
     // back to wherever they were heading (e.g. an enrol link), like login does
-    router.replace(route.query.returnTo || '/home')
+    router.replace(route.query.returnTo || '/courses')
   } catch (error) {
     errorMsg.value = error.message
   } finally {

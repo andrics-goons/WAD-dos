@@ -78,17 +78,6 @@ export async function listSessions(courseId) {
   return data
 }
 
-/** Live classes in every course I'm in, newest first — for the home page. */
-export async function listLiveSessions() {
-  const { data, error } = await supabase
-    .from('sessions')
-    .select(`${SESSION}, lessons(title), courses(code, section)`)
-    .eq('status', 'live')
-    .order('started_at', { ascending: false })
-  if (error) throw mapError(error)
-  return data
-}
-
 /** Profs only. Every student is told straight away (session:settings). */
 export async function updateSettings(id, settings) {
   const { data, error } = await supabase
