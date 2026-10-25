@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useToastStore } from '@/stores/toast'
+import QrDisplay from './QrDisplay.vue'
 
 const props = defineProps({ code: { type: String, required: true } })
 
@@ -29,12 +30,7 @@ async function copyLink() {
       <i class="bi" :class="open ? 'bi-chevron-up' : 'bi-chevron-down'" />
     </button>
     <div v-show="open" class="d-flex flex-wrap align-items-center gap-3 px-3 pb-3">
-      <!-- placeholder until QrDisplay exists -->
-      <div
-        class="qr d-flex flex-shrink-0 align-items-center justify-content-center border rounded fs-2 text-body-secondary"
-      >
-        <i class="bi bi-qr-code" />
-      </div>
+      <QrDisplay :text="joinUrl" class="qr flex-shrink-0" data-testid="join-qr" />
       <div class="overflow-hidden">
         <div class="ca-eyebrow">Students enter</div>
         <div class="code ca-mono fs-2 fw-bold lh-sm" data-testid="join-code">{{ code }}</div>
