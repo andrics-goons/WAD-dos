@@ -221,6 +221,7 @@ function fakeConfirm() {
         <button class="ca-btn ca-btn--primary ca-btn--lg">--lg Join a class</button>
         <button class="ca-btn ca-btn--secondary ca-btn--icon">
           <i class="bi bi-gear" />
+          <span class="visually-hidden">Settings</span>
         </button>
         <button class="ca-btn ca-btn--primary" disabled>
           <span class="spinner-border spinner-border-sm" />Saving…
@@ -268,12 +269,7 @@ function fakeConfirm() {
           </div>
           <div class="col-12">
             <div class="form-check form-switch">
-              <input
-                id="kit-switch"
-                class="form-check-input"
-                type="checkbox"
-                checked
-              />
+              <input id="kit-switch" class="form-check-input" type="checkbox" checked />
               <label class="form-check-label" for="kit-switch">Allow catch-up</label>
             </div>
           </div>
@@ -392,10 +388,8 @@ function addToCart() {
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2 p-3 border-top">
           <StatusPill v-for="s in TileStateOrder" :key="s" :state="s" />
-          <input
-            class="ca-input w-auto ms-md-auto"
-            placeholder="Dark input"
-          />
+          <label class="visually-hidden" for="kit-dark-input">Dark input</label>
+          <input id="kit-dark-input" class="ca-input w-auto ms-md-auto" placeholder="Dark input" />
           <button class="ca-btn ca-btn--secondary ca-btn--sm">Secondary</button>
         </div>
       </div>
