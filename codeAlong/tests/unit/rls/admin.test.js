@@ -215,7 +215,7 @@ describe('T-ADM-09: policy sweep', () => {
 
   it('covers every table in public', () => {
     expect(sweep.map((t) => t.table_name)).toEqual(
-      expect.arrayContaining(['profiles', 'courses', 'snapshots', 'lost_flags', 'session_reports']),
+      expect.arrayContaining(['profiles', 'courses', 'snapshots', 'slow_down_flags', 'session_reports']),
     )
   })
 

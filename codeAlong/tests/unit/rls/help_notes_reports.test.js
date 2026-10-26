@@ -160,7 +160,7 @@ afterAll(async () => {
   await cleanup()
 })
 
-describe('snapshots: staff see code only when the student sends it', () => {
+describe("snapshots: the course's staff can read students' code to help them", () => {
   let autosave, catchup, sent
 
   beforeAll(async () => {
@@ -175,9 +175,11 @@ describe('snapshots: staff see code only when the student sends it', () => {
     )
   })
 
-  it("T-PRIV-02: staff cannot read a student's autosave or catch-up snapshot", async () => {
+  it("T-PRIV-02: the prof and TAs read a student's autosave and catch-up attempts", async () => {
     for (const who of [prof, ta]) {
-      expect(await visibleIds(who, 'snapshots', [autosave.id, catchup.id])).toEqual([])
+      expect(await visibleIds(who, 'snapshots', [autosave.id, catchup.id])).toEqual(
+        [autosave.id, catchup.id].sort(),
+      )
     }
   })
 
@@ -193,7 +195,7 @@ describe('snapshots: staff see code only when the student sends it', () => {
     expect(await visibleIds(stu2, 'snapshots', [sent.id])).toEqual([])
   })
 
-  it('when a follow-up attaches a fresh snapshot, staff lose the old one', async () => {
+  it('after a follow-up attaches a fresh snapshot, staff can still read both', async () => {
     const { data: req } = await service
       .from('help_requests')
       .select('id')
@@ -202,7 +204,9 @@ describe('snapshots: staff see code only when the student sends it', () => {
     const fresh = await snapshot(stu, 'help_request')
     await service.from('help_requests').update({ snapshot_id: fresh.id }).eq('id', req.id)
 
-    expect(await visibleIds(ta, 'snapshots', [sent.id, fresh.id])).toEqual([fresh.id])
+    expect(await visibleIds(ta, 'snapshots', [sent.id, fresh.id])).toEqual(
+      [sent.id, fresh.id].sort(),
+    )
     await service.from('help_requests').update({ status: 'cancelled' }).eq('id', req.id)
   })
 
@@ -292,32 +296,6 @@ describe('help_requests', () => {
   ])('%s is refused', async (_, fields) => {
     const { error } = await askForHelp(stu2, { type: 'check', ...fields })
     expect(codeOf(error)).toBe('VALIDATION_FAILED')
-  })
-
-  it("a request can't expose someone else's snapshot", async () => {
-    const stuSnap = await snapshot(stu, 'help_request')
-    const { error } = await service.from('help_requests').insert({
-      session_id: session.id,
-      student_id: stu2.id,
-      step_id: steps[0].id,
-      type: 'help',
-      snapshot_id: stuSnap.id,
-    })
-    expect(codeOf(error)).toBe('BAD_REQUEST')
-  })
-
-  it("a request can't expose the student's live autosave row", async () => {
-    const { data: auto } = await service
-      .from('snapshots')
-      .select('id')
-      .eq('student_id', stu.id)
-      .eq('reason', 'autosave')
-      .single()
-    const { error } = await service
-      .from('help_requests')
-      .update({ snapshot_id: auto.id })
-      .eq('id', mine.id)
-    expect(codeOf(error)).toBe('BAD_REQUEST')
   })
 
   it('passed checks show on the tile as passed_steps', async () => {
@@ -459,13 +437,13 @@ describe('session_reports', () => {
   })
 })
 
-describe('lost_peak: "I\'m lost" over time, still anonymous', () => {
+describe('slow_down_peak: "Slow down" over time, still anonymous', () => {
   const raise = (who) =>
-    who.client.from('lost_flags').insert({ session_id: session.id, student_id: who.id })
+    who.client.from('slow_down_flags').insert({ session_id: session.id, student_id: who.id })
   const clear = (who) =>
-    who.client.from('lost_flags').delete().eq('session_id', session.id).eq('student_id', who.id)
+    who.client.from('slow_down_flags').delete().eq('session_id', session.id).eq('student_id', who.id)
   const peakFor = async (who) =>
-    (await who.client.rpc('session_lost_peak', { sid: session.id })).data
+    (await who.client.rpc('session_slow_down_peak', { sid: session.id })).data
 
   it('staff get the peak, even after everyone has cleared their flag', async () => {
     await raise(stu)
@@ -485,12 +463,12 @@ describe('lost_peak: "I\'m lost" over time, still anonymous', () => {
   it('nobody but an admin reads the raw events, and they hold no student', async () => {
     for (const who of [prof, ta, stu]) {
       const { data } = await who.client
-        .from('lost_events')
+        .from('slow_down_events')
         .select('id')
         .eq('session_id', session.id)
       expect(data).toEqual([])
     }
-    const { data } = await admin.client.from('lost_events').select('*').eq('session_id', session.id)
+    const { data } = await admin.client.from('slow_down_events').select('*').eq('session_id', session.id)
     expect(data.map((e) => e.delta)).toEqual([1, 1, -1, -1, 1, -1])
     expect(Object.keys(data[0])).not.toContain('student_id')
   })
@@ -530,7 +508,7 @@ describe('status_history keeps the error key for the report', () => {
 describe('logged-out visitors', () => {
   it('see nothing in any of these tables', async () => {
     const anon = anonClient()
-    for (const table of ['snapshots', 'help_requests', 'notes', 'session_reports', 'lost_events']) {
+    for (const table of ['snapshots', 'help_requests', 'notes', 'session_reports', 'slow_down_events']) {
       const { data } = await anon.from(table).select('*').limit(1)
       expect(data).toEqual([])
     }

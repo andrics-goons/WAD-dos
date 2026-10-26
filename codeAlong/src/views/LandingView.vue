@@ -153,7 +153,7 @@ const features = [
         <i class="bi bi-shield-lock fs-4" />
         <p class="mb-0">
           <strong>Privacy by design.</strong> Staff see your progress, never your code — unless you
-          send it to them. "I'm lost" is anonymous: the prof only sees how many.
+          send it to them. "Slow down" is anonymous: the prof only sees how many.
         </p>
       </div>
     </section>

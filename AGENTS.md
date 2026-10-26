@@ -86,12 +86,12 @@ Andric owns the schema; others request changes by PR. See `design-docs/03` and `
 - **RPC errors:** `raise exception 'CODE|Friendly message' using errcode = 'P0001';` — `mapError` splits it into `code` and `message`.
 - **Roles** come from `profiles` via `app_role()` / `is_admin()`. Never from the JWT or auth metadata, which users can rewrite.
 - **Check functions:** use `case`, not `and`, when later checks depend on earlier ones (SQL doesn't promise `and` short-circuits).
-- **Privacy rules (`09 §5`) are tested and non-negotiable:** staff read a student's code only through a snapshot the student sent with a help request; "I'm lost" reaches staff only as a count; `student_status` has no `state` column (the `session_tiles` view derives it).
+- **Privacy rules (`09 §5`) are tested:** a student's code is readable by them and their course's staff, never by classmates or other courses' staff; "Slow down" reaches staff only as a count; `student_status` has no `state` column (the `session_tiles` view derives it).
 - **Verifying a migration:** run it inside `begin; … rollback;` with `docker exec -i supabase_db_codeAlong psql -U postgres`, then apply it with `supabase migration up`.
 
 ## Tests
 
-- Test names start with their ID from `design-docs/06`, e.g. `it('T-PRIV-02: staff cannot read …')`.
+- Test names start with their ID from `design-docs/06`, e.g. `it('T-PRIV-03: a classmate cannot read …')`.
 - Tests that hit the local stack start with `// @vitest-environment node` and use `tests/unit/rls/_helpers.js`: `createUser` (admin API, avoids the auth rate limit), `userClient`, `service`, `makeAdmin`, `cleanup`.
 - Clean up in `afterAll`: delete sessions, then courses, then call `cleanup()`. Those foreign keys don't cascade, so users can't be deleted first.
 - Tests of `src/api/*` mock `@/lib/supabase` with `anonClient()` (see `tests/unit/api/courses.api.test.js`).
@@ -105,7 +105,7 @@ Each member owns their files (full table in `design-docs/08`). **Before editing 
 | Member | Owns |
 | --- | --- |
 | Ying Qi | Session + checkpoint RPCs, Realtime, app shell, UI kit, core pages, Vercel |
-| Dylan | Student workspace: WebContainer runtime, editor, terminal, preview, Done / Lost / Help bar |
+| Dylan | Student workspace: WebContainer runtime, editor, terminal, preview, Done / Slow down / Help bar |
 | Karin | Help queue, follow-ups, Telegram, announcements, Playwright setup |
 | Evan | Prof view: lessons + TODO parser, teach view, dashboard, report page |
 | Ray Yien | IndexedDB cache, autosave, catch-up, diff, replay, GitHub import / export |

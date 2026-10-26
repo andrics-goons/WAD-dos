@@ -305,13 +305,13 @@ describe('follow_up_help_request', () => {
     ])
   })
 
-  it('T-HELP-15: after a follow-up, staff can read the new snapshot but not the old one', async () => {
+  it('T-HELP-15: after a follow-up, staff can read both the new snapshot and the old one', async () => {
     const r = await replied(stu, ta)
     const { data } = await followUp(stu, r.id)
     const fresh = await ta.client.from('snapshots').select('id').eq('id', data.snapshot_id)
     const old = await ta.client.from('snapshots').select('id').eq('id', r.snapshot_id)
     expect(fresh.data).toHaveLength(1)
-    expect(old.data).toEqual([])
+    expect(old.data).toHaveLength(1)
   })
 
   it('T-HELP-16: a fourth follow-up is refused and follow_ups stays 3', async () => {

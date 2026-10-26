@@ -33,7 +33,7 @@ Why existing tools aren't enough: chat tools (Slack/Telegram) move messages but 
 
 | Role | Can do |
 |---|---|
-| **Student** | Enrol in courses, join a live session by code/QR, code along in the browser workspace, tap Done, tap "I'm lost" (anonymous), load the latest checkpoint, send code to the TA ("Check my work" / "Ask for help"), view replays, write notes/bookmarks, export a replay to GitHub |
+| **Student** | Enrol in courses, join a live session by code/QR, code along in the browser workspace, tap Done, tap "Slow down" (anonymous), load the latest checkpoint, send code to the TA ("Check my work" / "Ask for help"), view replays, write notes/bookmarks, export a replay to GitHub |
 | **TA** | Everything a student can do in courses they're staff of **+** view the class dashboard, work the help queue (claim, pass, reply), get Telegram pings for in-person help, receive after-class digests |
 | **Prof** | Everything a TA can do **+** create/edit/delete courses and lessons, import starter code (upload or GitHub), edit the lesson plan, start/end live sessions, save checkpoints, Spotlight a common error, view insights reports, send Telegram digests |
 
@@ -127,7 +127,7 @@ Priorities follow the latest proposal (self-marking + automatic error detection 
 | Level | What's included |
 |---|---|
 | **Week 9 pitch (must work live)** | Sessions + join by code, checkpoint broadcast, student editor + preview + console, basic dashboard tiles, load checkpoint |
-| **MUST (baseline for submission)** | Accounts/courses/roles; lesson CRUD + plan from TODOs; live checkpoints; student workspace with error detection + Done; class dashboard with filters + anonymous "I'm lost" count; catch-up with "What you missed" diff; Check my work / Ask for help + TA queue + Telegram ping; replay with notes/bookmarks |
+| **MUST (baseline for submission)** | Accounts/courses/roles; lesson CRUD + plan from TODOs; live checkpoints; student workspace with error detection + Done; class dashboard with filters + anonymous "Slow down" count; catch-up with "What you missed" diff; Check my work / Ask for help + TA queue + Telegram ping; replay with notes/bookmarks |
 | **SHOULD** | Error groups + Spotlight; GitHub import + export; search across lessons; insights report + Telegram digest |
 | **COULD** | Automatic step checks generated from checkpoints; AI one-line hints (hints only, cached, rule-based fallback); VS Code one-line reporter; `.vue` single-file-component lessons |
 
@@ -161,7 +161,7 @@ Priorities follow the latest proposal (self-marking + automatic error detection 
 |---|---|
 | Student code runs in a **WebContainer in their own browser** | Real Node compiled to WebAssembly: real `import`s, a real `pnpm install`, a real dev server. Zero server cost per student, no remote code execution anywhere of ours, and broken code breaks only that preview. It also gives us **compile errors** as a dashboard signal, which a plain iframe never could |
 | Dashboard shows **status, not code** | Privacy by design (our unique angle); the tables staff can read have no code columns at all |
-| "I'm lost" is stored per student but only ever **readable as a count** | Dedup (one student can't spam it) without exposing identity; staff read the `session_summary` aggregate, never the raw column |
+| "Slow down" is stored per student but only ever **readable as a count** | Dedup (one student can't spam it) without exposing identity; staff read the `session_summary` aggregate, never the raw column |
 | One `student_status` row per student per session (composite PK) | The dashboard needs the *latest* signals only — an upsert per change, with `status_history` as the separate event log for insights |
 | Snapshots stored separately from status, with a `reason` | Keeps attempts after "Load checkpoint"; only snapshots attached to a help request are ever visible to staff |
 | `steps` is its own table | Four tables reference a step by id, and a foreign key needs a real target; reordering stays atomic inside `rpc('replace_steps')` |
@@ -169,7 +169,7 @@ Priorities follow the latest proposal (self-marking + automatic error detection 
 | **Authorization lives in RLS, not in handlers** | The anon key ships in the browser bundle, so policies are the only boundary — which also means no handler can forget a check, and the privacy rule is expressed once per table |
 | **Users choose Student or Educator at sign-up** | Educators shouldn't need someone to create their account. It's safe because a prof's power is per course: being a prof lets you create *your own* course, never see anyone else's |
 | **Courses belong to one prof** | Each course has a single owner; uniqueness and insights trends are scoped per prof, so profs never collide with or see each other |
-| **Admins read everything, write only accounts** | Someone has to fix mis-picked roles and see the whole system. Writes stay limited to user management so an admin can't accidentally act inside a class. The privacy promise is therefore scoped to *course staff*: "the prof can't see your code unless you send it" |
+| **Admins read everything, write only accounts** | Someone has to fix mis-picked roles and see the whole system. Writes stay limited to user management so an admin can't accidentally act inside a class. Course staff can read their own students' code to troubleshoot it; classmates and other courses' staff can't |
 | Self-marking + auto error detection as baseline; auto step checks as stretch | Automatic checking is the riskiest part — the app is complete without it |
 | **Only source files cross the network** | Dependencies come from npm straight to the browser, so `node_modules` never touches Supabase. Reads are cached in IndexedDB behind a content hash and autosave uploads only changed files — which is how a 5 GB free tier is enough |
 | Local Supabase stack + mocked external APIs in E2E | A real Postgres with the real policies, reset by migration; tests never burn API quota |

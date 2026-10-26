@@ -11,7 +11,7 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | 2 | Platform | Week 8 | Register/login/logout via Supabase Auth, course create + enrol, role guards; **every table has RLS enabled and one negative test** |
 | 3 | **Live session core (pitch demo)** | Week 9 Mon | Prof starts session → 3 students join by code → **their containers boot and the preview runs** → checkpoint broadcast reaches all 3 → a typo turns a tile red → student loads checkpoint → tile turns green |
 | 4 | Lesson plan | Week 9 | Upload starter → TODO parser proposes steps → prof edits/reorders/deletes → lesson `ready` |
-| 5 | Status & dashboard | Week 10 | `session_tiles` returns correct state for all 5 cases; idle derives without a write; filters; anonymous lost count |
+| 5 | Status & dashboard | Week 10 | `session_tiles` returns correct state for all 5 cases; idle derives without a write; filters; anonymous slow-down count |
 | 6 | Catch-up | Week 10 | Load checkpoint keeps attempt; "What you missed" diff correct; restore attempt works |
 | 7 | Help flow | Week 10 | Check my work → pass/reply; Ask for help → claim/resolve; **a replied request can be followed up**; Telegram ping (mock in tests) |
 | 8 | Replay & GitHub | Week 11 | Replay steps through all checkpoints; notes/bookmarks; import + export (one commit per step) |
@@ -289,8 +289,8 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-DASH-01 | Initial snapshot loads for a running session | E2E | Tiles for all joined students |
 | T-DASH-02 | Summary counts match tiles | E2E | `session_summary` equals the computed counts |
 | T-DASH-03 | Filter by clicking a summary segment | E2E `@responsive` | Only that state's tiles shown |
-| T-DASH-04 | "I'm lost" from 2 students | E2E | Lost count = 2; no tile shows who |
-| T-DASH-05 | Student un-taps "I'm lost" | E2E | Count decrements |
+| T-DASH-04 | "Slow down" from 2 students | E2E | Slow-down count = 2; no tile shows who |
+| T-DASH-05 | Student un-taps "Slow down" | E2E | Count decrements |
 | T-DASH-06 | TA (staff) can view dashboard; student cannot | RLS | TA gets tile rows; a student gets zero rows from `session_tiles` |
 | T-DASH-07 | Tiles show icon + label, not only colour | E2E | `data-state` + visible label text |
 
@@ -400,9 +400,9 @@ The section the architecture change affects most. Each rule that used to be "no 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
 | T-PRIV-01 | Tile and summary payloads contain no code | DB | `session_tiles` / `session_summary` expose no `files` column at all |
-| T-PRIV-02 | **Staff read a student's autosave** | RLS | Zero rows — the `snapshots` policy only admits help-request snapshots |
-| T-PRIV-03 | Staff read a snapshot through a help request | RLS | Exactly one row (the student sent it) |
-| T-PRIV-04 | **Lost identity never retrievable by staff** | RLS | Staff reading `lost_flags` get zero rows; `student_status` has no `lost` column; `session_summary.lost_count` is an aggregate (admins can read the flags — T-ADM-07) |
+| T-PRIV-02 | **Course staff read a student's autosave and catch-up attempts** | RLS | The rows are returned, so staff can troubleshoot |
+| T-PRIV-03 | Staff of another course, or a classmate, read a student's snapshot | RLS | Zero rows |
+| T-PRIV-04 | **Who asked to slow down is never retrievable by staff** | RLS | Staff reading `slow_down_flags` get zero rows; `student_status` has no slow-down column; `session_summary.slow_down_count` is an aggregate (admins can read the flags — T-ADM-07) |
 | T-PRIV-05 | Notes private | RLS | Another non-admin user's note is invisible |
 | T-PRIV-06 | **Every `public` table has RLS enabled** | RLS | `tables_without_rls()` returns empty |
 | T-PRIV-07 | **Every view uses `security_invoker`** | RLS | A view without it would leak all sessions; assert none exist |
@@ -421,7 +421,7 @@ Admins read everything and write only accounts. Most of these are negative tests
 | T-ADM-02 | Admin lists users | DB | Every account, with email and role |
 | T-ADM-03 | Admin changes a user's role | DB | Role updated, and it takes effect (a promoted prof can create a course) |
 | T-ADM-04 | **Admin changes their own role** | DB | `BAD_REQUEST`; role unchanged |
-| T-ADM-07 | Admin reads any table | RLS | Snapshots, notes, `lost_flags` and another prof's course all readable |
+| T-ADM-07 | Admin reads any table | RLS | Snapshots, notes, `slow_down_flags` and another prof's course all readable |
 | T-ADM-08 | **Admin cannot act inside a course** | RLS | `save_checkpoint`, `claim_help_request`, lesson updates and course edits by an admin → `FORBIDDEN` or zero rows |
 | T-ADM-09 | **Policy sweep** | RLS | Every `public` table has exactly one `admin reads all` `select` policy, and no admin policy for any other command |
 | T-ADM-10 | Logged-out caller is never an admin | RLS | `is_admin()` is `false` (not `null`) for the anon key |

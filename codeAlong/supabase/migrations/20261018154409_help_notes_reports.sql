@@ -1,4 +1,4 @@
--- The last layer: snapshots, help_requests, notes, session_reports, lost_events
+-- The last layer: snapshots, help_requests, notes, session_reports, slow_down_events
 --   + session_tiles.passed_steps, status_history.error_key
 -- Spec: design-docs/03-data-model.md#snapshots-a-students-code
 -- Order matters: tables → helpers → policies → views → triggers → Realtime
@@ -11,8 +11,9 @@
 
 -- Tables ------------------------------------
 
--- A student's code. Students only READ their snapshots: every write is an RPC, so a
--- snapshot sent to a TA can't be edited afterwards.
+-- A student's code. The student and their course's staff read it (staff need it to help
+-- troubleshoot); classmates and other courses' staff never do. Every write is an RPC, so a
+-- copy sent with a help request can't be edited afterwards.
 create table public.snapshots (
     id          uuid primary key default gen_random_uuid(),
     session_id  uuid not null references public.sessions(id) on delete cascade,
@@ -37,8 +38,7 @@ create table public.help_requests (
     student_id            uuid not null references public.profiles(id),
     step_id               uuid not null references public.steps(id),
     type                  text not null check (type in ('check', 'help')),
-    -- the ONLY way staff can read a student's code; a trigger checks it is this
-    -- student's own help_request snapshot from this session
+    -- the copy of the student's code sent with this request (create_help_request saves it)
     snapshot_id           uuid not null references public.snapshots(id),
     message               text check (char_length(message) <= 300),
     in_person             boolean not null default false,
@@ -87,24 +87,24 @@ create table public.session_reports (
     attendance    jsonb not null,                                    -- { joined, enrolled }
     steps         jsonb not null default '[]',                       -- per-step funnel (05 §10)
     top_errors    jsonb not null default '[]',                       -- top 5, counts only
-    lost_peak     int not null default 0 check (lost_peak >= 0),
+    slow_down_peak     int not null default 0 check (slow_down_peak >= 0),
     generated_at  timestamptz not null default now(),
     digest        jsonb                                              -- { sentAt, recipients }
 );
 
 create index session_reports_course_lesson_idx on public.session_reports (course_id, lesson_id);
 
--- "I'm lost" over time, for lost_peak. lost_flags deletes a row when the student clears
+-- "Slow down" requests over time, for slow_down_peak. slow_down_flags deletes a row when the student clears
 -- it, so without this the peak would be gone by the end of class.
 -- No student_id: each row is just +1 or -1 at a moment.
-create table public.lost_events (
+create table public.slow_down_events (
     id          bigint generated always as identity primary key,
     session_id  uuid not null references public.sessions(id) on delete cascade,
     delta       smallint not null check (delta in (1, -1)),
     at          timestamptz not null default now()
 );
 
-create index lost_events_session_idx on public.lost_events (session_id, id);
+create index slow_down_events_session_idx on public.slow_down_events (session_id, id);
 
 -- Error groups for the report's "top errors": student_status keeps only the latest error.
 alter table public.status_history add column error_key text;
@@ -112,25 +112,15 @@ alter table public.status_history add column error_key text;
 
 -- Helpers ------------------------------------
 
--- THE privacy rule: staff reach a snapshot only through a help request pointing at it.
--- security definer so the snapshots policy can look at help_requests without RLS.
-create function public.is_sent_to_staff(snap uuid) returns boolean
-language sql security definer stable set search_path = '' as $$
-    select exists (
-        select 1 from public.help_requests hr
-        where hr.snapshot_id = snap and public.is_session_staff(hr.session_id)
-    )
-$$;
-
--- The most students lost at once: the count for staff and admins, null for anyone else.
-create function public.session_lost_peak(sid uuid) returns bigint
+-- The most students asking to slow down at once: the count for staff and admins, null for anyone else.
+create function public.session_slow_down_peak(sid uuid) returns bigint
 language sql security definer stable set search_path = '' as $$
     select case
         when public.is_session_staff(sid) or public.is_admin()
         then (
             select coalesce(max(running), 0) from (
                 select sum(delta) over (order by id) as running
-                  from public.lost_events where session_id = sid
+                  from public.slow_down_events where session_id = sid
             ) x
         )
     end
@@ -143,14 +133,15 @@ alter table public.snapshots       enable row level security;
 alter table public.help_requests   enable row level security;
 alter table public.notes           enable row level security;
 alter table public.session_reports enable row level security;
-alter table public.lost_events     enable row level security;
+alter table public.slow_down_events     enable row level security;
 
 -- snapshots (writes only via autosave_patch, catch_up and the help RPCs)
 create policy "student reads own snapshots" on public.snapshots
     for select using (student_id = auth.uid());
 
-create policy "staff read sent snapshots" on public.snapshots
-    for select using (public.is_sent_to_staff(id));
+-- the prof and TAs read every student's code in their own courses, to help troubleshoot
+create policy "staff read snapshots" on public.snapshots
+    for select using (public.is_session_staff(session_id));
 
 create policy "admin reads all" on public.snapshots
     for select using (public.is_admin());
@@ -179,9 +170,9 @@ create policy "staff read reports" on public.session_reports
 create policy "admin reads all" on public.session_reports
     for select using (public.is_admin());
 
--- lost_events: nobody but admins. Staff get session_lost_peak(); timestamps next to the
+-- slow_down_events: nobody but admins. Staff get session_slow_down_peak(); timestamps next to the
 -- tile grid could hint at who tapped.
-create policy "admin reads all" on public.lost_events
+create policy "admin reads all" on public.slow_down_events
     for select using (public.is_admin());
 
 
@@ -227,43 +218,21 @@ create trigger set_updated_at before update on public.help_requests
 create trigger set_updated_at before update on public.notes
     for each row execute function public.set_updated_at();
 
--- A help request may only expose the requester's own help_request snapshot from the same
--- session. Never their autosave row: that keeps changing, so staff would see live code.
-create function public.check_help_snapshot() returns trigger
-language plpgsql security definer set search_path = '' as $$
-begin
-    if not exists (
-        select 1 from public.snapshots sn
-         where sn.id = new.snapshot_id
-           and sn.student_id = new.student_id
-           and sn.session_id = new.session_id
-           and sn.reason = 'help_request'
-    ) then
-        raise exception 'BAD_REQUEST|A help request must carry its own help snapshot'
-            using errcode = 'P0001';
-    end if;
-    return new;
-end $$;
-
-create trigger check_help_snapshot
-    before insert or update of snapshot_id, student_id, session_id on public.help_requests
-    for each row execute function public.check_help_snapshot();
-
--- lost_events: +1 when a flag is raised, -1 when it's cleared
-create function public.record_lost_event() returns trigger
+-- slow_down_events: +1 when a flag is raised, -1 when it's cleared
+create function public.record_slow_down_event() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
     if tg_op = 'INSERT' then
-        insert into public.lost_events (session_id, delta) values (new.session_id, 1);
+        insert into public.slow_down_events (session_id, delta) values (new.session_id, 1);
     -- skip when the session itself is being deleted: the event would point at nothing
     elsif exists (select 1 from public.sessions where id = old.session_id) then
-        insert into public.lost_events (session_id, delta) values (old.session_id, -1);
+        insert into public.slow_down_events (session_id, delta) values (old.session_id, -1);
     end if;
     return null;
 end $$;
 
-create trigger record_lost_event after insert or delete on public.lost_flags
-    for each row execute function public.record_lost_event();
+create trigger record_slow_down_event after insert or delete on public.slow_down_flags
+    for each row execute function public.record_slow_down_event();
 
 -- status_history now records the error key too, and a new row when the key changes
 -- while the state stays 'error' (a different error is a different group in the report).

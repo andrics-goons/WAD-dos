@@ -270,14 +270,13 @@ Three layers, in this order:
 
 This is the section the architecture change affects most. Previously three of these rules were enforced by *absence* ("there is no endpoint that returns another student's autosave"). The browser now queries Postgres directly, so **absence is no longer a mechanism** — each rule is a policy, a view, or a column that does not exist.
 
-> **Scope: these rules protect students from course staff and from each other. Admins are excluded by design.** An admin is a platform operator who can read every table, including students' code and who tapped "I'm lost". So every claim below is about *staff and students*, and must be stated that way in the slides and Q&A — "the prof can't see your code unless you send it", never "nobody can". Admin actions are not logged. Keep the number of admin accounts to the minimum the demo needs.
+> **Scope: these rules protect students from course staff and from each other. Admins are excluded by design.** An admin is a platform operator who can read every table, including students' code and who tapped "Slow down". So every claim below is about *staff and students*, and must be stated that way in the slides and Q&A. **Course staff can read their students' code** (they need it to troubleshoot); classmates and other courses' staff can't. Admin actions are not logged. Keep the number of admin accounts to the minimum the demo needs.
 
 | Rule | Enforced by | Test |
 |---|---|---|
-| Staff never read a student's autosave or `before_catchup` snapshot | `snapshots` SELECT policy: own rows, **or** a row referenced by a `help_requests` the staff can see | T-PRIV-02 |
-| A student's code reaches staff **only** via a help request they sent, or an anonymised Spotlight excerpt | Same policy + `spotlight` Edge Function | T-PRIV-03 |
+| A student's code is readable by them and their course's staff, never by classmates or other courses' staff | `snapshots` SELECT policy: own rows, or `is_session_staff(session_id)` | T-PRIV-02, T-PRIV-03 |
 | Dashboard data contains no code | `student_status` has **no** `files` column, and `session_tiles` selects none | T-PRIV-01 |
-| "I'm lost" is only ever a count **to staff** | The flag is a row in `lost_flags`, readable only by its owner (and admins) — not a column of `student_status`, which staff read and receive over Postgres Changes. Staff read `session_summary`, which exposes `lost_count` and no ids | T-PRIV-04 |
+| "Slow down" is only ever a count **to staff** | The flag is a row in `slow_down_flags`, readable only by its owner (and admins) — not a column of `student_status`, which staff read and receive over Postgres Changes. Staff read `session_summary`, which exposes `slow_down_count` and no ids | T-PRIV-04 |
 | A student cannot forge their tile state | There is **no** `state` column. `session_tiles` derives it in SQL from `done_step_order`, `error`, `last_seen_at` | T-STAT-09 |
 | Notes are private to the author (admins excepted) | `notes` policies keyed on `user_id = auth.uid()` | T-PRIV-05 |
 | **Admins read, but write only accounts** | One `admin reads all` `select` policy per table; no admin policy for any other command; admin writes only through the admin functions | T-ADM-* |
@@ -319,7 +318,7 @@ RLS applies to the subscription, so a student receives only their own rows.
 
 **Tiles are read from the `session_tiles` view, not the raw table.** A change event tells the staff client *which* `student_id` moved; the client re-reads that row from the view (or recomputes with `shared/tile-state.js`) so the derived state always matches the SQL.
 
-The old `dashboard:summary` event is gone: counts, `lost_count` and error groups are a Vue `computed` over the tile list, throttled client-side to `Limits.SUMMARY_THROTTLE_MS`.
+The old `dashboard:summary` event is gone: counts, `slow_down_count` and error groups are a Vue `computed` over the tile list, throttled client-side to `Limits.SUMMARY_THROTTLE_MS`.
 
 ### c) Presence — attendance and "who is in the room"
 
@@ -376,11 +375,11 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `rpc('replace_steps')` | Andric (written with the lessons schema; Evan calls it) | Lesson editor | `(p_lesson_id uuid, p_steps jsonb) → steps[]` — renumbers 1…n by list position, ignoring any `order` sent; refuses blank titles and other lessons' step ids |
 | `rpc('delete_step')` | Andric (with the lessons schema) | Lesson editor | `(p_step_id uuid) → void` — deletes and renumbers |
 | `view session_tiles` | Andric | Evan (dashboard) | `(session_id, student_id, name, state, target_order, step_order, error_source, error_key, error_preview, passed_steps, checks, last_seen_at)` — `error_source` is `'runtime'` or `'build'`, so the dashboard can label a group "won't compile" vs "throws". `passed_steps` is `int[]` of step orders whose `check` was passed, and comes last in the actual column order |
-| `view session_summary` | Andric | Evan (summary bar) | `(session_id, total, done, in_progress, error, behind, idle, lost_count)` — `lost_count` is `null` for anyone but staff and admins |
+| `view session_summary` | Andric | Evan (summary bar) | `(session_id, total, done, in_progress, error, behind, idle, slow_down_count)` — `slow_down_count` is `null` for anyone but staff and admins |
 | `normalizeError` | Evan | Dylan (before writing status) | `({ name, message }) => { key, shapeKey }` |
 | `parseBuildError` | Dylan | Dylan (dev-server output) | `(stdout: string) => { name, message, file, line } \| null` — **drops the code frame**; run before `normalizeError` |
 | `container.mount(files)` / `boot()` | Dylan | Evan (teach preview), Ray Yien (replay preview) | The one WebContainer runtime; nobody builds a second |
-| `loadFiles(kind, id, hash)` | Ray Yien | Dylan (workspace boot) | `→ files` — IndexedDB first, Supabase only on a hash miss |
+| `loadFiles(kind, id, hash)` | Ray Yien | Dylan (workspace boot) | `→ files` — IndexedDB first, Supabase only on a hash miss. `kind` is `'lesson'`, `'checkpoint'` or `'snapshot'` (snapshots are never cached). `hash` is optional: without it, the hash is checked first. For the student's own autosave, `findMyAutosave(sessionId)` in `files.api.js` gives `{ id, files_hash }` |
 | `autosave(tree)` | Ray Yien | Dylan (editor changes) | Debounced 5 s; sends only changed files |
 | `catchUp(sessionId, files)` | Ray Yien | Dylan (Load checkpoint) | `→ { checkpoint, attemptSnapshotId, depsChanged }` — Dylan reinstalls when `depsChanged` |
 | `groupErrors` | Evan | Evan (client summary) | `(tiles, { min, presentCount }) => errorGroups[]` |
@@ -416,8 +415,8 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Courses | `course-card-<code>`, `btn-new-course`, `btn-enrol-course`, `input-enrol-code`, `btn-enrol`, `enrol-link`, `btn-copy-enrol-link`, `enrol-qr` |
 | Lessons | `lesson-row-<slug>`, `lesson-start-<slug>`, `step-item-<order>`, `btn-step-up-<order>` |
 | Session | `join-code`, `join-qr`, `input-join-code`, `btn-save-checkpoint`, `btn-end-session`, `toast-checkpoint`, `input-announce`, `btn-announce`, `btn-clear-announce`, `announcement-banner` |
-| Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `btn-done`, `btn-lost`, `btn-help`, `btn-load-checkpoint`, `what-you-missed`, `workspace-step-current`, `tab-code`, `tab-preview`, `tab-console`, `tab-steps` |
-| Dashboard | `tile-<studentId>` (with `data-state="<TileState>"`), `summary-<state>`, `lost-count`, `error-group-<index>`, `btn-spotlight-<index>`, `spotlight-panel` |
+| Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `what-you-missed`, `workspace-step-current`, `tab-code`, `tab-preview`, `tab-console`, `tab-steps` |
+| Dashboard | `tile-<studentId>` (with `data-state="<TileState>"`), `summary-<state>`, `slow-down-count`, `error-group-<index>`, `btn-spotlight-<index>`, `spotlight-panel` |
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |
 | Replay | `timeline-step-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
 | Reports | `report-funnel`, `report-top-errors`, `btn-send-digest` |
@@ -470,7 +469,7 @@ Full list in [02-tech-stack.md](./02-tech-stack.md#environment-variables).
 - [ ] Checkpoint broadcast reaches every student; reconnect recovers missed checkpoints
 - [ ] Runtime error turns a tile red with the right file/line; Done turns it green
 - [ ] Idle and behind states appear at the right times (derived in `session_tiles`)
-- [ ] "I'm lost" count correct and anonymous
+- [ ] "Slow down" count correct and anonymous
 - [ ] Load checkpoint keeps the attempt; "What you missed" points at the right line
 - [ ] Check my work → pass/reply; Ask for help → Telegram ping → resolve
 - [ ] A replied request can be followed up (same request, original queue place, fresh code), up to 3 times
