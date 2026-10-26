@@ -458,7 +458,7 @@ All `security definer`, for the same reason as the course helpers.
 | `error` | `jsonb check (null, or an object whose message ≤ 300)` | `{ source: 'runtime' \| 'build', name, message, file, line, key, shapeKey, at }`. Send SQL `null` to clear it. **Build errors have their code frame stripped before they get here** — see [05 §1](./05-core-logic.md#1-client-side-runtime-webcontainer) |
 | `checks` | `jsonb` | `{ passed, total }` — only when automatic checks exist (COULD) |
 | `catch_ups` | `int not null default 0` | Times the student loaded a checkpoint. Incremented by `rpc('catch_up')` |
-| `last_seen_at` | `timestamptz not null default now()` | Heartbeat or any event |
+| `last_seen_at` | `timestamptz not null default now()` | Heartbeat or any event. The `touch_last_seen` trigger sets it to the server's `now()` on every insert or update the student makes to their own row, so a wrong clock on a lab PC can't make them idle (or never idle). Writes by the service role or the seed keep the time they set |
 | `joined_at` | `timestamptz not null default now()` | Attendance for digests |
 
 **Indexes:** the primary key (it starts with `session_id`). Added to the `supabase_realtime` publication, so staff can subscribe to it.

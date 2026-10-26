@@ -12,6 +12,10 @@ vi.mock("@/runtime/workspace", () => ({ startWorkspace: vi.fn() }))
 // the store's loading and autosave have their own tests; here they're just calls to check
 const store = vi.hoisted(() => ({ files: [], filePaths: [], selectedFile: "", selectedCode: "" }))
 vi.mock("@/stores/workspace.js", () => ({ useWorkspaceStore: () => store }))
+const status = vi.hoisted(() => ({ doneStepOrder: 0 }))
+vi.mock("@/stores/status", () => ({ useStatusStore: () => status }))
+const session = vi.hoisted(() => ({ session: null, currentStep: null, steps: [], isLive: true }))
+vi.mock("@/stores/session", () => ({ useSessionStore: () => session }))
 
 // A promise the test resolves by hand, to pause the view mid-await
 function deferred() {
@@ -34,6 +38,8 @@ beforeEach(() => {
     vi.mocked(startWorkspace).mockReset().mockResolvedValue(() => {})
     store.load = vi.fn(async () => (store.files = [{ path: "index.html", content: "" }]))
     store.close = vi.fn()
+    status.start = vi.fn(async () => {})
+    status.stop = vi.fn()
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -60,6 +66,21 @@ describe("WorkspaceView", () => {
         await flushPromises()
         expect(store.load).toHaveBeenCalledWith("s1")
         expect(startWorkspace).toHaveBeenCalledWith({}, store.files, expect.any(Function))
+    })
+
+    it("starts my status once the class is loaded, and stops it when I leave", async () => {
+        const wrapper = mountView()
+        await flushPromises()
+        expect(status.start).toHaveBeenCalledWith("s1")
+        wrapper.unmount()
+        expect(status.stop).toHaveBeenCalled()
+    })
+
+    it("still records my status when the WebContainer fails to boot", async () => {
+        getWebContainer.mockRejectedValue(new Error("boom"))
+        mountView()
+        await flushPromises()
+        expect(status.start).toHaveBeenCalledWith("s1")
     })
 
     it("saves what's waiting when the student leaves", async () => {
