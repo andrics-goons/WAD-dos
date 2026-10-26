@@ -379,7 +379,7 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `normalizeError` | Evan | Dylan (before writing status) | `({ name, message }) => { key, shapeKey }` |
 | `parseBuildError` | Dylan | Dylan (dev-server output) | `(stdout: string) => { name, message, file, line } \| null` — **drops the code frame**; run before `normalizeError` |
 | `container.mount(files)` / `boot()` | Dylan | Evan (teach preview), Ray Yien (replay preview) | The one WebContainer runtime; nobody builds a second |
-| `loadFiles(kind, id, hash)` | Ray Yien | Dylan (workspace boot) | `→ files` — IndexedDB first, Supabase only on a hash miss. `kind` is `'lesson'`, `'checkpoint'` or `'snapshot'` (snapshots are never cached). `hash` is optional: without it, the hash is checked first. For the student's own autosave, `findMyAutosave(sessionId)` in `files.api.js` gives `{ id, files_hash }` |
+| `loadFiles(kind, id, hash)` | Ray Yien | Dylan (workspace boot) | `→ files` — IndexedDB first, Supabase only on a hash miss. `kind` is `'lesson'`, `'checkpoint'` or `'snapshot'` (snapshots are never cached). `hash` is optional: without it, the hash is checked first. For the student's own autosave, `findMyAutosave(sessionId)` in `files.api.js` gives `{ id, files_hash, updated_at }` |
 | `autosave(tree)` | Ray Yien | Dylan (editor changes) | Debounced 5 s; sends only changed files |
 | `catchUp(sessionId, files)` | Ray Yien | Dylan (Load checkpoint) | `→ { checkpoint, attemptSnapshotId, depsChanged }` — Dylan reinstalls when `depsChanged` |
 | `groupErrors` | Evan | Evan (client summary) | `(tiles, { min, presentCount }) => errorGroups[]` |

@@ -449,20 +449,21 @@ select '00000000-0000-0000-0004-000000000001', seed.u(n),
   from seed.past;
 
 -- Snapshots: everyone's autosave, plus Eli's and Ivan's code just before they caught up.
-insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at)
+insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at, updated_at)
 select '00000000-0000-0000-0004-000000000001', seed.u(n),
        seed.step(1, case when behind then 7 else 8 end), 'autosave',
        seed.files_at(case when behind then 6 else 8 end),
-       timestamptz '2026-10-12 14:00+08' + make_interval(mins => join_min)
+       timestamptz '2026-10-12 14:00+08' + make_interval(mins => join_min),
+       '2026-10-12 15:34+08' -- last saved just before the class ended
   from seed.past;
 
-insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at)
+insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at, updated_at)
 select '00000000-0000-0000-0004-000000000001', seed.u(n), seed.step(1, 7), 'before_catchup',
-       seed.files_at(6), '2026-10-12 15:18+08'
+       seed.files_at(6), '2026-10-12 15:18+08', '2026-10-12 15:18+08'
   from seed.past where catchup;
 
 -- Five help requests: 2 passed checks, 2 replied helps, 1 resolved in person.
--- Each carries its own help_request snapshot — the only code staff can ever read.
+-- Each carries its own help_request snapshot of the code at the moment they asked.
 create function seed.help(
     p_student int, p_step int, p_type text, p_files jsonb, p_message text, p_status text,
     p_staff int, p_reply text, p_at timestamptz, p_seat text default null
@@ -471,8 +472,8 @@ declare
     sid  uuid := '00000000-0000-0000-0004-000000000001';
     snap uuid;
 begin
-    insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at)
-    values (sid, seed.u(p_student), seed.step(1, p_step), 'help_request', p_files, p_at)
+    insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at, updated_at)
+    values (sid, seed.u(p_student), seed.step(1, p_step), 'help_request', p_files, p_at, p_at)
     returning id into snap;
 
     insert into public.help_requests (

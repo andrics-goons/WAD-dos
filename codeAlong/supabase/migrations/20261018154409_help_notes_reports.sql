@@ -24,7 +24,10 @@ create table public.snapshots (
                     public.files_valid(files) and octet_length(files::text) <= 200000
                 ),
     files_hash  text generated always as (md5(files::text)) stored,
-    created_at  timestamptz not null default now()
+    created_at  timestamptz not null default now(),
+    -- when the code was last saved: moves on every autosave, so staff can tell how fresh
+    -- it is ("as of 10 s ago"). Help and catch-up copies never change, so it equals created_at.
+    updated_at  timestamptz not null default now()
 );
 
 -- one autosave row per student per session; autosave_patch merges into it
@@ -213,6 +216,8 @@ left join public.steps st on st.id = s.current_step_id;
 
 -- Triggers ------------------------------------
 
+create trigger set_updated_at before update on public.snapshots
+    for each row execute function public.set_updated_at();
 create trigger set_updated_at before update on public.help_requests
     for each row execute function public.set_updated_at();
 create trigger set_updated_at before update on public.notes

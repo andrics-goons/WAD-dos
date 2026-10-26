@@ -601,12 +601,13 @@ To restructure a taught lesson, the prof makes a new lesson. The foreign keys ba
 | `reason` | `text not null check (reason in ('autosave','before_catchup','help_request'))` | |
 | `files` | `jsonb not null check (public.files_valid(files) and octet_length(files::text) <= 200000)` | Source files only — `SYNC_IGNORE` keeps `node_modules/`, `dist/` and `.vite/` out |
 | `files_hash` | `text generated always as (md5(files::text)) stored` | Cache key |
-| `created_at` | `timestamptz default now()` | |
+| `created_at` | `timestamptz default now()` | When the row was first written |
+| `updated_at` | `timestamptz default now()` | When the code was last saved. Moves on every autosave (the `set_updated_at` trigger), so staff can tell how fresh it is; for the other reasons it equals `created_at` |
 
 **Rules**
 - `autosave`: **one per student per session** — `unique (session_id, student_id) where reason = 'autosave'`, written by `rpc('autosave_patch')`, which merges only the files that changed into the existing `files` jsonb rather than replacing the whole set. Debounced 5 s on the client; see [05 §2](./05-core-logic.md#2-files-cache--dependencies).
 - `before_catchup` and `help_request`: a new row each time, never updated. Students have no write policy at all, so only the RPCs can write snapshots.
-- Staff read a snapshot **only** through the help request that references it.
+- The course's prof and TAs read every snapshot in their sessions (`is_session_staff`), to troubleshoot a student's code. Classmates and other courses' staff can't.
 
 **Indexes:** the partial unique above; `(session_id, student_id, reason, created_at desc)`.
 

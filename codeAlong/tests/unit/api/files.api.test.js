@@ -153,6 +153,7 @@ describe('files.api', () => {
     expect(await filesApi.findMyAutosave(session.id)).toEqual({
       id: autosave.id,
       files_hash: autosave.files_hash,
+      updated_at: autosave.updated_at,
     })
   })
 

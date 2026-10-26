@@ -36,11 +36,11 @@ export async function fetchHash(kind, id) {
   return data.files_hash
 }
 
-/** My autosave in this class, without its files: { id, files_hash }, or null if none yet. */
+/** My autosave in this class, without its files: { id, files_hash, updated_at }, or null if none yet. */
 export async function findMyAutosave(sessionId) {
   const { data, error } = await supabase
     .from('snapshots')
-    .select('id, files_hash')
+    .select('id, files_hash, updated_at')
     .eq('session_id', sessionId)
     .eq('reason', 'autosave')
     .maybeSingle() // RLS shows a student only their own snapshots
