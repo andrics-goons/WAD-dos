@@ -43,8 +43,8 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 | `/join`, `/join/:code` | `JoinView` | Karin | Logged in (redirects to login with `returnTo`) | Big 6-box code input, auto-submits when complete; `/join/:code` pre-fills from QR |
 | `/s/:id/teach` | `TeachView` | Evan (editor, live preview, plan, dashboard, join code card) + Karin (announce input) | Prof | **xs:** dashboard-first (summary bar, filters, tiles); editor behind a tab. **xl:** editor 8 cols + terminal below; plan + error groups 4 cols; tile grid full width below; join code card collapsible. An **"Announce to class"** box sits in the session bar at every size |
 | `/s/:id/code` | `WorkspaceView` | Dylan (+ Ray Yien's file tree and "What you missed" panel; Karin's announcement banner) | Enrolled student | **VS Code-style IDE** — see [the layout below](#the-workspace-is-an-ide). **xs:** tabs *Code · Preview · Terminal · Steps*, file tree in an offcanvas, sticky bottom bar with **Done**, **Slow down**, **Help**. **lg:** file tree rail + editor + preview, terminal docked under. The prof's current announcement shows as a dismissible banner across the top at every size |
-| `/s/:id/help` | `HelpQueueView` | Karin | Staff | Queue cards 1 col → queue list left, selected request right |
-| `/help/:requestId` | `HelpReviewView` | Karin | Staff | Stacked: student code, then checkpoint, then reply → side-by-side diff with reply box under |
+| `/s/:id/help` | `HelpQueueView` | Karin | Staff | Queue cards 1 col → queue list left, selected request right. "Waiting" (open + claimed, oldest first) above "Handled". Below lg the list and the selected request take turns, with "Back to the queue". State lives in `stores/help.js`, kept live by the class channel |
+| `/help/:requestId` | `HelpReviewView` | Karin | Staff | One request on its own page (the Telegram ping links here), same `HelpReviewPanel` as the queue, with a link back to the queue. Stacked thread + reply, then the diff (stacked on xs, side by side from sm) |
 | `/replays` | `ReplayListView` | Ray Yien | Logged in | List grouped by course, search box on top |
 | `/replays/:sessionId` | `ReplayView` | Ray Yien | Staff / enrolled | Timeline as horizontal scroller, code below, preview behind a tab → timeline left, code + preview right, notes drawer |
 | `/sessions/:id/report` | `ReportView` | Evan (page) · Andric (report data) | Staff | Cards stacked; funnel chart scrolls horizontally → 2-col grid: funnel, top errors, recurring steps, digest panel |
@@ -407,7 +407,9 @@ Unchanged — components never knew where the data came from, which is why this 
 | `ClassSummaryBar` | `counts`, `slowDownCount`, `total` | `filter` | Clickable segments filter the grid |
 | `ErrorGroupList` | `groups` | `spotlight` | Prof-only Spotlight button per group |
 | `StepList` (prof) | `steps`, `currentStepId` | `reorder`, `edit`, `delete` | Drag handle on lg; up/down buttons on xs |
-| `HelpRequestCard` | `request` | `claim`, `open` | Waiting time live-updates (from the latest `thread` entry, so a follow-up isn't instantly "overdue"); **Follow-up** badge + "last handled by …" |
+| `HelpRequestCard` | `request`, `staffNames`, `myId`, `now`, `selected`, `canAct` | `claim`, `open` | Waiting time counts from the student's latest message (the opening one or a follow-up, so a follow-up isn't instantly "overdue"), ticking with the page's `now`; **Follow-up** badge + "last handled by …"; "Ana is on this" once claimed |
+| `HelpReviewPanel` | `request`, `myId`, `canAct` | — | The TA's view of one request, used by both help pages: thread, Claim → Reply / Pass (checks only) / Resolved in person / Release, and the student's code diffed against the prof's latest checkpoint for that step. Reloads the code when a follow-up attaches a newer snapshot |
+| `HelpStatusPill` | `status` | — | Waiting · Claimed · Passed · Replied · Resolved · Cancelled, icon + text (`help-status`) |
 | `HelpThread` | `request` | — | New. Opening message, then every reply and follow-up in order. Shown to the student and to the reviewing TA |
 | `FollowUpForm` | `request`, `remaining` | `submit` | New. Only on a `replied` request; shows "2 follow-ups left"; at 0, suggests in-person help |
 | `AnnouncementBanner` | `announcement` | `dismiss` | New. Top of the workspace; dismissing hides it until a **new** announcement arrives |

@@ -341,7 +341,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-HELP-12 | Non-claiming TA replies | DB | `FORBIDDEN` |
 | T-HELP-13 | **Student follows up on a replied request** | E2E | Same request returns to the queue **in its original place**, badged "Follow-up · last handled by Ana"; the TA sees the full thread |
 | T-HELP-14 | **Follow-up attaches the student's current code** | E2E | The TA's side-by-side shows the new snapshot, not the original |
-| T-HELP-15 | **Earlier snapshot no longer readable by staff** | RLS | After a follow-up, staff select on the previous snapshot returns zero rows |
+| T-HELP-15 | **Earlier snapshot still readable by the course's staff** | RLS | After a follow-up, the request points at the new snapshot; staff can still read the previous one (staff read every snapshot in their course), a classmate can't |
 | T-HELP-16 | **Fourth follow-up rejected** | DB | `BAD_REQUEST` "ask for in-person help instead"; `follow_ups` stays 3 |
 | T-HELP-17 | Follow-up on a `passed` / `resolved` / `cancelled` request | DB | `BAD_REQUEST` — only `replied` reopens |
 | T-HELP-18 | Another student follows up on someone else's request | RLS | `FORBIDDEN`, and no snapshot is left behind (the function rolls back) |
