@@ -58,13 +58,15 @@ export async function handleWebhook(req: Request, deps: WebhookDeps): Promise<Re
 
   const reply = async (text: string) => {
     try {
-      await deliver({
+      const result = await deliver({
         channel: 'telegram',
         payload: { chat_id: chatId, text },
         env,
         client: deps.outbox,
         live: () => sendWithRetry(deps.send, chatId, text),
       })
+      // the sender reports a refusal instead of throwing, so say so or it vanishes
+      if (!result.ok) console.error('telegram reply not sent, status', result.status)
     } catch (err) {
       console.error('telegram reply failed', (err as Error).message)
     }
