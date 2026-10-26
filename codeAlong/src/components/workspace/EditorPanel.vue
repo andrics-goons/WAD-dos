@@ -8,6 +8,7 @@
         filePaths: { type: Array, default: () => [] },
         selectedFile: { type: String, default: "" },
         selectedCode: { type: String, default: "" },
+        saveStatus: { type: String, default: null },
     })
 
     const emit = defineEmits(["update:selectedFile", "update:selectedCode", "show-preview"])
@@ -18,6 +19,18 @@
 
     // used as filebadge next to filename in codeeditor
     const fileType = computed(() => props.selectedFile.split(".").pop().toUpperCase())
+
+    // autosave's state, shown next to the file name; anything starting "Not saved" is a warning
+    const SAVE_LABELS = {
+        saved: { icon: "bi-cloud-check", text: "Saved" },
+        pending: { icon: "bi-cloud", text: "Unsaved changes" },
+        saving: { icon: "bi-cloud-arrow-up", text: "Saving…" },
+        retrying: { icon: "bi-cloud-slash", text: "Not saved — retrying", tone: "text-warning" },
+        too_large: { icon: "bi-exclamation-triangle", text: "Not saved — project is too large", tone: "text-danger" },
+        error: { icon: "bi-exclamation-triangle", text: "Not saved — will try again when you type", tone: "text-danger" },
+        ended: { icon: "bi-stop-circle", text: "Class ended — no longer saving", tone: "text-warning" },
+    }
+    const saveLabel = computed(() => SAVE_LABELS[props.saveStatus] ?? null)
 </script>
 
 <template>
@@ -81,9 +94,12 @@
                 <div class="pane-header">
                     <span class="file-badge">{{ fileType }}</span>
                     <span>{{ selectedFile }}</span>
+                    <span class="ms-auto small text-nowrap" :class="saveLabel?.tone" data-testid="save-status">
+                        <template v-if="saveLabel"><i class="bi" :class="saveLabel.icon" /> {{ saveLabel.text }}</template>
+                    </span>
                     <!-- below xl the preview isn't beside the editor, so this swaps to it -->
                     <button
-                        class="toggle-btn ms-auto d-xl-none"
+                        class="toggle-btn d-xl-none"
                         type="button"
                         title="Show preview"
                         @click="emit('show-preview')"

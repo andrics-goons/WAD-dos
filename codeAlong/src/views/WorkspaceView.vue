@@ -8,7 +8,7 @@
   import { startWorkspace } from "@/runtime/workspace";
   import { useWorkspaceStore } from "@/stores/workspace.js"
 
-  defineProps({ id: { type: String, required: true } })
+  const props = defineProps({ id: { type: String, required: true } })
 
   // reading workspace store and storing as variable
   const workspaceStore = useWorkspaceStore()
@@ -29,8 +29,9 @@
   onMounted(async () => {
     if (!isolated) return
     try {
-      const webcontainer = await getWebContainer()
-      if (unmounted) return
+      // boot the WebContainer while this student's code downloads
+      const [webcontainer] = await Promise.all([getWebContainer(), workspaceStore.load(props.id)])
+      if (unmounted) return workspaceStore.close() // left while loading: stop the autosave it started
       const stop = await startWorkspace(
         webcontainer,
         workspaceStore.files,
@@ -47,6 +48,7 @@
   onBeforeUnmount(() => {
     unmounted = true
     stopWorkspace?.() // if the startWorkspace has finished firing and returned the function, then call the stop function before unmount
+    workspaceStore.close() // saves any edit still waiting for the 5 s autosave
   })
 </script>
 
@@ -74,6 +76,7 @@
             :file-paths="workspaceStore.filePaths"
             v-model:selected-file="workspaceStore.selectedFile"
             v-model:selected-code="workspaceStore.selectedCode"
+            :save-status="workspaceStore.saveStatus"
             @show-preview="showPreview = true"
           />
         </div>

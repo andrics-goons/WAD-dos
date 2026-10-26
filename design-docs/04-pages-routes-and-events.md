@@ -434,6 +434,7 @@ Unchanged — components never knew where the data came from, which is why this 
 | Session ended while coding | Banner "Class ended — your work is saved. Open replay" | `session:ended` broadcast |
 | Realtime disconnected | Navbar pill turns amber "Reconnecting…"; edits continue locally; autosave retries | Channel state callback; supabase-js reconnects with backoff |
 | Autosave fails | "Not saved — retrying" next to the file name; never blocks typing | Exponential retry; work kept in memory |
+| Saving indicator | `save-status` next to the file name: "Saved", "Unsaved changes" (waiting out the 5 s), "Saving…", or a "Not saved — …" warning (retrying, project too large, refused) / "Class ended — no longer saving" | autosave's `onStatus`, kept in the workspace store as `saveStatus` |
 | Help already claimed by another TA | Toast "Ana is already on this one" and the card updates | `claim_help_request` raises `CONFLICT\|…`; the card updates from Postgres Changes |
 | Reply didn't fix it | Student sees **Follow up** on the replied request, with "2 follow-ups left" | `follow_up_help_request`; the same request returns to the queue in its original place |
 | Follow-up limit reached | "You've followed up 3 times — ask for in-person help instead" | `BAD_REQUEST\|…` from the RPC |
