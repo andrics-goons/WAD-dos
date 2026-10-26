@@ -4,6 +4,7 @@
 // saving needs the lessons table and a real course id in the url
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import GithubImportTab from '@/components/lesson/GithubImportTab.vue'
 import StepList from '@/components/lesson/StepList.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { useLessonsStore } from '@/stores/lessons'
@@ -25,6 +26,7 @@ const entryFile = ref(null)
 const skipped = ref([]) // files the converter rejected one by one (e.g. unsafe path)
 const ignoredCount = ref(0) // files dropped before reading: node_modules, images, lockfiles...
 const errors = ref([])
+const githubSource = ref(null) // { type: 'github', repo, ref, dir } from the last import
 const parsedSteps = ref([]) // steps from parseTodos, this is what gets saved
 const steps = ref([]) // same steps but formatted for StepList
 
@@ -74,6 +76,12 @@ function load(entries, options) {
   }))
 }
 
+// github-import has already checked the files; load() parses the TODOs like an upload
+function onImported(result) {
+  load(result.files)
+  githubSource.value = result.source
+}
+
 // check the title before leaving step 1
 function next() {
   if (stage.value === 1 && !title.value.trim()) {
@@ -95,7 +103,7 @@ async function create() {
         description: description.value.trim(),
         files: files.value,
         entryFile: entryFile.value,
-        source: { type: source.value },
+        source: source.value === 'github' ? githubSource.value : { type: 'upload' },
       },
       parsedSteps.value,
     )
@@ -284,38 +292,28 @@ async function onFolderPicked(event) {
               </div>
             </div>
           </div>
-
-          <div
-            v-for="e in errors"
-            :key="e"
-            class="alert alert-danger d-flex align-items-start gap-2 small mt-3 mb-0"
-          >
-            <i class="bi bi-exclamation-triangle-fill flex-shrink-0" />
-            <span>{{ e }}</span>
-          </div>
-          <div
-            v-if="files.length && !errors.length && !busy"
-            class="alert alert-success d-flex align-items-start gap-2 small mt-3 mb-0"
-          >
-            <i class="bi bi-check-circle-fill flex-shrink-0" />
-            <span
-              >Found {{ files.length }} files and {{ steps.length }} steps. Click Next to review
-              them.</span
-            >
-          </div>
         </div>
 
-        <div v-else class="ca-field">
-          <label class="ca-label" for="repo">Repository URL</label>
-          <div class="d-flex flex-column flex-sm-row gap-2">
-            <input
-              id="repo"
-              class="ca-input"
-              placeholder="https://github.com/your-prof/week6-mini-cart"
-            />
-            <button type="button" class="ca-btn">Fetch</button>
-          </div>
-          <p class="ca-field-hint">Public repos only. (GitHub import is Ray Yien's tab.)</p>
+        <GithubImportTab v-else @imported="onImported" />
+
+        <!-- Result of the upload or the import -->
+        <div
+          v-for="e in errors"
+          :key="e"
+          class="alert alert-danger d-flex align-items-start gap-2 small mt-3 mb-0"
+        >
+          <i class="bi bi-exclamation-triangle-fill flex-shrink-0" />
+          <span>{{ e }}</span>
+        </div>
+        <div
+          v-if="files.length && !errors.length && !busy"
+          class="alert alert-success d-flex align-items-start gap-2 small mt-3 mb-0"
+        >
+          <i class="bi bi-check-circle-fill flex-shrink-0" />
+          <span
+            >Found {{ files.length }} files and {{ steps.length }} steps. Click Next to review
+            them.</span
+          >
         </div>
 
         <hr class="my-4" />

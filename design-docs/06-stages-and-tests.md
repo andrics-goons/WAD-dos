@@ -374,7 +374,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
 | T-GH-01 | Import public repo (mock) | E2E | Draft lesson with filtered files + steps |
-| T-GH-02 | Import filters unsafe types / > 20 files | Unit | Only allowed files kept |
+| T-GH-02 | Import filters unsafe types / > 40 files | Unit | Only allowed files kept |
 | T-GH-03 | Export creates one commit per checkpoint | Unit | Mock records 1 repo + n trees + n commits + 1 ref update, in order |
 | T-GH-04 | Commit messages `Step k: <title>` | Unit | Match |
 | T-GH-05 | Repo name taken (422) | E2E | UI asks for another name |

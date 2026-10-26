@@ -236,12 +236,12 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | What | File(s) | Done |
 |---|---|:---:|
 | **IndexedDB file cache keyed by `files_hash`** **(moved)** — built by Andric | `src/cache/files.js`, `src/api/files.api.js` | ✅ |
-| **Delta autosave** (5 s debounce, changed files only) + `autosave_patch` RPC **(moved)** | `src/cache/autosave.js` | ⬜ |
+| **Delta autosave** (5 s debounce, changed files only) + `autosave_patch` RPC **(moved)** — wired into the workspace by Andric | `src/cache/autosave.js` | ✅ |
 | **`catch_up` RPC, my attempts, restore attempt** **(moved)** | `src/api/workspace.api.js` | ⬜ |
 | **`FileTree`** (create/rename/delete; `SYNC_IGNORE` hidden; read-only mode for replay) **(moved)** | `components/workspace/FileTree.vue` | ⬜ |
-| Diff utility + `DiffView` (split/unified) | `shared/diff-summary.js`, `components/replay/DiffView.vue` | ⬜ |
+| Diff utility + `DiffView` (split/unified) | `shared/diff-summary.js`, `components/replay/DiffView.vue` | ✅ |
 | "What you missed" panel (embedded in Dylan's workspace) | `components/replay/WhatYouMissed.vue` | ⬜ |
-| Lesson library (search, list) in course page | `components/lesson/LessonLibrary.vue` | ⬜ |
+| Lesson library (search, list) in course page — built by Ying Qi | `components/lesson/LessonLibrary.vue` | ✅ |
 | `github-import` function + import tab in New lesson | `supabase/functions/github-import/`, `components/lesson/GithubImportTab.vue` | ⬜ |
 | `github-export` function (Git Data API, one commit per checkpoint) + GitHub identity link | `supabase/functions/github-export/`, `linkIdentity` | ⬜ |
 | Replay + notes data access; `search()` RPC | `src/api/replays.api.js`, `notes.api.js` | ⬜ |

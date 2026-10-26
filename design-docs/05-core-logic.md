@@ -589,12 +589,13 @@ Search is `rpc('search')`: a ranked full-text query over step titles, checkpoint
 1. Parse https://github.com/<owner>/<repo>[/tree/<ref>/<dir>]
 2. GET /repos/{owner}/{repo}                                  → default branch if no ref
 3. GET /repos/{owner}/{repo}/git/trees/{ref}?recursive=1      → file list
-4. Keep files under <dir> with .html .css .js .json .md, ≤ 20 files, ≤ 200 KB total
-5. GET /repos/{owner}/{repo}/contents/{path}?ref={ref}        → base64 → text   (one per file)
+4. Keep files under <dir> that a lesson can hold (shared/lesson-files.js), ≤ 40 files, ≤ 200 KB total —
+   checked from the tree before anything is downloaded
+5. GET /repos/{owner}/{repo}/contents/{path}?ref={ref}        → raw text   (one per file)
 6. Return files → the browser runs parseTodos → insert lesson + rpc('replace_steps')
 ```
 
-≈ 2 + n requests per import. `GITHUB_TOKEN` is a function secret and never reaches the browser.
+≈ 2 + n requests per import. Only a prof may import. `GITHUB_TOKEN` is a function secret and never reaches the browser; without it GitHub allows only 60 requests an hour, and the function answers `RATE_LIMITED`.
 
 ### GitHub export (the student's own GitHub identity) — one commit per checkpoint
 
