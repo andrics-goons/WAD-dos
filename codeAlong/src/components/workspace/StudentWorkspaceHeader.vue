@@ -1,19 +1,6 @@
 <script setup>
     // Styling only for now: course name and title are hard-coded, and the status
     // toggle + buttons don't do anything yet. TODO FUTURE: pass these in from the lesson.
-
-    // TEMP, LOCAL ONLY (Karin's help button preview) — do not commit. Revert with:
-    //   git checkout src/components/workspace/StudentWorkspaceHeader.vue
-    import { onBeforeUnmount, onMounted } from 'vue'
-    import { useRoute } from 'vue-router'
-    import HelpButton from '@/components/help/HelpButton.vue'
-    import { useSessionStore } from '@/stores/session'
-    import { useWorkspaceStore } from '@/stores/workspace'
-    const route = useRoute()
-    const session = useSessionStore()
-    const workspace = useWorkspaceStore()
-    onMounted(() => session.open(route.params.id))
-    onBeforeUnmount(() => session.close())
 </script>
 
 <template>
@@ -49,12 +36,11 @@
                 <span class="d-none d-lg-inline">Load latest checkpoint</span>
                 <span class="d-lg-none">Load</span>
             </button>
-            <HelpButton
-                v-if="session.currentStep"
-                :session-id="route.params.id"
-                :step-id="session.currentStep.id"
-                :files="workspace.files"
-            />
+            <button type="button" class="ca-btn ca-btn--secondary">
+                <i class="bi bi-question-circle" />
+                <span class="d-none d-lg-inline">Help</span>
+                <span class="visually-hidden d-lg-none">Help</span>
+            </button>
         </div>
     </header>
 </template>
