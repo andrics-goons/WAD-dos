@@ -230,7 +230,7 @@ Patterns:
 | `ca-btn--primary` | The single main action on a screen |
 | `ca-btn--secondary` | Alternatives, Cancel |
 | `ca-btn--success` | Positive completion (Done, Pass) |
-| `ca-btn--warning` | "I'm lost" style attention actions |
+| `ca-btn--warning` | "Slow down" style attention actions |
 | `ca-btn--danger` | Destructive. **Always behind a `ConfirmModal`** |
 | `ca-btn--ghost` | Toolbar and icon buttons with no border |
 | `ca-btn--link` | Looks like a link, behaves like a button |

@@ -27,7 +27,7 @@ Fifteen tables in Supabase Postgres (plus a test-only outbox), joined by `uuid` 
                        │ 1:N
                 ┌──────▼───────┐        VIEWS (no storage)
                 │status_history│        session_tiles    ← derives tile state
-                └──────────────┘        session_summary  ← counts + lost_count only
+                └──────────────┘        session_summary  ← counts + slow_down_count only
 ```
 
 **How a course is organised.** Every course belongs to the one prof who created it (`courses.owner_id`) and is invisible to anyone who isn't in it. Inside it:
@@ -417,7 +417,7 @@ All `security definer`, for the same reason as the course helpers.
 | `is_session_member(sid)` | The caller is staff or an enrolled student of the session's course |
 | `is_session_staff(sid)` | The caller is the prof or a TA of the session's course |
 | `is_live_session_student(sid)` | The caller is **enrolled** in the session's course **and** the session is `live` |
-| `session_lost_count(sid)` | Returns the number of raised "I'm lost" flags — to staff and admins. Returns `null` to anyone else |
+| `session_slow_down_count(sid)` | Returns the number of raised "Slow down" flags — to staff and admins. Returns `null` to anyone else |
 | `is_session_channel_member(topic)` | `topic` is exactly `session:<uuid>` and the caller is a member. Anything else is `false`, never a cast error |
 
 ---
@@ -448,7 +448,7 @@ All `security definer`, for the same reason as the course helpers.
 
 **There is no `state` column.** This is the deliberate difference from the Mongo design: the student's own client writes this row, so anything stored here is forgeable. Only raw signals are stored; the tile state is derived in `session_tiles`.
 
-**There is no `lost` column either.** Staff can read these rows, and staff receive them whole over Postgres Changes, so a column here could never be hidden from them. "I'm lost" lives in [`lost_flags`](#lost_flags) instead.
+**There is no slow-down column either.** Staff can read these rows, and staff receive them whole over Postgres Changes, so a column here could never be hidden from them. "Slow down" lives in [`slow_down_flags`](#slow_down_flags) instead.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -475,9 +475,9 @@ All `security definer`, for the same reason as the course helpers.
 
 No delete policy: the row is the attendance record. Staff can't write a row, because they aren't enrolled.
 
-## lost_flags
+## slow_down_flags
 
-One row means this student has tapped "I'm lost" and not cleared it. **Readable only by its owner (and admins).**
+One row means this student has tapped "Slow down" and not cleared it. **Readable only by its owner (and admins).**
 
 | Column | Type |
 |---|---|
@@ -485,7 +485,7 @@ One row means this student has tapped "I'm lost" and not cleared it. **Readable 
 | `student_id` | `uuid not null → profiles` |
 | `at` | `timestamptz not null default now()` |
 
-**Policies:** "student reads own flag" (`select`), "student raises flag" (`insert`: own row, `is_live_session_student`), "student clears flag" (`delete`: own row), "admin reads all". **There is no staff policy.** Staff get only `session_summary.lost_count`, through `session_lost_count()`.
+**Policies:** "student reads own flag" (`select`), "student raises flag" (`insert`: own row, `is_live_session_student`), "student clears flag" (`delete`: own row), "admin reads all". **There is no staff policy.** Staff get only `session_summary.slow_down_count`, through `session_slow_down_count()`.
 
 Raise = `insert`, clear = `delete`. A second tap while the flag is up is a primary-key `CONFLICT`, which the client can ignore.
 
@@ -569,12 +569,12 @@ select
     count(*) filter (where state = 'error')         as error,
     count(*) filter (where state = 'behind')        as behind,
     count(*) filter (where state = 'idle')          as idle,
-    public.session_lost_count(session_id)           as lost_count
+    public.session_slow_down_count(session_id)           as slow_down_count
 from public.session_tiles
 group by session_id;
 ```
 
-`lost_count` is a number from a function that reads `lost_flags` on the caller's behalf, so **no query a staff member can write returns who is lost.** That is the whole mechanism for T-PRIV-04. A student reading the summary gets `lost_count = null`.
+`slow_down_count` is a number from a function that reads `slow_down_flags` on the caller's behalf, so **no query a staff member can write returns who asked to slow down.** That is the whole mechanism for T-PRIV-04. A student reading the summary gets `slow_down_count = null`.
 
 ### Guards on taught lessons
 
@@ -601,12 +601,13 @@ To restructure a taught lesson, the prof makes a new lesson. The foreign keys ba
 | `reason` | `text not null check (reason in ('autosave','before_catchup','help_request'))` | |
 | `files` | `jsonb not null check (public.files_valid(files) and octet_length(files::text) <= 200000)` | Source files only — `SYNC_IGNORE` keeps `node_modules/`, `dist/` and `.vite/` out |
 | `files_hash` | `text generated always as (md5(files::text)) stored` | Cache key |
-| `created_at` | `timestamptz default now()` | |
+| `created_at` | `timestamptz default now()` | When the row was first written |
+| `updated_at` | `timestamptz default now()` | When the code was last saved. Moves on every autosave (the `set_updated_at` trigger), so staff can tell how fresh it is; for the other reasons it equals `created_at` |
 
 **Rules**
 - `autosave`: **one per student per session** — `unique (session_id, student_id) where reason = 'autosave'`, written by `rpc('autosave_patch')`, which merges only the files that changed into the existing `files` jsonb rather than replacing the whole set. Debounced 5 s on the client; see [05 §2](./05-core-logic.md#2-files-cache--dependencies).
 - `before_catchup` and `help_request`: a new row each time, never updated. Students have no write policy at all, so only the RPCs can write snapshots.
-- Staff read a snapshot **only** through the help request that references it.
+- The course's prof and TAs read every snapshot in their sessions (`is_session_staff`), to troubleshoot a student's code. Classmates and other courses' staff can't.
 
 **Indexes:** the partial unique above; `(session_id, student_id, reason, created_at desc)`.
 
@@ -620,14 +621,16 @@ alter table public.snapshots enable row level security;
 create policy "student reads own snapshots" on public.snapshots
     for select using (student_id = auth.uid());
 
--- THE privacy rule. Staff reach a snapshot only via a help request pointing at it.
-create policy "staff read sent snapshots" on public.snapshots
-    for select using (public.is_sent_to_staff(id));
+-- the prof and TAs read every student's code in their own courses, to help troubleshoot
+create policy "staff read snapshots" on public.snapshots
+    for select using (public.is_session_staff(session_id));
 
 create policy "admin reads all" on public.snapshots for select using (public.is_admin());
 ```
 
-`is_sent_to_staff(snap)` is a `security definer` helper: true when a help request with `snapshot_id = snap` exists in a session the caller staffs. It's a helper rather than an inline subquery so the policy doesn't depend on `help_requests`' own RLS.
+**Staff can read every snapshot in their own courses** (autosaves, catch-up attempts and help copies), because they need a student's code to troubleshoot it. Classmates and other courses' staff still can't.
+
+> **Changed (24 Oct):** staff used to see a student's code only through a help request the student sent. We dropped that rule: this is teaching material, and the prof and TAs need the code to help. "Slow down" stays anonymous.
 
 > **Changed from the first draft:** the policy was `own snapshots … for all`, which let a student update or delete a snapshot after sending it for help. Every write path is an RPC anyway, so students get `select` only.
 
@@ -675,7 +678,6 @@ create policy "admin reads all" on public.snapshots for select using (public.is_
 |---|---|---|
 | In person only for `help`, and needs a seat | `check (not in_person or (type = 'help' and seat is set))` | `23514` |
 | `follow_ups` 0–3, `message` ≤ 300 | column checks | `23514` |
-| `snapshot_id` is **this student's own `help_request` snapshot from this session** — never someone else's, and never their autosave row, which keeps changing (staff would be watching live code) | trigger `check_help_snapshot` | `BAD_REQUEST` |
 
 The status transitions (only a `check` can be `passed`, `claimed` needs a claimer, …) are enforced by Karin's `transition_help_request`, not by the table.
 
@@ -774,7 +776,7 @@ end $$;
 | **Same row, original `created_at`** | The problem is the original one, still unsolved, so it keeps its place in the oldest-first queue rather than going to the back |
 | **`claimed_by` cleared** | Any TA can claim it. The card shows "Follow-up · last handled by Ana", derived from the latest staff entry in `thread` — no extra column |
 | **A fresh snapshot is attached** | The student has usually changed their code since the reply, so the TA reviews what they have *now* |
-| **Only the latest snapshot stays visible to staff** | The `snapshots` privacy policy admits a row only via `help_requests.snapshot_id`, which now points at the new one. The earlier snapshot becomes unreadable to staff. We kept the policy simple rather than widen it — staff see the minimum code needed, which is the privacy design working as intended |
+| **The request points at the newest snapshot** | The card opens the code the student has now. Staff can still read the earlier copy, like any snapshot in their course |
 | **`thread` is text only, in the same row** | No new table, so **no new RLS policy**: the existing "student reads own" and "staff read queue" policies already cover it. This is what keeps follow-ups cheap compared with a full message table |
 | **Capped at 3** | Past that, the TA should walk over. The cap is what stops this becoming a chat feature |
 | **Partial unique index still applies** | If the student opened another request of the same type meanwhile, reopening raises `CONFLICT` — no special case needed |
@@ -821,13 +823,13 @@ T-PRIV-05 passes by construction — a note belonging to someone else is not a 4
 | `attendance` | `jsonb` | `{ joined, enrolled }` |
 | `steps` | `jsonb` | Per-step funnel — see [05](./05-core-logic.md#10-insights-report): `[{ order, stepId, title, reachedDone, dropOff, errorStudents, peakBehind, medianMinutesToDone, catchUps, helpRequests, trouble }]` (the shape `seed.sql` writes and `buildReport` must produce) |
 | `top_errors` | `jsonb` | Top 5, counts only: `[{ key, students, stepOrder }]` |
-| `lost_peak` | `int` | Max simultaneous "I'm lost" |
+| `slow_down_peak` | `int` | Max simultaneous "Slow down" |
 | `generated_at` | `timestamptz default now()` | |
 | `digest` | `jsonb` | `{ sentAt, recipients }` — counts only |
 
 Written by the `end-session` Edge Function (triggered by a Database Webhook when `sessions.status` becomes `ended`). The report page polls until the row exists.
 
-`session_id → sessions` on delete cascade; `course_id → courses` and `lesson_id → lessons` for trends. `attendance` is required; `steps` and `top_errors` default to `[]`, `lost_peak` to 0. Index `(course_id, lesson_id)` for trends.
+`session_id → sessions` on delete cascade; `course_id → courses` and `lesson_id → lessons` for trends. `attendance` is required; `steps` and `top_errors` default to `[]`, `slow_down_peak` to 0. Index `(course_id, lesson_id)` for trends.
 
 ```sql
 alter table public.session_reports enable row level security;
@@ -838,9 +840,9 @@ create policy "admin reads all" on public.session_reports for select using (publ
 
 The policy checks the **session**, not the row's `course_id`, so it can never disagree with where the session really ran.
 
-## lost_events (for `lost_peak`)
+## slow_down_events (for `slow_down_peak`)
 
-`lost_flags` deletes a row when a student clears "I'm lost", so by the end of class the peak would be gone. A trigger on `lost_flags` appends `+1` on raise and `-1` on clear:
+`slow_down_flags` deletes a row when a student clears "Slow down", so by the end of class the peak would be gone. A trigger on `slow_down_flags` appends `+1` on raise and `-1` on clear:
 
 | Column | Type |
 |---|---|
@@ -849,7 +851,7 @@ The policy checks the **session**, not the row's `course_id`, so it can never di
 | `delta` | `smallint not null check (delta in (1, -1))` |
 | `at` | `timestamptz not null default now()` |
 
-**No `student_id`.** Its only policy is `admin reads all`: even anonymous timestamps, next to the live tile grid, could hint at who tapped. Staff and the `end-session` function get the number from `session_lost_peak(sid)` — a `security definer` running sum, the peak for staff and admins, `null` for anyone else.
+**No `student_id`.** Its only policy is `admin reads all`: even anonymous timestamps, next to the live tile grid, could hint at who tapped. Staff and the `end-session` function get the number from `session_slow_down_peak(sid)` — a `security definer` running sum, the peak for staff and admins, `null` for anyone else.
 
 ## test_outbox (local + test only)
 
@@ -950,14 +952,14 @@ The contract, enforced by RLS policies and `security definer` RPCs. **Admin** is
 | Start / end a live session, save checkpoints, Spotlight | ❌ | ❌ | ✅ | ❌ |
 | Post / clear a class announcement | ❌ | ❌ | ✅ | ❌ |
 | Join a live session | ✅ | ✅ (as staff) | ✅ | — |
-| Report own status, tap Done, toggle "I'm lost", autosave, catch up | ✅ | — | — | — |
+| Report own status, tap Done, toggle "Slow down", autosave, catch up | ✅ | — | — | — |
 | View class dashboard (tiles, counts, error groups) | ❌ | ✅ | ✅ | ✅ (read-only) |
-| See which student tapped "I'm lost" (`lost_flags`) | ❌ | ❌ | ❌ | ✅ |
+| See which student tapped "Slow down" (`slow_down_flags`) | ❌ | ❌ | ❌ | ✅ |
 | Send Check my work / Ask for help | ✅ | — | — | — |
 | Follow up on own replied request (max 3) | ✅ | — | — | — |
 | View help queue | ❌ | ✅ | ✅ | ✅ (read-only) |
 | Claim, pass, reply, resolve help requests | ❌ | ✅ | ✅ | ❌ |
-| View a student's code | ❌ | Only via a help request the student sent | Only via a help request the student sent | ✅ any |
+| View a student's code | Own only | ✅ students in their courses | ✅ students in their courses | ✅ any |
 | View replay of a session | ✅ (if enrolled) | ✅ | ✅ | ✅ |
 | Notes / bookmarks | Own only | Own only | Own only | Read all |
 | Export replay to GitHub | ✅ (own account) | ✅ | ✅ | — |

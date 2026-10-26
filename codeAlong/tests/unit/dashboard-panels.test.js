@@ -4,7 +4,7 @@ import ClassSummaryBar from '@/components/dashboard/ClassSummaryBar.vue'
 import ErrorGroupList from '@/components/dashboard/ErrorGroupList.vue'
 
 describe('ClassSummaryBar', () => {
-  const props = { counts: { error: 3, behind: 2, done: 5 }, total: 10, lostCount: 2 }
+  const props = { counts: { error: 3, behind: 2, done: 5 }, total: 10, slowDownCount: 2 }
 
   it('T-DASH-03: clicking a summary segment asks to filter by that state', async () => {
     const wrapper = mount(ClassSummaryBar, { props })
@@ -24,9 +24,9 @@ describe('ClassSummaryBar', () => {
     expect(wrapper.find('[data-testid="summary-done"]').classes()).not.toContain('active')
   })
 
-  it('T-DASH-04: shows how many are lost as a number only', () => {
+  it('T-DASH-04: shows how many asked to slow down, as a number only', () => {
     const wrapper = mount(ClassSummaryBar, { props })
-    expect(wrapper.find('[data-testid="lost-count"]').text()).toContain('2')
+    expect(wrapper.find('[data-testid="slow-down-count"]').text()).toContain('2')
   })
 
   it('colours the chips with the kit state classes, not inline styles', () => {

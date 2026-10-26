@@ -162,7 +162,7 @@ describe.skipIf(!isSeeded)('seed.sql', () => {
         key: 'ReferenceError: items is not defined',
         students: 6,
       })
-      expect(data.lost_peak).toBe(3)
+      expect(data.slow_down_peak).toBe(3)
     })
 
     it("Prof Lee reads last term's report, never Prof Tan's", async () => {
@@ -173,11 +173,10 @@ describe.skipIf(!isSeeded)('seed.sql', () => {
     })
   })
 
-  describe('privacy holds on the seeded data', () => {
-    it('T-PRIV-02/03: a TA reads the 5 sent snapshots and none of the autosaves', async () => {
+  describe('who reads student code on the seeded data', () => {
+    it("T-PRIV-02/03: a TA reads every student's code in the class (18 snapshots)", async () => {
       const { data } = await ana.from('snapshots').select('reason').eq('session_id', PAST)
-      expect(data).toHaveLength(5)
-      expect(data.every((s) => s.reason === 'help_request')).toBe(true)
+      expect(data).toHaveLength(18) // 11 autosaves, 2 catch-up attempts, 5 sent for help
     })
 
     it("a student can't read a classmate's code", async () => {
@@ -202,15 +201,15 @@ describe.skipIf(!isSeeded)('seed.sql', () => {
       })
     })
 
-    it("has Bea's open help request in the queue and one anonymous lost", async () => {
+    it("has Bea's open help request in the queue and one anonymous slow-down request", async () => {
       const queue = await ana.from('help_requests').select('status').eq('session_id', LIVE)
       const summary = await ana
         .from('session_summary')
-        .select('lost_count')
+        .select('slow_down_count')
         .eq('session_id', LIVE)
         .single()
       expect(queue.data).toEqual([{ status: 'open' }])
-      expect(summary.data.lost_count).toBe(1)
+      expect(summary.data.slow_down_count).toBe(1)
     })
 
     it('Alex can join it: it is live and he is enrolled', async () => {

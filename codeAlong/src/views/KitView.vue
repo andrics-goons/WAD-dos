@@ -210,7 +210,7 @@ function fakeConfirm() {
         <button class="ca-btn ca-btn--primary">Save checkpoint</button>
         <button class="ca-btn ca-btn--secondary">Cancel</button>
         <button class="ca-btn ca-btn--success"><i class="bi bi-check-lg" />Done</button>
-        <button class="ca-btn ca-btn--warning">I'm lost</button>
+        <button class="ca-btn ca-btn--warning">Slow down</button>
         <button class="ca-btn ca-btn--danger">End session</button>
         <button class="ca-btn ca-btn--ghost">Ghost</button>
         <button class="ca-btn ca-btn--link">Link</button>

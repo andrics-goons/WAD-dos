@@ -17,7 +17,7 @@ const save = (who, upsert, remove = []) =>
 async function autosaveRows() {
   const { data, error } = await service
     .from('snapshots')
-    .select('files, files_hash')
+    .select('files, files_hash, created_at, updated_at')
     .eq('session_id', session.id)
     .eq('student_id', stu.id)
     .eq('reason', 'autosave')
@@ -87,6 +87,15 @@ describe('autosave_patch', () => {
     expect(rows[0].files.map((f) => f.path)).toEqual(['a.js', 'b.js', 'd.js'])
     expect(contentOf(rows[0], 'b.js')).toBe('b changed')
     expect(contentOf(rows[0], 'a.js')).toBe('a')
+  })
+
+  it('a later save moves updated_at and keeps created_at', async () => {
+    const [before] = await autosaveRows()
+    const { error } = await save(stu, [file('a.js', 'a changed')])
+    expect(error).toBeNull()
+    const [after] = await autosaveRows()
+    expect(after.created_at).toBe(before.created_at)
+    expect(new Date(after.updated_at) > new Date(before.updated_at)).toBe(true)
   })
 
   it('the student can read their own autosave', async () => {

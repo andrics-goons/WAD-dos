@@ -1,4 +1,4 @@
--- Sessions: sessions, checkpoints, student_status, lost_flags, status_history
+-- Sessions: sessions, checkpoints, student_status, slow_down_flags, status_history
 --           + the session_tiles / session_summary views and the Realtime channel policy
 -- Spec: design-docs/03-data-model.md#sessions
 -- Order matters: helpers → tables → session helpers → RLS + policies → views → triggers
@@ -81,8 +81,8 @@ create table public.checkpoints (
 
 -- Raw signals only. NO state column: the student's own browser writes this row, so a
 -- stored state would be forgeable. session_tiles derives it.
--- NO lost column either: staff can read these rows (and receive them over Postgres
--- Changes), so "I'm lost" lives in lost_flags, which they can't.
+-- NO slow-down column either: staff can read these rows (and receive them over Postgres
+-- Changes), so "Slow down" lives in slow_down_flags, which they can't.
 create table public.student_status (
     session_id       uuid not null references public.sessions(id) on delete cascade,
     student_id       uuid not null references public.profiles(id),
@@ -101,9 +101,9 @@ create table public.student_status (
     primary key (session_id, student_id)
 );
 
--- One row = this student has tapped "I'm lost" and not cleared it.
+-- One row = this student has tapped "Slow down" and not cleared it.
 -- Readable only by its owner (and admins); staff only ever get the count.
-create table public.lost_flags (
+create table public.slow_down_flags (
     session_id  uuid not null references public.sessions(id) on delete cascade,
     student_id  uuid not null references public.profiles(id),
     at          timestamptz not null default now(),
@@ -151,13 +151,13 @@ language sql security definer stable set search_path = '' as $$
     )
 $$;
 
--- "I'm lost" as a number: the count for staff and admins, null for anyone else.
--- security definer because nobody but the student can read lost_flags rows.
-create function public.session_lost_count(sid uuid) returns bigint
+-- "Slow down" as a number: the count for staff and admins, null for anyone else.
+-- security definer because nobody but the student can read slow_down_flags rows.
+create function public.session_slow_down_count(sid uuid) returns bigint
 language sql security definer stable set search_path = '' as $$
     select case
         when public.is_session_staff(sid) or public.is_admin()
-        then (select count(*) from public.lost_flags where session_id = sid)
+        then (select count(*) from public.slow_down_flags where session_id = sid)
     end
 $$;
 
@@ -167,7 +167,7 @@ $$;
 alter table public.sessions       enable row level security;
 alter table public.checkpoints    enable row level security;
 alter table public.student_status enable row level security;
-alter table public.lost_flags     enable row level security;
+alter table public.slow_down_flags     enable row level security;
 alter table public.status_history enable row level security;
 
 -- sessions (inserts only via start_session; no deletes — class history is kept)
@@ -206,17 +206,17 @@ create policy "staff read statuses" on public.student_status
 create policy "admin reads all" on public.student_status
     for select using (public.is_admin());
 
--- lost_flags: owner only. Raise = insert, clear = delete.
-create policy "student reads own flag" on public.lost_flags
+-- slow_down_flags: owner only. Raise = insert, clear = delete.
+create policy "student reads own flag" on public.slow_down_flags
     for select using (student_id = auth.uid());
 
-create policy "student raises flag" on public.lost_flags
+create policy "student raises flag" on public.slow_down_flags
     for insert with check (student_id = auth.uid() and public.is_live_session_student(session_id));
 
-create policy "student clears flag" on public.lost_flags
+create policy "student clears flag" on public.slow_down_flags
     for delete using (student_id = auth.uid());
 
-create policy "admin reads all" on public.lost_flags
+create policy "admin reads all" on public.slow_down_flags
     for select using (public.is_admin());
 
 -- status_history (written only by triggers)
@@ -254,8 +254,8 @@ join public.sessions s on s.id = ss.session_id
 join public.profiles p on p.id = ss.student_id
 left join public.steps st on st.id = s.current_step_id;
 
--- Counts for the summary bar. lost_count is a number, so no query staff can write
--- returns WHO is lost (T-PRIV-04).
+-- Counts for the summary bar. slow_down_count is a number, so no query staff can write
+-- returns WHO asked to slow down (T-PRIV-04).
 create view public.session_summary with (security_invoker = true) as
 select
     session_id,
@@ -265,7 +265,7 @@ select
     count(*) filter (where state = 'error')         as error,
     count(*) filter (where state = 'behind')        as behind,
     count(*) filter (where state = 'idle')          as idle,
-    public.session_lost_count(session_id)           as lost_count
+    public.session_slow_down_count(session_id)           as slow_down_count
 from public.session_tiles
 group by session_id;
 
