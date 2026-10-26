@@ -4,7 +4,7 @@ import { writeToContainer, debounceByPath } from '@/runtime/sync'
 import { getWebContainer } from '@/runtime/webcontainer'
 import { miniCartSeed } from './seed/miniCartSeed' // for temp testing, remove once linked to DB
 
- const syncEdit = debounceByPath(async (path, content) => {
+const syncEdit = debounceByPath(async (path, content) => {
     // runs on a timer, so nothing else would catch a failure: log it instead of an unhandled rejection
     try {
       const webcontainer = await getWebContainer()
@@ -14,6 +14,7 @@ import { miniCartSeed } from './seed/miniCartSeed' // for temp testing, remove o
     }
   }, 300)
 
+
 export const useWorkspaceStore = defineStore('workspace', () => {
     // temp, TODO FUTURE: import from db instead of using miniCart seed 
     const files = ref(structuredClone(miniCartSeed.files))
@@ -21,6 +22,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     const filePaths = computed(() => files.value.map(f => f.path))
 
     const selectedFile = ref(miniCartSeed.entryFile)
+
+    function reportError (err) {
+      // FOR EVAN
+      // MAKE SURE IT HANDLES IF reportError(null) so that it doesnt constantly run reportError null on every single keystroke
+    }
 
     // computed so view can vmodel it
     const selectedCode = computed({
@@ -36,6 +42,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         },
     })
 
-    return { files, filePaths, selectedFile, selectedCode }
+    return { files, filePaths, selectedFile, selectedCode, reportError }
 })
 
