@@ -2,11 +2,11 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { writeToContainer, debounceByPath } from '@/runtime/sync'
 import { getWebContainer } from '@/runtime/webcontainer'
-import { getSession } from '@/api/sessions.api'
 import { findMyAutosave } from '@/api/files.api'
 import { loadFiles } from '@/cache/files.js'
 import { createAutosave } from '@/cache/autosave.js'
 import { useAuthStore } from '@/stores/auth'
+import { useSessionStore } from '@/stores/session'
 
  const syncEdit = debounceByPath(async (path, content) => {
     // runs on a timer, so nothing else would catch a failure: log it instead of an unhandled rejection
@@ -46,13 +46,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         },
     })
 
-    // Opens the class's code: my autosave if I've saved before, otherwise the lesson's starter files
+    // Opens the class: its live channel (checkpoints, the class ending…) and its code — my
+    // autosave if I've saved before, otherwise the lesson's starter files
     async function load(sessionId) {
         await close()
         saveStatus.value = null
         const auth = useAuthStore()
         const [session, mine] = await Promise.all([
-            getSession(sessionId),
+            useSessionStore().open(sessionId),
             findMyAutosave(sessionId),
             auth.ensureLoaded(),
         ])
@@ -68,10 +69,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         })
     }
 
-    // When leaving the workspace: saves anything still waiting, then stops autosaving
+    // When leaving the workspace: saves anything still waiting, stops autosaving, leaves the channel
     async function close() {
         const leaving = saver
         saver = null
+        useSessionStore().close()
         await leaving?.stop()
     }
 

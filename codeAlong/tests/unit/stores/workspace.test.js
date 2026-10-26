@@ -3,13 +3,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { createPinia, setActivePinia } from "pinia"
 import { useWorkspaceStore } from "@/stores/workspace.js"
 import { getWebContainer } from "@/runtime/webcontainer"
-import { getSession } from "@/api/sessions.api"
 import { findMyAutosave } from "@/api/files.api"
 import { loadFiles } from "@/cache/files.js"
 import { createAutosave } from "@/cache/autosave.js"
 
 vi.mock("@/runtime/webcontainer", () => ({ getWebContainer: vi.fn() }))
-vi.mock("@/api/sessions.api", () => ({ getSession: vi.fn() }))
+// the class channel: open() hands back the session
+const getSession = vi.hoisted(() => vi.fn())
+const closeSession = vi.hoisted(() => vi.fn())
+vi.mock("@/stores/session", () => ({ useSessionStore: () => ({ open: getSession, close: closeSession }) }))
 vi.mock("@/api/files.api", () => ({ findMyAutosave: vi.fn() }))
 vi.mock("@/cache/files.js", () => ({ loadFiles: vi.fn() }))
 vi.mock("@/cache/autosave.js", () => ({ createAutosave: vi.fn() }))
@@ -82,6 +84,7 @@ describe("workspace store autosave", () => {
         await store.load("s1")
         await store.close()
         expect(saver.stop).toHaveBeenCalledOnce()
+        expect(closeSession).toHaveBeenCalled() // left the class channel
         store.selectedCode = "after leaving"
         expect(saver.autosave).not.toHaveBeenCalled()
     })
