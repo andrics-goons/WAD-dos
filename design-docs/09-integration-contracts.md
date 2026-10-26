@@ -414,7 +414,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Navigation | `nav-home`, `nav-courses`, `nav-replays`, `nav-profile`, `nav-connection-pill` |
 | Courses | `course-card-<code>`, `btn-new-course`, `btn-enrol-course`, `input-enrol-code`, `btn-enrol`, `enrol-link`, `btn-copy-enrol-link`, `enrol-qr` |
 | Lessons | `lesson-row-<slug>`, `lesson-start-<slug>`, `step-item-<order>`, `btn-step-up-<order>` |
-| Session | `join-code`, `join-qr`, `input-join-code`, `btn-save-checkpoint`, `btn-end-session`, `toast-checkpoint`, `input-announce`, `btn-announce`, `btn-clear-announce`, `announcement-banner` |
+| Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `btn-save-checkpoint`, `btn-end-session`, `toast-checkpoint`, `input-announce`, `btn-announce`, `btn-clear-announce`, `announcement-banner` |
 | Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `what-you-missed`, `workspace-step-current`, `tab-code`, `tab-preview`, `tab-console`, `tab-steps` |
 | Dashboard | `tile-<studentId>` (with `data-state="<TileState>"`), `summary-<state>`, `slow-down-count`, `error-group-<index>`, `btn-spotlight-<index>`, `spotlight-panel` |
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |
