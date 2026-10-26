@@ -3,7 +3,8 @@ import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import { useToastStore } from '@/stores/toast'
-import { RoleLabel } from '@shared/constants'
+import { Role, RoleLabel } from '@shared/constants'
+import TelegramLinkCard from '@/components/help/TelegramLinkCard.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -169,6 +170,11 @@ async function savePassword() {
             </div>
           </form>
         </div>
+      </div>
+
+      <!-- only staff are messaged, so only staff see this -->
+      <div v-if="[Role.PROF, Role.TA].includes(auth.role)" class="col-12 col-lg-6">
+        <TelegramLinkCard />
       </div>
     </div>
   </div>

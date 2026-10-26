@@ -53,6 +53,8 @@ describe('StudentHelpPanel', () => {
   it('T-HELP-01: Check my work sends my files for the current step, and shows it waiting', async () => {
     helpApi.createHelpRequest.mockResolvedValue(row())
     await render()
+    // a request we haven't seen makes the store re-read the list, which now has it
+    helpApi.listHelpRequests.mockResolvedValue([row()])
 
     await buttonWith('Check my work').trigger('click')
     await flushPromises()
@@ -100,7 +102,7 @@ describe('StudentHelpPanel', () => {
     await buttonWith('Cancel').trigger('click')
     await flushPromises()
 
-    expect(helpApi.transitionHelpRequest).toHaveBeenCalledWith('r1', 'cancelled')
+    expect(helpApi.transitionHelpRequest).toHaveBeenCalledWith('r1', 'cancelled', undefined)
     expect(wrapper.find('[data-testid="help-status"]').exists()).toBe(false)
   })
 
