@@ -3,11 +3,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { mount, flushPromises } from "@vue/test-utils"
 import { createPinia, setActivePinia } from "pinia"
 import WorkspaceView from "@/views/WorkspaceView.vue"
+import EmptyState from "@/components/ui/EmptyState.vue"
 import { getWebContainer } from "@/runtime/webcontainer"
 import { startWorkspace } from "@/runtime/workspace"
 
 vi.mock("@/runtime/webcontainer", () => ({ getWebContainer: vi.fn() }))
 vi.mock("@/runtime/workspace", () => ({ startWorkspace: vi.fn() }))
+// the store's loading and autosave have their own tests; here they're just calls to check
+const store = vi.hoisted(() => ({ files: [], filePaths: [], selectedFile: "", selectedCode: "" }))
+vi.mock("@/stores/workspace.js", () => ({ useWorkspaceStore: () => store }))
 
 // A promise the test resolves by hand, to pause the view mid-await
 function deferred() {
@@ -28,6 +32,8 @@ beforeEach(() => {
     vi.stubGlobal("crossOriginIsolated", true)
     vi.mocked(getWebContainer).mockReset().mockResolvedValue({})
     vi.mocked(startWorkspace).mockReset().mockResolvedValue(() => {})
+    store.load = vi.fn(async () => (store.files = [{ path: "index.html", content: "" }]))
+    store.close = vi.fn()
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -37,7 +43,7 @@ describe("WorkspaceView", () => {
         const wrapper = mountView()
         await flushPromises()
         expect(getWebContainer).not.toHaveBeenCalled()
-        expect(wrapper.find('[data-testid="empty-state"]').text()).toContain("isn't cross-origin isolated")
+        expect(wrapper.findComponent(EmptyState).text()).toContain("isn't cross-origin isolated")
         // no editor either, since its Terminal would start booting on its own
         expect(wrapper.findComponent({ name: "EditorPanel" }).exists()).toBe(false)
     })
@@ -46,7 +52,21 @@ describe("WorkspaceView", () => {
         getWebContainer.mockRejectedValue(new Error("boom"))
         const wrapper = mountView()
         await flushPromises()
-        expect(wrapper.find('[role="alert"]').text()).toContain("The workspace couldn't start: boom")
+        expect(wrapper.find(".alert-danger").text()).toContain("The workspace couldn't start: boom")
+    })
+
+    it("loads this class's code and mounts it", async () => {
+        mountView()
+        await flushPromises()
+        expect(store.load).toHaveBeenCalledWith("s1")
+        expect(startWorkspace).toHaveBeenCalledWith({}, store.files, expect.any(Function))
+    })
+
+    it("saves what's waiting when the student leaves", async () => {
+        const wrapper = mountView()
+        await flushPromises()
+        wrapper.unmount()
+        expect(store.close).toHaveBeenCalled()
     })
 
     it("stops the workspace on unmount", async () => {

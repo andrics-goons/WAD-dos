@@ -7,7 +7,7 @@
 | Member | Owns | Feature | Tier | Also owns |
 |---|---|---|:---:|---|
 | **Ying Qi** | Live session engine + the frontend platform: session + checkpoint RPCs, Realtime channels, app shell, router, UI kit, core pages | F1 + platform | 2–3 | Vercel deployment, responsive/consistency review, the independent RLS sweep, load simulator + Realtime cap check, README assembly **(proposed)** |
-| **Dylan** | Student workspace runtime + IDE: WebContainer boot / install / run, terminal, preview, build-error capture, editor, Done / Lost / Help bar | F2 | **3** | `CodeEditor` used by Evan, Ray Yien and Karin; the Week 8 WebContainer spikes; automatic step checks (COULD) |
+| **Dylan** | Student workspace runtime + IDE: WebContainer boot / install / run, terminal, preview, build-error capture, editor, Done / Slow down / Help bar | F2 | **3** | `CodeEditor` used by Evan, Ray Yien and Karin; the Week 8 WebContainer spikes; automatic step checks (COULD) |
 | **Karin** | Help + communication: Check my work / Ask for help, follow-ups, TA queue + review, Telegram, class announcements | F3 | 2 | Student-facing session UI (join page, checkpoint toast, connection pill, announcement banner); Playwright setup; AI hints (COULD) **(proposed)** |
 | **Evan** | Prof view: lessons + TODO plan, teach view (incl. live preview), class dashboard, insights report page | F4 | **3** | Error normaliser + grouping, `classify()`, Spotlight, the Mini Cart lesson project **(proposed)** |
 | **Ray Yien** | Files over time: IndexedDB cache, delta autosave, catch-up, diff / "What you missed", replay, GitHub import + export | F5 | 2–3 | `FileTree` and `DiffView`, used by Dylan and Karin |
@@ -161,7 +161,7 @@ Items marked **(moved)** changed owner in the [Week 8 rebalance](#rebalance-week
 | CodeMirror wrapper (incl. `vue` mode) + open-file tabs — **shared with Evan, Ray Yien and Karin** | `components/workspace/CodeEditor.vue`, `FileTabs.vue` | ⬜ |
 | Preview iframe pointed at the dev server | `components/workspace/PreviewFrame.vue` | ⬜ |
 | Console panel, terminal panel, error gutter, status pill | `components/workspace/ConsolePanel.vue`, `TerminalPanel.vue` | ⬜ |
-| Done / I'm lost / Help bottom bar; status upsert on change + heartbeat | `components/workspace/DoneButton.vue`, `stores/workspace.js` | ⬜ |
+| Done / Slow down / Help bottom bar; status upsert on change + heartbeat | `components/workspace/DoneButton.vue`, `stores/workspace.js` | ⬜ |
 | Unsupported-browser guard (`crossOriginIsolated`) | `views/WorkspaceView.vue` | ⬜ |
 | Automatic step checks (COULD) | `src/runtime/checks.js` | ⬜ |
 | Tests | T-SBX-01–10, 12, 17 · T-CATCH-09, 10 · T-PRIV-09, 10 · T-RESP-01, 02, 06 · T-LOAD-05 | ⬜ |
@@ -219,7 +219,7 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | Teach view: prof editor, plan, Save checkpoint, summary bar, session bar (embeds Karin's announce input) | `views/TeachView.vue` | ⬜ |
 | **Prof's live preview** — reuses Dylan's `container.js` and `CodeEditor` **(was unassigned)** | `views/TeachView.vue` | ⬜ |
 | **Join code card + QR display** **(moved)** | `components/session/JoinCodeCard.vue`, `QrDisplay.vue` | ⬜ |
-| Tiles, grid, filters, lost count — reading `session_tiles` | `components/dashboard/*`, `stores/dashboard.js` | ⬜ |
+| Tiles, grid, filters, slow-down count — reading `session_tiles` | `components/dashboard/*`, `stores/dashboard.js` | ⬜ |
 | **`classify()` + the SQL/JS agreement test** **(moved)** | `shared/tile-state.js` | ⬜ |
 | Error normaliser + grouping (client-side `computed`) **(proposed)** | `shared/error-normalizer.js` | ⬜ |
 | `spotlight` function (pick snapshot, anonymise, broadcast) **(proposed)** | `supabase/functions/spotlight/`, `shared/spotlight.js` | ⬜ |
@@ -235,7 +235,7 @@ Answers to #3 go in the README either way — the measurement is the decision re
 
 | What | File(s) | Done |
 |---|---|:---:|
-| **IndexedDB file cache keyed by `files_hash`** **(moved)** | `src/cache/files.js` | ⬜ |
+| **IndexedDB file cache keyed by `files_hash`** **(moved)** — built by Andric | `src/cache/files.js`, `src/api/files.api.js` | ✅ |
 | **Delta autosave** (5 s debounce, changed files only) + `autosave_patch` RPC **(moved)** | `src/cache/autosave.js` | ⬜ |
 | **`catch_up` RPC, my attempts, restore attempt** **(moved)** | `src/api/workspace.api.js` | ⬜ |
 | **`FileTree`** (create/rename/delete; `SYNC_IGNORE` hidden; read-only mode for replay) **(moved)** | `components/workspace/FileTree.vue` | ⬜ |
@@ -262,8 +262,8 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | · profiles, sign-up trigger, `app_role()`, `is_admin()` | `…_profiles.sql` | ✅ |
 | · courses, `course_staff`, `course_students`, `is_course_*()` helpers, `create_course` / `enrol_with_code` / `add_course_staff` / `remove_course_student`, "read coursemates" | `…_courses.sql` | ✅ |
 | · lessons, steps, `files_valid()` / `files_include()`, `can_read_lesson()` / `can_edit_lesson()`, `replace_steps` / `delete_step`, the shared `set_updated_at()` trigger (also on profiles + courses) | `…_lessons.sql` | ✅ |
-| · sessions, checkpoints, `student_status`, `lost_flags`, `status_history` + the `session_tiles` / `session_summary` views + the Realtime channel policies **+ the taught-lesson guards** | `20261018153107_sessions.sql`, `tests/unit/rls/sessions.test.js` | ✅ |
-| · snapshots, help requests, notes, session reports + `lost_events`, `session_tiles.passed_steps`, `status_history.error_key` | `20261018154409_help_notes_reports.sql`, `tests/unit/rls/help_notes_reports.test.js` | ✅ |
+| · sessions, checkpoints, `student_status`, `slow_down_flags`, `status_history` + the `session_tiles` / `session_summary` views + the Realtime channel policies **+ the taught-lesson guards** | `20261018153107_sessions.sql`, `tests/unit/rls/sessions.test.js` | ✅ |
+| · snapshots, help requests, notes, session reports + `slow_down_events`, `session_tiles.passed_steps`, `status_history.error_key` | `20261018154409_help_notes_reports.sql`, `tests/unit/rls/help_notes_reports.test.js` | ✅ |
 | **Review every migration PR** — feature owners write their own RPCs **(moved)** | — | ⬜ |
 | Supabase client + error mapper | `src/lib/supabase.js`, `src/api/mapError.js` | ✅ |
 | Auth data access | `src/api/auth.api.js` | ✅ |
