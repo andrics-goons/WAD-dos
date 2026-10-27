@@ -1,6 +1,7 @@
 <script setup>
     // Styling only for now: course name and title are hard-coded, and the status
     // toggle + buttons don't do anything yet. TODO FUTURE: pass these in from the lesson.
+    const props = defineProps(['sessionId', 'stepId', 'files'])
 </script>
 
 <template>
@@ -36,11 +37,7 @@
                 <span class="d-none d-lg-inline">Load latest checkpoint</span>
                 <span class="d-lg-none">Load</span>
             </button>
-            <button type="button" class="ca-btn ca-btn--secondary">
-                <i class="bi bi-question-circle" />
-                <span class="d-none d-lg-inline">Help</span>
-                <span class="visually-hidden d-lg-none">Help</span>
-            </button>
+            <HelpButton v-if="stepId" :session-id="sessionId" :step-id="stepId" :files="files" />
         </div>
     </header>
 </template>

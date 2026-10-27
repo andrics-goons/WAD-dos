@@ -9,7 +9,7 @@
   import { useWorkspaceStore } from "@/stores/workspace.js"
   import { useSessionStore } from '@/stores/session'
 
-  defineProps({ id: { type: String, required: true } })
+  const props = defineProps({ id: { type: String, required: true } })
 
   // reading workspace store and storing as variable
   const workspaceStore = useWorkspaceStore()
@@ -30,6 +30,7 @@
 
   onMounted(async () => {
     if (!isolated) return
+    sessionStore.open(props.id)
     try {
       const webcontainer = await getWebContainer()
       if (unmounted) return
@@ -49,13 +50,18 @@
   onBeforeUnmount(() => {
     unmounted = true
     stopWorkspace?.() // if the startWorkspace has finished firing and returned the function, then call the stop function before unmount
+    sessionStore.close
   })
 </script>
 
 <template>
   <!-- ca-fill-viewport makes the page exactly the height left under the navbar -->
   <div class="ca-fill-viewport workspace-page">
-    <StudentWorkspaceHeader />
+    <StudentWorkspaceHeader 
+      :session-id="id"
+      :step-id="sessionStore.currentStep?.id"
+      :files="workspaceStore.files"
+    />
 
     <EmptyState v-if="!isolated" icon="bi-exclamation-triangle" title="The workspace can't start">
       {{ bootError }} Try reloading the page.
