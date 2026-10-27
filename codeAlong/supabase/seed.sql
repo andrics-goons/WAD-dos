@@ -121,7 +121,7 @@ insert into seed.starter values ($mc$[
   {
     "path": "vite.config.js",
     "language": "js",
-    "content": "import { defineConfig } from 'vite'\nimport vue from '@vitejs/plugin-vue'\n\n// https://vite.dev/config/\nexport default defineConfig({\n  plugins: [vue()],\n  server: {\n    // Send every /api request to the Express server in server/api.js\n    proxy: {\n      '/api': 'http://localhost:3001',\n    },\n  },\n})\n"
+    "content": "import { defineConfig } from 'vite'\nimport vue from '@vitejs/plugin-vue'\n\n// CodeAlong: prints errors from your running app in the terminal, so your workspace can see them.\n// src/ca-probe.js sends them here. You don't need to edit this.\nfunction caErrors() {\n  return {\n    name: 'ca-errors',\n    configureServer(server) {\n      // server.hot is Vite's connection to every open copy of your app\n      server.hot.on('ca:error', (raw) => {\n        // one line of JSON, so CodeAlong can read it back\n        console.log('ca-error ' + JSON.stringify(raw))\n      })\n    },\n  }\n}\n\n// https://vite.dev/config/\nexport default defineConfig({\n  plugins: [vue(), caErrors()],\n  server: {\n    // Send every /api request to the Express server in server/api.js\n    proxy: {\n      '/api': 'http://localhost:3001',\n    },\n  },\n})\n"
   },
   {
     "path": "README.md",
