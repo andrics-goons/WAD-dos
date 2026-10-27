@@ -39,7 +39,6 @@
 
   onMounted(async () => {
     if (!isolated) return
-    sessionStore.open(props.id)
     try {
       // boot the WebContainer while this student's code downloads. The class and my status
       // don't wait for the boot, so a WebContainer that fails still leaves the code and my
@@ -70,7 +69,6 @@
     stopWorkspace?.() // if the startWorkspace has finished firing and returned the function, then call the stop function before unmount
     statusStore.stop()
     workspaceStore.close() // saves any edit still waiting for the 5 s autosave
-    sessionStore.close
     
   })
 </script>
