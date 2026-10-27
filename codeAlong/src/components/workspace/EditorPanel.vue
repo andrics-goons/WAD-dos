@@ -199,9 +199,9 @@
         flex: 1;
         min-height: 0;
     }
-    /* xterm is a fixed 80x24 until a FitAddon is wired up, so let it scroll instead of spilling out */
+    /* the FitAddon sizes xterm to this box, so clip the sub-pixel leftovers instead of showing scrollbars */
     .terminal-body {
-        overflow: auto;
+        overflow: hidden;
     }
     .toggle-btn {
         display: flex;

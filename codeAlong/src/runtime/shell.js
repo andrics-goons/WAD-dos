@@ -4,7 +4,7 @@ import { createErrorReader } from "@shared/error-reader.js"
 export async function connectShell(webcontainer, term, { onError } = {}) {
     // create shell process in webcontainer
     const shell = await webcontainer.spawn("jsh", {
-        terminal:{ cols: term.cols, rows: term.rows }  //meant for resizing, TODO LATER
+        terminal:{ cols: term.cols, rows: term.rows }
     })
 
     const pushLine = createErrorReader(onError)
@@ -34,12 +34,16 @@ export async function connectShell(webcontainer, term, { onError } = {}) {
 
     })
 
-    // need to create a resizer TODO LATER
+    // when the FitAddon resizes the terminal, tell jsh so its line wrapping matches
+    const resizes = term.onResize(({ cols, rows }) => {
+        shell.resize({ cols, rows })
+    })
 
     // return disconnect function
     return () => {
-        // stop sending keystrokes to shell
+        // stop sending keystrokes and resizes to shell
         keystrokes.dispose()
+        resizes.dispose()
         // kill the shell
         shell.kill()
     }
