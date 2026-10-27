@@ -185,7 +185,7 @@ Every member presents the part they built (check your section's rule on who must
 
 | Step | Action | What to show |
 |:---:|---|---|
-| 11 | Alex clicks **Load checkpoint** | "What you missed": the exact line he got wrong |
+| 11 | Alex clicks **Load latest checkpoint** → **Download my project** → **Replace my code** | The warning, the .zip, then the prof's code in his editor |
 | 12 | Alex taps **Done** | Tile turns **green** on the prof's screen |
 | 13 | Alex restores his old attempt to compare, then switches back | Nothing lost |
 | 14 | Resize to 375 px and rotate | Workspace switches to tabs; bottom bar stays usable |

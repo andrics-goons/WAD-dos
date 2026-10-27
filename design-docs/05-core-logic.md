@@ -19,7 +19,7 @@ This is the "how it actually works" document: the parts that make CodeAlong a Ti
 | 4 | Status reporting + classifier | Andric (view) · Evan (`classify()`) | 3 | view + `shared/` | `tests/unit/tile-state.test.js`, `tests/unit/rls/status.test.js` |
 | 5 | ~~TODO parser → lesson plan~~ (removed: no lesson steps) | — | — | — | — |
 | 6 | Error normalisation + grouping (runtime **and build** errors) | Evan | **3** | `shared/` | `tests/unit/error-normalizer.test.js` |
-| 7 | Catch-up + "What you missed" | Ray Yien (RPC, diff) · Dylan (mount, reinstall) | 2–3 | RPC + browser | `tests/unit/diff-summary.test.js`, E2E `catch-up.spec.js` |
+| 7 | Catch-up (download, then replace) | Ray Yien · Dylan (mount) | 2 | browser | `tests/unit/stores/workspace.test.js`, `downloadProject.test.js`, E2E `catch-up.spec.js` |
 | 8 | Help queue + Telegram ping | Karin | 2 | RPC + function | E2E `help.spec.js` |
 | 9 | Spotlight anonymisation | Evan | 2 | function + `shared/` | `tests/unit/spotlight.test.js` |
 | 10 | Insights report + trends | Andric | 2–3 | function + `shared/` | `tests/unit/report-builder.test.js` |
@@ -268,7 +268,7 @@ begin
 end $$;
 ```
 
-`join_session`, `save_checkpoint`, `catch_up`, `announce` and `end_session` follow the same shape — the step-by-step logic for each is in [04](./04-pages-routes-and-events.md#key-logic-rpc-bodies).
+`join_session`, `save_checkpoint`, `announce` and `end_session` follow the same shape — the step-by-step logic for each is in [04](./04-pages-routes-and-events.md#key-logic-rpc-bodies).
 
 ### Class announcements
 
@@ -412,43 +412,42 @@ export function normalizeError({ name = 'Error', message = '' }) {
 
 ---
 
-## 7. Catch-up & "What You Missed"
+## 7. Catch-up ("Load latest checkpoint")
 
-**Promise to the student:** loading the checkpoint never loses your work.
+**Promise to the student:** you're told plainly that your code will be replaced, and you can download it first. Nothing else keeps it.
 
 ```
-Student clicks "Load checkpoint"
-  1. rpc('catch_up', { p_session_id, p_files })
-       → inserts Snapshot { reason: 'before_catchup' } BEFORE returning anything
-       → increments catch_ups
-       → returns { checkpoint, attempt_snapshot_id }
-  2. Client computes diffSummary(attemptFiles, checkpointFiles)    ← shared/diff-summary.js
-  3. "What you missed" panel opens:
-       • per file: lines you're missing (green) / lines that differ (red → green)
-       • "First difference: app.js line 22 — you wrote `items`, checkpoint has `props.items`"
-       • Optional: "What the class did since your last Done" = diff(the checkpoint you were Done on, latest)
-  4. Editor loads the checkpoint files; tile re-derives on the next run
-  5. "Restore my attempt" stays available (query snapshots where reason='before_catchup')
+Student clicks "Load latest checkpoint"   (disabled: no checkpoint yet · catch-up turned off · class ended)
+  1. CatchUpModal: "Your code will be replaced with Checkpoint 4 · Added the cart.
+                    Anything you haven't downloaded will be lost."
+       [Download my project (.zip)]  → downloadProject(): zips the workspace's files in the
+                                       browser (fflate), nothing is uploaded
+       [Cancel]   [Replace my code]
+  2. workspaceStore.loadLatestCheckpoint():
+       • files = loadFiles('checkpoint', id, files_hash)             ← the file cache (§2)
+       • WebContainer: write every checkpoint file, remove files it doesn't have
+       • the editor shows the checkpoint (the open file stays open if the checkpoint has it)
+       • autosave + flush → my autosave row now holds the checkpoint, so a refresh doesn't
+         bring the old code back
+  3. Toast "Loaded Checkpoint 4 · …". The student stays In progress and clicks Done once it runs.
 ```
 
-The ordering in step 1 is the whole guarantee, and it is now atomic: the snapshot insert and the checkpoint read are in one transaction, so there is no window in which the attempt is lost. T-CATCH-02 asserts it.
+**No RPC and no server copy.** This replaced the earlier design (`rpc('catch_up')` writing a `before_catchup` snapshot, a "What you missed" diff and "Restore my attempt"): the download is the student's copy. `snapshots.reason = 'before_catchup'` and `student_status.catch_ups` stay in the schema but nothing writes them, so the report's `catchUps` is 0 for now.
 
 ### Catching up may change the dependency tree
 
 New with WebContainer, and the one place catch-up can stop feeling instant. Checkpoints store source files only, so if the prof added a dependency in checkpoint 5, loading that checkpoint brings a different `package.json` — and the student needs those packages before the project will run.
 
 ```
-diff(attempt, checkpoint)
-   │
-   ├─ package.json / pnpm-lock.yaml unchanged  →  mount files, HMR picks them up   (instant)
-   └─ dependency tree changed                  →  mount files, then pnpm install   (show an
-                                                   explicit "installing dependencies" state,
-                                                   streamed to the terminal — never a frozen UI)
+package.json unchanged  →  files written, Vite's HMR picks them up   (instant)
+package.json changed    →  files written; the toast says "Its packages changed: run pnpm install
+                            in the terminal, then pnpm dev" (the student runs the dev server
+                            in the terminal, so the app doesn't restart it for them)
 ```
 
-So "Load checkpoint" has two speeds, and the slow one must be **visible and explained** rather than looking broken. This is also the strongest argument for the dependency cache in §2: with a local cache, the second path becomes a mount instead of an install.
+So "Load checkpoint" has two speeds, and the slow one is **explained** rather than looking broken. This is also the strongest argument for the dependency cache in §2: with a local cache, the second path becomes a mount instead of an install.
 
-`shared/diff-summary.js` uses jsdiff `diffLines` per file and returns `{ files: [{ path, added, removed, firstDiffLine, hunks }] }`. Whitespace-only changes are ignored (`ignoreWhitespace: true`) so indentation doesn't drown out the real mistake.
+`shared/diff-summary.js` (jsdiff `diffLines` per file, whitespace-only changes ignored) is still used by the TA's side-by-side and the replay; catch-up no longer shows a diff.
 
 ---
 

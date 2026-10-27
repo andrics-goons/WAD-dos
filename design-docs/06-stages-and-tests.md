@@ -12,7 +12,7 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | 3 | **Live session core (pitch demo)** | Week 9 Mon | Prof starts session → 3 students join by code → **their containers boot and the preview runs** → checkpoint broadcast reaches all 3 → a typo turns a tile red → student loads checkpoint → tile turns green |
 | 4 | Lessons | Week 9 | Upload starter → review files → edit starter files and details → lesson `ready` |
 | 5 | Status & dashboard | Week 10 | `session_tiles` returns correct state for all 5 cases; idle derives without a write; filters; anonymous slow-down count |
-| 6 | Catch-up | Week 10 | Load checkpoint keeps attempt; "What you missed" diff correct; restore attempt works |
+| 6 | Catch-up | Week 10 | Load checkpoint warns first, offers a .zip download, then replaces the code with the checkpoint |
 | 7 | Help flow | Week 10 | Check my work → pass/reply; Ask for help → claim/resolve; **a replied request can be followed up**; Telegram ping (mock in tests) |
 | 8 | Replay & GitHub | Week 11 | Replay steps through all checkpoints; notes/bookmarks; import + export (one commit per checkpoint) |
 | 9 | Error groups & Spotlight | Week 11 | Grouping matches unit-test expectations; Spotlight shows an anonymised excerpt to everyone |
@@ -29,7 +29,7 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | 3 | Writes go through RPCs where the client must not decide; broadcasts sent from the RPC, not the client; reconnect re-subscribes and re-reads |
 | 4 | Parser is a pure function in `shared/` with unit tests; prof reviews before saving |
 | 5 | **No `state` column anywhere**; tile state derived in `session_tiles`; staff queries select no code columns; **build errors pass through `parseBuildError()` before `normalizeError()`** |
-| 6 | `before_catchup` snapshot is written **inside** the `catch_up` transaction, before anything is returned; a dependency change shows an explicit installing state |
+| 6 | The student is warned and can download before anything is replaced; a `package.json` change tells them to run `pnpm install` |
 | 7 | Claim is a single conditional update (zero rows = conflict); the Telegram webhook cannot fail the student's request; replies append to `thread`, never overwrite |
 | 8 | No GitHub token in any row we own; import limited to safe file types and size |
 | 9 | Spotlight only uses help-request snapshots; names and comments removed |
@@ -155,7 +155,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 
   // Act + Assert: catch up → green after Done
   await alex.getByTestId('btn-load-checkpoint').click()
-  await expect(alex.getByTestId('what-you-missed')).toBeVisible()
+  await alex.getByRole('button', { name: 'Replace my code' }).click()
   await alex.getByTestId('btn-done').click()
   await expect(tile).toHaveAttribute('data-state', 'done')
 })
@@ -302,20 +302,20 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-ERRG-08 | Spotlight with no help snapshot | E2E | Error + fix only, with explanation to prof |
 | T-ERRG-09 | **Student invokes the `spotlight` function** | DB | `FORBIDDEN` — the function checks `is_course_prof` before using the service role |
 
-### CATCH — Catch-up · `catch-up.spec.js`, `diff-summary.test.js`
+### CATCH — Catch-up · `catch-up.spec.js`, `stores/workspace.test.js`, `downloadProject.test.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-CATCH-01 | Load checkpoint | E2E | Editor shows checkpoint code; "What you missed" open |
-| T-CATCH-02 | Attempt preserved | DB | `before_catchup` snapshot exists in the same transaction, before files are returned |
-| T-CATCH-03 | Restore attempt | E2E | Original code back in the editor |
-| T-CATCH-04 | First-difference line correct | Unit | Points at the typo line |
-| T-CATCH-05 | Whitespace-only changes ignored | Unit | No hunks |
-| T-CATCH-06 | Catch-up before any checkpoint | DB | `CONFLICT` with message |
-| T-CATCH-07 | Catch-up when `allowCatchUp` is false | DB | `FORBIDDEN` "Catch-up is turned off for this class" |
-| T-CATCH-08 | "What you missed" readable at 375 px | E2E `@responsive` | Unified diff mode, no horizontal page scroll |
-| T-CATCH-09 | **Checkpoint with an unchanged dependency tree** | E2E | Files mount, HMR picks them up, **no install runs** |
-| T-CATCH-10 | **Checkpoint that changed `package.json`** | E2E | Explicit "installing dependencies" state, streamed to the terminal; completes and the preview runs |
+| T-CATCH-01 | Load checkpoint | E2E | A warning names the checkpoint; after **Replace my code** the editor shows the checkpoint's code |
+| T-CATCH-02 | Download first | E2E + Unit | **Download my project** saves a .zip with every file at its path, and nothing is replaced until the student confirms |
+| T-CATCH-03 | Autosave follows | DB | After loading, the student's autosave row has the checkpoint's `files_hash`, so a refresh keeps it |
+| T-CATCH-04 | Files the checkpoint doesn't have | Unit | Removed from the editor and the WebContainer; the entry file opens if the open file is gone |
+| T-CATCH-05 | Still in progress | E2E | The tile stays `in_progress` until the student clicks Done |
+| T-CATCH-06 | Catch-up before any checkpoint | E2E | Button disabled |
+| T-CATCH-07 | Catch-up when `allowCatchUp` is false | E2E | Button disabled |
+| T-CATCH-08 | The warning readable at 375 px | E2E `@responsive` | Buttons stacked, no horizontal page scroll |
+| T-CATCH-09 | **Checkpoint with an unchanged `package.json`** | E2E | Files written, HMR picks them up, plain "Loaded" toast |
+| T-CATCH-10 | **Checkpoint that changed `package.json`** | Unit + E2E | Toast tells the student to run `pnpm install`, then `pnpm dev` |
 
 ### HELP — Help flow · `help.spec.js`
 

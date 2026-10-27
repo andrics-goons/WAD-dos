@@ -42,7 +42,7 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 | `/lessons/:id/edit` | `LessonEditView` | Evan | Prof | The starter files (file tree + editor) at every size, with Details, status, Save and Delete / Archive in the header |
 | `/join`, `/join/:code` | `JoinView` | Karin | Logged in (redirects to login with `returnTo`) | Big 6-box code input, auto-submits when complete; `/join/:code` pre-fills from QR |
 | `/s/:id/teach` | `TeachView` | Evan (editor, live preview, checkpoints, dashboard, join code card) + Karin (announce input) | Prof | **xs:** dashboard-first (summary bar, filters, tiles); editor behind a tab. **xl:** editor 8 cols + terminal below; checkpoints card (optional title + **Save checkpoint**, any time, and the list saved so far) + error groups 4 cols; tile grid full width below; join code card collapsible. An **"Announce to class"** box sits in the session bar at every size |
-| `/s/:id/code` | `WorkspaceView` | Dylan (+ Ray Yien's file tree and "What you missed" panel; Karin's announcement banner) | Enrolled student | **VS Code-style IDE** — see [the layout below](#the-workspace-is-an-ide). **xs:** tabs *Code · Preview · Terminal*, file tree in an offcanvas, sticky bottom bar with **Done**, **Slow down**, **Help**. **lg:** file tree rail + editor + preview, terminal docked under. The prof's current announcement shows as a dismissible banner across the top at every size. The header shows the latest checkpoint ("Checkpoint 3 · Added ItemCard") and *My status*: **Done** once caught up to it, back to **In progress** whenever the prof saves a new one |
+| `/s/:id/code` | `WorkspaceView` | Dylan (+ Ray Yien's file tree and catch-up; Karin's announcement banner) | Enrolled student | **VS Code-style IDE** — see [the layout below](#the-workspace-is-an-ide). **xs:** tabs *Code · Preview · Terminal*, file tree in an offcanvas, sticky bottom bar with **Done**, **Slow down**, **Help**. **lg:** file tree rail + editor + preview, terminal docked under. The prof's current announcement shows as a dismissible banner across the top at every size. The header shows the latest checkpoint ("Checkpoint 3 · Added ItemCard") and *My status*: **Done** once caught up to it, back to **In progress** whenever the prof saves a new one |
 | `/s/:id/help` | `HelpQueueView` | Karin | Staff | Queue cards 1 col → queue list left, selected request right. "Waiting" (open + claimed, oldest first) above "Handled". Below lg the list and the selected request take turns, with "Back to the queue". State lives in `stores/help.js`, kept live by the class channel |
 | `/help/:requestId` | `HelpReviewView` | Karin | Staff | One request on its own page (the Telegram ping links here), same `HelpReviewPanel` as the queue, with a link back to the queue. Stacked thread + reply, then the diff (stacked on xs, side by side from sm) |
 | `/replays` | `ReplayListView` | Ray Yien | Logged in | List grouped by course, search box on top |
@@ -199,7 +199,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 |---|---|---|---|
 | Query | `from('snapshots').select().eq('session_id', id).eq('reason','autosave').maybeSingle()` | My autosave; falls back to the session's starter files | Enrolled |
 | RPC | `autosave_patch(p_session_id, p_upsert, p_delete)` | Autosave, debounced **5 s** after the last keystroke (plus a flush on blur/unload). Sends **only the files whose content hash changed**, diffed against IndexedDB; an unchanged tree sends no request at all. `SYNC_IGNORE` keeps `node_modules/`, `dist/` and `.vite/` out | Enrolled |
-| RPC | `catch_up(p_session_id, p_files)` | Writes the `before_catchup` snapshot **first**, then returns the latest checkpoint + snapshot id | Enrolled (if `allowCatchUp`) |
+| — | `workspaceStore.loadLatestCheckpoint()` | **Catch-up, no RPC:** after the student confirms (and optionally downloads a .zip), loads the latest checkpoint through the file cache, replaces the editor and WebContainer files, and autosaves them. Disabled when there's no checkpoint, `allowCatchUp` is off, or the class has ended | Enrolled |
 | Query | `from('snapshots').select().eq('reason','before_catchup')` | My attempts — RLS makes "mine" automatic | Enrolled |
 | Query | `getMyStatus(sessionId)` / `saveStatus(sessionId, studentId, { doneSeq, error })` — `from('student_status').upsert(…)` | Status on change (throttled to 2 s) + 30 s heartbeat while the tab is visible; driven by `stores/status.js`. No `state` field exists to send | Enrolled |
 | Query | `from('slow_down_flags').insert({ session_id, student_id })` / `.delete()` | "Slow down" on / off. Anonymous: staff can only read `slow_down_count` | Enrolled, live session |
@@ -285,14 +285,6 @@ save_checkpoint  rpc('save_checkpoint', { p_session_id, p_files, p_title })   �
      → every row of session_tiles re-derives: Done students go back to in_progress,
        with no extra writes
   4. realtime.send('session:<id>', 'checkpoint:new', payload)
-
-catch_up  rpc('catch_up', { p_session_id, p_files })
-  1. session live + settings->>'allowCatchUp' = 'true'  (FORBIDDEN "Catch-up is turned off")
-  2. latest checkpoint; CONFLICT if none yet
-  3. insert snapshots { reason: 'before_catchup', files: p_files }   ← BEFORE returning
-  4. update student_status set catch_ups = catch_ups + 1
-  5. return { checkpoint, attempt_snapshot_id }
-  (Client then shows "What you missed" = diffSummary(attempt, checkpoint) and loads the files)
 
 create_help_request  rpc('create_help_request', …)
   1. is_enrolled + session live
@@ -410,6 +402,7 @@ Unchanged — components never knew where the data came from, which is why this 
 | `HelpStatusPill` | `status` | — | Waiting · Claimed · Passed · Replied · Resolved · Cancelled, icon + text (`help-status`) |
 | `HelpThread` | `request` | — | New. Opening message, then every reply and follow-up in order. Shown to the student and to the reviewing TA |
 | `FollowUpForm` | `request`, `remaining` | `submit` | New. Only on a `replied` request; shows "2 follow-ups left"; at 0, suggests in-person help |
+| `CatchUpModal` | `open`, `checkpoint`, `busy` | `download`, `confirm` | "Load the prof's latest checkpoint?" Names the checkpoint, warns that anything not downloaded is lost, offers **Download my project (.zip)** (`btn-download-project`); confirm is **Replace my code** |
 | `AnnouncementBanner` | `announcement` | `dismiss` | New. Top of the workspace; dismissing hides it until a **new** announcement arrives |
 | `AnnounceInput` | `current` | `announce`, `clear` | New. In the teach view's session bar; 200-char counter |
 | `SideBySideView` | `studentFiles`, `checkpointFiles` | — | Uses Ray Yien's `DiffView` |

@@ -33,6 +33,15 @@ describe("StudentWorkspaceHeader", () => {
         expect(wrapper.emitted("undo")).toHaveLength(1)
     })
 
+    it("Load latest checkpoint asks the page to catch up, only when there is one the prof allows", async () => {
+        const load = (wrapper) => wrapper.find('[data-testid="btn-load-checkpoint"]')
+        expect(load(mountHeader()).attributes("disabled")).toBeDefined()
+        const wrapper = mountHeader({ canLoadCheckpoint: true })
+        await load(wrapper).trigger("click")
+        expect(wrapper.emitted("load-checkpoint")).toHaveLength(1)
+        expect(load(mountHeader({ canLoadCheckpoint: true, disabled: true })).attributes("disabled")).toBeDefined()
+    })
+
     it("can't be changed while loading or after the class has ended", () => {
         const wrapper = mountHeader({ disabled: true })
         expect(doneButton(wrapper).attributes("disabled")).toBeDefined()

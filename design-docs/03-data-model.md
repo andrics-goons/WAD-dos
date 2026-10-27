@@ -327,7 +327,7 @@ Migration: `supabase/migrations/20261018153107_sessions.sql`.
 
 The prof writes `settings` and `spotlight` directly (see [04](./04-pages-routes-and-events.md)); everything else on a session is changed by the session RPCs. The update policy's `with check` stops a prof moving a session into a course they don't run.
 
-`start_session`, `join_session`, `save_checkpoint` and `end_session` (Ying Qi), `announce` (Karin) and `catch_up` (Ray Yien) are RPCs — a client cannot be trusted to allocate a unique join code or decide its own role. Full bodies in [05-core-logic.md](./05-core-logic.md#3-session-lifecycle). **They are not in this migration**; each owner adds theirs. Until `start_session` exists, tests create sessions with the service role.
+`start_session`, `join_session`, `save_checkpoint` and `end_session` (Ying Qi), and `announce` (Karin) are RPCs — a client cannot be trusted to allocate a unique join code or decide its own role. Full bodies in [05-core-logic.md](./05-core-logic.md#3-session-lifecycle). **They are not in this migration**; each owner adds theirs. Until `start_session` exists, tests create sessions with the service role.
 
 ### Session helpers
 
@@ -377,7 +377,7 @@ All `security definer`, for the same reason as the course helpers.
 | `done_seq` | `int check (done_seq >= 0)` | The checkpoint the student clicked **Done** on (0 = the starter code, before any checkpoint); null until they do. They count as done only while it equals `sessions.checkpoint_seq`, so a new checkpoint resets everyone to in progress without a write |
 | `error` | `jsonb check (null, or an object whose message ≤ 300)` | `{ source: 'runtime' \| 'build', name, message, file, line, key, shapeKey, at }`. Send SQL `null` to clear it. **Build errors have their code frame stripped before they get here** — see [05 §1](./05-core-logic.md#1-client-side-runtime-webcontainer) |
 | `checks` | `jsonb` | `{ passed, total }` — only when automatic checks exist (COULD) |
-| `catch_ups` | `int not null default 0` | Times the student loaded a checkpoint. Incremented by `rpc('catch_up')` |
+| `catch_ups` | `int not null default 0` | Times the student loaded a checkpoint. **Unused for now**: catch-up is client-only (05 §7), so nothing increments it |
 | `last_seen_at` | `timestamptz not null default now()` | Heartbeat or any event. The `touch_last_seen` trigger sets it to the server's `now()` on every insert or update the student makes to their own row, so a wrong clock on a lab PC can't make them idle (or never idle). Writes by the service role or the seed keep the time they set |
 | `joined_at` | `timestamptz not null default now()` | Attendance for digests |
 
@@ -533,7 +533,7 @@ Migration: `supabase/migrations/20261018154409_help_notes_reports.sql` (snapshot
 ```sql
 alter table public.snapshots enable row level security;
 
--- students only READ: autosave_patch, catch_up and the help RPCs write every row, so a
+-- students only READ: autosave_patch and the help RPCs write every row, so a
 -- snapshot already sent to a TA can't be edited afterwards
 create policy "student reads own snapshots" on public.snapshots
     for select using (student_id = auth.uid());

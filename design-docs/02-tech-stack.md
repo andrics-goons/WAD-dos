@@ -19,7 +19,7 @@
 | Realtime | **Supabase Realtime** (Broadcast · Postgres Changes · Presence) | Checkpoint fan-out, live tiles, help queue, attendance | New — credited |
 | Server-side logic | **Supabase Edge Functions** (Deno + TypeScript) | The only place our API secrets exist; also the trusted path for Spotlight and reports | New — credited |
 | Validation | **zod** (client) + Postgres `check` constraints | Per-field form messages, with a constraint behind each one | New — credited |
-| Diffing | **diff** (jsdiff) | Line diffs for "What you missed" and replay | New — credited |
+| Diffing | **diff** (jsdiff) | Line diffs for the TA's side-by-side and the replay | New — credited |
 | QR codes | **qrcode** | Join-code QR on the projector | New — credited |
 | External APIs | **Telegram Bot API**, **GitHub REST API**, LLM API (KIV) | Called from Edge Functions — see [05-core-logic.md](./05-core-logic.md) | Briefing requirement |
 | Testing | **Playwright** (E2E), **Vitest** (unit), **Supabase CLI** local stack | Multi-browser-context E2E; a real Postgres per run, reset by migration | Briefing requirement |
@@ -234,7 +234,7 @@ Useful for the "explain how you used JS/Vue/CSS" part of the video.
 | Concept | Where we use it |
 |---|---|
 | Vue reactivity (`ref`, `reactive`) | Workspace file buffers, dashboard tiles |
-| `computed` | Tile counts per state, filtered tiles, error groups, progress %, changed-line counts in "What you missed" |
+| `computed` | Tile counts per state, filtered tiles, error groups, progress %, changed-line counts in the replay diff |
 | `watch` | Autosave debounce on editor changes; re-run preview when files change |
 | Components, props, emits | `StudentTile` (props: tile) → emits `select`; `CodeEditor` emits `update:modelValue`, `save` |
 | `v-for`, `v-if`, `v-model`, `:class` | Tile grid, filter chips, checkpoint list, state colours |
@@ -280,6 +280,7 @@ FAQ 6 requires every public library to be named in the presentation and in code 
 | zod | MIT | Validation |
 | diff (jsdiff) | BSD-3 | Line diffs |
 | qrcode | MIT | QR join codes |
+| fflate | MIT | Zips a student's project for "Download my project" before catch-up |
 | axios | MIT | **Inside lesson starter code only**, not in the app |
 | Playwright, Vitest, Supabase CLI | Apache-2.0 / MIT | Testing and local stack |
 

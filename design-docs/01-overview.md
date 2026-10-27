@@ -111,7 +111,7 @@ The Q&A slides grade on three tiers: **Tier 1** get data → show data (~B+), **
 | F2 | **Code along and catch up** — edit files in the browser, see the live preview and console, have errors caught automatically, tap Done, load the prof's checkpoint without losing my attempt | 2–3 | Sandboxed execution + error capture + snapshot preservation; automatic checkpoint checks are the stretch | Dylan |
 | F3 | **Get help quickly** — send my code to the TA ("Check my work" / "Ask for help"); TA reviews side-by-side with the checkpoint, passes or replies, or gets pinged on Telegram to come over; if the reply doesn't fix it, **follow up on the same request** without losing my place | 2 | Queue workflow + side-by-side comparison + Telegram Bot API | Karin |
 | F4 | **See the room and teach to it** — save checkpoints as you teach, watch one tile per student (Done on the latest checkpoint or still in progress), see grouped common errors, Spotlight one anonymised example | **3** | Status classification, error normalisation + grouping algorithm | Evan |
-| F5 | **Review the lesson afterwards** — checkpoint-by-checkpoint replay with "What you missed" diffs, notes, bookmarks, search, import starter code from GitHub and export my replay with one commit per checkpoint | 2 | GitHub REST (Git Data API) + diffing + search across lessons | Ray Yien |
+| F5 | **Review the lesson afterwards** — checkpoint-by-checkpoint replay with diffs, notes, bookmarks, search, import starter code from GitHub and export my replay with one commit per checkpoint | 2 | GitHub REST (Git Data API) + diffing + search across lessons | Ray Yien |
 | F6 | **Learn where students get lost** — after-class insights (drop-off per checkpoint, top errors, recurring trouble checkpoints across terms) sent as a Telegram digest | 2–3 | Aggregation across statuses, help requests and past terms | Andric |
 
 **Platform (not features):** the data platform — schema, RLS, auth, accounts / courses / enrolment data — is owned by Andric; the frontend platform — app shell, router, login/registration and course pages, shared UI kit, deployment — is owned by Ying Qi.
@@ -127,7 +127,7 @@ Priorities follow the latest proposal (self-marking + automatic error detection 
 | Level | What's included |
 |---|---|
 | **Week 9 pitch (must work live)** | Sessions + join by code, checkpoint broadcast, student editor + preview + console, basic dashboard tiles, load checkpoint |
-| **MUST (baseline for submission)** | Accounts/courses/roles; lesson CRUD; live checkpoints saved any time; student workspace with error detection + Done; class dashboard with filters + anonymous "Slow down" count; catch-up with "What you missed" diff; Check my work / Ask for help + TA queue + Telegram ping; replay with notes/bookmarks |
+| **MUST (baseline for submission)** | Accounts/courses/roles; lesson CRUD; live checkpoints saved any time; student workspace with error detection + Done; class dashboard with filters + anonymous "Slow down" count; catch-up (download my project, then load the latest checkpoint); Check my work / Ask for help + TA queue + Telegram ping; replay with notes/bookmarks |
 | **SHOULD** | Error groups + Spotlight; GitHub import + export; search across lessons; insights report + Telegram digest |
 | **COULD** | Automatic checks generated from checkpoints; AI one-line hints (hints only, cached, rule-based fallback); VS Code one-line reporter; `.vue` single-file-component lessons |
 

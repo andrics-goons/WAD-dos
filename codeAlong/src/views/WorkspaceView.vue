@@ -3,6 +3,7 @@
   import EditorPanel from "@/components/workspace/EditorPanel.vue"
   import PreviewPanel from "@/components/workspace/PreviewPanel.vue"
   import StudentWorkspaceHeader from "@/components/workspace/StudentWorkspaceHeader.vue"
+  import CatchUpModal from "@/components/workspace/CatchUpModal.vue"
   import EmptyState from "@/components/ui/EmptyState.vue"
   import { getWebContainer } from "@/runtime/webcontainer";
   import { startWorkspace } from "@/runtime/workspace";
@@ -10,6 +11,8 @@
   import { useSessionStore } from "@/stores/session"
   import { useStatusStore } from "@/stores/status"
   import { checkpointLabel } from "@shared/checkpoint-label.js"
+  import { useToastStore } from "@/stores/toast"
+  import { downloadProject } from "@/utils/downloadProject.js"
 
   const props = defineProps({ id: { type: String, required: true } })
 
@@ -25,6 +28,35 @@
     checkpointLabel(sessionStore.checkpointSeq, sessionStore.latestCheckpoint?.title),
   )
   const loaded = ref(false)
+
+  // "Load latest checkpoint": replace my code with the prof's, after asking (and offering a download)
+  const toast = useToastStore()
+  const catchUpOpen = ref(false)
+  const catchingUp = ref(false)
+  const canLoadCheckpoint = computed(
+    () => !!sessionStore.latestCheckpoint && sessionStore.session?.settings.allowCatchUp !== false,
+  )
+  function downloadMine() {
+    downloadProject(workspaceStore.files, sessionStore.session?.lesson.title ?? "project")
+  }
+  async function catchUp() {
+    catchingUp.value = true
+    try {
+      const { packageChanged } = await workspaceStore.loadLatestCheckpoint()
+      catchUpOpen.value = false
+      toast.show(
+        packageChanged
+          ? "Its packages changed: run pnpm install in the terminal, then pnpm dev."
+          : "Your code now matches the prof's. Click Done once it runs.",
+        packageChanged ? "warning" : "success",
+        { title: `Loaded ${checkpoint.value}` },
+      )
+    } catch (e) {
+      toast.show(e.message, "danger", { title: "Couldn't load the checkpoint" })
+    } finally {
+      catchingUp.value = false
+    }
+  }
 
   // WebContainer needs SharedArrayBuffer, which only exists on a cross-origin isolated page
 
@@ -84,9 +116,19 @@
       :disabled="!loaded || !sessionStore.isLive"
       :session-id="id"
       :files="workspaceStore.files"
+      :can-load-checkpoint="canLoadCheckpoint"
+      @load-checkpoint="catchUpOpen = true"
       @done="statusStore.markDone(sessionStore.checkpointSeq)"
       @undo="statusStore.markInProgress()"
       
+    />
+
+    <CatchUpModal
+      v-model:open="catchUpOpen"
+      :checkpoint="sessionStore.latestCheckpoint"
+      :busy="catchingUp"
+      @download="downloadMine"
+      @confirm="catchUp"
     />
 
     <EmptyState v-if="!isolated" icon="bi-exclamation-triangle" title="The workspace can't start">
@@ -109,6 +151,7 @@
             v-model:selected-file="workspaceStore.selectedFile"
             v-model:selected-code="workspaceStore.selectedCode"
             :save-status="workspaceStore.saveStatus"
+            :files-version="workspaceStore.filesVersion"
             @show-preview="showPreview = true"
           />
         </div>

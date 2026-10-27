@@ -367,7 +367,7 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `rpc('save_checkpoint')` | Ying Qi | Teach view | `(p_session_id uuid, p_files jsonb, p_title text default null) → checkpoint row` — any time while live; title optional (≤ 80, blank → null); moves `sessions.checkpoint_seq`, which resets every student to in progress |
 | `rpc('end_session')` | Ying Qi | Teach view | `(p_session_id uuid) → session row` |
 | `rpc('announce')` | Karin | Teach view (Karin's `AnnounceInput`, embedded by Evan) | `(p_session_id uuid, p_text text \| null) → session row` — sets `sessions.announcement` and broadcasts `session:announce`; `null` clears |
-| `rpc('catch_up')` | Ray Yien | Workspace store | `(p_session_id uuid, p_files jsonb) → { checkpoint, attempt_snapshot_id }` |
+| `loadLatestCheckpoint()` (workspace store) | Dylan + Ray Yien | Workspace page | `() → { packageChanged }` — no RPC: replaces the student's files with the latest checkpoint and autosaves them. `downloadProject(files, name)` in `src/utils/downloadProject.js` zips the project first, in the browser |
 | `rpc('autosave_patch')` | Ray Yien | `src/cache/autosave.js` | `(p_session_id uuid, p_upsert jsonb, p_delete text[]) → { files_hash }` — merges changed files into the autosave row; see [05 §2](./05-core-logic.md#2-files-cache--dependencies) |
 | `rpc('claim_help_request')` | Karin | Help queue | `(p_request_id uuid) → request row` (raises `CONFLICT\|…` if taken) |
 | `rpc('transition_help_request')` | Karin | Help review | `(p_request_id uuid, p_to text, p_reply text) → request row` — a reply is **appended to `thread`**, never overwritten |
@@ -413,7 +413,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Courses | `course-card-<code>`, `btn-new-course`, `btn-enrol-course`, `input-enrol-code`, `btn-enrol`, `enrol-link`, `btn-copy-enrol-link`, `enrol-qr` |
 | Lessons | `lesson-row-<slug>`, `lesson-start-<slug>` |
 | Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `input-checkpoint-title`, `btn-save-checkpoint`, `btn-end-session`, `toast-checkpoint`, `input-announce`, `btn-announce`, `btn-clear-announce`, `announcement-banner` |
-| Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `what-you-missed`, `workspace-checkpoint`, `tab-code`, `tab-preview`, `tab-console` |
+| Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `btn-download-project`, `workspace-checkpoint`, `tab-code`, `tab-preview`, `tab-console` |
 | Dashboard | `tile-<studentId>` (with `data-state="<TileState>"`), `summary-<state>`, `slow-down-count`, `error-group-<index>`, `btn-spotlight-<index>`, `spotlight-panel` |
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |
 | Replay | `timeline-checkpoint-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
@@ -469,7 +469,7 @@ Full list in [02-tech-stack.md](./02-tech-stack.md#environment-variables).
 - [ ] Runtime error turns a tile red with the right file/line; Done turns it green
 - [ ] Idle appears at the right time, and a new checkpoint puts Done students back to in progress (derived in `session_tiles`)
 - [ ] "Slow down" count correct and anonymous
-- [ ] Load checkpoint keeps the attempt; "What you missed" points at the right line
+- [ ] Load checkpoint warns first, the download has the student's code, and the editor then shows the checkpoint
 - [ ] Check my work → pass/reply; Ask for help → Telegram ping → resolve
 - [ ] A replied request can be followed up (same request, original queue place, fresh code), up to 3 times
 - [ ] Prof announcement reaches every student, and a late joiner still sees it
