@@ -115,12 +115,12 @@ insert into seed.starter values ($mc$[
   {
     "path": "package.json",
     "language": "json",
-    "content": "{\n  \"name\": \"mini-cart\",\n  \"version\": \"0.0.0\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"scripts\": {\n    \"dev\": \"concurrently --kill-others --names api,web \\\"node server/api.js\\\" \\\"vite\\\"\",\n    \"build\": \"vite build\"\n  },\n  \"dependencies\": {\n    \"axios\": \"^1.20.0\",\n    \"vue\": \"^3.5.44\"\n  },\n  \"devDependencies\": {\n    \"@vitejs/plugin-vue\": \"^6.0.10\",\n    \"concurrently\": \"^10.0.6\",\n    \"express\": \"^5.3.0\",\n    \"vite\": \"^8.1.5\"\n  }\n}\n"
+    "content": "{\n  \"name\": \"mini-cart\",\n  \"version\": \"0.0.0\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"scripts\": {\n    \"dev\": \"concurrently --kill-others --names api,web \\\"node server/api.js\\\" \\\"vite\\\"\",\n    \"build\": \"vite build\"\n  },\n  \"dependencies\": {\n    \"axios\": \"^1.20.0\",\n    \"vue\": \"^3.5.44\"\n  },\n  \"devDependencies\": {\n    \"@napi-rs/wasm-runtime\": \"1.2.5\",\n    \"@rolldown/binding-wasm32-wasi\": \"1.2.15\",\n    \"@vitejs/plugin-vue\": \"^6.0.10\",\n    \"concurrently\": \"^10.0.6\",\n    \"express\": \"^5.3.0\",\n    \"vite\": \"^8.1.5\"\n  }\n}\n"
   },
   {
     "path": "vite.config.js",
     "language": "js",
-    "content": "import { defineConfig } from 'vite'\nimport vue from '@vitejs/plugin-vue'\n\n// https://vite.dev/config/\nexport default defineConfig({\n  plugins: [vue()],\n  server: {\n    // Send every /api request to the Express server in server/api.js\n    proxy: {\n      '/api': 'http://localhost:3001',\n    },\n  },\n})\n"
+    "content": "import { defineConfig } from 'vite'\nimport vue from '@vitejs/plugin-vue'\n\n// CodeAlong: prints errors from your running app in the terminal, so your workspace can see them.\n// src/ca-probe.js sends them here. You don't need to edit this.\nfunction caErrors() {\n  return {\n    name: 'ca-errors',\n    configureServer(server) {\n      // server.hot is Vite's connection to every open copy of your app\n      server.hot.on('ca:error', (raw) => {\n        // one line of JSON, so CodeAlong can read it back\n        console.log('ca-error ' + JSON.stringify(raw))\n      })\n    },\n  }\n}\n\n// https://vite.dev/config/\nexport default defineConfig({\n  plugins: [vue(), caErrors()],\n  server: {\n    // Send every /api request to the Express server in server/api.js\n    proxy: {\n      '/api': 'http://localhost:3001',\n    },\n  },\n})\n"
   },
   {
     "path": "README.md",
@@ -135,7 +135,7 @@ insert into seed.starter values ($mc$[
   {
     "path": "src/ca-probe.js",
     "language": "js",
-    "content": "// CodeAlong runtime probe: reports console output and errors to your CodeAlong workspace.\n// You don't need to edit this file.\n//\n// PLACEHOLDER: the real probe (design-docs/05-core-logic.md §1) replaces this file.\nexport {}\n"
+    "content": "// CodeAlong runtime probe: reports errors in your app to your CodeAlong workspace.\n// You don't need to edit this file.\n//\n// Each error goes to the Vite dev server, which prints it in the terminal for CodeAlong to read\n// (the ca-errors plugin in vite.config.js). Works in the preview and when it's popped out.\n\n// sends one error to the Vite dev server over its hot-reload connection.\n// import.meta.hot only exists while running under pnpm dev, so ?. skips it otherwise\nfunction sendError(raw) {\n  import.meta.hot?.send('ca:error', raw)\n}\n\n// errors thrown while the app runs, e.g. TypeError, ReferenceError\nwindow.addEventListener('error', (event) => {\n  sendError({\n    name: event.error?.name,\n    // event.message on its own starts with \"Uncaught \", the error object's message doesn't\n    message: event.error?.message ?? event.message,\n    filename: event.filename,\n    lineno: event.lineno,\n  })\n})\n\n// promises nobody caught, e.g. a failed await axios.get(...)\nwindow.addEventListener('unhandledrejection', (event) => {\n  const err = event.reason\n  // the browser doesn't say where a promise failed, so filename and lineno stay null\n  sendError({ name: err?.name, message: err?.message ?? String(err), filename: null, lineno: null })\n})\n"
   },
   {
     "path": "src/App.vue",
