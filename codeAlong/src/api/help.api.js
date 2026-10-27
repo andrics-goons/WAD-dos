@@ -6,11 +6,11 @@ import { mapError } from './mapError'
 // Every write is an RPC (the table has no insert/update policy). RLS decides what each
 // caller reads: staff get the session's queue, a student gets only their own requests.
 
-const REQUEST = `id, session_id, student_id, step_id, type, snapshot_id, message, in_person, seat,
+const REQUEST = `id, session_id, student_id, checkpoint_seq, type, snapshot_id, message, in_person, seat,
   status, claimed_by, thread, follow_ups, telegram_notified_at, created_at, updated_at`
 
-// The student's name and the step title, for the queue card.
-const REQUEST_WITH_CONTEXT = `${REQUEST}, student:profiles!help_requests_student_id_fkey(name), step:steps(title, "order")`
+// The student's name, for the queue card. The checkpoint they were on is checkpoint_seq.
+const REQUEST_WITH_CONTEXT = `${REQUEST}, student:profiles!help_requests_student_id_fkey(name)`
 
 async function rpc(name, args) {
   const { data, error } = await supabase.rpc(name, args)
@@ -19,10 +19,10 @@ async function rpc(name, args) {
 }
 
 /** Send my code to the TA. `files` is the editor's current file list. */
-export function createHelpRequest({ sessionId, stepId, type, files, message, inPerson, seat }) {
+// The server records which checkpoint the class is on, so the TA compares the code with it.
+export function createHelpRequest({ sessionId, type, files, message, inPerson, seat }) {
   return rpc('create_help_request', {
     p_session_id: sessionId,
-    p_step_id: stepId,
     p_type: type,
     p_files: files,
     p_message: message ?? null,

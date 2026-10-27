@@ -100,7 +100,7 @@ const ctx = (over = {}) => ({
   studentName: 'Alex Tan',
   seat: 'C4',
   message: 'my cart is empty',
-  stepTitle: 'Step 4: Emit add-to-cart',
+  checkpoint: 'Checkpoint 4 · Emit add-to-cart',
   courseLabel: 'IS216 G2',
   lessonTitle: 'Mini Cart',
   chatIds: ['111', '222'],
@@ -123,7 +123,7 @@ describe('telegram-notify', () => {
     expect(outbox.insert).toHaveBeenCalledTimes(2)
     const { chat_id, text } = outbox.insert.mock.calls[0][0].payload
     expect(chat_id).toBe('111')
-    for (const part of ['Alex Tan', 'C4', 'Step 4: Emit add-to-cart', 'IS216 G2', 'https://app.test/help/req-1']) {
+    for (const part of ['Alex Tan', 'C4', 'Checkpoint 4 · Emit add-to-cart', 'IS216 G2', 'https://app.test/help/req-1']) {
       expect(text).toContain(part)
     }
     expect(db.markNotified).toHaveBeenCalledWith('req-1')

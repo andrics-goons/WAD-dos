@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { mount, flushPromises } from "@vue/test-utils"
 import { createPinia, setActivePinia } from "pinia"
 import WorkspaceView from "@/views/WorkspaceView.vue"
-import EmptyState from "@/components/ui/EmptyState.vue"
 import { getWebContainer } from "@/runtime/webcontainer"
 import { startWorkspace } from "@/runtime/workspace"
 
@@ -14,7 +13,7 @@ const store = vi.hoisted(() => ({ files: [], filePaths: [], selectedFile: "", se
 vi.mock("@/stores/workspace.js", () => ({ useWorkspaceStore: () => store }))
 const status = vi.hoisted(() => ({ doneStepOrder: 0 }))
 vi.mock("@/stores/status", () => ({ useStatusStore: () => status }))
-const session = vi.hoisted(() => ({ session: null, currentStep: null, steps: [], isLive: true }))
+const session = vi.hoisted(() => ({ session: null, checkpointSeq: 0, latestCheckpoint: null, isLive: true }))
 vi.mock("@/stores/session", () => ({ useSessionStore: () => session }))
 
 // A promise the test resolves by hand, to pause the view mid-await

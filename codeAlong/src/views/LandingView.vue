@@ -20,17 +20,15 @@ onBeforeUnmount(() => observer?.disconnect())
 // made-up class of 24 students for the preview — mostly fine, a few stuck
 const PREVIEW = [
   ...Array(13).fill(TileState.DONE),
-  ...Array(5).fill(TileState.IN_PROGRESS),
+  ...Array(7).fill(TileState.IN_PROGRESS),
   ...Array(3).fill(TileState.ERROR),
-  ...Array(2).fill(TileState.BEHIND),
   TileState.IDLE,
 ]
 const previewTiles = PREVIEW.map((state, i) => ({ id: i, state }))
 const previewCounts = [
   { state: TileState.DONE, count: 13 },
-  { state: TileState.IN_PROGRESS, count: 5 },
+  { state: TileState.IN_PROGRESS, count: 7 },
   { state: TileState.ERROR, count: 3 },
-  { state: TileState.BEHIND, count: 2 },
 ]
 
 const features = [
@@ -44,7 +42,7 @@ const features = [
     icon: 'bi-grid-3x3-gap',
     who: 'For profs',
     title: 'See the whole room',
-    body: 'One live tile per student shows who is done, working, stuck or behind — and groups the mistakes people share, so you can explain it once.',
+    body: 'One live tile per student shows who is done, still working or stuck — and groups the mistakes people share, so you can explain it once.',
   },
   {
     icon: 'bi-life-preserver',
@@ -65,8 +63,9 @@ const features = [
           <div class="ca-eyebrow mb-2">Live coding classes · IS216</div>
           <h1 class="display-5 fw-semibold mb-3">Code along live.<br />Nobody gets left behind.</h1>
           <p class="fs-5 text-body-secondary mb-4">
-            The prof's starter code becomes a step-by-step plan. Students follow in their browser,
-            the prof sees who is keeping up, and anyone who falls behind can catch up in one click.
+            The prof codes live and saves checkpoints as they go. Students follow in their browser
+            and click Done when they've caught up, so the prof sees who is keeping up, and anyone
+            who falls behind can load the latest checkpoint in one click.
           </p>
 
           <div class="d-flex flex-wrap gap-2 mb-3">
@@ -107,7 +106,7 @@ const features = [
                 <i class="bi bi-broadcast" />Live
               </span>
               <span class="fw-semibold">Week 6 · Mini Cart</span>
-              <span class="text-body-secondary small ms-auto">Step 4 of 8</span>
+              <span class="text-body-secondary small ms-auto">Checkpoint 4</span>
             </div>
 
             <div class="d-flex flex-wrap gap-2 mb-3">

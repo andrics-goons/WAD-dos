@@ -1,7 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import { mapError } from './mapError'
 
-// all the lesson + step calls to supabase live here
+// all the lesson calls to supabase live here. A lesson is a title and its starter files:
+// there are no steps, the prof saves checkpoints during class (design-docs/05 §3).
 // based on design-docs/03-data-model.md, change the columns if andric's tables end up different
 // db uses snake_case, the app uses camelCase, so we convert here
 
@@ -27,34 +28,8 @@ export function toLesson(row) {
     source: row.source,
     createdBy: row.created_by,
     createdAt: row.created_at,
-    steps: row.steps ? row.steps.map(toStep) : undefined,
-    // taught once it has a session: then it can't be deleted and its steps can't be reordered
+    // taught once it has a session: then it can't be deleted or moved to another course
     taught: (row.sessions?.[0]?.count ?? 0) > 0,
-  }
-}
-
-// db row -> step object
-export function toStep(row) {
-  return {
-    id: row.id,
-    lessonId: row.lesson_id,
-    order: row.order,
-    title: row.title,
-    description: row.description ?? '',
-    todoRefs: row.todo_refs ?? [],
-    checks: row.checks ?? [],
-  }
-}
-
-// step -> what replace_steps wants
-// no id = new step, steps missing from the list get deleted
-export function toStepPayload(step, index) {
-  return {
-    ...(step.id ? { id: step.id } : {}),
-    order: index + 1, // always 1, 2, 3...
-    title: step.title,
-    description: step.description ?? '',
-    todo_refs: step.todoRefs ?? [],
   }
 }
 
@@ -79,11 +54,10 @@ export function toLessonPatch(changes) {
 
 // lessons
 
-// make a draft lesson, then save its steps (steps come from parseTodos)
+// make a draft lesson
 export async function createLesson(
   courseId,
   { title, week, description, files, entryFile, source },
-  steps,
 ) {
   const {
     data: { user },
@@ -105,15 +79,7 @@ export async function createLesson(
     .select(LESSON_DETAIL)
     .single()
   if (error) throw mapError(error)
-
-  try {
-    const saved = await replaceSteps(row.id, steps)
-    return { lesson: toLesson(row), steps: saved }
-  } catch (err) {
-    // steps failed, so remove the empty lesson again
-    await supabase.from('lessons').delete().eq('id', row.id)
-    throw err
-  }
+  return toLesson(row)
 }
 
 // lessons in a course, can search by title
@@ -131,13 +97,12 @@ export async function listLessons(courseId, { search } = {}) {
   return data.map(toLesson)
 }
 
-// one lesson with its files, steps and whether it has been taught
+// one lesson with its files and whether it has been taught
 export async function getLesson(lessonId) {
   const { data, error } = await supabase
     .from('lessons')
-    .select(`${LESSON_DETAIL}, steps(*), sessions(count)`)
+    .select(`${LESSON_DETAIL}, sessions(count)`)
     .eq('id', lessonId)
-    .order('order', { referencedTable: 'steps' })
     .single()
   if (error) throw mapError(error)
   return toLesson(data)
@@ -157,38 +122,5 @@ export async function updateLesson(lessonId, changes) {
 // fails with CONFLICT if the lesson was already taught, then we offer archive instead
 export async function deleteLesson(lessonId) {
   const { error } = await supabase.from('lessons').delete().eq('id', lessonId)
-  if (error) throw mapError(error)
-}
-
-// steps
-
-// save the whole step list at once (add, reorder, remove)
-export async function replaceSteps(lessonId, steps) {
-  const { data, error } = await supabase.rpc('replace_steps', {
-    p_lesson_id: lessonId,
-    p_steps: steps.map(toStepPayload),
-  })
-  if (error) throw mapError(error)
-  return data.map(toStep)
-}
-
-export async function updateStep(stepId, { title, description }) {
-  const patch = {}
-  if (title !== undefined) patch.title = title
-  if (description !== undefined) patch.description = description
-
-  const { data, error } = await supabase
-    .from('steps')
-    .update(patch)
-    .eq('id', stepId)
-    .select()
-    .single()
-  if (error) throw mapError(error)
-  return toStep(data)
-}
-
-// delete one step, the rest get renumbered
-export async function deleteStep(stepId) {
-  const { error } = await supabase.rpc('delete_step', { p_step_id: stepId })
   if (error) throw mapError(error)
 }

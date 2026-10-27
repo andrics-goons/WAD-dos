@@ -48,10 +48,8 @@ begin
         raise exception 'NOT_FOUND|Lesson not found' using errcode = 'P0001';
     elsif not public.is_course_prof(l.course_id) then
         raise exception 'FORBIDDEN|Only the course prof can start a class' using errcode = 'P0001';
-    elsif l.status is distinct from 'ready'
-          or not exists (select 1 from public.steps where lesson_id = l.id) then
-        raise exception 'CONFLICT|Mark the lesson ready and add at least one step first'
-            using errcode = 'P0001';
+    elsif l.status is distinct from 'ready' then
+        raise exception 'CONFLICT|Mark the lesson ready first' using errcode = 'P0001';
     end if;
 
     loop
@@ -114,15 +112,15 @@ end $$;
 
 -- Save a checkpoint ------------------------------------
 
--- The prof saves their code for a step. Numbers it, moves the class to that step,
--- and tells every student straight away.
+-- The prof saves their code whenever they like, with an optional title ("Added ItemCard").
+-- Numbers it, moves the class on to it (every student who'd clicked Done is in progress
+-- again until they click Done for this one), and tells every student straight away.
 create function public.save_checkpoint(
-    p_session_id uuid, p_step_id uuid, p_files jsonb, p_note text default null
+    p_session_id uuid, p_files jsonb, p_title text default null
 ) returns public.checkpoints
 language plpgsql security definer set search_path = '' as $$
 declare
     s public.sessions;
-    st public.steps;
     c public.checkpoints;
 begin
     if auth.uid() is null then
@@ -139,28 +137,22 @@ begin
         raise exception 'CONFLICT|This class has ended' using errcode = 'P0001';
     end if;
 
-    select * into st from public.steps where id = p_step_id and lesson_id = s.lesson_id;
-    if not found then
-        raise exception 'BAD_REQUEST|That step isn''t part of this lesson' using errcode = 'P0001';
+    if char_length(trim(p_title)) > 80 then
+        raise exception 'VALIDATION_FAILED|Keep the title under 80 characters' using errcode = 'P0001';
     end if;
 
-    insert into public.checkpoints (session_id, step_id, seq, files, note, created_by)
-    values (
-        s.id, st.id,
-        (select coalesce(max(seq), 0) + 1 from public.checkpoints where session_id = s.id),
-        p_files, p_note, auth.uid()
-    )
+    insert into public.checkpoints (session_id, seq, files, title, created_by)
+    values (s.id, s.checkpoint_seq + 1, p_files, nullif(trim(p_title), ''), auth.uid())
     returning * into c;
 
-    update public.sessions set current_step_id = st.id where id = s.id;
+    update public.sessions set checkpoint_seq = c.seq where id = s.id;
 
     -- the files aren't sent: students fetch them by checkpointId only if they load it,
     -- and filesHash lets them skip the download if they already have that version
     perform realtime.send(
         jsonb_build_object(
-            'sessionId', s.id, 'checkpointId', c.id, 'seq', c.seq, 'stepId', st.id,
-            'stepOrder', st."order", 'title', st.title, 'filesHash', c.files_hash,
-            'createdAt', c.created_at
+            'sessionId', s.id, 'checkpointId', c.id, 'seq', c.seq, 'title', c.title,
+            'filesHash', c.files_hash, 'createdAt', c.created_at
         ),
         'checkpoint:new', 'session:' || s.id, true
     );

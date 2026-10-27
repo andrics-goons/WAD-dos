@@ -1,5 +1,5 @@
 // Hard-coded sample data for the prof-view wireframes. Nothing here is fetched:
-// the shapes only mimic what session_tiles / steps / session_reports will return later.
+// the shapes only mimic what session_tiles / checkpoints / session_reports will return later.
 
 import { normalizeError } from '@shared/error-normalizer.js'
 
@@ -10,115 +10,65 @@ export const lesson = {
   joinCode: 'K7QX2M',
 }
 
-export const steps = [
-  {
-    id: 1,
-    order: 1,
-    title: 'Add the ItemCard props',
-    file: 'src/ItemCard.vue',
-    line: 6,
-    status: 'done',
-  },
-  {
-    id: 2,
-    order: 2,
-    title: 'Emit add-to-cart',
-    file: 'src/ItemCard.vue',
-    line: 14,
-    status: 'done',
-  },
-  {
-    id: 3,
-    order: 3,
-    title: 'Fetch items with axios',
-    file: 'src/App.vue',
-    line: 9,
-    status: 'done',
-  },
-  {
-    id: 4,
-    order: 4,
-    title: 'Handle the add event',
-    file: 'src/App.vue',
-    line: 21,
-    status: 'current',
-  },
-  { id: 5, order: 5, title: 'Computed cart total', file: 'src/App.vue', line: 30, status: 'todo' },
-  { id: 6, order: 6, title: 'Remove an item', file: 'src/App.vue', line: 38, status: 'todo' },
-  {
-    id: 7,
-    order: 7,
-    title: 'Persist to localStorage',
-    file: 'src/App.vue',
-    line: 47,
-    status: 'todo',
-  },
-  {
-    id: 8,
-    order: 8,
-    title: 'POST the order to the API',
-    file: 'src/App.vue',
-    line: 55,
-    status: 'todo',
-  },
+// the checkpoints the prof has saved so far, newest last
+export const checkpoints = [
+  { seq: 1, title: 'ItemCard props', savedAt: '10:12' },
+  { seq: 2, title: 'Emit add-to-cart', savedAt: '10:24' },
+  { seq: 3, title: null, savedAt: '10:31' },
+  { seq: 4, title: 'Handle the add event', savedAt: '10:40' },
 ]
 
-// state: a TileState value from @shared/constants.js (error | behind | in_progress | idle | done)
+// state: a TileState value from @shared/constants.js (error | in_progress | idle | done)
 const rawStudents = [
   {
     id: 1,
     name: 'Aisha Rahman',
-    step: 4,
     state: 'error',
     error: { name: 'TypeError', message: "Cannot read properties of undefined (reading 'price')" },
   },
   {
     id: 2,
     name: 'Ben Tan',
-    step: 4,
     state: 'error',
     error: { name: 'TypeError', message: "Cannot read properties of undefined (reading 'price')" },
   },
-  { id: 3, name: 'Chloe Lim', step: 4, state: 'in_progress' },
-  { id: 4, name: 'Daniel Ong', step: 2, state: 'behind' },
-  { id: 5, name: 'Eli Koh', step: 4, state: 'in_progress' },
-  { id: 6, name: 'Farah Yusof', step: 5, state: 'done' },
-  { id: 7, name: 'Gavin Teo', step: 3, state: 'behind' },
+  { id: 3, name: 'Chloe Lim', state: 'in_progress' },
+  { id: 4, name: 'Daniel Ong', state: 'in_progress' },
+  { id: 5, name: 'Eli Koh', state: 'in_progress' },
+  { id: 6, name: 'Farah Yusof', state: 'done' },
+  { id: 7, name: 'Gavin Teo', state: 'in_progress' },
   {
     id: 8,
     name: 'Hana Seah',
-    step: 4,
     state: 'error',
     error: { name: 'ReferenceError', message: "'axios' is not defined" },
   },
-  { id: 9, name: 'Ian Chua', step: 4, state: 'in_progress' },
-  { id: 10, name: 'Jia Wen', step: 1, state: 'idle' },
-  { id: 11, name: 'Kai Ng', step: 4, state: 'in_progress' },
-  { id: 12, name: 'Lena Goh', step: 3, state: 'behind' },
-  { id: 13, name: 'Marcus Wee', step: 4, state: 'done' },
+  { id: 9, name: 'Ian Chua', state: 'in_progress' },
+  { id: 10, name: 'Jia Wen', state: 'idle' },
+  { id: 11, name: 'Kai Ng', state: 'in_progress' },
+  { id: 12, name: 'Lena Goh', state: 'in_progress' },
+  { id: 13, name: 'Marcus Wee', state: 'done' },
   {
     id: 14,
     name: 'Nadia Pang',
-    step: 4,
     state: 'error',
     error: { name: 'TypeError', message: "Cannot read properties of undefined (reading 'price')" },
   },
-  { id: 15, name: 'Owen Lee', step: 4, state: 'in_progress' },
-  { id: 16, name: 'Priya Nair', step: 2, state: 'idle' },
-  { id: 17, name: 'Quinn Sim', step: 4, state: 'done' },
-  { id: 18, name: 'Ravi Menon', step: 3, state: 'behind' },
-  { id: 19, name: 'Sara Ho', step: 4, state: 'in_progress' },
-  { id: 20, name: 'Tom Yeo', step: 4, state: 'in_progress' },
-  { id: 21, name: 'Uma Das', step: 4, state: 'done' },
-  { id: 22, name: 'Victor Lau', step: 1, state: 'idle' },
+  { id: 15, name: 'Owen Lee', state: 'in_progress' },
+  { id: 16, name: 'Priya Nair', state: 'idle' },
+  { id: 17, name: 'Quinn Sim', state: 'done' },
+  { id: 18, name: 'Ravi Menon', state: 'in_progress' },
+  { id: 19, name: 'Sara Ho', state: 'in_progress' },
+  { id: 20, name: 'Tom Yeo', state: 'in_progress' },
+  { id: 21, name: 'Uma Das', state: 'done' },
+  { id: 22, name: 'Victor Lau', state: 'idle' },
   {
     id: 23,
     name: 'Wendy Chia',
-    step: 4,
     state: 'error',
     error: { name: 'SyntaxError', message: 'Unexpected token (14:8)', source: 'build' },
   },
-  { id: 24, name: 'Xavier Ang', step: 4, state: 'in_progress' },
+  { id: 24, name: 'Xavier Ang', state: 'in_progress' },
 ]
 
 // add the error fields session_tiles will have, using the same normalizeError the students' browsers will run
@@ -127,7 +77,6 @@ export const students = rawStudents.map(({ error, ...s }) => {
   return {
     ...s,
     studentId: s.id,
-    stepOrder: s.step,
     note: error?.message ?? '',
     errorKey: key ?? null,
     errorShapeKey: shapeKey ?? null,
@@ -143,17 +92,26 @@ export const slowDownCount = 3
 
 export const report = {
   attended: 24,
-  // students who reached each step
-  funnel: [24, 24, 22, 19, 11, 8, 5, 3],
+  // students who clicked Done on each checkpoint
+  funnel: [
+    { seq: 1, title: 'ItemCard props', done: 24 },
+    { seq: 2, title: 'Emit add-to-cart', done: 24 },
+    { seq: 3, title: 'Fetch items with axios', done: 22 },
+    { seq: 4, title: 'Handle the add event', done: 19 },
+    { seq: 5, title: 'Computed cart total', done: 11 },
+    { seq: 6, title: null, done: 8 },
+    { seq: 7, title: 'Persist to localStorage', done: 5 },
+    { seq: 8, title: 'POST the order to the API', done: 3 },
+  ],
   topErrors: [
-    { message: "Cannot read properties of undefined (reading 'price')", count: 13, step: 4 },
-    { message: "'axios' is not defined", count: 7, step: 3 },
-    { message: 'Unexpected token', count: 4, step: 5 },
-    { message: 'Network Error (ECONNREFUSED)', count: 3, step: 8 },
+    { message: "Cannot read properties of undefined (reading 'price')", count: 13, seq: 4 },
+    { message: "'axios' is not defined", count: 7, seq: 3 },
+    { message: 'Unexpected token', count: 4, seq: 5 },
+    { message: 'Network Error (ECONNREFUSED)', count: 3, seq: 8 },
   ],
   recurring: [
-    { step: 'Handle the add event', terms: '3 of last 4 terms', dropOff: '21%' },
-    { step: 'Computed cart total', terms: '2 of last 4 terms', dropOff: '42%' },
+    { checkpoint: 'Handle the add event', terms: '3 of last 4 terms', dropOff: '21%' },
+    { checkpoint: 'Computed cart total', terms: '2 of last 4 terms', dropOff: '42%' },
   ],
   helpRequests: 9,
   avgWaitMin: 4,

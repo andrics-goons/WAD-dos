@@ -38,16 +38,16 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 | `/courses` | `CoursesView` | Ying Qi | Logged in | Course cards 1 col → 3 cols; prof sees "New course"; student sees **"Enrol in a course"**, which opens `/enrol` |
 | `/courses/:id` | `CourseView` | Ying Qi (shell) + Ray Yien (lesson library) | Staff / enrolled | Tabs (Lessons · Sessions · People) → same tabs, lessons as a table with search. **The owner sees a "Share enrolment" card**: the enrol code, a **Copy link** button for `<APP_URL>/enrol/<code>`, and its QR |
 | `/enrol`, `/enrol/:code` | `EnrolView` | Andric | Students and TAs (redirects to login with `returnTo`) | Same 6-box code input as the join page; `/enrol/:code` pre-fills from the link or QR and auto-submits. Success → that course's page. **Joins a course once per term — not the same as `/join`, which joins one live class** |
-| `/courses/:id/lessons/new` | `LessonNewView` | Evan (upload) + Ray Yien (GitHub import tab) | Prof | Stepper: 1 Source → 2 Review files → 3 Review steps |
-| `/lessons/:id/edit` | `LessonEditView` | Evan | Prof | Step list only, editor opens as a sheet → file editor left, draggable step list right |
+| `/courses/:id/lessons/new` | `LessonNewView` | Evan (upload) + Ray Yien (GitHub import tab) | Prof | Stepper: 1 Source → 2 Review files. No plan to review: the prof saves checkpoints during class |
+| `/lessons/:id/edit` | `LessonEditView` | Evan | Prof | The starter files (file tree + editor) at every size, with Details, status, Save and Delete / Archive in the header |
 | `/join`, `/join/:code` | `JoinView` | Karin | Logged in (redirects to login with `returnTo`) | Big 6-box code input, auto-submits when complete; `/join/:code` pre-fills from QR |
-| `/s/:id/teach` | `TeachView` | Evan (editor, live preview, plan, dashboard, join code card) + Karin (announce input) | Prof | **xs:** dashboard-first (summary bar, filters, tiles); editor behind a tab. **xl:** editor 8 cols + terminal below; plan + error groups 4 cols; tile grid full width below; join code card collapsible. An **"Announce to class"** box sits in the session bar at every size |
-| `/s/:id/code` | `WorkspaceView` | Dylan (+ Ray Yien's file tree and "What you missed" panel; Karin's announcement banner) | Enrolled student | **VS Code-style IDE** — see [the layout below](#the-workspace-is-an-ide). **xs:** tabs *Code · Preview · Terminal · Steps*, file tree in an offcanvas, sticky bottom bar with **Done**, **Slow down**, **Help**. **lg:** file tree rail + editor + preview, terminal docked under. The prof's current announcement shows as a dismissible banner across the top at every size |
+| `/s/:id/teach` | `TeachView` | Evan (editor, live preview, checkpoints, dashboard, join code card) + Karin (announce input) | Prof | **xs:** dashboard-first (summary bar, filters, tiles); editor behind a tab. **xl:** editor 8 cols + terminal below; checkpoints card (optional title + **Save checkpoint**, any time, and the list saved so far) + error groups 4 cols; tile grid full width below; join code card collapsible. An **"Announce to class"** box sits in the session bar at every size |
+| `/s/:id/code` | `WorkspaceView` | Dylan (+ Ray Yien's file tree and catch-up; Karin's announcement banner) | Enrolled student | **VS Code-style IDE** — see [the layout below](#the-workspace-is-an-ide). **xs:** tabs *Code · Preview · Terminal*, file tree in an offcanvas, sticky bottom bar with **Done**, **Slow down**, **Help**. **lg:** file tree rail + editor + preview, terminal docked under. The prof's current announcement shows as a dismissible banner across the top at every size. The header shows the latest checkpoint ("Checkpoint 3 · Added ItemCard") and *My status*: **Done** once caught up to it, back to **In progress** whenever the prof saves a new one |
 | `/s/:id/help` | `HelpQueueView` | Karin | Staff | Queue cards 1 col → queue list left, selected request right. "Waiting" (open + claimed, oldest first) above "Handled". Below lg the list and the selected request take turns, with "Back to the queue". State lives in `stores/help.js`, kept live by the class channel |
 | `/help/:requestId` | `HelpReviewView` | Karin | Staff | One request on its own page (the Telegram ping links here), same `HelpReviewPanel` as the queue, with a link back to the queue. Stacked thread + reply, then the diff (stacked on xs, side by side from sm) |
 | `/replays` | `ReplayListView` | Ray Yien | Logged in | List grouped by course, search box on top |
 | `/replays/:sessionId` | `ReplayView` | Ray Yien | Staff / enrolled | Timeline as horizontal scroller, code below, preview behind a tab → timeline left, code + preview right, notes drawer |
-| `/sessions/:id/report` | `ReportView` | Evan (page) · Andric (report data) | Staff | Cards stacked; funnel chart scrolls horizontally → 2-col grid: funnel, top errors, recurring steps, digest panel |
+| `/sessions/:id/report` | `ReportView` | Evan (page) · Andric (report data) | Staff | Cards stacked; funnel chart scrolls horizontally → 2-col grid: funnel per checkpoint, top errors, recurring trouble checkpoints, digest panel |
 | `/profile` | `ProfileView` | Ying Qi (profile) + Karin (Telegram link card) | Logged in | Single column |
 | `*` | `NotFoundView` | Ying Qi | Public | Friendly 404 with links back |
 | `/admin/users` | `AdminUsersView` | Andric | Admin | Searchable user list → name, email, role dropdown, joined. Changing a role asks for confirmation. One Bootstrap list: each user stacks on xs and is a single row from lg. The admin's own role is locked |
@@ -74,7 +74,7 @@ lg / xl ────────────────────────
 │   ItemCard │                              │   dev-server URL)           │
 │   main.js  │   CodeMirror 6               │                             │
 │ ▸ server/  │                              ├─────────────────────────────┤
-│   api.js   │                              │  STEPS  4/8 · current step  │
+│   api.js   │                              │  Checkpoint 4 · Done ✓      │
 │ package.js │                              │                             │
 ├────────────┴──────────────────────────────┴─────────────────────────────┤
 │ TERMINAL   pnpm install · pnpm dev output (local only, never sent)      │
@@ -82,7 +82,7 @@ lg / xl ────────────────────────
 
 xs (375 px) ───────────────────────────────────────────
 ┌─────────────────────────────────────────┐
-│ ☰ files   Code │ Preview │ Terminal │ Steps │   ← tabs; ☰ opens the tree
+│ ☰ files   Code │ Preview │ Terminal │   ← tabs; ☰ opens the tree
 ├─────────────────────────────────────────┤      as an offcanvas drawer
 │  active tab fills the viewport          │
 ├─────────────────────────────────────────┤
@@ -107,7 +107,7 @@ xs (375 px) ──────────────────────�
 | User control & freedom | Load checkpoint always keeps your attempt (restorable); help requests can be cancelled |
 | Consistency | Same tile colours, icons and labels everywhere (`StatusPill`); one button style per action type |
 | Error prevention | Confirm modal before End session / Delete lesson; join code input only accepts valid characters |
-| Recognition over recall | Join code and QR stay visible on the teach view; current step pinned at the top of the workspace |
+| Recognition over recall | Join code and QR stay visible on the teach view; the latest checkpoint is pinned at the top of the workspace |
 | Colour is never the only signal | Every tile state has an icon + text label as well as a colour |
 
 ---
@@ -156,20 +156,16 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 | Query | `from('course_staff').select('role, profiles(name)')` + same for students | People tab (names only) | Staff |
 | RPC | `remove_course_student(p_course_id, p_user_id)` | Removes enrolment; past statuses stay for the report | Owner |
 
-### Lessons & steps — `lessons.api.js` (Evan) + GitHub import (Ray Yien)
+### Lessons — `lessons.api.js` (Evan) + GitHub import (Ray Yien)
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
 | Query | `from('lessons').select().eq('course_id', id).ilike('title', …)` | Lesson library search | Staff / enrolled |
-| Query | `from('lessons').insert(…)` then RPC `replace_steps` | Create from uploaded files; `parseTodos` already ran **in the browser** | Prof |
-| Function | `github-import` → `{ repoUrl }` | Fetches files with the server token → returns files; client then parses and inserts | Prof (Ray Yien) |
-| Query | `from('lessons').select('*, steps(*)').order('order', { referencedTable: 'steps' })` | Lesson with its steps, in order, in one query. Staff see every lesson; **enrolled students see non-draft lessons only**, including their starter `files` | Staff / enrolled |
+| Query | `from('lessons').insert(…)` — `createLesson(courseId, details)` | Create a draft from uploaded files | Prof |
+| Function | `github-import` → `{ repoUrl }` | Fetches files with the server token → returns files; client then inserts | Prof (Ray Yien) |
+| Query | `from('lessons').select('*, sessions(count)')` — `getLesson(id)` | Lesson with its files and whether it has been taught. Staff see every lesson; **enrolled students see non-draft lessons only**, including their starter `files` | Staff / enrolled |
 | Query | `from('lessons').update(…)` | Title/description/week/files/entry_file/dev_command/status | Prof |
-| — | `parseTodos(files, entryFile)` | Re-parse is a **pure function in the browser** — the old `POST /reparse` round-trip is gone | Prof |
-| RPC | `replace_steps(p_lesson_id, p_steps)` | Create, update, reorder and delete in one transaction. Steps are renumbered 1, 2, 3… by list position (**any `order` sent is ignored**); ids from another lesson and blank titles are refused — full rules in [03](./03-data-model.md#rpcs-1) | Prof |
-| Query | `from('steps').update(…).eq('id', stepId)` | Edit one step | Prof |
-| RPC | `delete_step(p_step_id)` | Deletes and renumbers the rest | Prof |
-| Query | `from('lessons').delete().eq('id', id)` | Deletes the lesson and its steps. Once the sessions migration lands, a trigger raises `CONFLICT` if the lesson was ever taught → UI offers Archive. **Until then a taught lesson can be deleted** | Prof |
+| Query | `from('lessons').delete().eq('id', id)` | Deletes the lesson. A trigger raises `CONFLICT` if the lesson was ever taught → UI offers Archive | Prof |
 
 ### Sessions & checkpoints — `sessions.api.js`, `checkpoints.api.js` (Ying Qi)
 
@@ -177,12 +173,12 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 |---|---|---|---|
 | RPC | `start_session(p_lesson_id)` | Validates `ready` + prof, allocates a unique join code, inserts; client renders the QR from `APP_URL/join/<code>` | Prof |
 | RPC | `join_session(p_join_code)` | Finds the live session, decides my role, returns `{ session_id, role }` | Enrolled / staff |
-| Query | `from('sessions').select('*, lessons(steps(*))')` + latest checkpoint | Session bootstrap | Member |
+| Query | `from('sessions').select('*, lessons(title, files_hash, entry_file, dev_command)')` + latest checkpoint | Session bootstrap (`checkpoint_seq` is on the session row) | Member |
 | Query | `from('sessions').update({ settings })` | Prof policy; a trigger broadcasts `session:settings` | Prof |
 | RPC | `end_session(p_session_id)` | Sets `ended`, broadcasts `session:ended`; a Database Webhook fires `end-session` to build the report | Prof |
 | RPC | `announce(p_session_id, p_text)` | Writes `sessions.announcement` and broadcasts `session:announce` to everyone; `p_text = null` clears it. Stored, not just broadcast, so late joiners see it | Prof |
 | Query | `from('sessions').select().eq('course_id', id).order('started_at', { ascending: false })` | Past + live sessions | Staff / enrolled |
-| RPC | `save_checkpoint(p_session_id, p_step_id, p_files, p_note)` | Allocates `seq`, sets `current_step_id`, broadcasts `checkpoint:new` | Prof |
+| RPC | `save_checkpoint(p_session_id, p_files, p_title)` | **Any time** while live. Allocates `seq`, stores the optional title, moves `sessions.checkpoint_seq` (every Done student goes back to in progress), broadcasts `checkpoint:new` | Prof |
 | Query | `from('checkpoints').select().eq('session_id', id).order('seq')` | All checkpoints with files | Member |
 
 ### Dashboard & Spotlight — `dashboard.api.js` (Evan)
@@ -203,18 +199,18 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 |---|---|---|---|
 | Query | `from('snapshots').select().eq('session_id', id).eq('reason','autosave').maybeSingle()` | My autosave; falls back to the session's starter files | Enrolled |
 | RPC | `autosave_patch(p_session_id, p_upsert, p_delete)` | Autosave, debounced **5 s** after the last keystroke (plus a flush on blur/unload). Sends **only the files whose content hash changed**, diffed against IndexedDB; an unchanged tree sends no request at all. `SYNC_IGNORE` keeps `node_modules/`, `dist/` and `.vite/` out | Enrolled |
-| RPC | `catch_up(p_session_id, p_files)` | Writes the `before_catchup` snapshot **first**, then returns the latest checkpoint + snapshot id | Enrolled (if `allowCatchUp`) |
+| — | `workspaceStore.loadLatestCheckpoint()` | **Catch-up, no RPC:** after the student confirms (and optionally downloads a .zip), loads the latest checkpoint through the file cache, replaces the editor and WebContainer files, and autosaves them. Disabled when there's no checkpoint, `allowCatchUp` is off, or the class has ended | Enrolled |
 | Query | `from('snapshots').select().eq('reason','before_catchup')` | My attempts — RLS makes "mine" automatic | Enrolled |
-| Query | `getMyStatus(sessionId)` / `saveStatus(sessionId, studentId, { doneStepOrder, error })` — `from('student_status').upsert(…)` | Status on change (throttled to 2 s) + 30 s heartbeat while the tab is visible; driven by `stores/status.js`. No `state` field exists to send | Enrolled |
+| Query | `getMyStatus(sessionId)` / `saveStatus(sessionId, studentId, { doneSeq, error })` — `from('student_status').upsert(…)` | Status on change (throttled to 2 s) + 30 s heartbeat while the tab is visible; driven by `stores/status.js`. No `state` field exists to send | Enrolled |
 | Query | `from('slow_down_flags').insert({ session_id, student_id })` / `.delete()` | "Slow down" on / off. Anonymous: staff can only read `slow_down_count` | Enrolled, live session |
 
 ### Help — `help.api.js` (Karin)
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
-| RPC | `create_help_request(p_session_id, p_step_id, p_type, p_files, p_message, p_in_person, p_seat)` | Creates snapshot + request atomically; partial unique index rejects a second active request of the same type; a Database Webhook fires `telegram-notify` when `in_person` | Enrolled |
+| RPC | `create_help_request(p_session_id, p_type, p_files, p_message, p_in_person, p_seat)` | Creates snapshot + request atomically, recording the class's latest checkpoint (`checkpoint_seq`) itself; partial unique index rejects a second active request of the same type; a Database Webhook fires `telegram-notify` when `in_person` | Enrolled |
 | Query | `from('help_requests').select(…)` | Staff get the queue, a student gets their own — **the same query, split by RLS** | Member |
-| Query | `from('help_requests').select('*, snapshots(files)').eq('id', id).single()` | Request + the code the student sent + the checkpoint for that step | Staff, or the requesting student |
+| Query | `from('help_requests').select('*, snapshots(files)').eq('id', id).single()` | Request + the code the student sent; the TA view then loads the checkpoint numbered `checkpoint_seq` | Staff, or the requesting student |
 | RPC | `claim_help_request(p_request_id)` | `open → claimed` in one conditional update; zero rows updated raises `CONFLICT` | Staff |
 | RPC | `transition_help_request(p_request_id, p_to, p_reply)` | release / pass / reply / resolve / cancel, with the transition table enforced server-side. A reply is **appended to `thread`**, so earlier replies survive a follow-up | Claiming staff, or the student for `cancel` |
 | RPC | `follow_up_help_request(p_request_id, p_message, p_files)` | `replied → open` on the **same** request: attaches a fresh snapshot of the student's current code, appends the message to `thread`, clears `claimed_by`, keeps the original queue place. Max 3 per request | The requesting student |
@@ -224,9 +220,9 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 | Kind | Call | What happens | Who |
 |---|---|---|---|
 | Query | `from('sessions').select().eq('status','ended')` | Ended sessions in my courses (RLS); attendance from my `student_status` row | Any |
-| Query | `from('checkpoints').select('*, steps(title, order)').order('seq')` | Replay source; per-checkpoint diff stats computed client-side with `diffSummary` | Member |
+| Query | `from('checkpoints').select('id, seq, title, files_hash, created_at').order('seq')` | Replay source; per-checkpoint diff stats computed client-side with `diffSummary` | Member |
 | Query | `from('notes').select/insert/update/delete` | Own notes only. `user_id` defaults to the login, so don't send it | Author |
-| RPC | `search(p_q, p_course_id)` | Full-text over step titles, checkpoint notes and my own notes, ranked; input is parameterised so regex characters are literal | Any |
+| RPC | `search(p_q, p_course_id)` | Full-text over checkpoint titles and my own notes, ranked; input is parameterised so regex characters are literal | Any |
 | Auth | `auth.linkIdentity({ provider: 'github', scopes: 'public_repo' })` | Replaces the hand-rolled OAuth dance; Supabase holds the `provider_token` on the session | Any |
 | Function | `github-export` → `{ sessionId, repoName, private }` | Creates the repo and one commit per checkpoint via the Git Data API | Member with a fresh GitHub identity |
 
@@ -245,14 +241,14 @@ Call these: `listUsers()` and `setRole(userId, role)`. The list of users lives i
 | Kind | Call | What happens | Who |
 |---|---|---|---|
 | Query | `from('session_reports').select().eq('session_id', id).maybeSingle()` | Null while the `end-session` function is still building — the page polls | Staff |
-| RPC | `lesson_trends(p_lesson_id)` | Steps that trip students across sessions/terms — **only across the calling prof's own courses**, never another prof's | Staff |
+| RPC | `lesson_trends(p_lesson_id)` | Checkpoints that trip students across sessions/terms (matched by title) — **only across the calling prof's own courses**, never another prof's | Staff |
 | Function | `digest` → `{ sessionId, audience: ['tas','absent'] }` | Builds the message from the report, sends via Telegram | Prof |
 
 ### Hints (COULD) — Karin
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
-| Function | `hint` → `{ sessionId, stepId, errorKey }` | Rule table first, LLM only if `hintsEnabled` and a key is set; cached by `(lesson, step, errorKey)` | Enrolled |
+| Function | `hint` → `{ sessionId, errorKey }` | Rule table first, LLM only if `hintsEnabled` and a key is set; cached by `(session, checkpoint, errorKey)` | Enrolled |
 
 ### Test-only
 
@@ -269,7 +265,7 @@ Call these: `listUsers()` and `setRole(userId, role)`. The list of users lives i
 
 ```
 start_session  rpc('start_session', { p_lesson_id })
-  1. Load lesson; NOT_FOUND if missing; CONFLICT unless status='ready' and it has ≥ 1 step
+  1. Load lesson; NOT_FOUND if missing; CONFLICT unless status='ready'
   2. FORBIDDEN unless is_course_prof(lesson.course_id)
   3. Generate join code; retry on the partial unique clash (max 5)
   4. insert sessions { status: 'live' }
@@ -281,22 +277,14 @@ join_session  rpc('join_session', { p_join_code })
   2. is_enrolled → 'student';  is_course_staff → 'staff';  else FORBIDDEN "You're not in this course"
   3. return { session_id, role }  → client goes to /s/:id/code or /s/:id/teach
 
-save_checkpoint  rpc('save_checkpoint', …)
-  1. session live (CONFLICT) + is_course_prof (FORBIDDEN)
-  2. p_step_id must belong to session.lesson_id (BAD_REQUEST)
-  3. lock the session row (select … for update), then seq = coalesce(max(seq),0)+1; insert
-  4. update sessions set current_step_id = p_step_id
-     → every row of session_tiles re-derives; students 2+ steps back become `behind`
+save_checkpoint  rpc('save_checkpoint', { p_session_id, p_files, p_title })   ← any time
+  1. session live (CONFLICT) + is_course_prof (FORBIDDEN); title ≤ 80 (VALIDATION_FAILED)
+  2. lock the session row (select … for update), then seq = checkpoint_seq + 1;
+     insert { seq, files, title: nullif(trim(p_title), '') }
+  3. update sessions set checkpoint_seq = seq
+     → every row of session_tiles re-derives: Done students go back to in_progress,
        with no extra writes
-  5. realtime.send('session:<id>', 'checkpoint:new', payload)
-
-catch_up  rpc('catch_up', { p_session_id, p_files })
-  1. session live + settings->>'allowCatchUp' = 'true'  (FORBIDDEN "Catch-up is turned off")
-  2. latest checkpoint; CONFLICT if none yet
-  3. insert snapshots { reason: 'before_catchup', files: p_files }   ← BEFORE returning
-  4. update student_status set catch_ups = catch_ups + 1
-  5. return { checkpoint, attempt_snapshot_id }
-  (Client then shows "What you missed" = diffSummary(attempt, checkpoint) and loads the files)
+  4. realtime.send('session:<id>', 'checkpoint:new', payload)
 
 create_help_request  rpc('create_help_request', …)
   1. is_enrolled + session live
@@ -344,7 +332,7 @@ Sent only from RPCs and Edge Functions via `realtime.send()`. Clients subscribe;
 
 | Event | Payload | Owner |
 |---|---|---|
-| `checkpoint:new` | `{ sessionId, checkpointId, seq, stepId, stepOrder, title, filesHash, createdAt }` (files fetched on demand by `checkpointId`; `filesHash` lets the cache skip the download) | Ying Qi |
+| `checkpoint:new` | `{ sessionId, checkpointId, seq, title, filesHash, createdAt }` (`title` may be null) (files fetched on demand by `checkpointId`; `filesHash` lets the cache skip the download) | Ying Qi |
 | `session:settings` | `{ sessionId, allowCatchUp, hintsEnabled }` | Ying Qi |
 | `session:ended` | `{ sessionId, replayUrl }` — `replayUrl` is a path (`/replays/<id>`); the browser adds its own origin | Ying Qi |
 | `spotlight:show` | `{ sessionId, errorPreview, excerpt: { path, startLine, code }, fix: { path, startLine, code } }` | Evan |
@@ -404,17 +392,17 @@ Unchanged — components never knew where the data came from, which is why this 
 | `TerminalPanel` | `lines`, `busy` | — | New. Streams `pnpm install` / dev-server output. **Output stays local** |
 | `BootState` | `phase`, `progress` | `retry` | New. booting → installing → starting → ready, or a failure with the terminal tail |
 | `ConsolePanel` | `entries` | `clear` | Filters: All · Errors · Network |
-| `DoneButton` | `stepOrder`, `disabled`, `passedByTa` | `done`, `undo` | Disabled while the last run has an error |
-| `StudentTile` | `tile` | `select` | Colour + icon + label; shows step "4/8" and error preview |
-| `TileGrid` | `tiles`, `filter` | `select` | 2 cols xs → 4 md → 6 xl; sorted error → behind → in progress → idle → done |
+| `DoneButton` | `seq`, `disabled`, `passedByTa` | `done`, `undo` | "I've caught up to the latest checkpoint"; resets when a new one arrives |
+| `StudentTile` | `tile` | `select` | Colour + icon + label and the error preview |
+| `TileGrid` | `tiles`, `filter` | `select` | 2 cols xs → 4 md → 6 xl; sorted error → in progress → idle → done |
 | `ClassSummaryBar` | `counts`, `slowDownCount`, `total` | `filter` | Clickable segments filter the grid |
 | `ErrorGroupList` | `groups` | `spotlight` | Prof-only Spotlight button per group |
-| `StepList` (prof) | `steps`, `currentStepId` | `reorder`, `edit`, `delete` | Drag handle on lg; up/down buttons on xs |
 | `HelpRequestCard` | `request`, `staffNames`, `myId`, `now`, `selected`, `canAct` | `claim`, `open` | Waiting time counts from the student's latest message (the opening one or a follow-up, so a follow-up isn't instantly "overdue"), ticking with the page's `now`; **Follow-up** badge + "last handled by …"; "Ana is on this" once claimed |
-| `HelpReviewPanel` | `request`, `myId`, `canAct` | — | The TA's view of one request, used by both help pages: thread, Claim → Reply / Pass (checks only) / Resolved in person / Release, and the student's code diffed against the prof's latest checkpoint for that step. Reloads the code when a follow-up attaches a newer snapshot |
+| `HelpReviewPanel` | `request`, `myId`, `canAct` | — | The TA's view of one request, used by both help pages: thread, Claim → Reply / Pass (checks only) / Resolved in person / Release, and the student's code diffed against the checkpoint the class was on when they asked. Reloads the code when a follow-up attaches a newer snapshot |
 | `HelpStatusPill` | `status` | — | Waiting · Claimed · Passed · Replied · Resolved · Cancelled, icon + text (`help-status`) |
 | `HelpThread` | `request` | — | New. Opening message, then every reply and follow-up in order. Shown to the student and to the reviewing TA |
 | `FollowUpForm` | `request`, `remaining` | `submit` | New. Only on a `replied` request; shows "2 follow-ups left"; at 0, suggests in-person help |
+| `CatchUpModal` | `open`, `checkpoint`, `busy` | `download`, `confirm` | "Load the prof's latest checkpoint?" Names the checkpoint, warns that anything not downloaded is lost, offers **Download my project (.zip)** (`btn-download-project`); confirm is **Replace my code** |
 | `AnnouncementBanner` | `announcement` | `dismiss` | New. Top of the workspace; dismissing hides it until a **new** announcement arrives |
 | `AnnounceInput` | `current` | `announce`, `clear` | New. In the teach view's session bar; 200-char counter |
 | `SideBySideView` | `studentFiles`, `checkpointFiles` | — | Uses Ray Yien's `DiffView` |

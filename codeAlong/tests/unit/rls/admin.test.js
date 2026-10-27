@@ -192,7 +192,7 @@ describe('T-ADM-08: an admin cannot act inside a course', () => {
         p_section: 'x',
       }),
       admin.client.rpc('add_course_staff', { p_course_id: course.id, p_email: stu.email }),
-      admin.client.rpc('replace_steps', { p_lesson_id: lesson.id, p_steps: [{ title: 'x' }] }),
+      admin.client.rpc('start_session', { p_lesson_id: lesson.id }),
       admin.client.rpc('enrol_with_code', { p_code: course.enrol_code }),
     ])
     expect(results.map((r) => codeOf(r.error))).toEqual([

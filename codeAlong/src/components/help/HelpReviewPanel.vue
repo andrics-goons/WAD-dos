@@ -7,9 +7,10 @@ import DiffView from '@/components/replay/DiffView.vue'
 import HelpStatusPill from './HelpStatusPill.vue'
 import HelpThread from './HelpThread.vue'
 import { HELP_TYPE_LABEL } from './helpLabels.js'
+import { checkpointLabel } from '@shared/checkpoint-label.js'
 
 // One request, for the TA: the conversation, what to do with it, and the student's code
-// against the prof's checkpoint for that step. Used by the queue and the /help/:id page.
+// against the prof's checkpoint they were working towards. Used by the queue and the /help/:id page.
 const props = defineProps({
   request: { type: Object, required: true }, // a row from the help store, so it stays live
   myId: { type: String, default: null },
@@ -39,7 +40,7 @@ watch(
     try {
       ;[studentFiles.value, checkpoint.value] = await Promise.all([
         help.studentFiles(snapshotId),
-        help.checkpointFor(props.request.session_id, props.request.step_id),
+        help.checkpointFor(props.request.session_id, props.request.checkpoint_seq),
       ])
     } catch (error) {
       codeError.value = error.message
@@ -87,8 +88,8 @@ async function reply() {
         <HelpStatusPill :status="request.status" />
       </div>
       <p class="small text-body-secondary mb-3">
-        {{ HELP_TYPE_LABEL[request.type] }} · Step {{ request.step?.order
-        }}<span v-if="request.step?.title"> · {{ request.step.title }}</span>
+        {{ HELP_TYPE_LABEL[request.type] }} ·
+        {{ checkpointLabel(request.checkpoint_seq, checkpoint?.title) }}
         <span v-if="request.in_person">
           · <strong>In person, seat {{ request.seat }}</strong></span
         >
@@ -176,7 +177,7 @@ async function reply() {
         Their code
         <span class="fw-normal text-body-secondary">
           <template v-if="checkpoint">compared with checkpoint {{ checkpoint.seq }}</template>
-          <template v-else-if="studentFiles">— no checkpoint for this step yet</template>
+          <template v-else-if="studentFiles">— asked before the first checkpoint</template>
         </span>
       </h3>
       <p v-if="codeError" class="text-danger small">Couldn't load the code: {{ codeError }}</p>

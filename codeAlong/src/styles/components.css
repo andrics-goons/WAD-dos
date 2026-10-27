@@ -212,7 +212,8 @@ select.ca-input {
   }
 }
 
-/* Student states: add ca-state--done (or error, behind…) to any element, then use
+/* Student states: add ca-state--done (or error, in_progress…) to any element, then use
+   (ca-state--behind is no longer a student state; the help pills use it as their blue.)
    var(--state), var(--state-bg) and var(--state-fg) for its colours. */
 .ca-state--done {
   --state: var(--ca-state-done);

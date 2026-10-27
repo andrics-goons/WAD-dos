@@ -6,7 +6,6 @@ export const TILE_STATE_META = Object.freeze({
   [TileState.DONE]: { label: 'Done', icon: 'bi-check-circle-fill' },
   [TileState.IN_PROGRESS]: { label: 'In progress', icon: 'bi-pencil-fill' },
   [TileState.ERROR]: { label: 'Error', icon: 'bi-x-octagon-fill' },
-  [TileState.BEHIND]: { label: 'Behind', icon: 'bi-hourglass-split' },
   [TileState.IDLE]: { label: 'Idle', icon: 'bi-moon-fill' },
 })
 

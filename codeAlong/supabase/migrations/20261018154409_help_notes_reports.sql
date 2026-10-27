@@ -1,5 +1,5 @@
 -- The last layer: snapshots, help_requests, notes, session_reports, slow_down_events
---   + session_tiles.passed_steps, status_history.error_key
+--   + session_tiles.passed_seqs, status_history.error_key
 -- Spec: design-docs/03-data-model.md#snapshots-a-students-code
 -- Order matters: tables → helpers → policies → views → triggers → Realtime
 --
@@ -18,7 +18,6 @@ create table public.snapshots (
     id          uuid primary key default gen_random_uuid(),
     session_id  uuid not null references public.sessions(id) on delete cascade,
     student_id  uuid not null references public.profiles(id),
-    step_id     uuid references public.steps(id),                   -- step the student was on
     reason      text not null check (reason in ('autosave', 'before_catchup', 'help_request')),
     files       jsonb not null check (
                     public.files_valid(files) and octet_length(files::text) <= 200000
@@ -39,7 +38,9 @@ create table public.help_requests (
     id                    uuid primary key default gen_random_uuid(),
     session_id            uuid not null references public.sessions(id) on delete cascade,
     student_id            uuid not null references public.profiles(id),
-    step_id               uuid not null references public.steps(id),
+    -- the class's latest checkpoint when they asked (0 = before the first): the TA compares
+    -- the student's code with it. Set by create_help_request, never sent by the student.
+    checkpoint_seq        int not null default 0 check (checkpoint_seq >= 0),
     type                  text not null check (type in ('check', 'help')),
     -- the copy of the student's code sent with this request (create_help_request saves it)
     snapshot_id           uuid not null references public.snapshots(id),
@@ -88,7 +89,7 @@ create table public.session_reports (
     course_id     uuid not null references public.courses(id),       -- for cross-term trends
     lesson_id     uuid not null references public.lessons(id),
     attendance    jsonb not null,                                    -- { joined, enrolled }
-    steps         jsonb not null default '[]',                       -- per-step funnel (05 §10)
+    checkpoints   jsonb not null default '[]',                       -- per-checkpoint funnel (05 §10)
     top_errors    jsonb not null default '[]',                       -- top 5, counts only
     slow_down_peak     int not null default 0 check (slow_down_peak >= 0),
     generated_at  timestamptz not null default now(),
@@ -181,15 +182,16 @@ create policy "admin reads all" on public.slow_down_events
 
 -- Views ------------------------------------
 
--- session_tiles gains passed_steps: the step orders this student's checks were passed on.
--- create or replace can only ADD columns at the end, so everything before is unchanged.
+-- session_tiles gains passed_seqs: the checkpoints this student's "Check my work" requests
+-- were passed on. create or replace can only ADD columns at the end, so everything before
+-- is unchanged.
 create or replace view public.session_tiles with (security_invoker = true) as
 select
     ss.session_id,
     ss.student_id,
     p.name,
-    coalesce(st."order", 0)              as target_order,
-    ss.done_step_order                   as step_order,
+    s.checkpoint_seq,
+    ss.done_seq,
     ss.error->>'source'                  as error_source,
     ss.error->>'key'                     as error_key,
     left(ss.error->>'message', 120)      as error_preview,
@@ -198,20 +200,18 @@ select
     case
         when now() - ss.last_seen_at >
              make_interval(secs => (s.settings->>'idleAfterSec')::numeric) then 'idle'
-        else public.tile_state(ss.done_step_order, ss.error, coalesce(st."order", 0))
+        else public.tile_state(ss.done_seq, ss.error, s.checkpoint_seq)
     end                                  as state,
     array(
-        select distinct ps."order"
+        select distinct hr.checkpoint_seq
           from public.help_requests hr
-          join public.steps ps on ps.id = hr.step_id
          where hr.session_id = ss.session_id and hr.student_id = ss.student_id
            and hr.type = 'check' and hr.status = 'passed'
-         order by ps."order"
-    )                                    as passed_steps
+         order by hr.checkpoint_seq
+    )                                    as passed_seqs
 from public.student_status ss
 join public.sessions s on s.id = ss.session_id
-join public.profiles p on p.id = ss.student_id
-left join public.steps st on st.id = s.current_step_id;
+join public.profiles p on p.id = ss.student_id;
 
 
 -- Triggers ------------------------------------
@@ -244,15 +244,13 @@ create trigger record_slow_down_event after insert or delete on public.slow_down
 create or replace function public.record_status_change() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
-    v_state text;
-    v_key   text := new.error->>'key';
-    v_last  public.status_history;
+    v_target int;
+    v_state  text;
+    v_key    text := new.error->>'key';
+    v_last   public.status_history;
 begin
-    select public.tile_state(new.done_step_order, new.error, coalesce(st."order", 0))
-      into v_state
-      from public.sessions s
-      left join public.steps st on st.id = s.current_step_id
-     where s.id = new.session_id;
+    select s.checkpoint_seq into v_target from public.sessions s where s.id = new.session_id;
+    v_state := public.tile_state(new.done_seq, new.error, v_target);
 
     select * into v_last from public.status_history h
      where h.session_id = new.session_id and h.student_id = new.student_id
@@ -260,8 +258,8 @@ begin
 
     if v_last.state is distinct from v_state
        or (v_state = 'error' and v_last.error_key is distinct from v_key) then
-        insert into public.status_history (session_id, student_id, state, step_order, error_key)
-        values (new.session_id, new.student_id, v_state, new.done_step_order,
+        insert into public.status_history (session_id, student_id, state, checkpoint_seq, error_key)
+        values (new.session_id, new.student_id, v_state, v_target,
                 case when v_state = 'error' then v_key end);
     end if;
     return null;
@@ -269,17 +267,13 @@ end $$;
 
 create or replace function public.record_checkpoint_states() returns trigger
 language plpgsql security definer set search_path = '' as $$
-declare
-    v_target int;
 begin
-    select coalesce(max("order"), 0) into v_target from public.steps where id = new.current_step_id;
-
-    insert into public.status_history (session_id, student_id, state, step_order, error_key)
-    select ss.session_id, ss.student_id, x.state, ss.done_step_order,
+    insert into public.status_history (session_id, student_id, state, checkpoint_seq, error_key)
+    select ss.session_id, ss.student_id, x.state, new.checkpoint_seq,
            case when x.state = 'error' then ss.error->>'key' end
       from public.student_status ss
      cross join lateral (
-         select public.tile_state(ss.done_step_order, ss.error, v_target) as state
+         select public.tile_state(ss.done_seq, ss.error, new.checkpoint_seq) as state
      ) x
      where ss.session_id = new.id
        and x.state is distinct from (

@@ -10,7 +10,6 @@
 -- snapshot rolls back with it.
 create function public.create_help_request(
     p_session_id  uuid,
-    p_step_id     uuid,
     p_type        text,
     p_files       jsonb,
     p_message     text default null,
@@ -34,19 +33,16 @@ begin
     if s.status is distinct from 'live' then
         raise exception 'CONFLICT|This class has ended' using errcode = 'P0001';
     end if;
-    -- the step comes from the student's browser, so check it's one of this lesson's steps
-    if not exists (select 1 from public.steps where id = p_step_id and lesson_id = s.lesson_id) then
-        raise exception 'BAD_REQUEST|That step isn''t part of this lesson' using errcode = 'P0001';
-    end if;
-
-    insert into public.snapshots (session_id, student_id, step_id, reason, files)
-    values (p_session_id, auth.uid(), p_step_id, 'help_request', p_files)
+    insert into public.snapshots (session_id, student_id, reason, files)
+    values (p_session_id, auth.uid(), 'help_request', p_files)
     returning id into snap;
 
+    -- which checkpoint they were working towards: the class's latest, from the server, so
+    -- the TA compares their code with what the prof had then
     insert into public.help_requests
-        (session_id, student_id, step_id, type, snapshot_id, message, in_person, seat)
+        (session_id, student_id, checkpoint_seq, type, snapshot_id, message, in_person, seat)
     values
-        (p_session_id, auth.uid(), p_step_id, p_type, snap, p_message, p_in_person, p_seat)
+        (p_session_id, auth.uid(), s.checkpoint_seq, p_type, snap, p_message, p_in_person, p_seat)
     returning * into r;
 
     return r;
@@ -184,8 +180,8 @@ begin
             using errcode = 'P0001';
     end if;
 
-    insert into public.snapshots (session_id, student_id, step_id, reason, files)
-    values (r.session_id, r.student_id, r.step_id, 'help_request', p_files)
+    insert into public.snapshots (session_id, student_id, reason, files)
+    values (r.session_id, r.student_id, 'help_request', p_files)
     returning id into snap;
 
     update public.help_requests hr
