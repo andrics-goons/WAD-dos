@@ -188,7 +188,7 @@ function fakeConfirm() {
       <div class="ca-card">
         <div class="ca-eyebrow mb-1">.ca-eyebrow</div>
         <h1>h1 — Week 6 · Mini Cart</h1>
-        <h2>h2 — Step 4 of 8</h2>
+        <h2>h2 — Checkpoint 4</h2>
         <h3 class="mb-3">h3 — Emit add-to-cart</h3>
         <p class="mb-1">
           Body text in Inter. Students read join codes like <strong>ABC234</strong> off a projector.

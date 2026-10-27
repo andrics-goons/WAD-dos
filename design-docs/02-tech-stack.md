@@ -61,7 +61,7 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │
 ├── shared/                      ← imported by BOTH src/ (Vite) and supabase/functions/ (Deno)
 │   ├── constants.js             ← Roles, tile states, help statuses, limits, event names
-│   ├── todo-parser.js           ← Evan
+│   ├── checkpoint-label.js      ← Andric
 │   ├── error-normalizer.js      ← Evan
 │   ├── tile-state.js            ← Evan — classify(), must agree with Andric's session_tiles SQL
 │   ├── diff-summary.js          ← Ray Yien
@@ -86,11 +86,11 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   │   ├── ui/                  ← AppNavbar, AppToast, ConfirmModal, EmptyState, StatusPill (Ying Qi)
 │   │   ├── workspace/           ← CodeEditor, FileTabs, PreviewFrame, ConsolePanel, DoneButton (Dylan); FileTree (Ray Yien)
 │   │   ├── dashboard/           ← StudentTile, TileGrid, ErrorGroupList, ClassSummaryBar (Evan)
-│   │   ├── lesson/              ← StepList, StepEditor, StarterUpload (Evan)
+│   │   ├── lesson/              ← LessonLibrary, StarterUpload (Evan)
 │   │   ├── session/             ← CheckpointToast, ConnectionPill, AnnouncementBanner, AnnounceInput (Karin); JoinCodeCard, QrDisplay (Evan)
 │   │   ├── help/                ← HelpQueue, HelpRequestCard, SideBySideView (Karin)
 │   │   ├── replay/              ← CheckpointTimeline, DiffView, NoteEditor (Ray Yien)
-│   │   └── insights/            ← StepFunnelChart, TopErrorsTable (Evan)
+│   │   └── insights/            ← CheckpointFunnelChart, TopErrorsTable (Evan)
 │   ├── composables/             ← useSandbox, useAutosave, useBreakpoint, useCountdown
 │   ├── runtime/                 ← WebContainer integration (Dylan)
 │   │   ├── container.js         ← boot, mount, spawn, server-ready → preview URL
@@ -113,7 +113,7 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   │   ├── …_courses.sql        ← courses, course_staff, course_students, is_course_*(),
 │   │   │                           create_course / enrol_with_code / add_course_staff / remove_course_student
 │   │   ├── …_test_outbox.sql    ← where mocked Edge Functions record what they'd have sent
-│   │   └── (next)               ← lessons + steps → sessions, checkpoints, status + the two views
+│   │   └── (next)               ← lessons → sessions, checkpoints, status + the two views
 │   │                               → snapshots, help requests, notes, reports
 │   ├── functions/               ← Deno; one folder per function
 │   │   ├── _shared/cors.ts, supabaseAdmin.ts, outbox.ts
@@ -187,21 +187,21 @@ upsert student_status (throttled 2 s)─▶ row written
                                       trigger → status_history            counts = Vue computed (≤1/s)
 
                                       rpc('save_checkpoint') ◀────────── "Save checkpoint"
-                                        insert + set current_step_id
+                                        insert + set checkpoint_seq
                                         realtime.send('checkpoint:new')
                        ◀──── broadcast checkpoint:new                 ◀── (staff get it too)
                             every tile's target_order changes,
-                            so `behind` re-derives with no extra writes
+                            so Done students drop back to in_progress with no extra writes
 ```
 
-The last line is the part worth noticing: because the tile state is **derived** from `sessions.current_step_id`, a new checkpoint re-classifies all 40 students with no fan-out writes at all. The old design needed an in-memory cache and a re-classify sweep to do the same thing.
+The last line is the part worth noticing: because the tile state is **derived** from `sessions.checkpoint_seq`, a new checkpoint re-classifies all 40 students with no fan-out writes at all. The old design needed an in-memory cache and a re-classify sweep to do the same thing.
 
 ### Concrete example: prof saves a checkpoint
 
-1. **Prof** clicks **Save checkpoint** in `TeachView.vue` → `sessionStore.saveCheckpoint()` → `sessions.api.js` → `supabase.rpc('save_checkpoint', { p_session_id, p_step_id, p_files, p_note })`.
-2. **The RPC** (`security definer`) checks `is_course_prof(course_id)` and `status = 'live'`, allocates `seq` (locking the session row so two saves can't take the same number), inserts the `checkpoints` row, sets `sessions.current_step_id`, and calls `realtime.send()` on `session:<id>` with `checkpoint:new`.
-3. **Students' browsers** receive the broadcast: a toast appears, the "Load checkpoint" button updates, the step list advances.
-4. **Staff browsers** receive the same broadcast and re-read `session_summary`; tiles that are now two or more steps behind come back as `behind` from the view, because `target_order` changed.
+1. **Prof** clicks **Save checkpoint** in `TeachView.vue` → `sessionStore.saveCheckpoint()` → `sessions.api.js` → `supabase.rpc('save_checkpoint', { p_session_id, p_files, p_title })` — any time, title optional.
+2. **The RPC** (`security definer`) checks `is_course_prof(course_id)` and `status = 'live'`, allocates `seq` (locking the session row so two saves can't take the same number), inserts the `checkpoints` row, sets `sessions.checkpoint_seq`, and calls `realtime.send()` on `session:<id>` with `checkpoint:new`.
+3. **Students' browsers** receive the broadcast: a toast appears, the "Load checkpoint" button updates, and their status goes back to In progress until they click Done.
+4. **Staff browsers** receive the same broadcast and re-read `session_summary`; every Done tile comes back as `in_progress` from the view, because `checkpoint_seq` changed.
 5. **Postgres** has the checkpoint; replay later reads them in `seq` order.
 
 Compare with the old flow: one RPC replaces a route file, a validator, a controller, a broadcast helper and a cache invalidation.
@@ -237,10 +237,10 @@ Useful for the "explain how you used JS/Vue/CSS" part of the video.
 | `computed` | Tile counts per state, filtered tiles, error groups, progress %, changed-line counts in "What you missed" |
 | `watch` | Autosave debounce on editor changes; re-run preview when files change |
 | Components, props, emits | `StudentTile` (props: tile) → emits `select`; `CodeEditor` emits `update:modelValue`, `save` |
-| `v-for`, `v-if`, `v-model`, `:class` | Tile grid, filter chips, step editor, state colours |
+| `v-for`, `v-if`, `v-model`, `:class` | Tile grid, filter chips, checkpoint list, state colours |
 | Lifecycle hooks | `onMounted` subscribes to the session channel; `onBeforeUnmount` unsubscribes and clears timers |
 | Vue Router + guards | Role-guarded routes (`meta.roles`), `/join/:code` deep link from QR |
-| Pinia | Shared session state between editor, toolbar, console and step list |
+| Pinia | Shared session state between editor, toolbar, console and checkpoint list |
 | Async JS (`async/await`, Promises) | Every `supabase` call, `rpc`, `functions.invoke`, and the Edge Functions' own `fetch` to Telegram/GitHub |
 | JSON / JSONB | `files`, `error`, `settings`, report payloads; socket-free realtime messages |
 | Relational data + SQL | Tables, joins, foreign keys, partial unique indexes, aggregate views, RLS policies |

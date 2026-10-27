@@ -5,27 +5,27 @@
 
 ## What Are We Building?
 
-**CodeAlong** is a live-coding classroom tool for courses like IS216 — "Wooclap for live coding". The prof's starter code becomes a step-by-step lesson plan, students code along in the browser, and the prof's dashboard shows who is keeping up, who is stuck and why. Stuck students load the latest checkpoint or ask a TA for help, and after class everyone gets a step-by-step replay.
+**CodeAlong** is a live-coding classroom tool for courses like IS216 — "Wooclap for live coding". The prof codes live from their starter code and saves checkpoints whenever they like, students code along in the browser and click Done when they've caught up, and the prof's dashboard shows who is keeping up, who is stuck and why. Stuck students load the latest checkpoint or ask a TA for help, and after class everyone gets a checkpoint-by-checkpoint replay.
 
 The core loop is:
 
 ```
-Prof uploads starter code → TODOs become steps → Prof saves a checkpoint per step
+Prof uploads starter code → starts a class → saves a checkpoint whenever they like (optional title) → everyone goes back to In progress until they click Done
       → Students code along + tap Done → Dashboard shows the room
       → Stuck students catch up / ask the TA → After class: replay + insights
 ```
 
 **One-sentence pitch** (the format the Q&A slides ask for):
 
-> CodeAlong helps **IS216 profs and TAs** to **see who is falling behind during live coding, and get them back on track**, because **every step is a checkpoint the class can sync to, and every student's progress (not their code) shows up live on one dashboard**.
+> CodeAlong helps **IS216 profs and TAs** to **see who is falling behind during live coding, and get them back on track**, because **every checkpoint is a point the class can sync to, and every student's progress (not their code) shows up live on one dashboard**.
 
 ### The Problem (summary — full version in the proposal)
 
 | Pain point | What happens today |
 |---|---|
-| Falling behind is silent | A typo at step 2 breaks a student's code. While they debug, the prof moves on and they stay lost for the rest of the lesson. |
+| Falling behind is silent | A typo early on breaks a student's code. While they debug, the prof moves on and they stay lost for the rest of the lesson. |
 | The prof can't see the room | With 40+ laptops, the prof can't tell whether 5 or 25 people are stuck, or whether they're stuck on the same thing. |
-| The final file hides the steps | The file sent after class shows finished code, not how it was built — which is what a lost student needs. |
+| The final file hides how it was built | The file sent after class shows finished code, not how it was built — which is what a lost student needs. |
 
 Why existing tools aren't enough: chat tools (Slack/Telegram) move messages but show no progress; VS Code Live Share lets students watch but gives the prof no class view; ChatGPT fixes one student's error but never tells the prof that 13 students made the same one.
 
@@ -52,7 +52,7 @@ Every item below comes from the IS216 Group Project Briefing and the Project Q&A
 | 3 | *Suggested:* CSS framework + JS framework, JSON (Briefing) | Bootstrap 5, Vue 3 + Vue Router + Pinia, JSON/JSONB throughout |
 | 4 | Responsive design following IDP UI patterns (Briefing) | Every page has a defined layout from iPhone 6 (375 px) to Bootstrap XL (≥ 1200 px) — see [04-pages-routes-and-events.md](./04-pages-routes-and-events.md#client-pages) |
 | 5 | Dynamic site with a backend data store (Briefing) | Supabase Postgres (15 tables, RLS) + Supabase Realtime + 9 Edge Functions — see [03-data-model.md](./03-data-model.md) |
-| 6 | Meaningful use of ≥ 1 external public API via async HTTP (Briefing) | **Telegram Bot API** (TA pings, digests) and **GitHub REST API** (starter-code import, replay export, one commit per step). LLM API is Keep-In-View — see [05-core-logic.md](./05-core-logic.md) |
+| 6 | Meaningful use of ≥ 1 external public API via async HTTP (Briefing) | **Telegram Bot API** (TA pings, digests) and **GitHub REST API** (starter-code import, replay export, one commit per checkpoint). LLM API is Keep-In-View — see [05-core-logic.md](./05-core-logic.md) |
 | 7 | At least end-to-end testing of core features (Briefing) | Playwright E2E with multi-browser-context tests (prof + students in one test), plus Vitest unit tests for core logic — see [06-stages-and-tests.md](./06-stages-and-tests.md) |
 | 8 | Displays properly in Chrome; responsive checked in Chrome DevTools from iPhone 6 to Bootstrap XL (FAQ 5, 17) | Responsive pass is a stage gate; Playwright runs a 375 px and a 1280 px project |
 | 9 | App packaged at root; first page via "index" (Briefing) | Vercel serves the built Vue app's `index.html` at `/`; a `vercel.json` rewrite makes every deep link (incl. the `/join/:code` QR link) resolve to it |
@@ -108,11 +108,11 @@ The Q&A slides grade on three tiers: **Tier 1** get data → show data (~B+), **
 | # | Feature ("this app lets me…") | Tier | Why it's that tier | Owner |
 |---|---|:---:|---|---|
 | F1 | **Run a live coding session** — start a session, students join by code/QR, every checkpoint reaches every laptop instantly; the prof can **post a short announcement** to the whole class | 2 | Real-time fan-out, reconnection, room authorization; merges session + checkpoint + membership data | Ying Qi |
-| F2 | **Code along and catch up** — edit files in the browser, see the live preview and console, have errors caught automatically, tap Done, load the prof's checkpoint without losing my attempt | 2–3 | Sandboxed execution + error capture + snapshot preservation; automatic step checks are the stretch | Dylan |
+| F2 | **Code along and catch up** — edit files in the browser, see the live preview and console, have errors caught automatically, tap Done, load the prof's checkpoint without losing my attempt | 2–3 | Sandboxed execution + error capture + snapshot preservation; automatic checkpoint checks are the stretch | Dylan |
 | F3 | **Get help quickly** — send my code to the TA ("Check my work" / "Ask for help"); TA reviews side-by-side with the checkpoint, passes or replies, or gets pinged on Telegram to come over; if the reply doesn't fix it, **follow up on the same request** without losing my place | 2 | Queue workflow + side-by-side comparison + Telegram Bot API | Karin |
-| F4 | **See the room and teach to it** — turn starter-code TODOs into a lesson plan, watch one tile per student, see grouped common errors, Spotlight one anonymised example | **3** | TODO parsing, status classification, error normalisation + grouping algorithm | Evan |
-| F5 | **Review the lesson afterwards** — step-by-step replay with "What you missed" diffs, notes, bookmarks, search, import starter code from GitHub and export my replay with one commit per step | 2 | GitHub REST (Git Data API) + diffing + search across lessons | Ray Yien |
-| F6 | **Learn which steps lose students** — after-class insights (drop-off per step, top errors, recurring trouble steps across terms) sent as a Telegram digest | 2–3 | Aggregation across statuses, help requests and past terms | Andric |
+| F4 | **See the room and teach to it** — save checkpoints as you teach, watch one tile per student (Done on the latest checkpoint or still in progress), see grouped common errors, Spotlight one anonymised example | **3** | Status classification, error normalisation + grouping algorithm | Evan |
+| F5 | **Review the lesson afterwards** — checkpoint-by-checkpoint replay with "What you missed" diffs, notes, bookmarks, search, import starter code from GitHub and export my replay with one commit per checkpoint | 2 | GitHub REST (Git Data API) + diffing + search across lessons | Ray Yien |
+| F6 | **Learn where students get lost** — after-class insights (drop-off per checkpoint, top errors, recurring trouble checkpoints across terms) sent as a Telegram digest | 2–3 | Aggregation across statuses, help requests and past terms | Andric |
 
 **Platform (not features):** the data platform — schema, RLS, auth, accounts / courses / enrolment data — is owned by Andric; the frontend platform — app shell, router, login/registration and course pages, shared UI kit, deployment — is owned by Ying Qi.
 
@@ -122,14 +122,14 @@ The Q&A slides grade on three tiers: **Tier 1** get data → show data (~B+), **
 
 ## Scope Target
 
-Priorities follow the latest proposal (self-marking + automatic error detection + TA checks are the baseline; automatic step checks are attempted on top).
+Priorities follow the latest proposal (self-marking + automatic error detection + TA checks are the baseline; automatic checkpoint checks are attempted on top).
 
 | Level | What's included |
 |---|---|
 | **Week 9 pitch (must work live)** | Sessions + join by code, checkpoint broadcast, student editor + preview + console, basic dashboard tiles, load checkpoint |
-| **MUST (baseline for submission)** | Accounts/courses/roles; lesson CRUD + plan from TODOs; live checkpoints; student workspace with error detection + Done; class dashboard with filters + anonymous "Slow down" count; catch-up with "What you missed" diff; Check my work / Ask for help + TA queue + Telegram ping; replay with notes/bookmarks |
+| **MUST (baseline for submission)** | Accounts/courses/roles; lesson CRUD; live checkpoints saved any time; student workspace with error detection + Done; class dashboard with filters + anonymous "Slow down" count; catch-up with "What you missed" diff; Check my work / Ask for help + TA queue + Telegram ping; replay with notes/bookmarks |
 | **SHOULD** | Error groups + Spotlight; GitHub import + export; search across lessons; insights report + Telegram digest |
-| **COULD** | Automatic step checks generated from checkpoints; AI one-line hints (hints only, cached, rule-based fallback); VS Code one-line reporter; `.vue` single-file-component lessons |
+| **COULD** | Automatic checks generated from checkpoints; AI one-line hints (hints only, cached, rule-based fallback); VS Code one-line reporter; `.vue` single-file-component lessons |
 
 **Rule:** no COULD work starts until every MUST item passes the full end-to-end demo in [07-seed-and-demo.md](./07-seed-and-demo.md).
 
@@ -164,13 +164,13 @@ Priorities follow the latest proposal (self-marking + automatic error detection 
 | "Slow down" is stored per student but only ever **readable as a count** | Dedup (one student can't spam it) without exposing identity; staff read the `session_summary` aggregate, never the raw column |
 | One `student_status` row per student per session (composite PK) | The dashboard needs the *latest* signals only — an upsert per change, with `status_history` as the separate event log for insights |
 | Snapshots stored separately from status, with a `reason` | Keeps attempts after "Load checkpoint"; only snapshots attached to a help request are ever visible to staff |
-| `steps` is its own table | Four tables reference a step by id, and a foreign key needs a real target; reordering stays atomic inside `rpc('replace_steps')` |
+| No lesson steps | The prof saves checkpoints whenever they like; a student is Done only on the latest one, so each checkpoint resets the class with no extra writes |
 | **Tile state is derived, never stored** | The student's own browser writes their status row, so a stored `state` would be forgeable. `session_tiles` computes it in SQL — and a new checkpoint re-classifies all 40 students with zero writes |
 | **Authorization lives in RLS, not in handlers** | The anon key ships in the browser bundle, so policies are the only boundary — which also means no handler can forget a check, and the privacy rule is expressed once per table |
 | **Users choose Student or Educator at sign-up** | Educators shouldn't need someone to create their account. It's safe because a prof's power is per course: being a prof lets you create *your own* course, never see anyone else's |
 | **Courses belong to one prof** | Each course has a single owner; uniqueness and insights trends are scoped per prof, so profs never collide with or see each other |
 | **Admins read everything, write only accounts** | Someone has to fix mis-picked roles and see the whole system. Writes stay limited to user management so an admin can't accidentally act inside a class. Course staff can read their own students' code to troubleshoot it; classmates and other courses' staff can't |
-| Self-marking + auto error detection as baseline; auto step checks as stretch | Automatic checking is the riskiest part — the app is complete without it |
+| Self-marking + auto error detection as baseline; auto checkpoint checks as stretch | Automatic checking is the riskiest part — the app is complete without it |
 | **Only source files cross the network** | Dependencies come from npm straight to the browser, so `node_modules` never touches Supabase. Reads are cached in IndexedDB behind a content hash and autosave uploads only changed files — which is how a 5 GB free tier is enough |
 | Local Supabase stack + mocked external APIs in E2E | A real Postgres with the real policies, reset by migration; tests never burn API quota |
 | Bootstrap 5 + our own design tokens | Fast responsive grid; tokens keep the look consistent across six people's pages |
@@ -181,7 +181,7 @@ Priorities follow the latest proposal (self-marking + automatic error detection 
 
 | Allowed (lower-order) | Not allowed (higher-order) |
 |---|---|
-| Information search, explaining errors, debugging hints | Core business logic (status classifier, error grouping, TODO parser, catch-up, help workflow, export) |
+| Information search, explaining errors, debugging hints | Core business logic (status classifier, error grouping, catch-up, help workflow, export) |
 | Layout/theme ideas, UI/UX inspiration | RLS policies, RPCs and Edge Functions |
 | Boilerplate and starter snippets | Critical frontend interactivity (workspace, dashboard, replay) |
 | Generating unit test cases, sample inputs, mock/seed data | Solving major implementation issues end-to-end |

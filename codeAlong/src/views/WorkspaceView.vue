@@ -9,18 +9,20 @@
   import { useWorkspaceStore } from "@/stores/workspace.js"
   import { useSessionStore } from "@/stores/session"
   import { useStatusStore } from "@/stores/status"
+  import { checkpointLabel } from "@shared/checkpoint-label.js"
 
   const props = defineProps({ id: { type: String, required: true } })
 
   // reading workspace store and storing as variable
   const workspaceStore = useWorkspaceStore()
   const sessionStore = useSessionStore()
-  // my progress on the prof's dashboard: the step I've marked Completed, my latest error
+  // my progress on the prof's dashboard: the checkpoint I've clicked Done on, my latest error
   const statusStore = useStatusStore()
 
-  // "Completed" is about the step the prof is on now, so it moves on with each checkpoint
-  const stepDone = computed(
-    () => !!sessionStore.currentStep && statusStore.doneStepOrder >= sessionStore.currentStep.order,
+  // Done only counts for the prof's latest checkpoint: a new one puts me back to In progress
+  const caughtUp = computed(() => statusStore.doneSeq === sessionStore.checkpointSeq)
+  const checkpoint = computed(() =>
+    checkpointLabel(sessionStore.checkpointSeq, sessionStore.latestCheckpoint?.title),
   )
   const loaded = ref(false)
 
@@ -39,7 +41,6 @@
 
   onMounted(async () => {
     if (!isolated) return
-    sessionStore.open(props.id)
     try {
       // boot the WebContainer while this student's code downloads. The class and my status
       // don't wait for the boot, so a WebContainer that fails still leaves the code and my
@@ -69,9 +70,7 @@
     unmounted = true
     stopWorkspace?.() // if the startWorkspace has finished firing and returned the function, then call the stop function before unmount
     statusStore.stop()
-    workspaceStore.close() // saves any edit still waiting for the 5 s autosave
-    sessionStore.close
-    
+    workspaceStore.close() // saves any edit still waiting for the 5 s autosave, then leaves the class channel
   })
 </script>
 
@@ -80,15 +79,13 @@
   <div class="ca-fill-viewport workspace-page">
     <StudentWorkspaceHeader
       :lesson-title="sessionStore.session?.lesson.title"
-      :step="sessionStore.currentStep"
-      :step-count="sessionStore.steps.length"
-      :done="stepDone"
+      :checkpoint="checkpoint"
+      :done="caughtUp"
       :disabled="!loaded || !sessionStore.isLive"
       :session-id="id"
-      :step-id="sessionStore.currentStep?.id"
       :files="workspaceStore.files"
-      @done="statusStore.markDone(sessionStore.currentStep.order)"
-      @undo="statusStore.markInProgress(sessionStore.currentStep.order)"
+      @done="statusStore.markDone(sessionStore.checkpointSeq)"
+      @undo="statusStore.markInProgress()"
       
     />
 

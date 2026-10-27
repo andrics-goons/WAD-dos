@@ -14,7 +14,6 @@
 --   users        00000000-0000-0000-0000-0000000000NN   (NN = the # in 07's user table)
 --   courses      00000000-0000-0000-0001-00000000000N
 --   lessons      00000000-0000-0000-0002-00000000000N   (lesson N is in course N)
---   steps        00000000-0000-0000-0003-00000000N00K   (step K of lesson N)
 --   sessions     00000000-0000-0000-0004-00000000000N
 
 
@@ -165,21 +164,6 @@ insert into seed.starter values ($mc$[
   }
 ]$mc$);
 
-create table seed.step_titles (k int primary key, title text);
-insert into seed.step_titles values
-    (1, 'Create the Vue app with a list of categories'),
-    (2, 'Fetch items for the selected category with axios'),
-    (3, 'Create the ItemCard component with an items prop'),
-    (4, 'Emit add-to-cart from ItemCard'),
-    (5, 'Add the item to the cart in the parent (increase quantity if it''s already there)'),
-    (6, 'Show the cart total with a computed property'),
-    (7, 'Save the cart to localStorage and load it on start'),
-    (8, 'Add Reset and Checkout buttons (POST /api/checkout)');
-
-create function seed.step(lesson int, k int) returns uuid language sql immutable as $$
-    select ('00000000-0000-0000-0003-' || lpad((lesson * 1000 + k)::text, 12, '0'))::uuid
-$$;
-
 -- The same lesson in all three courses (lessons belong to a course, so each needs a copy).
 insert into public.lessons (id, course_id, title, week, description, files, entry_file, status, created_by)
 select ('00000000-0000-0000-0002-' || lpad(n::text, 12, '0'))::uuid,
@@ -190,21 +174,9 @@ select ('00000000-0000-0000-0002-' || lpad(n::text, 12, '0'))::uuid,
        case n when 3 then seed.u(16) else seed.u(1) end
   from generate_series(1, 3) n;
 
--- Eight steps per lesson. todo_refs = every file + line where "TODO k:" appears in the
--- starter, which is what parseTodos produces.
-insert into public.steps (id, lesson_id, "order", title, todo_refs)
-select seed.step(n, t.k),
-       ('00000000-0000-0000-0002-' || lpad(n::text, 12, '0'))::uuid,
-       t.k, t.title,
-       (select coalesce(jsonb_agg(jsonb_build_object('file', f.e->>'path', 'line', l.n) order by f.i, l.n), '[]')
-          from seed.starter s,
-               jsonb_array_elements(s.files) with ordinality f(e, i),
-               unnest(string_to_array(f.e->>'content', E'\n')) with ordinality l(text, n)
-         where l.text like '%TODO ' || t.k || ':%')
-  from generate_series(1, 3) n, seed.step_titles t;
 
 
--- 5. The prof's code at each step ------------------------------------
+-- 5. The prof's code at each checkpoint ------------------------------------
 -- Checkpoint k = the starter with the solutions to TODOs 1…k filled in, so the replay
 -- shows the code actually growing. Each patch swaps one exact piece of text.
 
@@ -236,7 +208,7 @@ $p$, $p$// Declare the prop with defineProps. Each item looks like { id, name, p
 const props = defineProps({ items: { type: Array, required: true } })
 $p$),
 
--- the trouble step: inside <script setup> it's props.items; the template can say items
+-- the trouble spot: inside <script setup> it's props.items; the template can say items
 (4, 1, 'src/components/ItemCard.vue', $p$function addToCart(id) {
 }$p$, $p$const emit = defineEmits(['add-to-cart'])
 
@@ -326,8 +298,8 @@ begin
     return f;
 end $$;
 
--- What half the class wrote at step 4: items instead of props.items
-create function seed.step4_bug() returns jsonb language sql as $$
+-- What half the class wrote for checkpoint 4: items instead of props.items
+create function seed.checkpoint4_bug() returns jsonb language sql as $$
     select seed.patched(seed.files_at(4), 'src/components/ItemCard.vue', 'props.items.find', 'items.find')
 $$;
 
@@ -335,53 +307,57 @@ $$;
 -- 6. Sessions ------------------------------------
 
 insert into public.sessions (id, lesson_id, course_id, started_by, join_code, status,
-                             current_step_id, settings, announcement, started_at, ended_at) values
+                             checkpoint_seq, settings, announcement, started_at, ended_at) values
     -- the past session everything else hangs off: replay, report, help history, notes
     ('00000000-0000-0000-0004-000000000001', '00000000-0000-0000-0002-000000000001',
-     '00000000-0000-0000-0001-000000000001', seed.u(1), 'MNCART', 'ended', seed.step(1, 8),
+     '00000000-0000-0000-0001-000000000001', seed.u(1), 'MNCART', 'ended', 8,
      default, null, '2026-10-12 14:00+08', '2026-10-12 15:35+08'),
     -- same lesson, last term (report only)
     ('00000000-0000-0000-0004-000000000002', '00000000-0000-0000-0002-000000000002',
-     '00000000-0000-0000-0001-000000000002', seed.u(1), 'MNCT25', 'ended', null,
+     '00000000-0000-0000-0001-000000000002', seed.u(1), 'MNCT25', 'ended', 0,
      default, null, '2025-10-13 14:00+08', '2025-10-13 15:35+08'),
     -- Prof Tan's run (report only)
     ('00000000-0000-0000-0004-000000000003', '00000000-0000-0000-0002-000000000003',
-     '00000000-0000-0000-0001-000000000003', seed.u(16), 'TANMCT', 'ended', null,
+     '00000000-0000-0000-0001-000000000003', seed.u(16), 'TANMCT', 'ended', 0,
      default, null, '2026-10-13 10:00+08', '2026-10-13 11:35+08'),
     -- LIVE, for building the dashboard and workspace before start_session exists.
     -- idleAfterSec is 3600 (not 180) so the tiles stay un-idle for an hour after a reset.
     ('00000000-0000-0000-0004-000000000004', '00000000-0000-0000-0002-000000000001',
-     '00000000-0000-0000-0001-000000000001', seed.u(1), 'CART42', 'live', seed.step(1, 3),
+     '00000000-0000-0000-0001-000000000001', seed.u(1), 'CART42', 'live', 3,
      '{"allowCatchUp": true, "hintsEnabled": false, "idleAfterSec": 3600}',
-     jsonb_build_object('text', 'Step 3 is where build errors show up — check your import paths.',
+     jsonb_build_object('text', 'ItemCard is where build errors show up — check your import paths.',
                         'at', now() - interval '5 minutes'),
      now() - interval '25 minutes', null);
 
-insert into public.checkpoints (session_id, step_id, seq, files, note, created_by, created_at)
-select '00000000-0000-0000-0004-000000000001', seed.step(1, k), k, seed.files_at(k), note, seed.u(1),
-       timestamptz '2026-10-12 14:00+08' + make_interval(mins => k * 10)
-  from (values
-      (1, 'Categories load on mount'),
-      (2, 'Items load for the selected category'),
-      (3, 'ItemCard with an items prop'),
-      (4, 'Emit add-to-cart — props.items in the script, not items!'),
-      (5, 'Add to cart, or bump the quantity'),
-      (6, 'Computed total'),
-      (7, 'Cart survives a refresh'),
-      (8, 'Reset and Checkout')
-  ) c(k, note);
+-- The titles Prof Lee typed when saving each checkpoint
+create table seed.checkpoint_titles (k int primary key, title text);
+insert into seed.checkpoint_titles values
+    (1, 'Categories load on mount'),
+    (2, 'Items load for the selected category'),
+    (3, 'ItemCard with an items prop'),
+    (4, 'Emit add-to-cart — props.items in the script, not items!'),
+    (5, 'Add to cart, or bump the quantity'),
+    (6, 'Computed total'),
+    (7, 'Cart survives a refresh'),
+    (8, 'Reset and Checkout');
 
-insert into public.checkpoints (session_id, step_id, seq, files, created_by, created_at)
-select '00000000-0000-0000-0004-000000000004', seed.step(1, k), k, seed.files_at(k), seed.u(1),
+insert into public.checkpoints (session_id, seq, files, title, created_by, created_at)
+select '00000000-0000-0000-0004-000000000001', k, seed.files_at(k), title, seed.u(1),
+       timestamptz '2026-10-12 14:00+08' + make_interval(mins => k * 10)
+  from seed.checkpoint_titles;
+
+insert into public.checkpoints (session_id, seq, files, title, created_by, created_at)
+select '00000000-0000-0000-0004-000000000004', k, seed.files_at(k), title, seed.u(1),
        now() - make_interval(mins => 25 - k * 6)
-  from generate_series(1, 3) k;
+  from seed.checkpoint_titles where k <= 3;
 
 
 -- 7. The past session, minute by minute ------------------------------------
--- 11 students. Checkpoint k lands at 14:00 + 10k min; each student marks it done `pace`
--- minutes later. Six hit `items is not defined` at step 4; three never finish step 7.
+-- 11 students. Checkpoint k lands at 14:00 + 10k min, which puts everyone back to in progress;
+-- each student clicks Done `pace` minutes later. Six hit `items is not defined` on checkpoint 4;
+-- three (`stuck`) never catch up to checkpoints 7 and 8.
 
-create table seed.past (n int, join_min int, pace int, err4 boolean, behind boolean, catchup boolean);
+create table seed.past (n int, join_min int, pace int, err4 boolean, stuck boolean, catchup boolean);
 insert into seed.past values
     ( 4, 1, 3, false, false, false),   -- Alex
     ( 5, 1, 5, true,  false, false),   -- Bea
@@ -406,32 +382,29 @@ declare
     tk   timestamptz;
 begin
     for s in select * from seed.past order by n loop
-        insert into public.status_history (session_id, student_id, state, step_order, at)
+        insert into public.status_history (session_id, student_id, state, checkpoint_seq, at)
         values (sid, seed.u(s.n), 'in_progress', 0, t0 + make_interval(mins => s.join_min));
 
         for k in 1..8 loop
             tk := t0 + make_interval(mins => k * 10);
 
-            if s.behind and k > 6 then
-                -- never marks step 7 done: checkpoint 7 makes them in_progress, checkpoint 8 behind
-                insert into public.status_history (session_id, student_id, state, step_order, at)
-                values (sid, seed.u(s.n), case k when 7 then 'in_progress' else 'behind' end, 6, tk);
-                continue;
+            -- checkpoint k resets "done on k-1" to in_progress (before checkpoint 1 they're
+            -- already in_progress, so nothing changes)
+            if k > 1 then
+                insert into public.status_history (session_id, student_id, state, checkpoint_seq, at)
+                values (sid, seed.u(s.n), 'in_progress', k, tk);
             end if;
 
-            -- the checkpoint moves the target: done on k-1 becomes in_progress on k
-            if k > 1 then
-                insert into public.status_history (session_id, student_id, state, step_order, at)
-                values (sid, seed.u(s.n), 'in_progress', k - 1, tk);
-            end if;
+            -- never clicks Done on 7 or 8, so they stay in_progress (no new row)
+            continue when s.stuck and k > 6;
 
             if s.err4 and k = 4 then
-                insert into public.status_history (session_id, student_id, state, step_order, error_key, at)
-                values (sid, seed.u(s.n), 'error', 3, 'ReferenceError: items is not defined',
+                insert into public.status_history (session_id, student_id, state, checkpoint_seq, error_key, at)
+                values (sid, seed.u(s.n), 'error', 4, 'ReferenceError: items is not defined',
                         tk + interval '2 minutes');
             end if;
 
-            insert into public.status_history (session_id, student_id, state, step_order, at)
+            insert into public.status_history (session_id, student_id, state, checkpoint_seq, at)
             values (sid, seed.u(s.n), 'done', k,
                     tk + make_interval(mins => s.pace + case when s.err4 and k = 4 then 2 else 0 end));
         end loop;
@@ -440,47 +413,47 @@ end $$;
 
 -- Each student's final row. Its derived state equals their last history row, so the
 -- status_history trigger adds nothing.
-insert into public.student_status (session_id, student_id, done_step_order, catch_ups, last_seen_at, joined_at)
+insert into public.student_status (session_id, student_id, done_seq, catch_ups, last_seen_at, joined_at)
 select '00000000-0000-0000-0004-000000000001', seed.u(n),
-       case when behind then 6 else 8 end,
+       case when stuck then 6 else 8 end,
        case when catchup then 1 else 0 end,
        '2026-10-12 15:34+08',
        timestamptz '2026-10-12 14:00+08' + make_interval(mins => join_min)
   from seed.past;
 
 -- Snapshots: everyone's autosave, plus Eli's and Ivan's code just before they caught up.
-insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at, updated_at)
-select '00000000-0000-0000-0004-000000000001', seed.u(n),
-       seed.step(1, case when behind then 7 else 8 end), 'autosave',
-       seed.files_at(case when behind then 6 else 8 end),
+insert into public.snapshots (session_id, student_id, reason, files, created_at, updated_at)
+select '00000000-0000-0000-0004-000000000001', seed.u(n), 'autosave',
+       seed.files_at(case when stuck then 6 else 8 end),
        timestamptz '2026-10-12 14:00+08' + make_interval(mins => join_min),
        '2026-10-12 15:34+08' -- last saved just before the class ended
   from seed.past;
 
-insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at, updated_at)
-select '00000000-0000-0000-0004-000000000001', seed.u(n), seed.step(1, 7), 'before_catchup',
+insert into public.snapshots (session_id, student_id, reason, files, created_at, updated_at)
+select '00000000-0000-0000-0004-000000000001', seed.u(n), 'before_catchup',
        seed.files_at(6), '2026-10-12 15:18+08', '2026-10-12 15:18+08'
   from seed.past where catchup;
 
--- Five help requests: 2 passed checks, 2 replied helps, 1 resolved in person.
+-- Five help requests: 2 passed checks, 2 replied helps, 1 resolved in person. The number
+-- after the student is the checkpoint the class was on when they asked.
 -- Each carries its own help_request snapshot of the code at the moment they asked.
 create function seed.help(
-    p_student int, p_step int, p_type text, p_files jsonb, p_message text, p_status text,
+    p_student int, p_seq int, p_type text, p_files jsonb, p_message text, p_status text,
     p_staff int, p_reply text, p_at timestamptz, p_seat text default null
 ) returns void language plpgsql as $$
 declare
     sid  uuid := '00000000-0000-0000-0004-000000000001';
     snap uuid;
 begin
-    insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at, updated_at)
-    values (sid, seed.u(p_student), seed.step(1, p_step), 'help_request', p_files, p_at, p_at)
+    insert into public.snapshots (session_id, student_id, reason, files, created_at, updated_at)
+    values (sid, seed.u(p_student), 'help_request', p_files, p_at, p_at)
     returning id into snap;
 
     insert into public.help_requests (
-        session_id, student_id, step_id, type, snapshot_id, message, in_person, seat, status,
+        session_id, student_id, checkpoint_seq, type, snapshot_id, message, in_person, seat, status,
         claimed_by, thread, telegram_notified_at, created_at, updated_at
     ) values (
-        sid, seed.u(p_student), seed.step(1, p_step), p_type, snap, p_message, p_seat is not null, p_seat,
+        sid, seed.u(p_student), p_seq, p_type, snap, p_message, p_seat is not null, p_seat,
         p_status, seed.u(p_staff),
         case when p_reply is null then '[]'::jsonb else jsonb_build_array(jsonb_build_object(
             'role', 'staff', 'author_id', seed.u(p_staff), 'body', p_reply,
@@ -494,16 +467,16 @@ select seed.help(4, 2, 'check', seed.files_at(2), null, 'passed', 2,
                  'Looks good — nice use of params.', '2026-10-12 14:22+08');
 select seed.help(6, 5, 'check', seed.files_at(5), null, 'passed', 3,
                  'Yes — and the quantity bump is exactly right.', '2026-10-12 14:53+08');
-select seed.help(5, 4, 'help', seed.step4_bug(), 'items is not defined in ItemCard?', 'replied', 2,
+select seed.help(5, 4, 'help', seed.checkpoint4_bug(), 'items is not defined in ItemCard?', 'replied', 2,
                  'Inside <script setup> the prop is props.items. The template can say items; the script can''t.',
                  '2026-10-12 14:43+08');
-select seed.help(11, 4, 'help', seed.step4_bug(), 'My add to cart button crashes', 'replied', 1,
+select seed.help(11, 4, 'help', seed.checkpoint4_bug(), 'My add to cart button crashes', 'replied', 1,
                  'Same one as half the room: props.items, not items. Check line 11 of ItemCard.vue.',
                  '2026-10-12 14:44+08');
 select seed.help(10, 7, 'help', seed.files_at(6), 'Not sure where the watch goes', 'resolved', 3,
                  null, '2026-10-12 15:15+08', 'C14');
 
--- Alex's notes and bookmarks on steps 4 and 7, anchored to those checkpoints.
+-- Alex's notes and bookmarks on checkpoints 4 and 7.
 insert into public.notes (user_id, session_id, checkpoint_id, kind, body, created_at, updated_at)
 select seed.u(4), c.session_id, c.id, n.kind, n.body, c.created_at + interval '4 minutes', c.created_at + interval '4 minutes'
   from (values
@@ -514,7 +487,7 @@ select seed.u(4), c.session_id, c.id, n.kind, n.body, c.created_at + interval '4
   ) n(seq, kind, body)
   join public.checkpoints c on c.session_id = '00000000-0000-0000-0004-000000000001' and c.seq = n.seq;
 
--- "Slow down" over the session: three at once during step 4, three again near the end.
+-- "Slow down" over the session: three at once around checkpoint 4, three again near the end.
 insert into public.slow_down_events (session_id, delta, at)
 select '00000000-0000-0000-0004-000000000001', delta, timestamptz '2026-10-12 14:00+08' + make_interval(mins => m)
   from (values (43, 1), (44, 1), (45, 1), (47, -1), (48, -1), (49, -1),
@@ -527,76 +500,76 @@ select '00000000-0000-0000-0004-000000000001', delta, timestamptz '2026-10-12 14
 -- past session's numbers against its history. Replace with buildReport's output once
 -- shared/report-builder.js exists.
 --
--- steps[]: { order, stepId, title, reachedDone, dropOff, errorStudents, peakBehind,
---            medianMinutesToDone, catchUps, helpRequests, trouble }
+-- checkpoints[]: { seq, title, reachedDone, dropOff, errorStudents, medianMinutesToDone,
+--                  catchUps, helpRequests, trouble }
 --   trouble = (0.4 × errorStudents + 0.3 × dropOff + 0.2 × catchUps + 0.1 × helpRequests) / joined
 
--- the past session (MNCART): these numbers match its history above — 6 errors at step 4,
--- 3 never finish step 7, Eli and Ivan's two catch-ups, peak of 3 asking to slow down at once
-insert into public.session_reports (session_id, course_id, lesson_id, attendance, steps, top_errors, slow_down_peak, generated_at)
+-- the past session (MNCART): these numbers match its history above — 6 errors on checkpoint 4,
+-- 3 never catch up to checkpoint 7, Eli and Ivan's two catch-ups, peak of 3 asking to slow down at once
+insert into public.session_reports (session_id, course_id, lesson_id, attendance, checkpoints, top_errors, slow_down_peak, generated_at)
 values (
     '00000000-0000-0000-0004-000000000001', '00000000-0000-0000-0001-000000000001', '00000000-0000-0000-0002-000000000001',
     '{"joined": 11, "enrolled": 11}',
     $r$[
-        { "order": 1, "stepId": "00000000-0000-0000-0003-000000001001", "title": "Create the Vue app with a list of categories", "reachedDone": 11, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": 15.0, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 },
-        { "order": 2, "stepId": "00000000-0000-0000-0003-000000001002", "title": "Fetch items for the selected category with axios", "reachedDone": 11, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": 15.0, "catchUps": 0, "helpRequests": 1, "trouble": 0.009 },
-        { "order": 3, "stepId": "00000000-0000-0000-0003-000000001003", "title": "Create the ItemCard component with an items prop", "reachedDone": 11, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": 15.0, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 },
-        { "order": 4, "stepId": "00000000-0000-0000-0003-000000001004", "title": "Emit add-to-cart from ItemCard", "reachedDone": 11, "dropOff": 0, "errorStudents": 6, "peakBehind": 0, "medianMinutesToDone": 16.0, "catchUps": 0, "helpRequests": 2, "trouble": 0.236 },
-        { "order": 5, "stepId": "00000000-0000-0000-0003-000000001005", "title": "Add the item to the cart in the parent (increase quantity if it's already there)", "reachedDone": 11, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": 15.0, "catchUps": 0, "helpRequests": 1, "trouble": 0.009 },
-        { "order": 6, "stepId": "00000000-0000-0000-0003-000000001006", "title": "Show the cart total with a computed property", "reachedDone": 11, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": 15.0, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 },
-        { "order": 7, "stepId": "00000000-0000-0000-0003-000000001007", "title": "Save the cart to localStorage and load it on start", "reachedDone": 8, "dropOff": 3, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": 14.0, "catchUps": 2, "helpRequests": 1, "trouble": 0.127 },
-        { "order": 8, "stepId": "00000000-0000-0000-0003-000000001008", "title": "Add Reset and Checkout buttons (POST /api/checkout)", "reachedDone": 8, "dropOff": 0, "errorStudents": 0, "peakBehind": 3, "medianMinutesToDone": 14.0, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 }
+        {"seq": 1, "title": "Categories load on mount", "reachedDone": 11, "dropOff": 0, "errorStudents": 0, "medianMinutesToDone": 15.0, "catchUps": 0, "helpRequests": 0, "trouble": 0.0},
+        {"seq": 2, "title": "Items load for the selected category", "reachedDone": 11, "dropOff": 0, "errorStudents": 0, "medianMinutesToDone": 15.0, "catchUps": 0, "helpRequests": 1, "trouble": 0.009},
+        {"seq": 3, "title": "ItemCard with an items prop", "reachedDone": 11, "dropOff": 0, "errorStudents": 0, "medianMinutesToDone": 15.0, "catchUps": 0, "helpRequests": 0, "trouble": 0.0},
+        {"seq": 4, "title": "Emit add-to-cart — props.items in the script, not items!", "reachedDone": 11, "dropOff": 0, "errorStudents": 6, "medianMinutesToDone": 16.0, "catchUps": 0, "helpRequests": 2, "trouble": 0.236},
+        {"seq": 5, "title": "Add to cart, or bump the quantity", "reachedDone": 11, "dropOff": 0, "errorStudents": 0, "medianMinutesToDone": 15.0, "catchUps": 0, "helpRequests": 1, "trouble": 0.009},
+        {"seq": 6, "title": "Computed total", "reachedDone": 11, "dropOff": 0, "errorStudents": 0, "medianMinutesToDone": 15.0, "catchUps": 0, "helpRequests": 0, "trouble": 0.0},
+        {"seq": 7, "title": "Cart survives a refresh", "reachedDone": 8, "dropOff": 3, "errorStudents": 0, "medianMinutesToDone": 14.0, "catchUps": 2, "helpRequests": 1, "trouble": 0.127},
+        {"seq": 8, "title": "Reset and Checkout", "reachedDone": 8, "dropOff": 0, "errorStudents": 0, "medianMinutesToDone": 14.0, "catchUps": 0, "helpRequests": 0, "trouble": 0.0}
     ]$r$,
-    $r$[{"key": "ReferenceError: items is not defined", "students": 6, "stepOrder": 4}]$r$,
+    $r$[{"key": "ReferenceError: items is not defined", "students": 6, "seq": 4}]$r$,
     3, '2026-10-12 15:36+08'
 );
 
--- last term (MNCT25): step 4 is the top trouble step again, so it shows as recurring
-insert into public.session_reports (session_id, course_id, lesson_id, attendance, steps, top_errors, slow_down_peak, generated_at)
+-- last term (MNCT25): checkpoint 4 is the top trouble spot again, so it shows as recurring
+insert into public.session_reports (session_id, course_id, lesson_id, attendance, checkpoints, top_errors, slow_down_peak, generated_at)
 values (
     '00000000-0000-0000-0004-000000000002', '00000000-0000-0000-0001-000000000002', '00000000-0000-0000-0002-000000000002',
     '{"joined": 24, "enrolled": 27}',
     $r$[
-        { "order": 1, "stepId": "00000000-0000-0000-0003-000000002001", "title": "Create the Vue app with a list of categories", "reachedDone": 24, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 },
-        { "order": 2, "stepId": "00000000-0000-0000-0003-000000002002", "title": "Fetch items for the selected category with axios", "reachedDone": 24, "dropOff": 0, "errorStudents": 1, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.021 },
-        { "order": 3, "stepId": "00000000-0000-0000-0003-000000002003", "title": "Create the ItemCard component with an items prop", "reachedDone": 23, "dropOff": 1, "errorStudents": 2, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.050 },
-        { "order": 4, "stepId": "00000000-0000-0000-0003-000000002004", "title": "Emit add-to-cart from ItemCard", "reachedDone": 19, "dropOff": 4, "errorStudents": 9, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 5, "trouble": 0.221 },
-        { "order": 5, "stepId": "00000000-0000-0000-0003-000000002005", "title": "Add the item to the cart in the parent (increase quantity if it's already there)", "reachedDone": 19, "dropOff": 0, "errorStudents": 1, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.017 },
-        { "order": 6, "stepId": "00000000-0000-0000-0003-000000002006", "title": "Show the cart total with a computed property", "reachedDone": 18, "dropOff": 1, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.017 },
-        { "order": 7, "stepId": "00000000-0000-0000-0003-000000002007", "title": "Save the cart to localStorage and load it on start", "reachedDone": 17, "dropOff": 1, "errorStudents": 2, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.050 },
-        { "order": 8, "stepId": "00000000-0000-0000-0003-000000002008", "title": "Add Reset and Checkout buttons (POST /api/checkout)", "reachedDone": 17, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 }
+        {"seq": 1, "title": "Categories load on mount", "reachedDone": 24, "dropOff": 0, "errorStudents": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.0},
+        {"seq": 2, "title": "Items load for the selected category", "reachedDone": 24, "dropOff": 0, "errorStudents": 1, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.021},
+        {"seq": 3, "title": "ItemCard with an items prop", "reachedDone": 23, "dropOff": 1, "errorStudents": 2, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.05},
+        {"seq": 4, "title": "Emit add-to-cart — props.items in the script, not items!", "reachedDone": 19, "dropOff": 4, "errorStudents": 9, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 5, "trouble": 0.221},
+        {"seq": 5, "title": "Add to cart, or bump the quantity", "reachedDone": 19, "dropOff": 0, "errorStudents": 1, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.017},
+        {"seq": 6, "title": "Computed total", "reachedDone": 18, "dropOff": 1, "errorStudents": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.017},
+        {"seq": 7, "title": "Cart survives a refresh", "reachedDone": 17, "dropOff": 1, "errorStudents": 2, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.05},
+        {"seq": 8, "title": "Reset and Checkout", "reachedDone": 17, "dropOff": 0, "errorStudents": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.0}
     ]$r$,
-    $r$[{"key": "ReferenceError: items is not defined", "students": 9, "stepOrder": 4}]$r$,
+    $r$[{"key": "ReferenceError: items is not defined", "students": 9, "seq": 4}]$r$,
     5, '2025-10-13 15:36+08'
 );
 
--- Prof Tan's run (TANMCT): step 2 instead — must never show up in Prof Lee's trends
-insert into public.session_reports (session_id, course_id, lesson_id, attendance, steps, top_errors, slow_down_peak, generated_at)
+-- Prof Tan's run (TANMCT): checkpoint 2 instead — must never show up in Prof Lee's trends
+insert into public.session_reports (session_id, course_id, lesson_id, attendance, checkpoints, top_errors, slow_down_peak, generated_at)
 values (
     '00000000-0000-0000-0004-000000000003', '00000000-0000-0000-0001-000000000003', '00000000-0000-0000-0002-000000000003',
     '{"joined": 30, "enrolled": 32}',
     $r$[
-        { "order": 1, "stepId": "00000000-0000-0000-0003-000000003001", "title": "Create the Vue app with a list of categories", "reachedDone": 29, "dropOff": 1, "errorStudents": 1, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.027 },
-        { "order": 2, "stepId": "00000000-0000-0000-0003-000000003002", "title": "Fetch items for the selected category with axios", "reachedDone": 24, "dropOff": 5, "errorStudents": 8, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 4, "trouble": 0.170 },
-        { "order": 3, "stepId": "00000000-0000-0000-0003-000000003003", "title": "Create the ItemCard component with an items prop", "reachedDone": 23, "dropOff": 1, "errorStudents": 2, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.040 },
-        { "order": 4, "stepId": "00000000-0000-0000-0003-000000003004", "title": "Emit add-to-cart from ItemCard", "reachedDone": 23, "dropOff": 0, "errorStudents": 2, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.030 },
-        { "order": 5, "stepId": "00000000-0000-0000-0003-000000003005", "title": "Add the item to the cart in the parent (increase quantity if it's already there)", "reachedDone": 22, "dropOff": 1, "errorStudents": 1, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.023 },
-        { "order": 6, "stepId": "00000000-0000-0000-0003-000000003006", "title": "Show the cart total with a computed property", "reachedDone": 22, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 },
-        { "order": 7, "stepId": "00000000-0000-0000-0003-000000003007", "title": "Save the cart to localStorage and load it on start", "reachedDone": 21, "dropOff": 1, "errorStudents": 1, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.027 },
-        { "order": 8, "stepId": "00000000-0000-0000-0003-000000003008", "title": "Add Reset and Checkout buttons (POST /api/checkout)", "reachedDone": 21, "dropOff": 0, "errorStudents": 0, "peakBehind": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.000 }
+        {"seq": 1, "title": "Categories load on mount", "reachedDone": 29, "dropOff": 1, "errorStudents": 1, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.027},
+        {"seq": 2, "title": "Items load for the selected category", "reachedDone": 24, "dropOff": 5, "errorStudents": 8, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 4, "trouble": 0.17},
+        {"seq": 3, "title": "ItemCard with an items prop", "reachedDone": 23, "dropOff": 1, "errorStudents": 2, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.04},
+        {"seq": 4, "title": "Emit add-to-cart — props.items in the script, not items!", "reachedDone": 23, "dropOff": 0, "errorStudents": 2, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.03},
+        {"seq": 5, "title": "Add to cart, or bump the quantity", "reachedDone": 22, "dropOff": 1, "errorStudents": 1, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.023},
+        {"seq": 6, "title": "Computed total", "reachedDone": 22, "dropOff": 0, "errorStudents": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.0},
+        {"seq": 7, "title": "Cart survives a refresh", "reachedDone": 21, "dropOff": 1, "errorStudents": 1, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 1, "trouble": 0.027},
+        {"seq": 8, "title": "Reset and Checkout", "reachedDone": 21, "dropOff": 0, "errorStudents": 0, "medianMinutesToDone": null, "catchUps": 0, "helpRequests": 0, "trouble": 0.0}
     ]$r$,
-    $r$[{"key": "TypeError: Cannot read properties of undefined (reading 'data')", "students": 8, "stepOrder": 2}]$r$,
+    $r$[{"key": "TypeError: Cannot read properties of undefined (reading 'data')", "students": 8, "seq": 2}]$r$,
     4, '2026-10-13 11:36+08'
 );
 
 
 -- 9. The live session (CART42) ------------------------------------
--- Five students mid-class, one of each tile state, so Evan's dashboard and Karin's queue
--- have something to render. Written through the triggers, so history is stamped now().
---   Alex done · Eli done · Chen in_progress · Bea error (build) · Dana behind
+-- Five students mid-class on checkpoint 3, so Evan's dashboard and Karin's queue have
+-- something to render. Written through the triggers, so history is stamped now().
+--   Alex done · Eli done · Chen in_progress (done on 2) · Bea error (build) · Dana in_progress (done on 1)
 -- Faye and the others haven't joined: the "absent" side of attendance.
 
-insert into public.student_status (session_id, student_id, done_step_order, error, last_seen_at, joined_at)
+insert into public.student_status (session_id, student_id, done_seq, error, last_seen_at, joined_at)
 select '00000000-0000-0000-0004-000000000004', seed.u(n), done, err, now(), now() - interval '20 minutes'
   from (values
       (4, 3, null::jsonb),
@@ -611,21 +584,21 @@ select '00000000-0000-0000-0004-000000000004', seed.u(n), done, err, now(), now(
       (7, 1, null)
   ) s(n, done, err);
 
-insert into public.snapshots (session_id, student_id, step_id, reason, files)
-select '00000000-0000-0000-0004-000000000004', seed.u(n), seed.step(1, least(done + 1, 3)), 'autosave',
+insert into public.snapshots (session_id, student_id, reason, files)
+select '00000000-0000-0000-0004-000000000004', seed.u(n), 'autosave',
        case n when 5 then seed.patched(seed.files_at(3), 'src/App.vue', './components/ItemCard.vue', './components/Itemcard.vue')
               else seed.files_at(done) end
   from (values (4, 3), (8, 3), (6, 2), (5, 2), (7, 1)) s(n, done);
 
 -- Bea's open help request, waiting in the queue
 with snap as (
-    insert into public.snapshots (session_id, student_id, step_id, reason, files)
-    values ('00000000-0000-0000-0004-000000000004', seed.u(5), seed.step(1, 3), 'help_request',
+    insert into public.snapshots (session_id, student_id, reason, files)
+    values ('00000000-0000-0000-0004-000000000004', seed.u(5), 'help_request',
             seed.patched(seed.files_at(3), 'src/App.vue', './components/ItemCard.vue', './components/Itemcard.vue'))
     returning id
 )
-insert into public.help_requests (session_id, student_id, step_id, type, snapshot_id, message, created_at)
-select '00000000-0000-0000-0004-000000000004', seed.u(5), seed.step(1, 3), 'help', snap.id,
+insert into public.help_requests (session_id, student_id, checkpoint_seq, type, snapshot_id, message, created_at)
+select '00000000-0000-0000-0004-000000000004', seed.u(5), 3, 'help', snap.id,
        'Vite says it can''t find ItemCard?', now() - interval '90 seconds'
   from snap;
 

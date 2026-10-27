@@ -29,13 +29,13 @@ All names below are fictional — don't use classmates' names in submitted data.
 |---|---|---|---|---|---|---|
 | IS216 | Web Application Development II | AY2026/27 T1 | G2 | `WAD2G2` | Prof Lee, Ana, Ben | Alex … Kim (11) |
 
-A second course, **IS216 G2 · AY2025/26 T1** (archived, enrol code `WADG25`, Prof Lee + Ana), holds one past session of the same lesson so "recurring trouble steps across terms" has data.
+A second course, **IS216 G2 · AY2025/26 T1** (archived, enrol code `WADG25`, Prof Lee + Ana), holds one past session of the same lesson so "recurring trouble checkpoints across terms" has data.
 
 A third course, **IS216 G1 · AY2026/27 T1** (enrol code `TANWAD`), belongs to **Prof Tan** and holds one past session of a same-titled Mini Cart lesson. It exists to prove the per-prof boundary: Prof Lee must never see it, and Prof Lee's trends must never count its sessions.
 
 ### Seed lesson: "Week 6 · Mini Cart" (status `ready`)
 
-Now a **real Vite + Vue project**, not three CDN files. This is forced by dropping the mock API: steps 2 and 8 need something to call, and students get a real Node server, so the lesson ships its own.
+Now a **real Vite + Vue project**, not three CDN files. This is forced by dropping the mock API: TODOs 2 and 8 need something to call, and students get a real Node server, so the lesson ships its own.
 
 **Starter files (12)** — written by the team, source only:
 
@@ -56,9 +56,9 @@ README.md               ← one paragraph: what you're building
 
 Two processes run in the container: Vite on 5173 and the Express endpoint on 3001, with Vite proxying `/api` so student code calls a relative path. This is also what makes the lesson teach the real thing — `axios.get('/api/items')` against an actual server, which is what IS216 does anyway.
 
-**The eight steps survive almost unchanged**, now against SFCs instead of a global build:
+**The eight TODO exercises survive almost unchanged**, now against SFCs instead of a global build. They are just comments in the starter code for students to solve; the seed's checkpoints follow them one by one:
 
-| Step | TODO title | File |
+| TODO | Title | File |
 |:---:|---|---|
 | 1 | Create the Vue app with a list of categories | `src/App.vue` |
 | 2 | Fetch items for the selected category with axios | `src/App.vue` |
@@ -69,7 +69,7 @@ Two processes run in the container: Vite on 5173 and the Express endpoint on 300
 | 7 | Save the cart to localStorage and load it on start | `src/App.vue` |
 | 8 | Add Reset and Checkout buttons (POST `/api/checkout`) | `src/App.vue`, `server/api.js` |
 
-Step 4 stays the deliberate trouble step — `props.items` vs `items` — which is what the seeded past session, the error-grouping demo and the Spotlight demo are all built on.
+TODO 4 (checkpoint 4 in the seed) stays the deliberate trouble spot — `props.items` vs `items` — which is what the seeded past session, the error-grouping demo and the Spotlight demo are all built on.
 
 Two things this changes:
 
@@ -82,33 +82,33 @@ Two things this changes:
 
 | Data | Contents | Demonstrates |
 |---|---|---|
-| 8 checkpoints | One per step, with short prof notes. **Each is the real code at that step**: the starter with TODOs 1…*k* solved, so replay shows the project growing | Replay, GitHub export |
-| 11 `student_status` rows + 176 `status_history` rows | 8 finish; **6 hit `ReferenceError: items is not defined` at Step 4** (`items` instead of `props.items`); **3 never finish Step 7** and end `behind`. History is written exactly as the triggers would have, with real timestamps | Insights funnel, Step 4 as top trouble step |
+| 8 checkpoints | Saved every 10 minutes, each with the title Prof Lee typed ("Categories load on mount"…). **Each is the real code at that point**: the starter with TODOs 1…*k* solved, so replay shows the project growing | Replay, GitHub export |
+| 11 `student_status` rows + `status_history` | 8 click Done on checkpoint 8; **6 hit `ReferenceError: items is not defined` on checkpoint 4** (`items` instead of `props.items`); **3 never catch up after checkpoint 6** and end in progress. Each checkpoint resets everyone to in progress; history is written exactly as the triggers would have, with real timestamps | Insights funnel, checkpoint 4 as top trouble spot |
 | 18 snapshots | Everyone's autosave, 2 `before_catchup` (Eli, Ivan), 5 `help_request` | Privacy: a TA sees only the 5 sent ones |
-| 5 help requests | 2 passed checks, 2 replied helps on the Step 4 bug, 1 in-person resolved (Gus, seat C14) | Help history in replay; Spotlight source |
-| 4 notes/bookmarks | Alex's notes on Steps 4 and 7, anchored to those checkpoints | Notes + search |
-| 12 `slow_down_events` | Three asking to slow down at once during Step 4, three again near the end | `slow_down_peak` = 3 |
-| `session_reports` row | Literal counts matching the history above, per the [05 §10](./05-core-logic.md#10-insights-report) definitions: Step 4 trouble 0.236 (top), Step 7 drop-off 3. `seed.test.js` checks them against the history | Report page renders immediately |
+| 5 help requests | 2 passed checks, 2 replied helps on the checkpoint 4 bug, 1 in-person resolved (Gus, seat C14) | Help history in replay; Spotlight source |
+| 4 notes/bookmarks | Alex's notes on checkpoints 4 and 7 | Notes + search |
+| 12 `slow_down_events` | Three asking to slow down at once around checkpoint 4, three again near the end | `slow_down_peak` = 3 |
+| `session_reports` row | Literal counts matching the history above, per the [05 §10](./05-core-logic.md#10-insights-report) definitions, per checkpoint: checkpoint 4 trouble 0.236 (top), checkpoint 7 drop-off 3. `seed.test.js` checks them against the history | Report page renders immediately |
 
 ### Seed older reports (for trends)
 
 | Session | Course | Report | Why |
 |---|---|---|---|
-| `MNCT25`, Oct 2025 | IS216 G2 · AY2025/26 T1 (archived), Prof Lee | 24 of 27 joined; **Step 4 top trouble again** | "Recurring trouble across terms" has something to find |
-| `TANMCT`, Oct 2026 | IS216 G1 · AY2026/27 T1, Prof Tan | 30 of 32 joined; Step 2 top trouble | Must **never** appear in Prof Lee's reports or trends (T-INS-08) |
+| `MNCT25`, Oct 2025 | IS216 G2 · AY2025/26 T1 (archived), Prof Lee | 24 of 27 joined; **checkpoint 4 top trouble again** | "Recurring trouble across terms" has something to find |
+| `TANMCT`, Oct 2026 | IS216 G1 · AY2026/27 T1, Prof Tan | 30 of 32 joined; checkpoint 2 top trouble | Must **never** appear in Prof Lee's reports or trends (T-INS-08) |
 
 These two have report rows only — no checkpoints or history — because a report is counts only.
 
 ### Seed live session — `CART42`
 
-Until `start_session` exists, nobody can start a class from the app, so the seed leaves one running in IS216 G2: 3 checkpoints, an announcement, and five students showing one of each tile state.
+The seed leaves one class running in IS216 G2: 3 titled checkpoints, an announcement, and five students mid-class.
 
-| Student | `done_step_order` | Tile |
+| Student | `done_seq` (latest is 3) | Tile |
 |---|:---:|---|
 | Alex, Eli | 3 | `done` |
 | Chen | 2 | `in_progress` — and has tapped **Slow down** (staff see `slow_down_count = 1`) |
 | Bea | 2 | `error`, `source: 'build'` — mistyped the `ItemCard` import; her help request is **open** in the queue |
-| Dana | 1 | `behind` |
+| Dana | 1 | `in_progress` |
 
 The live session's `idleAfterSec` is **3600**, not 180, so the tiles stay un-idle for an hour after `pnpm db:reset`; after that they all show `idle`. **End it or reset before recording the demo**, which starts its own session.
 
@@ -119,16 +119,15 @@ The live session's `idleAfterSec` is **3600**, not 180, so the tiles stay un-idl
 | Part | How |
 |---|---|
 | Accounts | Inserted into `auth.users` **and `auth.identities`** with `crypt('pass1234', gen_salt('bf'))` — the same bcrypt Supabase Auth uses. The token columns are set to `''`, not null; Supabase Auth can't log in a user whose tokens are null. The `on_auth_user_created` trigger makes each profile; one `update` then sets the roles |
-| Fixed ids | Grouped by table, readable: users `…0000-0000000000NN` (NN = the # above), courses `…0001-…N`, lessons `…0002-…N`, steps `…0003-00000000N00K`, sessions `…0004-…N` |
+| Fixed ids | Grouped by table, readable: users `…0000-0000000000NN` (NN = the # above), courses `…0001-…N`, lessons `…0002-…N`, sessions `…0004-…N` |
 | Starter files | **Copied from Dylan's `src/stores/seed/miniCartSeed.js`**, the same project the workspace boots — one source for both. If that project changes, re-copy the list |
-| Checkpoint code | A table of patches (step, file, exact text → replacement). The code at checkpoint *k* = the starter with patches 1…*k* applied. **A patch whose text is missing raises an error**, so a change to the starter breaks the seed loudly instead of seeding wrong code |
-| Steps' `todo_refs` | Computed from the starter: every file and line containing `TODO k:` — what `parseTodos` produces |
+| Checkpoint code | A table of patches (checkpoint, file, exact text → replacement). The code at checkpoint *k* = the starter with patches 1…*k* applied. **A patch whose text is missing raises an error**, so a change to the starter breaks the seed loudly instead of seeding wrong code |
 | The reports | Plain `insert`s of literal counts. The past session's match its history, and `seed.test.js` checks that they still do |
 | Helpers | Built in a scratch `seed` schema that the file drops at the end |
 
 `tests/unit/rls/seed.test.js` checks it all (T-SEED-02/03 plus the privacy rules on the seeded data). It skips itself when the database hasn't been seeded.
 
-> **Still to do — `pnpm seed:generate`.** The plan was to generate the steps and the report with the real `parseTodos` and `buildReport`. Neither exists yet, so the steps are derived in SQL and the reports are written out by hand. Once they land, a small Node script should check the seed against them.
+> **Still to do — `pnpm seed:generate`.** The plan was to generate the reports with the real `buildReport`. It doesn't exist yet, so the reports are written out by hand. Once it lands, a small Node script should check the seed against it.
 
 ---
 
@@ -167,8 +166,8 @@ Every member presents the part they built (check your section's rule on who must
 | Step | Action | What to show |
 |:---:|---|---|
 | 1 | Prof opens IS216 G2 → New lesson → **Import from GitHub** | Repo URL → files appear (GitHub API) |
-| 2 | Review steps | 8 TODOs became an ordered plan; reorder one, edit a title |
-| 3 | **Explain:** TODO parser rules (numbers, multiple files) | Code: `shared/todo-parser.js` + its unit test |
+| 2 | Review files, save as a draft, mark it ready | The starter project opens in the lesson editor |
+| 3 | **Explain:** no plan to write — the prof saves checkpoints as they teach | The teach view's Save checkpoint box |
 
 ### 2:30–5:30 · Live class (Ying Qi, Dylan, Evan)
 
@@ -176,7 +175,7 @@ Every member presents the part they built (check your section's rule on who must
 |:---:|---|---|
 | 4 | Start session | Join code + QR on the "projector" |
 | 5 | Three students join by code; simulator adds 25 more | Tiles fill in live |
-| 6 | Prof completes Step 3, clicks **Save checkpoint** | Every student gets the toast instantly |
+| 6 | Prof finishes ItemCard, types a title, clicks **Save checkpoint** | Every student gets the toast instantly and goes back to In progress until they click Done |
 | 7 | Alex (575 px window) types `items` instead of `props.items` | Console shows the real error; gutter marker; Alex's tile turns **red** |
 | 8 | Several simulated students hit the same error | Error group "`items is not defined` ×7" |
 | 9 | Bea and Chen tap **Slow down** | Slow-down count 2 — no names anywhere |
@@ -196,7 +195,7 @@ Every member presents the part they built (check your section's rule on who must
 | Step | Action | What to show |
 |:---:|---|---|
 | 15 | Bea → **Check my work** | TA queue shows the card instantly (no code until opened) |
-| 16 | TA claims → side-by-side → **Pass** | Bea's step gets a tick |
+| 16 | TA claims → side-by-side → **Pass** | Bea gets a tick for that checkpoint |
 | 17 | Chen → **Ask for help** → "Come to my seat" Row C 4 | Telegram message arrives on the TA's phone (Telegram Bot API) |
 | 18 | Prof clicks **Spotlight** on the error group | Anonymised excerpt + fix on every screen |
 | 19 | **Explain:** privacy by design — prof sees status, not code | Slide: what each role can see |
@@ -207,8 +206,8 @@ Every member presents the part they built (check your section's rule on who must
 |:---:|---|---|
 | 20 | Prof ends session | Students see "Class ended — open replay" |
 | 21 | Replay: step through checkpoints, add a note, search | Changed lines highlighted |
-| 22 | **Export to GitHub** | GitHub commits page: one commit per step |
-| 23 | Insights report (seeded past session) | Funnel; Step 4 top trouble step; recurring across terms |
+| 22 | **Export to GitHub** | GitHub commits page: one commit per checkpoint |
+| 23 | Insights report (seeded past session) | Funnel per checkpoint; checkpoint 4 the top trouble spot; recurring across terms |
 | 24 | Send digest | Telegram: TA summary + absent-student message |
 
 ### 10:15–11:45 · How it's built & tested (Andric, all)
@@ -223,7 +222,7 @@ Every member presents the part they built (check your section's rule on who must
 
 ### 11:45–12:00 · Close
 
-What we'd do next (automatic step checks, VS Code reporter) + thanks.
+What we'd do next (automatic checkpoint checks, VS Code reporter) + thanks.
 
 ---
 
@@ -258,7 +257,7 @@ Before Q&A: log in first, open pages at 575 px in DevTools with the console visi
 | What stops student code from breaking the app? | Dylan | It runs in a WebContainer — a WASM Node sandbox in the browser — and the preview is a separate origin, so it cannot reach our login session, DOM or database. A hung loop hangs that iframe, not the app |
 | Why run Node in the browser at all? | Dylan | So lessons are real projects: real `import`s, a real `pnpm install`, a real dev server. It also gives us compile errors as a dashboard signal, which a plain iframe never could |
 | How do you keep inside Supabase's free tier? | Andric | Only source files cross the network — dependencies come from npm straight to the browser. Reads are cached in IndexedDB and re-checked with a hash, so a rejoin costs almost nothing; autosave sends only the files that changed |
-| How do you group errors? | Evan | Normalise volatile parts, group by step + key, merge by shape — walk through the unit test |
+| How do you group errors? | Evan | Normalise volatile parts, group by key, merge by shape — walk through the unit test |
 | What happens with 40 students? | Ying Qi | Updates only on change, throttled to one write per 2 s; summaries computed in the browser ≤ 1/s; a new checkpoint re-classifies everyone with zero extra writes because the state is derived; load-tested with 40 simulated students |
 | Where's the external API used? | Karin / Ray Yien | Telegram pings + digests; GitHub import + export via the Git Data API |
 | How are tests repeatable? | Andric | A local Supabase stack reset by migration per spec — a real Postgres with the real policies — plus mocked external APIs and `data-testid` selectors |

@@ -42,7 +42,7 @@ export function formatInPersonPing({
   lessonTitle,
   studentName,
   seat,
-  stepTitle,
+  checkpoint, // where the class was when they asked, from checkpointLabel()
   message,
   link,
 }) {
@@ -50,7 +50,7 @@ export function formatInPersonPing({
   const lines = [
     where ? `🙋 Help needed — ${where}` : '🙋 Help needed',
     `<b>${escapeHtml(studentName)}</b> · Seat ${escapeHtml(seat)}`,
-    `Step: ${escapeHtml(stepTitle)}`,
+    `On: ${escapeHtml(checkpoint)}`,
   ]
   if (message) lines.push(`"${escapeHtml(message)}"`)
   if (link) lines.push(`<a href="${escapeHtml(link)}">Open request</a>`)

@@ -1,6 +1,7 @@
 // Entry point for the in-person ping. Keeps verify_jwt on (the Database Webhook sends the
 // service-role key); handler.ts re-reads the request from the database rather than trusting the body.
 import { createTelegramSender } from '../../../shared/telegram.js'
+import { checkpointLabel } from '../../../shared/checkpoint-label.js'
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts'
 import { handleNotify, type NotifyDb, type PingContext } from './handler.ts'
 
@@ -11,9 +12,8 @@ const db: NotifyDb = {
     const { data: r, error } = await admin
       .from('help_requests')
       .select(
-        `id, in_person, seat, message, telegram_notified_at,
+        `id, session_id, checkpoint_seq, in_person, seat, message, telegram_notified_at,
          student:profiles!student_id(name),
-         step:steps!step_id(title),
          session:sessions!session_id(course_id, lesson:lessons(title))`,
       )
       .eq('id', requestId)
@@ -22,13 +22,20 @@ const db: NotifyDb = {
     if (!r) return null
 
     const courseId = r.session.course_id
-    const [{ data: course }, { data: staff }] = await Promise.all([
+    const [{ data: course }, { data: staff }, { data: checkpoint }] = await Promise.all([
       admin.from('courses').select('code, section').eq('id', courseId).single(),
       // Staff of this course who have linked Telegram (design-docs/05 §8: "who gets pinged").
       admin
         .from('course_staff')
         .select('profile:profiles!user_id(telegram_chat_id)')
         .eq('course_id', courseId),
+      // the checkpoint the class was on when they asked, for its title
+      admin
+        .from('checkpoints')
+        .select('title')
+        .eq('session_id', r.session_id)
+        .eq('seq', r.checkpoint_seq)
+        .maybeSingle(),
     ])
 
     return {
@@ -38,7 +45,7 @@ const db: NotifyDb = {
       studentName: r.student.name,
       seat: r.seat,
       message: r.message,
-      stepTitle: r.step.title,
+      checkpoint: checkpointLabel(r.checkpoint_seq, checkpoint?.title),
       courseLabel: course ? `${course.code} ${course.section}` : '',
       lessonTitle: r.session.lesson?.title ?? '',
       chatIds: (staff ?? []).map((s) => s.profile?.telegram_chat_id).filter(Boolean),

@@ -44,10 +44,10 @@ begin
 
     -- One autosave row per student per session. The files_valid() and 200 KB checks on
     -- snapshots.files reject a bad result, so nothing invalid is ever stored.
-    insert into public.snapshots as sn (session_id, student_id, step_id, reason, files)
-    values (p_session_id, auth.uid(), s.current_step_id, 'autosave', merged)
+    insert into public.snapshots as sn (session_id, student_id, reason, files)
+    values (p_session_id, auth.uid(), 'autosave', merged)
     on conflict (session_id, student_id) where reason = 'autosave'
-    do update set files = excluded.files, step_id = excluded.step_id
+    do update set files = excluded.files
     returning sn.files_hash into files_hash;
 
     return next;

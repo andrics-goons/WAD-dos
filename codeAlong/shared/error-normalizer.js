@@ -43,40 +43,39 @@ export function normalizeError({ name, message } = {}) {
 // runs on the prof's side, just redo it whenever a student's tile changes
 //
 //   groupErrors(tiles, { min, presentCount }) -> groups, biggest first
-//     tiles         { studentId, stepOrder, errorKey, errorShapeKey, errorSource, errorPreview, lastSeenAt }
+//     tiles         { studentId, errorKey, errorShapeKey, errorSource, errorPreview, lastSeenAt }
 //     min           smallest group to show, 2 by default
 //     presentCount  how many students are in class, for the 10% rule (defaults to tiles.length)
 //
-//   each group: { stepOrder, key, shapeKey, count, source, preview, studentIds, lastAt, variants: [{ key, count, preview }] }
+//   each group: { key, shapeKey, count, source, preview, studentIds, lastAt, variants: [{ key, count, preview }] }
+//
+// The whole class works towards the same checkpoint, so groups are by mistake alone.
 
 export function groupErrors(
   tiles,
   { min = Limits.ERROR_GROUP_MIN, presentCount = tiles.length } = {},
 ) {
-  // same step and same exact error
+  // the same exact error
   const byKey = new Map()
   for (const t of tiles) {
     if (!t.errorKey) continue
-    const id = `${t.stepOrder}\u0000${t.errorKey}`
-    let v = byKey.get(id)
+    let v = byKey.get(t.errorKey)
     if (!v) {
       v = {
-        stepOrder: t.stepOrder,
         key: t.errorKey,
         shapeKey: t.errorShapeKey || t.errorKey,
         tiles: [],
       }
-      byKey.set(id, v)
+      byKey.set(t.errorKey, v)
     }
     v.tiles.push(t)
   }
 
-  // typos of the same mistake on the same step go in one group
+  // typos of the same mistake go in one group
   const byShape = new Map()
   for (const v of byKey.values()) {
-    const id = `${v.stepOrder}\u0000${v.shapeKey}`
-    if (!byShape.has(id)) byShape.set(id, [])
-    byShape.get(id).push(v)
+    if (!byShape.has(v.shapeKey)) byShape.set(v.shapeKey, [])
+    byShape.get(v.shapeKey).push(v)
   }
 
   // need at least min students, or 10% of the class if that's more
@@ -90,7 +89,6 @@ export function groupErrors(
     variants.sort((a, b) => b.tiles.length - a.tiles.length)
     const top = variants[0]
     groups.push({
-      stepOrder: top.stepOrder,
       key: top.key,
       shapeKey: top.shapeKey,
       count: all.length,

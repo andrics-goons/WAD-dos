@@ -14,7 +14,7 @@ defineEmits(['spotlight'])
     <ul v-if="groups.length" class="list-group list-group-flush">
       <li
         v-for="(g, i) in groups"
-        :key="`${g.stepOrder}-${g.shapeKey}`"
+        :key="g.shapeKey"
         class="list-group-item d-flex align-items-center gap-2"
         :data-testid="`error-group-${i}`"
       >
@@ -26,8 +26,7 @@ defineEmits(['spotlight'])
             {{ g.variants.map((v) => `${v.preview} ×${v.count}`).join(' · ') }}
           </div>
           <div class="small text-body-secondary">
-            Step {{ g.stepOrder }} ·
-            {{ g.source === 'build' ? "won't compile" : 'throws at runtime' }}
+            {{ g.source === 'build' ? "Won't compile" : 'Throws at runtime' }}
           </div>
         </div>
         <button

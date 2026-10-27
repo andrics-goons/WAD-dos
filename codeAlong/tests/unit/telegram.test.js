@@ -34,7 +34,7 @@ describe('telegram helpers', () => {
     const text = formatInPersonPing({
       studentName: '<b>Eve</b>',
       seat: 'C4 & D5',
-      stepTitle: 'Step <1>',
+      checkpoint: 'Checkpoint <1>',
       message: '<script>alert(1)</script>',
     })
     expect(text).not.toContain('<script>')

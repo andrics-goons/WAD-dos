@@ -32,37 +32,39 @@ describe('status store', () => {
   it('opening the workspace writes my row straight away (my attendance)', async () => {
     await useStatusStore().start('s1')
     expect(saveStatus).toHaveBeenCalledExactlyOnceWith('s1', 'u1', {
-      doneStepOrder: 0,
+      doneSeq: null,
       error: null,
     })
   })
 
-  it('a refresh keeps the step I had marked Completed', async () => {
-    getMyStatus.mockResolvedValue({ done_step_order: 3, error: null })
+  it('a refresh keeps the checkpoint I had clicked Done on', async () => {
+    getMyStatus.mockResolvedValue({ done_seq: 3, error: null })
     const status = useStatusStore()
     await status.start('s1')
-    expect(status.doneStepOrder).toBe(3)
-    expect(lastSaved()).toEqual({ doneStepOrder: 3, error: null })
+    expect(status.doneSeq).toBe(3)
+    expect(lastSaved()).toEqual({ doneSeq: 3, error: null })
   })
 
-  it('Completed and back to In progress, written at most once every 2 s', async () => {
+  it('Done and back to In progress, written at most once every 2 s', async () => {
     const status = useStatusStore()
     await status.start('s1')
     status.markDone(2)
-    status.markInProgress(2)
+    status.markInProgress()
     status.markDone(2)
     await vi.advanceTimersByTimeAsync(1_999)
     expect(saveStatus).toHaveBeenCalledOnce() // only the opening write so far
     await vi.advanceTimersByTimeAsync(1)
     expect(saveStatus).toHaveBeenCalledTimes(2) // the burst is one write, with the newest value
-    expect(lastSaved()).toEqual({ doneStepOrder: 2, error: null })
+    expect(lastSaved()).toEqual({ doneSeq: 2, error: null })
   })
 
-  it('In progress on step 1 never goes below 0', async () => {
+  it('Done before the first checkpoint means the starter code (0); In progress clears it', async () => {
     const status = useStatusStore()
     await status.start('s1')
-    status.markInProgress(1)
-    expect(status.doneStepOrder).toBe(0)
+    status.markDone(0)
+    expect(status.doneSeq).toBe(0)
+    status.markInProgress()
+    expect(status.doneSeq).toBeNull()
   })
 
   it('a heartbeat every 30 s while the tab is visible, none while it is hidden', async () => {
@@ -110,12 +112,12 @@ describe('status store', () => {
   })
 
   it('a clean run clears the error', async () => {
-    getMyStatus.mockResolvedValue({ done_step_order: 1, error: { key: 'Error: boom' } })
+    getMyStatus.mockResolvedValue({ done_seq: 1, error: { key: 'Error: boom' } })
     const status = useStatusStore()
     await status.start('s1')
     status.clearError()
     await vi.advanceTimersByTimeAsync(2_000)
-    expect(lastSaved()).toEqual({ doneStepOrder: 1, error: null })
+    expect(lastSaved()).toEqual({ doneSeq: 1, error: null })
   })
 
   it('once the class has ended, nothing more is sent', async () => {

@@ -16,11 +16,12 @@ export async function autosavePatch(sessionId, upsert, remove) {
   return { filesHash: data[0].files_hash }
 }
 
-// My status row in this class: { done_step_order, error }, or null before I've opened the workspace.
+// My status row in this class: { done_seq, error }, or null before I've opened the workspace.
+// done_seq is the checkpoint I clicked Done on (0 = the starter code), null if I haven't.
 export async function getMyStatus(sessionId) {
   const { data, error } = await supabase
     .from('student_status')
-    .select('done_step_order, error')
+    .select('done_seq, error')
     .eq('session_id', sessionId)
     .maybeSingle() // RLS shows a student only their own row
   if (error) throw mapError(error)
@@ -30,11 +31,11 @@ export async function getMyStatus(sessionId) {
 // Create or update my status row. The first write is my attendance; every later one (a change
 // or the heartbeat) moves last_seen_at, which the database stamps with its own clock.
 //   error  { source, name, message, file, line, key, shapeKey, at }, or null for no error
-export async function saveStatus(sessionId, studentId, { doneStepOrder, error }) {
+export async function saveStatus(sessionId, studentId, { doneSeq, error }) {
   const { error: dbError } = await supabase
     .from('student_status')
     .upsert(
-      { session_id: sessionId, student_id: studentId, done_step_order: doneStepOrder, error },
+      { session_id: sessionId, student_id: studentId, done_seq: doneSeq, error },
       { onConflict: 'session_id,student_id' },
     )
   if (dbError) throw mapError(dbError)

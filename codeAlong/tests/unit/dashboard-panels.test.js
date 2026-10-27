@@ -4,7 +4,7 @@ import ClassSummaryBar from '@/components/dashboard/ClassSummaryBar.vue'
 import ErrorGroupList from '@/components/dashboard/ErrorGroupList.vue'
 
 describe('ClassSummaryBar', () => {
-  const props = { counts: { error: 3, behind: 2, done: 5 }, total: 10, slowDownCount: 2 }
+  const props = { counts: { error: 3, in_progress: 2, done: 5 }, total: 10, slowDownCount: 2 }
 
   it('T-DASH-03: clicking a summary segment asks to filter by that state', async () => {
     const wrapper = mount(ClassSummaryBar, { props })
@@ -17,10 +17,10 @@ describe('ClassSummaryBar', () => {
   })
 
   it('shows the count for each state and marks the active one', () => {
-    const wrapper = mount(ClassSummaryBar, { props: { ...props, active: 'behind' } })
-    const behind = wrapper.find('[data-testid="summary-behind"]')
-    expect(behind.text()).toContain('2')
-    expect(behind.classes()).toContain('active')
+    const wrapper = mount(ClassSummaryBar, { props: { ...props, active: 'in_progress' } })
+    const inProgress = wrapper.find('[data-testid="summary-in_progress"]')
+    expect(inProgress.text()).toContain('2')
+    expect(inProgress.classes()).toContain('active')
     expect(wrapper.find('[data-testid="summary-done"]').classes()).not.toContain('active')
   })
 
@@ -38,7 +38,6 @@ describe('ClassSummaryBar', () => {
 
 describe('ErrorGroupList', () => {
   const group = {
-    stepOrder: 4,
     key: 'ReferenceError: items is not defined',
     shapeKey: 'ReferenceError: <id> is not defined',
     count: 4,
@@ -49,18 +48,17 @@ describe('ErrorGroupList', () => {
     ],
   }
 
-  it('shows each group with its count, step and variants', () => {
+  it('shows each group with its count and variants', () => {
     const wrapper = mount(ErrorGroupList, { props: { groups: [group] } })
     const row = wrapper.find('[data-testid="error-group-0"]')
     expect(row.text()).toContain('ReferenceError: items is not defined')
     expect(row.text()).toContain('4')
-    expect(row.text()).toContain('Step 4')
     expect(row.text()).toContain('items is not defined ×3 · itmes is not defined ×1')
   })
 
   it('says when a group will not compile', () => {
     const wrapper = mount(ErrorGroupList, { props: { groups: [{ ...group, source: 'build' }] } })
-    expect(wrapper.text()).toContain("won't compile")
+    expect(wrapper.text()).toContain("Won't compile")
   })
 
   it('passes the group up when spotlight is clicked', async () => {

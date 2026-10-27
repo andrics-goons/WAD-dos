@@ -22,7 +22,7 @@ const randomCode = () =>
 const createdCourses = []
 const createdSessions = []
 let prof, ta, stu, stu2, outsider, admin
-let course, lesson, otherLesson, steps, session, checkpoint
+let course, lesson, session, checkpoint
 
 async function createCourse(owner, p_code) {
   const { data, error } = await owner.client.rpc('create_course', {
@@ -75,7 +75,6 @@ async function snapshot(who, reason, fields = {}) {
     .insert({
       session_id: session.id,
       student_id: who.id,
-      step_id: steps[0].id,
       reason,
       files: MY_CODE,
       ...fields,
@@ -94,7 +93,7 @@ async function askForHelp(who, fields = {}) {
     .insert({
       session_id: session.id,
       student_id: who.id,
-      step_id: steps[0].id,
+      checkpoint_seq: 1,
       type: 'help',
       snapshot_id: snap.id,
       message: 'My cart is empty',
@@ -120,22 +119,12 @@ beforeAll(async () => {
   await makeAdmin(admin.id)
 
   course = await createCourse(prof, 'IS216')
-  const outsiderCourse = await createCourse(outsider, 'IS216')
+  await createCourse(outsider, 'IS216') // so the outsider is staff, just of another course
   await prof.client.rpc('add_course_staff', { p_course_id: course.id, p_email: ta.email })
   await stu.client.rpc('enrol_with_code', { p_code: course.enrol_code })
   await stu2.client.rpc('enrol_with_code', { p_code: course.enrol_code })
 
   lesson = await createLesson(prof, course, 'Week 6')
-  otherLesson = await createLesson(outsider, outsiderCourse, 'Week 6')
-  const { data } = await prof.client.rpc('replace_steps', {
-    p_lesson_id: lesson.id,
-    p_steps: [{ title: 'Create the app' }, { title: 'Add the cart' }],
-  })
-  steps = data
-  await outsider.client.rpc('replace_steps', {
-    p_lesson_id: otherLesson.id,
-    p_steps: [{ title: 'Other' }],
-  })
 
   session = await startSession(lesson, prof.id)
 
@@ -143,7 +132,6 @@ beforeAll(async () => {
     .from('checkpoints')
     .insert({
       session_id: session.id,
-      step_id: steps[0].id,
       seq: 1,
       files: STARTER,
       created_by: prof.id,
@@ -265,7 +253,7 @@ describe('help_requests', () => {
     const ins = await stu.client.from('help_requests').insert({
       session_id: session.id,
       student_id: stu.id,
-      step_id: steps[0].id,
+      checkpoint_seq: 1,
       type: 'help',
       snapshot_id: mine.snapshot_id,
     })
@@ -298,7 +286,7 @@ describe('help_requests', () => {
     expect(codeOf(error)).toBe('VALIDATION_FAILED')
   })
 
-  it('passed checks show on the tile as passed_steps', async () => {
+  it('passed checks show on the tile as passed_seqs (the checkpoints they were passed on)', async () => {
     await service.from('student_status').insert({ session_id: session.id, student_id: stu.id })
     await service
       .from('help_requests')
@@ -308,10 +296,10 @@ describe('help_requests', () => {
 
     const { data } = await ta.client
       .from('session_tiles')
-      .select('passed_steps')
+      .select('passed_seqs')
       .eq('student_id', stu.id)
       .single()
-    expect(data.passed_steps).toEqual([1])
+    expect(data.passed_seqs).toEqual([1])
   })
 
   it('an admin reads every request', async () => {
@@ -479,7 +467,7 @@ describe('status_history keeps the error key for the report', () => {
     stu2.client.from('student_status').upsert({
       session_id: session.id,
       student_id: stu2.id,
-      done_step_order: 0,
+      done_seq: null,
       error: null,
       last_seen_at: new Date().toISOString(),
       ...fields,

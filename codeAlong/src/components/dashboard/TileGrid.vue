@@ -10,7 +10,7 @@ const props = defineProps({
 })
 defineEmits(['select'])
 
-// Sort order from design-docs: error → behind → in progress → idle → done
+// Sort order from design-docs: error → in progress → idle → done
 const rank = Object.fromEntries(TileStateOrder.map((state, i) => [state, i]))
 
 const shown = computed(() =>
