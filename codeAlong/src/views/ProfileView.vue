@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { useToastStore } from '@/stores/toast'
 import { Role, RoleLabel } from '@shared/constants'
 import TelegramLinkCard from '@/components/help/TelegramLinkCard.vue'
+import GitHubLinkCard from '@/components/auth/GitHubLinkCard.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -126,7 +127,14 @@ async function savePassword() {
       </div>
 
       <div class="col-12 col-lg-6">
-        <div class="ca-card h-100">
+        <!-- an account made with "Continue with GitHub" has no password to change -->
+        <div v-if="!auth.user.hasPassword" class="ca-card h-100">
+          <h2 class="h3">Password</h2>
+          <p class="text-body-secondary mb-0">
+            You log in with GitHub, so there's no CodeAlong password to change.
+          </p>
+        </div>
+        <div v-else class="ca-card h-100">
           <h2 class="h3">Password</h2>
           <form class="d-flex flex-column gap-3" @submit.prevent="savePassword()">
             <div class="ca-field">
@@ -170,6 +178,10 @@ async function savePassword() {
             </div>
           </form>
         </div>
+      </div>
+
+      <div class="col-12 col-lg-6">
+        <GitHubLinkCard />
       </div>
 
       <!-- only staff are messaged, so only staff see this -->
