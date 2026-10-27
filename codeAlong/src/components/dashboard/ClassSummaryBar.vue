@@ -6,7 +6,7 @@ import { tileStateMeta } from '@/components/ui/tileStates.js'
 const props = defineProps({
   counts: { type: Object, required: true },
   total: { type: Number, required: true },
-  lostCount: { type: Number, default: 0 },
+  slowDownCount: { type: Number, default: 0 },
   active: { type: String, default: 'all' },
 })
 defineEmits(['filter'])
@@ -46,10 +46,10 @@ const percent = (n) => (props.total ? (n / props.total) * 100 : 0)
       <span
         class="ms-auto small text-body-secondary"
         title="Anonymous: shows a count only, never who"
-        data-testid="lost-count"
+        data-testid="slow-down-count"
       >
-        <i class="bi bi-life-preserver" />
-        <strong>{{ lostCount }}</strong> “I'm lost”
+        <i class="bi bi-speedometer2" />
+        <strong>{{ slowDownCount }}</strong> asked to slow down
       </span>
     </div>
     <!-- the segment widths are data, so they're the one inline style here -->

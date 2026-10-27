@@ -3,11 +3,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { mount, flushPromises } from "@vue/test-utils"
 import { createPinia, setActivePinia } from "pinia"
 import WorkspaceView from "@/views/WorkspaceView.vue"
+import EmptyState from "@/components/ui/EmptyState.vue"
 import { getWebContainer } from "@/runtime/webcontainer"
 import { startWorkspace } from "@/runtime/workspace"
 
 vi.mock("@/runtime/webcontainer", () => ({ getWebContainer: vi.fn() }))
 vi.mock("@/runtime/workspace", () => ({ startWorkspace: vi.fn() }))
+// the store's loading and autosave have their own tests; here they're just calls to check
+const store = vi.hoisted(() => ({ files: [], filePaths: [], selectedFile: "", selectedCode: "" }))
+vi.mock("@/stores/workspace.js", () => ({ useWorkspaceStore: () => store }))
+const status = vi.hoisted(() => ({ doneStepOrder: 0 }))
+vi.mock("@/stores/status", () => ({ useStatusStore: () => status }))
+const session = vi.hoisted(() => ({ session: null, currentStep: null, steps: [], isLive: true }))
+vi.mock("@/stores/session", () => ({ useSessionStore: () => session }))
 
 // A promise the test resolves by hand, to pause the view mid-await
 function deferred() {
@@ -28,6 +36,10 @@ beforeEach(() => {
     vi.stubGlobal("crossOriginIsolated", true)
     vi.mocked(getWebContainer).mockReset().mockResolvedValue({})
     vi.mocked(startWorkspace).mockReset().mockResolvedValue(() => {})
+    store.load = vi.fn(async () => (store.files = [{ path: "index.html", content: "" }]))
+    store.close = vi.fn()
+    status.start = vi.fn(async () => {})
+    status.stop = vi.fn()
 })
 afterEach(() => vi.unstubAllGlobals())
 

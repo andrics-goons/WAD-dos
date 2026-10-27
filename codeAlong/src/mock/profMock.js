@@ -137,7 +137,7 @@ export const students = rawStudents.map(({ error, ...s }) => {
   }
 })
 
-export const lostCount = 3
+export const slowDownCount = 3
 
 // no fake error groups here, TeachView works them out from the students with groupErrors()
 

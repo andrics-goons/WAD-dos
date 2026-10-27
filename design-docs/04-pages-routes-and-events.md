@@ -42,9 +42,9 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 | `/lessons/:id/edit` | `LessonEditView` | Evan | Prof | Step list only, editor opens as a sheet → file editor left, draggable step list right |
 | `/join`, `/join/:code` | `JoinView` | Karin | Logged in (redirects to login with `returnTo`) | Big 6-box code input, auto-submits when complete; `/join/:code` pre-fills from QR |
 | `/s/:id/teach` | `TeachView` | Evan (editor, live preview, plan, dashboard, join code card) + Karin (announce input) | Prof | **xs:** dashboard-first (summary bar, filters, tiles); editor behind a tab. **xl:** editor 8 cols + terminal below; plan + error groups 4 cols; tile grid full width below; join code card collapsible. An **"Announce to class"** box sits in the session bar at every size |
-| `/s/:id/code` | `WorkspaceView` | Dylan (+ Ray Yien's file tree and "What you missed" panel; Karin's announcement banner) | Enrolled student | **VS Code-style IDE** — see [the layout below](#the-workspace-is-an-ide). **xs:** tabs *Code · Preview · Terminal · Steps*, file tree in an offcanvas, sticky bottom bar with **Done**, **I'm lost**, **Help**. **lg:** file tree rail + editor + preview, terminal docked under. The prof's current announcement shows as a dismissible banner across the top at every size |
-| `/s/:id/help` | `HelpQueueView` | Karin | Staff | Queue cards 1 col → queue list left, selected request right |
-| `/help/:requestId` | `HelpReviewView` | Karin | Staff | Stacked: student code, then checkpoint, then reply → side-by-side diff with reply box under |
+| `/s/:id/code` | `WorkspaceView` | Dylan (+ Ray Yien's file tree and "What you missed" panel; Karin's announcement banner) | Enrolled student | **VS Code-style IDE** — see [the layout below](#the-workspace-is-an-ide). **xs:** tabs *Code · Preview · Terminal · Steps*, file tree in an offcanvas, sticky bottom bar with **Done**, **Slow down**, **Help**. **lg:** file tree rail + editor + preview, terminal docked under. The prof's current announcement shows as a dismissible banner across the top at every size |
+| `/s/:id/help` | `HelpQueueView` | Karin | Staff | Queue cards 1 col → queue list left, selected request right. "Waiting" (open + claimed, oldest first) above "Handled". Below lg the list and the selected request take turns, with "Back to the queue". State lives in `stores/help.js`, kept live by the class channel |
+| `/help/:requestId` | `HelpReviewView` | Karin | Staff | One request on its own page (the Telegram ping links here), same `HelpReviewPanel` as the queue, with a link back to the queue. Stacked thread + reply, then the diff (stacked on xs, side by side from sm) |
 | `/replays` | `ReplayListView` | Ray Yien | Logged in | List grouped by course, search box on top |
 | `/replays/:sessionId` | `ReplayView` | Ray Yien | Staff / enrolled | Timeline as horizontal scroller, code below, preview behind a tab → timeline left, code + preview right, notes drawer |
 | `/sessions/:id/report` | `ReportView` | Evan (page) · Andric (report data) | Staff | Cards stacked; funnel chart scrolls horizontally → 2-col grid: funnel, top errors, recurring steps, digest panel |
@@ -86,7 +86,7 @@ xs (375 px) ──────────────────────�
 ├─────────────────────────────────────────┤      as an offcanvas drawer
 │  active tab fills the viewport          │
 ├─────────────────────────────────────────┤
-│  [ Done ]  [ I'm lost ]  [ Help ]       │   ← sticky bottom bar
+│  [ Done ]  [ Slow down ]  [ Help ]       │   ← sticky bottom bar
 └─────────────────────────────────────────┘
 ```
 
@@ -103,7 +103,7 @@ xs (375 px) ──────────────────────�
 | Rule | How we apply it |
 |---|---|
 | Visibility of system status | Connection pill in the navbar (Live · Reconnecting… · Offline) driven by the Realtime channel state; saving indicator in the workspace |
-| Match the real world | Labels say "Done", "I'm lost", "Load checkpoint", "Check my work" — no jargon like "sync state" |
+| Match the real world | Labels say "Done", "Slow down", "Load checkpoint", "Check my work" — no jargon like "sync state" |
 | User control & freedom | Load checkpoint always keeps your attempt (restorable); help requests can be cancelled |
 | Consistency | Same tile colours, icons and labels everywhere (`StatusPill`); one button style per action type |
 | Error prevention | Confirm modal before End session / Delete lesson; join code input only accepts valid characters |
@@ -124,7 +124,7 @@ All of it goes through `src/api/*.api.js`; components never touch `supabase` dir
 
 ### Auth & profile — `auth.api.js` (Andric), Telegram bits (Karin)
 
-Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoaded`, `updateName(name)`, `changePassword({ currentPassword, newPassword })`. The store subscribes to `onAuthChange` on its first `ensureLoaded()`: **a logout in another tab clears this tab and sends it from any `auth` page to `/login?returnTo=…`**.
+Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoaded`, `updateName(name)`, `changePassword({ currentPassword, newPassword })`, and for GitHub `signInWithGitHub(returnTo)`, `loadGitHub()` (fills `github` with `{ username, canDisconnect }` or `null`), `connectGitHub()`, `disconnectGitHub()`. `user.hasPassword` is false for an account made with GitHub, and the profile page then hides "Change password". The store subscribes to `onAuthChange` on its first `ensureLoaded()`: **a logout in another tab clears this tab and sends it from any `auth` page to `/login?returnTo=…`**.
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
@@ -132,6 +132,9 @@ Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoade
 | Auth | `auth.signInWithPassword(…)` | Session stored by `supabase-js`; platform rate-limits | Any |
 | Auth | `auth.signOut()` | Clears the local session | Any |
 | Query | `auth.getUser()` + `from('profiles').select().eq('id', uid).single()` | Current user on app load | Any |
+| Auth | `auth.signInWithOAuth({ provider: 'github', options: { redirectTo } })` — `signInWithGitHub(returnTo)` | **"Continue with GitHub"** on login and register. Leaves for GitHub and comes back to `returnTo` signed in; a first sign-in creates the account. GitHub sends no role, so the trigger makes it a **student** (named after the GitHub display name, else the username). Educators register by email | Any |
+| Auth | `auth.linkIdentity({ provider: 'github', options: { scopes: 'public_repo', redirectTo: '/profile' } })` — `connectGitHub()` | **"Connect GitHub"** on the profile page: links GitHub to the account I'm logged in with, with the repo access a replay export needs (05 §11). Needs manual linking on | Any |
+| Auth | `auth.getUserIdentities()` / `auth.unlinkIdentity(github)` — `getGitHubLink()`, `disconnectGitHub()` | Shows "Connected as @username"; Disconnect is refused while GitHub is the only way to log in | Any |
 | Query | `from('profiles').update({ name })` — `updateProfile({ name })` | Own row only (policy forbids changing `role`); 2–60 characters | Any |
 | Auth | `signInWithPassword` with the current password, then `auth.updateUser({ password })` — `changePassword({ currentPassword, newPassword })` | The current password is checked first ("Your current password is wrong"); the new one must be ≥ 6 characters and different | Any |
 | RPC | `issue_telegram_link_code()` | Writes a one-time code + expiry, returns `https://t.me/<bot>?start=<code>` | Any (Karin) |
@@ -187,14 +190,14 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 | Kind | Call | What happens | Who |
 |---|---|---|---|
 | Query | `from('session_tiles').select().eq('session_id', id)` | Tiles with state derived in SQL — **no code columns exist** | Staff |
-| Query | `from('session_summary').select().eq('session_id', id).single()` | Counts + `lost_count` as an aggregate | Staff |
+| Query | `from('session_summary').select().eq('session_id', id).single()` | Counts + `slow_down_count` as an aggregate | Staff |
 | Function | `spotlight` → `{ sessionId, errorKey, helpRequestId? }` | Reads an eligible help-request snapshot with elevated rights, builds the anonymised excerpt, broadcasts `spotlight:show` | Prof |
 | Query | `from('lessons').select('id, files_hash')` then `files` only on a cache miss | The `files_hash` check that keeps repeat loads near-zero egress — see [05 §2](./05-core-logic.md#2-files-cache--dependencies) | Member |
 | Query | `from('sessions').update({ spotlight: null })` | Trigger broadcasts `spotlight:hide` | Prof |
 
 > Error groups are **not** a server call. `groupErrors(tiles, …)` runs in the staff browser over the tile list — the same pure function, now client-side.
 
-### Student workspace — `workspace.api.js` (Dylan: status and lost · Ray Yien: files, autosave, catch-up)
+### Student workspace — `workspace.api.js` (Dylan: status and slow down · Ray Yien: files, autosave, catch-up)
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
@@ -202,8 +205,8 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 | RPC | `autosave_patch(p_session_id, p_upsert, p_delete)` | Autosave, debounced **5 s** after the last keystroke (plus a flush on blur/unload). Sends **only the files whose content hash changed**, diffed against IndexedDB; an unchanged tree sends no request at all. `SYNC_IGNORE` keeps `node_modules/`, `dist/` and `.vite/` out | Enrolled |
 | RPC | `catch_up(p_session_id, p_files)` | Writes the `before_catchup` snapshot **first**, then returns the latest checkpoint + snapshot id | Enrolled (if `allowCatchUp`) |
 | Query | `from('snapshots').select().eq('reason','before_catchup')` | My attempts — RLS makes "mine" automatic | Enrolled |
-| Query | `from('student_status').upsert({ … })` | Status on change + 30 s heartbeat. No `state` field exists to send | Enrolled |
-| Query | `from('lost_flags').insert({ session_id, student_id })` / `.delete()` | "I'm lost" / un-lost. Anonymous: staff can only read `lost_count` | Enrolled, live session |
+| Query | `getMyStatus(sessionId)` / `saveStatus(sessionId, studentId, { doneStepOrder, error })` — `from('student_status').upsert(…)` | Status on change (throttled to 2 s) + 30 s heartbeat while the tab is visible; driven by `stores/status.js`. No `state` field exists to send | Enrolled |
+| Query | `from('slow_down_flags').insert({ session_id, student_id })` / `.delete()` | "Slow down" on / off. Anonymous: staff can only read `slow_down_count` | Enrolled, live session |
 
 ### Help — `help.api.js` (Karin)
 
@@ -369,7 +372,7 @@ Students track `{ userId, name }` on join; staff read it for the live attendance
 | `session:join` / `session:leave` + rooms | `channel.subscribe()` / `unsubscribe()`; RLS does the membership check |
 | `status:update` (client → server, server classifies) | `upsert student_status` with raw signals; the **view** classifies |
 | `heartbeat` | Same upsert, touching `last_seen_at` every 30 s while the tab is visible |
-| `lost:toggle` | insert / delete my own `lost_flags` row |
+| `lost:toggle` | insert / delete my own `slow_down_flags` row |
 | `dashboard:tile` | Postgres Changes on `student_status` |
 | `dashboard:summary` | `session_summary` view + a Vue `computed`, throttled client-side to ≤ 1/s |
 | `help:new` / `help:updated` | Postgres Changes on `help_requests` |
@@ -404,10 +407,12 @@ Unchanged — components never knew where the data came from, which is why this 
 | `DoneButton` | `stepOrder`, `disabled`, `passedByTa` | `done`, `undo` | Disabled while the last run has an error |
 | `StudentTile` | `tile` | `select` | Colour + icon + label; shows step "4/8" and error preview |
 | `TileGrid` | `tiles`, `filter` | `select` | 2 cols xs → 4 md → 6 xl; sorted error → behind → in progress → idle → done |
-| `ClassSummaryBar` | `counts`, `lostCount`, `total` | `filter` | Clickable segments filter the grid |
+| `ClassSummaryBar` | `counts`, `slowDownCount`, `total` | `filter` | Clickable segments filter the grid |
 | `ErrorGroupList` | `groups` | `spotlight` | Prof-only Spotlight button per group |
 | `StepList` (prof) | `steps`, `currentStepId` | `reorder`, `edit`, `delete` | Drag handle on lg; up/down buttons on xs |
-| `HelpRequestCard` | `request` | `claim`, `open` | Waiting time live-updates (from the latest `thread` entry, so a follow-up isn't instantly "overdue"); **Follow-up** badge + "last handled by …" |
+| `HelpRequestCard` | `request`, `staffNames`, `myId`, `now`, `selected`, `canAct` | `claim`, `open` | Waiting time counts from the student's latest message (the opening one or a follow-up, so a follow-up isn't instantly "overdue"), ticking with the page's `now`; **Follow-up** badge + "last handled by …"; "Ana is on this" once claimed |
+| `HelpReviewPanel` | `request`, `myId`, `canAct` | — | The TA's view of one request, used by both help pages: thread, Claim → Reply / Pass (checks only) / Resolved in person / Release, and the student's code diffed against the prof's latest checkpoint for that step. Reloads the code when a follow-up attaches a newer snapshot |
+| `HelpStatusPill` | `status` | — | Waiting · Claimed · Passed · Replied · Resolved · Cancelled, icon + text (`help-status`) |
 | `HelpThread` | `request` | — | New. Opening message, then every reply and follow-up in order. Shown to the student and to the reviewing TA |
 | `FollowUpForm` | `request`, `remaining` | `submit` | New. Only on a `replied` request; shows "2 follow-ups left"; at 0, suggests in-person help |
 | `AnnouncementBanner` | `announcement` | `dismiss` | New. Top of the workspace; dismissing hides it until a **new** announcement arrives |
@@ -434,6 +439,7 @@ Unchanged — components never knew where the data came from, which is why this 
 | Session ended while coding | Banner "Class ended — your work is saved. Open replay" | `session:ended` broadcast |
 | Realtime disconnected | Navbar pill turns amber "Reconnecting…"; edits continue locally; autosave retries | Channel state callback; supabase-js reconnects with backoff |
 | Autosave fails | "Not saved — retrying" next to the file name; never blocks typing | Exponential retry; work kept in memory |
+| Saving indicator | `save-status` next to the file name: "Saved", "Unsaved changes" (waiting out the 5 s), "Saving…", or a "Not saved — …" warning (retrying, project too large, refused) / "Class ended — no longer saving" | autosave's `onStatus`, kept in the workspace store as `saveStatus` |
 | Help already claimed by another TA | Toast "Ana is already on this one" and the card updates | `claim_help_request` raises `CONFLICT\|…`; the card updates from Postgres Changes |
 | Reply didn't fix it | Student sees **Follow up** on the replied request, with "2 follow-ups left" | `follow_up_help_request`; the same request returns to the queue in its original place |
 | Follow-up limit reached | "You've followed up 3 times — ask for in-person help instead" | `BAD_REQUEST\|…` from the RPC |

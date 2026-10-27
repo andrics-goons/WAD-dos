@@ -272,7 +272,18 @@ describe('student_status', () => {
       .eq('student_id', stu.id)
       .single()
     expect(Object.keys(data)).not.toContain('files')
-    expect(Object.keys(data)).not.toContain('lost') // lives in lost_flags, which staff can't read
+    expect(Object.keys(data)).not.toContain('lost') // "Slow down" lives in slow_down_flags, which staff can't read
+  })
+
+  it("last_seen_at is the server's clock, whatever time the student's browser sends", async () => {
+    const before = Date.now()
+    await writeStatus(stu, { last_seen_at: '2020-01-01T00:00:00Z' }) // a PC with the wrong clock
+    const { data } = await stu.client
+      .from('student_status')
+      .select('last_seen_at')
+      .eq('session_id', session.id)
+      .single()
+    expect(Date.parse(data.last_seen_at)).toBeGreaterThanOrEqual(before - 5_000)
   })
 
   it('a student cannot delete their row (it is the attendance record)', async () => {
@@ -289,14 +300,14 @@ describe('student_status', () => {
   })
 })
 
-describe('T-PRIV-04: "I\'m lost" is only ever a count to staff', () => {
+describe('T-PRIV-04: "Slow down" is only ever a count to staff', () => {
   it('a student raises the flag and can see it', async () => {
     const { error } = await stu.client
-      .from('lost_flags')
+      .from('slow_down_flags')
       .insert({ session_id: session.id, student_id: stu.id })
     expect(error).toBeNull()
     const { data } = await stu.client
-      .from('lost_flags')
+      .from('slow_down_flags')
       .select('student_id')
       .eq('session_id', session.id)
     expect(data).toEqual([{ student_id: stu.id }])
@@ -305,7 +316,7 @@ describe('T-PRIV-04: "I\'m lost" is only ever a count to staff', () => {
   it('staff and classmates cannot see who raised it', async () => {
     for (const who of [prof, ta, stu2]) {
       const { data } = await who.client
-        .from('lost_flags')
+        .from('slow_down_flags')
         .select('student_id')
         .eq('session_id', session.id)
       expect(data).toEqual([])
@@ -315,31 +326,31 @@ describe('T-PRIV-04: "I\'m lost" is only ever a count to staff', () => {
   it('staff see the count in session_summary', async () => {
     const { data } = await ta.client
       .from('session_summary')
-      .select('total, lost_count')
+      .select('total, slow_down_count')
       .eq('session_id', session.id)
       .single()
-    expect(data).toEqual({ total: 2, lost_count: 1 })
+    expect(data).toEqual({ total: 2, slow_down_count: 1 })
   })
 
   it('a student gets no count at all', async () => {
     const { data } = await stu.client
       .from('session_summary')
-      .select('lost_count')
+      .select('slow_down_count')
       .eq('session_id', session.id)
       .single()
-    expect(data.lost_count).toBeNull()
+    expect(data.slow_down_count).toBeNull()
   })
 
   it('someone outside the course cannot raise a flag', async () => {
     const { error } = await outsider.client
-      .from('lost_flags')
+      .from('slow_down_flags')
       .insert({ session_id: session.id, student_id: outsider.id })
     expect(error?.code).toBe('42501')
   })
 
   it('an admin can read the flags', async () => {
     const { data } = await admin.client
-      .from('lost_flags')
+      .from('slow_down_flags')
       .select('student_id')
       .eq('session_id', session.id)
     expect(data).toEqual([{ student_id: stu.id }])
@@ -347,16 +358,16 @@ describe('T-PRIV-04: "I\'m lost" is only ever a count to staff', () => {
 
   it('clearing the flag deletes it and the count drops', async () => {
     await stu.client
-      .from('lost_flags')
+      .from('slow_down_flags')
       .delete()
       .eq('session_id', session.id)
       .eq('student_id', stu.id)
     const { data } = await prof.client
       .from('session_summary')
-      .select('lost_count')
+      .select('slow_down_count')
       .eq('session_id', session.id)
       .single()
-    expect(data.lost_count).toBe(0)
+    expect(data.slow_down_count).toBe(0)
   })
 })
 
@@ -567,7 +578,7 @@ describe('ending a session', () => {
 
     expect((await writeStatus(stu, { done_step_order: 1 })).error?.code).toBe('42501')
     const flag = await stu.client
-      .from('lost_flags')
+      .from('slow_down_flags')
       .insert({ session_id: ended.id, student_id: stu.id })
     expect(flag.error?.code).toBe('42501')
     session = prev

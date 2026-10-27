@@ -449,20 +449,21 @@ select '00000000-0000-0000-0004-000000000001', seed.u(n),
   from seed.past;
 
 -- Snapshots: everyone's autosave, plus Eli's and Ivan's code just before they caught up.
-insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at)
+insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at, updated_at)
 select '00000000-0000-0000-0004-000000000001', seed.u(n),
        seed.step(1, case when behind then 7 else 8 end), 'autosave',
        seed.files_at(case when behind then 6 else 8 end),
-       timestamptz '2026-10-12 14:00+08' + make_interval(mins => join_min)
+       timestamptz '2026-10-12 14:00+08' + make_interval(mins => join_min),
+       '2026-10-12 15:34+08' -- last saved just before the class ended
   from seed.past;
 
-insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at)
+insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at, updated_at)
 select '00000000-0000-0000-0004-000000000001', seed.u(n), seed.step(1, 7), 'before_catchup',
-       seed.files_at(6), '2026-10-12 15:18+08'
+       seed.files_at(6), '2026-10-12 15:18+08', '2026-10-12 15:18+08'
   from seed.past where catchup;
 
 -- Five help requests: 2 passed checks, 2 replied helps, 1 resolved in person.
--- Each carries its own help_request snapshot — the only code staff can ever read.
+-- Each carries its own help_request snapshot of the code at the moment they asked.
 create function seed.help(
     p_student int, p_step int, p_type text, p_files jsonb, p_message text, p_status text,
     p_staff int, p_reply text, p_at timestamptz, p_seat text default null
@@ -471,8 +472,8 @@ declare
     sid  uuid := '00000000-0000-0000-0004-000000000001';
     snap uuid;
 begin
-    insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at)
-    values (sid, seed.u(p_student), seed.step(1, p_step), 'help_request', p_files, p_at)
+    insert into public.snapshots (session_id, student_id, step_id, reason, files, created_at, updated_at)
+    values (sid, seed.u(p_student), seed.step(1, p_step), 'help_request', p_files, p_at, p_at)
     returning id into snap;
 
     insert into public.help_requests (
@@ -513,8 +514,8 @@ select seed.u(4), c.session_id, c.id, n.kind, n.body, c.created_at + interval '4
   ) n(seq, kind, body)
   join public.checkpoints c on c.session_id = '00000000-0000-0000-0004-000000000001' and c.seq = n.seq;
 
--- "I'm lost" over the session: three at once during step 4, three again near the end.
-insert into public.lost_events (session_id, delta, at)
+-- "Slow down" over the session: three at once during step 4, three again near the end.
+insert into public.slow_down_events (session_id, delta, at)
 select '00000000-0000-0000-0004-000000000001', delta, timestamptz '2026-10-12 14:00+08' + make_interval(mins => m)
   from (values (43, 1), (44, 1), (45, 1), (47, -1), (48, -1), (49, -1),
                (74, 1), (75, 1), (76, 1), (88, -1), (89, -1), (90, -1)) e(m, delta)
@@ -531,8 +532,8 @@ select '00000000-0000-0000-0004-000000000001', delta, timestamptz '2026-10-12 14
 --   trouble = (0.4 × errorStudents + 0.3 × dropOff + 0.2 × catchUps + 0.1 × helpRequests) / joined
 
 -- the past session (MNCART): these numbers match its history above — 6 errors at step 4,
--- 3 never finish step 7, Eli and Ivan's two catch-ups, peak of 3 lost at once
-insert into public.session_reports (session_id, course_id, lesson_id, attendance, steps, top_errors, lost_peak, generated_at)
+-- 3 never finish step 7, Eli and Ivan's two catch-ups, peak of 3 asking to slow down at once
+insert into public.session_reports (session_id, course_id, lesson_id, attendance, steps, top_errors, slow_down_peak, generated_at)
 values (
     '00000000-0000-0000-0004-000000000001', '00000000-0000-0000-0001-000000000001', '00000000-0000-0000-0002-000000000001',
     '{"joined": 11, "enrolled": 11}',
@@ -551,7 +552,7 @@ values (
 );
 
 -- last term (MNCT25): step 4 is the top trouble step again, so it shows as recurring
-insert into public.session_reports (session_id, course_id, lesson_id, attendance, steps, top_errors, lost_peak, generated_at)
+insert into public.session_reports (session_id, course_id, lesson_id, attendance, steps, top_errors, slow_down_peak, generated_at)
 values (
     '00000000-0000-0000-0004-000000000002', '00000000-0000-0000-0001-000000000002', '00000000-0000-0000-0002-000000000002',
     '{"joined": 24, "enrolled": 27}',
@@ -570,7 +571,7 @@ values (
 );
 
 -- Prof Tan's run (TANMCT): step 2 instead — must never show up in Prof Lee's trends
-insert into public.session_reports (session_id, course_id, lesson_id, attendance, steps, top_errors, lost_peak, generated_at)
+insert into public.session_reports (session_id, course_id, lesson_id, attendance, steps, top_errors, slow_down_peak, generated_at)
 values (
     '00000000-0000-0000-0004-000000000003', '00000000-0000-0000-0001-000000000003', '00000000-0000-0000-0002-000000000003',
     '{"joined": 30, "enrolled": 32}',
@@ -628,8 +629,8 @@ select '00000000-0000-0000-0004-000000000004', seed.u(5), seed.step(1, 3), 'help
        'Vite says it can''t find ItemCard?', now() - interval '90 seconds'
   from snap;
 
--- Chen has tapped "I'm lost" (staff see lost_count = 1, never who)
-insert into public.lost_flags (session_id, student_id) values ('00000000-0000-0000-0004-000000000004', seed.u(6));
+-- Chen has tapped "Slow down" (staff see slow_down_count = 1, never who)
+insert into public.slow_down_flags (session_id, student_id) values ('00000000-0000-0000-0004-000000000004', seed.u(6));
 
 
 drop schema seed cascade;

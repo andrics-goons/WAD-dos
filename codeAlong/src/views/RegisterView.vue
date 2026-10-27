@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { SignupRole } from '@shared/constants'
+import GitHubSignInButton from '@/components/auth/GitHubSignInButton.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -118,6 +119,13 @@ async function register() {
               Create account
             </button>
           </form>
+
+          <!-- GitHub sends no role, so this always makes a student account -->
+          <GitHubSignInButton>
+            <p class="ca-field-hint mt-2 mb-0">
+              Signing up with GitHub makes a student account. Educators, use the form above.
+            </p>
+          </GitHubSignInButton>
 
           <p class="text-center text-body-secondary small mt-4 mb-0">
             Already have an account?

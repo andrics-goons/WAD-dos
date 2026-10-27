@@ -37,7 +37,15 @@ export function checkLinkCode(profile, code, now = Date.now()) {
 }
 
 // The in-person help ping (layout from design-docs/05 §8). Every user-supplied field is escaped.
-export function formatInPersonPing({ courseLabel, lessonTitle, studentName, seat, stepTitle, message, link }) {
+export function formatInPersonPing({
+  courseLabel,
+  lessonTitle,
+  studentName,
+  seat,
+  stepTitle,
+  message,
+  link,
+}) {
   const where = [courseLabel, lessonTitle].filter(Boolean).map(escapeHtml).join(' · ')
   const lines = [
     where ? `🙋 Help needed — ${where}` : '🙋 Help needed',
@@ -83,7 +91,7 @@ export const BOT_REPLIES = Object.freeze({
   expired: 'That link code has expired. Generate a new one from your CodeAlong profile.',
   invalid: 'That link code is not valid. Generate one from your CodeAlong profile.',
   stopped: 'Unlinked. You will not get any more messages.',
-  help: 'Link your account from your CodeAlong profile, then send /start <code>. /stop unlinks.',
+  help: 'Link your account from your CodeAlong profile, then send /start &lt;code&gt;. /stop unlinks.',
 })
 
 // Calls send(chatId, html) -> { ok, status, retryAfter? }. On a 429, waits

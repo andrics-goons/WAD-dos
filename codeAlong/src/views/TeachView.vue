@@ -10,7 +10,7 @@ import TileGrid from '@/components/dashboard/TileGrid.vue'
 import ErrorGroupList from '@/components/dashboard/ErrorGroupList.vue'
 import StepList from '@/components/lesson/StepList.vue'
 import JoinCodeCard from '@/components/session/JoinCodeCard.vue'
-import { lesson, steps, students, lostCount } from '@/mock/profMock'
+import { lesson, steps, students, slowDownCount } from '@/mock/profMock'
 
 defineProps({ id: { type: String, required: true } })
 
@@ -210,7 +210,7 @@ $ pnpm dev
             <ClassSummaryBar
               :counts="counts"
               :total="students.length"
-              :lost-count="lostCount"
+              :slow-down-count="slowDownCount"
               :active="filter"
               @filter="filter = $event"
             />

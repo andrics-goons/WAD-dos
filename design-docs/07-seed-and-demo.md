@@ -87,7 +87,7 @@ Two things this changes:
 | 18 snapshots | Everyone's autosave, 2 `before_catchup` (Eli, Ivan), 5 `help_request` | Privacy: a TA sees only the 5 sent ones |
 | 5 help requests | 2 passed checks, 2 replied helps on the Step 4 bug, 1 in-person resolved (Gus, seat C14) | Help history in replay; Spotlight source |
 | 4 notes/bookmarks | Alex's notes on Steps 4 and 7, anchored to those checkpoints | Notes + search |
-| 12 `lost_events` | Three lost at once during Step 4, three again near the end | `lost_peak` = 3 |
+| 12 `slow_down_events` | Three asking to slow down at once during Step 4, three again near the end | `slow_down_peak` = 3 |
 | `session_reports` row | Literal counts matching the history above, per the [05 §10](./05-core-logic.md#10-insights-report) definitions: Step 4 trouble 0.236 (top), Step 7 drop-off 3. `seed.test.js` checks them against the history | Report page renders immediately |
 
 ### Seed older reports (for trends)
@@ -106,7 +106,7 @@ Until `start_session` exists, nobody can start a class from the app, so the seed
 | Student | `done_step_order` | Tile |
 |---|:---:|---|
 | Alex, Eli | 3 | `done` |
-| Chen | 2 | `in_progress` — and has tapped **I'm lost** (staff see `lost_count = 1`) |
+| Chen | 2 | `in_progress` — and has tapped **Slow down** (staff see `slow_down_count = 1`) |
 | Bea | 2 | `error`, `source: 'build'` — mistyped the `ItemCard` import; her help request is **open** in the queue |
 | Dana | 1 | `behind` |
 
@@ -179,7 +179,7 @@ Every member presents the part they built (check your section's rule on who must
 | 6 | Prof completes Step 3, clicks **Save checkpoint** | Every student gets the toast instantly |
 | 7 | Alex (575 px window) types `items` instead of `props.items` | Console shows the real error; gutter marker; Alex's tile turns **red** |
 | 8 | Several simulated students hit the same error | Error group "`items is not defined` ×7" |
-| 9 | Bea and Chen tap **I'm lost** | Lost count 2 — no names anywhere |
+| 9 | Bea and Chen tap **Slow down** | Slow-down count 2 — no names anywhere |
 | 10 | **Explain:** WebContainer runtime, status derivation, error normaliser | Diagram slide + `session_tiles` view, `shared/error-normalizer.js`; mention that a build error's code frame is stripped before it ever leaves the browser |
 
 ### 5:30–7:00 · Catch up (Dylan, Ray Yien)
@@ -252,7 +252,7 @@ Before Q&A: log in first, open pages at 575 px in DevTools with the console visi
 | Likely question | Who answers | Short answer |
 |---|---|---|
 | Why not just use VS Code Live Share? | Evan | Live Share shows the prof's editor to students; it gives the prof no view of the class, no checkpoints to catch up to, no replay |
-| Isn't this surveillance? | Karin | Status only, no keystrokes; **course staff** see code only when a student sends it — enforced by a database policy, not by our good intentions; "I'm lost" is only ever an aggregate to staff. One platform admin account can read everything, the way any system's operator can — its role changes and account actions are logged, and we keep it to a single account |
+| Isn't this surveillance? | Karin | Status only, no keystrokes; **the course's prof and TAs** can open a student's code to help them, classmates never can — enforced by a database policy, not by our good intentions; "Slow down" is only ever an aggregate to staff. One platform admin account can read everything, the way any system's operator can — its role changes and account actions are logged, and we keep it to a single account |
 | Can't anyone just sign up as a prof? | Andric | Yes — and that's safe, because being a prof only lets you create *your own* course. Every other course, its sessions and its students' code stay invisible to you; access is checked per course, not by account type |
 | How does the tile know I'm stuck? | Andric | Errors are caught in your sandbox; Done is your own tap; a database view compares your progress with the latest checkpoint — the state is computed, never stored, so nobody can fake it |
 | What stops student code from breaking the app? | Dylan | It runs in a WebContainer — a WASM Node sandbox in the browser — and the preview is a separate origin, so it cannot reach our login session, DOM or database. A hung loop hangs that iframe, not the app |

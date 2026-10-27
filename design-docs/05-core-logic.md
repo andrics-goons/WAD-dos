@@ -151,6 +151,8 @@ export async function loadFiles(kind, id, remoteHash) {
 }
 ```
 
+Built as `src/cache/files.js`, with the Supabase calls in `src/api/files.api.js` (`fetchFiles`, the cheap `fetchHash` probe, and `findMyAutosave`). Two details beyond the sketch above: with no `remoteHash` it probes the hash before downloading anything, and it stores the hash that came back with the files. **A student's own snapshots are never cached:** on a shared lab computer the next person could read them out of IndexedDB, and an autosave changes every few seconds anyway. Only lessons and checkpoints, the files 40 students all load, go in the cache.
+
 IndexedDB is a **cache and an outbox, never the source of truth.** Browsers evict it silently under storage pressure, so every read must survive a miss, and pending autosaves in the outbox must be flushed to Supabase rather than relied upon. Eviction is then a slow load, not lost work.
 
 ### What syncs, and what never does
@@ -295,7 +297,12 @@ Rendered with Vue's normal escaping like every other user-entered string (T-VAL-
 
 ### Client side (Dylan)
 
-The workspace keeps `{ doneStepOrder, lastError }` and upserts its `student_status` row **only when one of them changes**, throttled to `STATUS_WRITE_THROTTLE_MS` (2 s). A heartbeat touches `last_seen_at` every 30 s while the tab is visible (`document.visibilityState`). No keystrokes, no code — the table has no column for either.
+The workspace keeps `{ doneStepOrder, lastError }` (`stores/status.js`) and upserts its `student_status` row **only when one of them changes**, throttled to `STATUS_WRITE_THROTTLE_MS` (2 s). A heartbeat touches `last_seen_at` every 30 s while the tab is visible (`document.visibilityState`), and once straight away when the student comes back to the tab. No keystrokes, no code — the table has no column for either.
+
+- **Opening the workspace** writes the row at once, which is the attendance record (`joined_at`). A refresh reads the row back first, so a step marked Completed stays completed.
+- **"My status"** in the workspace header is about the prof's current step: *Completed* sets `done_step_order` to that step's order, *In progress* sets it to one less. A new checkpoint moves the step on, so the toggle reads *In progress* again.
+- **Errors** go through `setError({ source, name, message, file, line })`, which adds `key` / `shapeKey` with `normalizeError()` and cuts the message to `ERROR_MESSAGE_MAX`; `clearError()` after a clean run. Nothing calls them yet: the lesson's `ca-probe.js` is still a placeholder, and build errors still need `parseBuildError()`.
+- **After the class ends** the store stops writing (the table would refuse anyway).
 
 ### Derived in SQL (Andric)
 
@@ -339,7 +346,7 @@ A trigger on `student_status` appends to `status_history` when the **derived** s
 
 ### Dashboard summary
 
-`session_summary` gives counts and `lost_count`; error groups are `groupErrors()` over the tile list in the staff browser, recomputed as a Vue `computed` and throttled to `SUMMARY_THROTTLE_MS` (1 s). There is no in-memory cache to rebuild after a restart, and no single-instance assumption — which also removes the old "scaling out would need a Redis adapter" caveat.
+`session_summary` gives counts and `slow_down_count`; error groups are `groupErrors()` over the tile list in the staff browser, recomputed as a Vue `computed` and throttled to `SUMMARY_THROTTLE_MS` (1 s). There is no in-memory cache to rebuild after a restart, and no single-instance assumption — which also removes the old "scaling out would need a Redis adapter" caveat.
 
 **Load target:** 40 simulated students updating every 3 s → p95 tile latency < 500 ms, checked with `scripts/simulate-class.js`. **This is also the Realtime free-tier check** — see the risk table in [02](./02-tech-stack.md#risks-specific-to-this-stack).
 
@@ -495,7 +502,7 @@ replied ──[student: "still NaN after I changed it"]──▶ open
 |---|---|
 | Same row, not a new one | The TA who picks it up sees the whole exchange in `HelpThread`, so the student never has to re-explain |
 | Original queue place | It's the same unsolved problem, not a new one — sending it to the back would punish the student for the reply not landing |
-| Fresh snapshot | The TA should review what the student has **now**. Only the latest snapshot stays visible to staff, because the privacy policy admits a snapshot only through `help_requests.snapshot_id` — so earlier code drops out of staff view automatically |
+| Fresh snapshot | The TA should review what the student has **now**, so the request points at the new copy. Earlier copies stay readable to staff, like any snapshot in their course |
 | `thread` lives in the request row | No new table means no new RLS policy; the existing "own requests" and "staff read queue" policies already cover it |
 | Cap of 3 | Keeps this a help mechanism rather than a chat feature. Past three rounds, walking over is faster for everyone |
 
@@ -561,7 +568,7 @@ For each step *k* (with `t_k` = time of the checkpoint for step *k*):
 **Trouble score** (shown with its formula, so profs can trust it):
 `trouble_k = 0.4 × errorStudents/joined + 0.3 × dropOff/joined + 0.2 × catchUps/joined + 0.1 × helpRequests/joined`
 
-The report highlights the top 3 steps, the top 5 error groups and the peak "I'm lost" count. Error groups come from `status_history.error_key` (the live `student_status` row keeps only the latest error); the peak comes from `session_lost_peak()` over `lost_events`.
+The report highlights the top 3 steps, the top 5 error groups and the peak "Slow down" count. Error groups come from `status_history.error_key` (the live `student_status` row keeps only the latest error); the peak comes from `session_slow_down_peak()` over `slow_down_events`.
 
 **Trends across terms** (`rpc('lesson_trends')`): for every past session of the same lesson (or a lesson with the same title in a course with the same course code) **among the calling prof's own courses**, a step counts as *recurring trouble* if it was in the top 3 by trouble score in at least two sessions. Steps are matched by `step_id` when the lesson is reused, otherwise by normalised title. This is a SQL aggregate now rather than a JS loop over documents.
 

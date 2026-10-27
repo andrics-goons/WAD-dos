@@ -1,5 +1,5 @@
 <script setup>
-  import { ref, onMounted, onBeforeUnmount } from "vue";
+  import { ref, computed, onMounted, onBeforeUnmount } from "vue";
   import EditorPanel from "@/components/workspace/EditorPanel.vue"
   import PreviewPanel from "@/components/workspace/PreviewPanel.vue"
   import StudentWorkspaceHeader from "@/components/workspace/StudentWorkspaceHeader.vue"
@@ -7,13 +7,22 @@
   import { getWebContainer } from "@/runtime/webcontainer";
   import { startWorkspace } from "@/runtime/workspace";
   import { useWorkspaceStore } from "@/stores/workspace.js"
-  import { useSessionStore } from '@/stores/session'
+  import { useSessionStore } from "@/stores/session"
+  import { useStatusStore } from "@/stores/status"
 
   const props = defineProps({ id: { type: String, required: true } })
 
   // reading workspace store and storing as variable
   const workspaceStore = useWorkspaceStore()
   const sessionStore = useSessionStore()
+  // my progress on the prof's dashboard: the step I've marked Completed, my latest error
+  const statusStore = useStatusStore()
+
+  // "Completed" is about the step the prof is on now, so it moves on with each checkpoint
+  const stepDone = computed(
+    () => !!sessionStore.currentStep && statusStore.doneStepOrder >= sessionStore.currentStep.order,
+  )
+  const loaded = ref(false)
 
   // WebContainer needs SharedArrayBuffer, which only exists on a cross-origin isolated page
 
@@ -32,7 +41,16 @@
     if (!isolated) return
     sessionStore.open(props.id)
     try {
-      const webcontainer = await getWebContainer()
+      // boot the WebContainer while this student's code downloads. The class and my status
+      // don't wait for the boot, so a WebContainer that fails still leaves the code and my
+      // attendance in place.
+      const opening = workspaceStore.load(props.id).then(async () => {
+        if (unmounted) return workspaceStore.close() // left while loading: stop the autosave it started
+        await statusStore.start(props.id) // tells the dashboard I'm here
+        if (unmounted) return statusStore.stop()
+        loaded.value = true
+      })
+      const [webcontainer] = await Promise.all([getWebContainer(), opening])
       if (unmounted) return
       const stop = await startWorkspace(
         webcontainer,
@@ -50,17 +68,28 @@
   onBeforeUnmount(() => {
     unmounted = true
     stopWorkspace?.() // if the startWorkspace has finished firing and returned the function, then call the stop function before unmount
+    statusStore.stop()
+    workspaceStore.close() // saves any edit still waiting for the 5 s autosave
     sessionStore.close
+    
   })
 </script>
 
 <template>
   <!-- ca-fill-viewport makes the page exactly the height left under the navbar -->
   <div class="ca-fill-viewport workspace-page">
-    <StudentWorkspaceHeader 
+    <StudentWorkspaceHeader
+      :lesson-title="sessionStore.session?.lesson.title"
+      :step="sessionStore.currentStep"
+      :step-count="sessionStore.steps.length"
+      :done="stepDone"
+      :disabled="!loaded || !sessionStore.isLive"
       :session-id="id"
       :step-id="sessionStore.currentStep?.id"
       :files="workspaceStore.files"
+      @done="statusStore.markDone(sessionStore.currentStep.order)"
+      @undo="statusStore.markInProgress(sessionStore.currentStep.order)"
+      
     />
 
     <EmptyState v-if="!isolated" icon="bi-exclamation-triangle" title="The workspace can't start">
@@ -82,6 +111,7 @@
             :file-paths="workspaceStore.filePaths"
             v-model:selected-file="workspaceStore.selectedFile"
             v-model:selected-code="workspaceStore.selectedCode"
+            :save-status="workspaceStore.saveStatus"
             @show-preview="showPreview = true"
           />
         </div>

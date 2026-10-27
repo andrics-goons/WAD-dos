@@ -306,11 +306,11 @@ TELEGRAM_BOT_TOKEN=<from @BotFather>
 TELEGRAM_BOT_USERNAME=CodeAlongBot
 TELEGRAM_WEBHOOK_SECRET=<long random>     # verified on every webhook request
 GITHUB_TOKEN=<fine-grained, public-repo read>
-GITHUB_OAUTH_CLIENT_ID=<oauth app>
-GITHUB_OAUTH_CLIENT_SECRET=<oauth app>
 LLM_API_KEY=                              # optional (KIV); hints fall back to rules when empty
 EXTERNAL_APIS=live                        # live | mock  (local + tests use mock)
 ```
+
+The GitHub OAuth app's ID and secret are **not** function secrets: Supabase Auth holds them (see "GitHub sign-in" below).
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected into every function automatically — use them there and nowhere else.
 
@@ -342,6 +342,20 @@ Two targets. A `git push` deploys **only the frontend** — schema and functions
 | Vue bundle | Vercel | automatic on push to `main` |
 | Schema + RLS + RPCs | Supabase | `pnpm db:push` |
 | Edge Functions | Supabase | `pnpm fn:deploy` |
+
+### GitHub sign-in (local and cloud)
+
+"Continue with GitHub" (login, register) and "Connect GitHub" (profile) both go through **Supabase Auth's GitHub provider**, so one GitHub OAuth app per environment covers them. The client ID and secret never go in `config.toml` or the repo.
+
+| | Local stack | Cloud project |
+|---|---|---|
+| GitHub OAuth app callback URL | `http://127.0.0.1:54321/auth/v1/callback` | `https://<ref>.supabase.co/auth/v1/callback` |
+| Homepage URL | `http://localhost:5173` | the Vercel URL |
+| Where the ID + secret go | `supabase/.env` (copy `supabase/.env.example`), then `supabase stop` + `start` | Dashboard → Authentication → Sign In / Providers → GitHub |
+| Manual linking ("Connect GitHub") | `enable_manual_linking = true` in `config.toml` | Dashboard → Authentication → Sign In / Providers → **Allow manual linking** |
+| Redirect allow-list | `additional_redirect_urls` in `config.toml` (any path on the Vite dev server) | Dashboard → Authentication → URL Configuration → add `https://<app>.vercel.app/**` |
+
+Each developer can make their own OAuth app for the local stack (GitHub allows one callback URL per app). Without `supabase/.env` the stack still starts; only the GitHub buttons fail, at GitHub's "application not found" page.
 
 ### One-time setup
 
