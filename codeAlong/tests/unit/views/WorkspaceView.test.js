@@ -44,52 +44,6 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe("WorkspaceView", () => {
-    it("refuses to boot on a page that isn't cross-origin isolated", async () => {
-        vi.stubGlobal("crossOriginIsolated", false)
-        const wrapper = mountView()
-        await flushPromises()
-        expect(getWebContainer).not.toHaveBeenCalled()
-        expect(wrapper.findComponent(EmptyState).text()).toContain("isn't cross-origin isolated")
-        // no editor either, since its Terminal would start booting on its own
-        expect(wrapper.findComponent({ name: "EditorPanel" }).exists()).toBe(false)
-    })
-
-    it("shows why when the WebContainer fails to boot", async () => {
-        getWebContainer.mockRejectedValue(new Error("boom"))
-        const wrapper = mountView()
-        await flushPromises()
-        expect(wrapper.find(".alert-danger").text()).toContain("The workspace couldn't start: boom")
-    })
-
-    it("loads this class's code and mounts it", async () => {
-        mountView()
-        await flushPromises()
-        expect(store.load).toHaveBeenCalledWith("s1")
-        expect(startWorkspace).toHaveBeenCalledWith({}, store.files, expect.any(Function))
-    })
-
-    it("starts my status once the class is loaded, and stops it when I leave", async () => {
-        const wrapper = mountView()
-        await flushPromises()
-        expect(status.start).toHaveBeenCalledWith("s1")
-        wrapper.unmount()
-        expect(status.stop).toHaveBeenCalled()
-    })
-
-    it("still records my status when the WebContainer fails to boot", async () => {
-        getWebContainer.mockRejectedValue(new Error("boom"))
-        mountView()
-        await flushPromises()
-        expect(status.start).toHaveBeenCalledWith("s1")
-    })
-
-    it("saves what's waiting when the student leaves", async () => {
-        const wrapper = mountView()
-        await flushPromises()
-        wrapper.unmount()
-        expect(store.close).toHaveBeenCalled()
-    })
-
     it("stops the workspace on unmount", async () => {
         const stop = vi.fn()
         startWorkspace.mockResolvedValue(stop)

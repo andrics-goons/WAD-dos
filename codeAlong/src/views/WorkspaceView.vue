@@ -25,7 +25,7 @@
   const loaded = ref(false)
 
   // WebContainer needs SharedArrayBuffer, which only exists on a cross-origin isolated page
-  // (the headers in vite.config.js / vercel.json). Checked before rendering anything, since
+
   // TerminalPanel.vue mounts before this view does and would otherwise start booting first.
   const isolated = window.crossOriginIsolated === true
   const bootError = ref(isolated ? "" : "This page isn't cross-origin isolated, so the workspace can't run here.")
@@ -39,6 +39,7 @@
 
   onMounted(async () => {
     if (!isolated) return
+    sessionStore.open(props.id)
     try {
       // boot the WebContainer while this student's code downloads. The class and my status
       // don't wait for the boot, so a WebContainer that fails still leaves the code and my
@@ -69,6 +70,8 @@
     stopWorkspace?.() // if the startWorkspace has finished firing and returned the function, then call the stop function before unmount
     statusStore.stop()
     workspaceStore.close() // saves any edit still waiting for the 5 s autosave
+    sessionStore.close
+    
   })
 </script>
 
@@ -81,8 +84,12 @@
       :step-count="sessionStore.steps.length"
       :done="stepDone"
       :disabled="!loaded || !sessionStore.isLive"
+      :session-id="id"
+      :step-id="sessionStore.currentStep?.id"
+      :files="workspaceStore.files"
       @done="statusStore.markDone(sessionStore.currentStep.order)"
       @undo="statusStore.markInProgress(sessionStore.currentStep.order)"
+      
     />
 
     <EmptyState v-if="!isolated" icon="bi-exclamation-triangle" title="The workspace can't start">

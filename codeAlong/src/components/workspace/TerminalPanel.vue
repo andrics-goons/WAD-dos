@@ -5,6 +5,7 @@
     // Connects the terminal to a shell inside the WebContainer
     import { connectShell } from "@/runtime/shell.js"
     import { getWebContainer } from "@/runtime/webcontainer.js"
+    import { useWorkspaceStore } from "@/stores/workspace"
 
     // Creating terminal element
     const terminalEl = ref(null)
@@ -15,6 +16,8 @@
     // set on unmount, so a boot or spawn that finishes after the user has left doesn't start a shell nobody will kill
     let unmounted = false
 
+    const workspaceStore = useWorkspaceStore()
+
     // On mounted, create the xterm instance, attach it to the page, then connect it to the shell
     onMounted(async () => {
         // create a fresh terminal for this component connect it to the div
@@ -22,7 +25,7 @@
         try {
             webcontainer = await getWebContainer()
             if (unmounted) return
-            const disconnect = await connectShell(webcontainer, term)
+            const disconnect = await connectShell(webcontainer, term, { onError:  workspaceStore.reportError } )
             // the shell started after we unmounted, so kill it straight away
             if (unmounted) disconnect()
             else disconnectShell = disconnect

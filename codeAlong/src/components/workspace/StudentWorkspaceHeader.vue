@@ -7,6 +7,9 @@
         stepCount: { type: Number, default: 0 },
         done: { type: Boolean, default: false },      // I've marked this step Completed
         disabled: { type: Boolean, default: false },  // still loading, or the class has ended
+        sessionId: { type: [String, Number], default: null },
+        stepId: { type: [String, Number], default: null },
+        files: { type: Array, default: () => [] },
     })
 
     // done: mark the current step Completed · undo: back to In progress
@@ -61,11 +64,7 @@
                 <span class="d-none d-lg-inline">Load latest checkpoint</span>
                 <span class="d-lg-none">Load</span>
             </button>
-            <button type="button" class="ca-btn ca-btn--secondary">
-                <i class="bi bi-question-circle" />
-                <span class="d-none d-lg-inline">Help</span>
-                <span class="visually-hidden d-lg-none">Help</span>
-            </button>
+            <HelpButton v-if="stepId" :session-id="sessionId" :step-id="stepId" :files="files" />
         </div>
     </header>
 </template>

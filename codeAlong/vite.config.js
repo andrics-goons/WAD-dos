@@ -65,6 +65,9 @@ export default defineConfig({
       },
     },
   },
+  // connect.html is only opened by popped out previews, so Vite wouldn't find this package until
+  // the first pop out, then rebuild its cache mid-load and fail that page with a 504
+  optimizeDeps: { include: ['@webcontainer/api/connect'] },
   server: { headers: crossOriginIsolation }, // pnpm dev
   preview: { headers: crossOriginIsolation }, // pnpm preview (the production build, locally)
   resolve: {
