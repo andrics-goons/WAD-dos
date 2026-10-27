@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import GitHubSignInButton from '@/components/auth/GitHubSignInButton.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -78,6 +79,8 @@ async function login() {
               Log in
             </button>
           </form>
+
+          <GitHubSignInButton />
 
           <!-- query: route.query carries ?returnTo= across, so a new student who arrived
                from an enrol link still ends up back on it after registering -->

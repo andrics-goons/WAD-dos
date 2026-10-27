@@ -124,7 +124,7 @@ All of it goes through `src/api/*.api.js`; components never touch `supabase` dir
 
 ### Auth & profile — `auth.api.js` (Andric), Telegram bits (Karin)
 
-Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoaded`, `updateName(name)`, `changePassword({ currentPassword, newPassword })`. The store subscribes to `onAuthChange` on its first `ensureLoaded()`: **a logout in another tab clears this tab and sends it from any `auth` page to `/login?returnTo=…`**.
+Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoaded`, `updateName(name)`, `changePassword({ currentPassword, newPassword })`, and for GitHub `signInWithGitHub(returnTo)`, `loadGitHub()` (fills `github` with `{ username, canDisconnect }` or `null`), `connectGitHub()`, `disconnectGitHub()`. `user.hasPassword` is false for an account made with GitHub, and the profile page then hides "Change password". The store subscribes to `onAuthChange` on its first `ensureLoaded()`: **a logout in another tab clears this tab and sends it from any `auth` page to `/login?returnTo=…`**.
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
@@ -132,6 +132,9 @@ Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoade
 | Auth | `auth.signInWithPassword(…)` | Session stored by `supabase-js`; platform rate-limits | Any |
 | Auth | `auth.signOut()` | Clears the local session | Any |
 | Query | `auth.getUser()` + `from('profiles').select().eq('id', uid).single()` | Current user on app load | Any |
+| Auth | `auth.signInWithOAuth({ provider: 'github', options: { redirectTo } })` — `signInWithGitHub(returnTo)` | **"Continue with GitHub"** on login and register. Leaves for GitHub and comes back to `returnTo` signed in; a first sign-in creates the account. GitHub sends no role, so the trigger makes it a **student** (named after the GitHub display name, else the username). Educators register by email | Any |
+| Auth | `auth.linkIdentity({ provider: 'github', options: { scopes: 'public_repo', redirectTo: '/profile' } })` — `connectGitHub()` | **"Connect GitHub"** on the profile page: links GitHub to the account I'm logged in with, with the repo access a replay export needs (05 §11). Needs manual linking on | Any |
+| Auth | `auth.getUserIdentities()` / `auth.unlinkIdentity(github)` — `getGitHubLink()`, `disconnectGitHub()` | Shows "Connected as @username"; Disconnect is refused while GitHub is the only way to log in | Any |
 | Query | `from('profiles').update({ name })` — `updateProfile({ name })` | Own row only (policy forbids changing `role`); 2–60 characters | Any |
 | Auth | `signInWithPassword` with the current password, then `auth.updateUser({ password })` — `changePassword({ currentPassword, newPassword })` | The current password is checked first ("Your current password is wrong"); the new one must be ≥ 6 characters and different | Any |
 | RPC | `issue_telegram_link_code()` | Writes a one-time code + expiry, returns `https://t.me/<bot>?start=<code>` | Any (Karin) |
