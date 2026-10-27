@@ -297,7 +297,12 @@ Rendered with Vue's normal escaping like every other user-entered string (T-VAL-
 
 ### Client side (Dylan)
 
-The workspace keeps `{ doneStepOrder, lastError }` and upserts its `student_status` row **only when one of them changes**, throttled to `STATUS_WRITE_THROTTLE_MS` (2 s). A heartbeat touches `last_seen_at` every 30 s while the tab is visible (`document.visibilityState`). No keystrokes, no code — the table has no column for either.
+The workspace keeps `{ doneStepOrder, lastError }` (`stores/status.js`) and upserts its `student_status` row **only when one of them changes**, throttled to `STATUS_WRITE_THROTTLE_MS` (2 s). A heartbeat touches `last_seen_at` every 30 s while the tab is visible (`document.visibilityState`), and once straight away when the student comes back to the tab. No keystrokes, no code — the table has no column for either.
+
+- **Opening the workspace** writes the row at once, which is the attendance record (`joined_at`). A refresh reads the row back first, so a step marked Completed stays completed.
+- **"My status"** in the workspace header is about the prof's current step: *Completed* sets `done_step_order` to that step's order, *In progress* sets it to one less. A new checkpoint moves the step on, so the toggle reads *In progress* again.
+- **Errors** go through `setError({ source, name, message, file, line })`, which adds `key` / `shapeKey` with `normalizeError()` and cuts the message to `ERROR_MESSAGE_MAX`; `clearError()` after a clean run. Nothing calls them yet: the lesson's `ca-probe.js` is still a placeholder, and build errors still need `parseBuildError()`.
+- **After the class ends** the store stops writing (the table would refuse anyway).
 
 ### Derived in SQL (Andric)
 

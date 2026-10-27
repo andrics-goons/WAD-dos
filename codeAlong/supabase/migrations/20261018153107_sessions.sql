@@ -301,6 +301,22 @@ create trigger record_status_change
     after insert or update of done_step_order, error on public.student_status
     for each row execute function public.record_status_change();
 
+-- Every write a student makes to their status row (a change or the 30 s heartbeat) means
+-- they're here. Stamped with the server's clock, so a lab PC with the wrong time can't make
+-- them look idle, or never idle. Writes that aren't the student's own (the seed, tests using
+-- the service role) keep the time they set.
+create function public.touch_last_seen() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+    if new.student_id = auth.uid() then
+        new.last_seen_at := now();
+    end if;
+    return new;
+end $$;
+
+create trigger touch_last_seen before insert or update on public.student_status
+    for each row execute function public.touch_last_seen();
+
 -- A new checkpoint moves the target step, which re-derives EVERY student's state without
 -- any of them writing. Record those changes too, or history misses every "behind".
 create function public.record_checkpoint_states() returns trigger

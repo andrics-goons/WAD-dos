@@ -275,6 +275,17 @@ describe('student_status', () => {
     expect(Object.keys(data)).not.toContain('lost') // "Slow down" lives in slow_down_flags, which staff can't read
   })
 
+  it("last_seen_at is the server's clock, whatever time the student's browser sends", async () => {
+    const before = Date.now()
+    await writeStatus(stu, { last_seen_at: '2020-01-01T00:00:00Z' }) // a PC with the wrong clock
+    const { data } = await stu.client
+      .from('student_status')
+      .select('last_seen_at')
+      .eq('session_id', session.id)
+      .single()
+    expect(Date.parse(data.last_seen_at)).toBeGreaterThanOrEqual(before - 5_000)
+  })
+
   it('a student cannot delete their row (it is the attendance record)', async () => {
     await stu.client
       .from('student_status')

@@ -124,7 +124,7 @@ All of it goes through `src/api/*.api.js`; components never touch `supabase` dir
 
 ### Auth & profile — `auth.api.js` (Andric), Telegram bits (Karin)
 
-Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoaded`, `updateName(name)`, `changePassword({ currentPassword, newPassword })`. The store subscribes to `onAuthChange` on its first `ensureLoaded()`: **a logout in another tab clears this tab and sends it from any `auth` page to `/login?returnTo=…`**.
+Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoaded`, `updateName(name)`, `changePassword({ currentPassword, newPassword })`, and for GitHub `signInWithGitHub(returnTo)`, `loadGitHub()` (fills `github` with `{ username, canDisconnect }` or `null`), `connectGitHub()`, `disconnectGitHub()`. `user.hasPassword` is false for an account made with GitHub, and the profile page then hides "Change password". The store subscribes to `onAuthChange` on its first `ensureLoaded()`: **a logout in another tab clears this tab and sends it from any `auth` page to `/login?returnTo=…`**.
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
@@ -132,6 +132,9 @@ Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoade
 | Auth | `auth.signInWithPassword(…)` | Session stored by `supabase-js`; platform rate-limits | Any |
 | Auth | `auth.signOut()` | Clears the local session | Any |
 | Query | `auth.getUser()` + `from('profiles').select().eq('id', uid).single()` | Current user on app load | Any |
+| Auth | `auth.signInWithOAuth({ provider: 'github', options: { redirectTo } })` — `signInWithGitHub(returnTo)` | **"Continue with GitHub"** on login and register. Leaves for GitHub and comes back to `returnTo` signed in; a first sign-in creates the account. GitHub sends no role, so the trigger makes it a **student** (named after the GitHub display name, else the username). Educators register by email | Any |
+| Auth | `auth.linkIdentity({ provider: 'github', options: { scopes: 'public_repo', redirectTo: '/profile' } })` — `connectGitHub()` | **"Connect GitHub"** on the profile page: links GitHub to the account I'm logged in with, with the repo access a replay export needs (05 §11). Needs manual linking on | Any |
+| Auth | `auth.getUserIdentities()` / `auth.unlinkIdentity(github)` — `getGitHubLink()`, `disconnectGitHub()` | Shows "Connected as @username"; Disconnect is refused while GitHub is the only way to log in | Any |
 | Query | `from('profiles').update({ name })` — `updateProfile({ name })` | Own row only (policy forbids changing `role`); 2–60 characters | Any |
 | Auth | `signInWithPassword` with the current password, then `auth.updateUser({ password })` — `changePassword({ currentPassword, newPassword })` | The current password is checked first ("Your current password is wrong"); the new one must be ≥ 6 characters and different | Any |
 | RPC | `issue_telegram_link_code()` | Writes a one-time code + expiry, returns `https://t.me/<bot>?start=<code>` | Any (Karin) |
@@ -202,7 +205,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 | RPC | `autosave_patch(p_session_id, p_upsert, p_delete)` | Autosave, debounced **5 s** after the last keystroke (plus a flush on blur/unload). Sends **only the files whose content hash changed**, diffed against IndexedDB; an unchanged tree sends no request at all. `SYNC_IGNORE` keeps `node_modules/`, `dist/` and `.vite/` out | Enrolled |
 | RPC | `catch_up(p_session_id, p_files)` | Writes the `before_catchup` snapshot **first**, then returns the latest checkpoint + snapshot id | Enrolled (if `allowCatchUp`) |
 | Query | `from('snapshots').select().eq('reason','before_catchup')` | My attempts — RLS makes "mine" automatic | Enrolled |
-| Query | `from('student_status').upsert({ … })` | Status on change + 30 s heartbeat. No `state` field exists to send | Enrolled |
+| Query | `getMyStatus(sessionId)` / `saveStatus(sessionId, studentId, { doneStepOrder, error })` — `from('student_status').upsert(…)` | Status on change (throttled to 2 s) + 30 s heartbeat while the tab is visible; driven by `stores/status.js`. No `state` field exists to send | Enrolled |
 | Query | `from('slow_down_flags').insert({ session_id, student_id })` / `.delete()` | "Slow down" on / off. Anonymous: staff can only read `slow_down_count` | Enrolled, live session |
 
 ### Help — `help.api.js` (Karin)

@@ -41,7 +41,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Profile page: rename. The role can't be changed here — only an admin can.
   async function updateName(name) {
-    user.value = await authApi.updateProfile({ name })
+    user.value = { ...user.value, ...(await authApi.updateProfile({ name })) } // keeps hasPassword
   }
 
   // Profile page: needs the current password as well as the new one
@@ -49,8 +49,22 @@ export const useAuthStore = defineStore('auth', () => {
     await authApi.changePassword(form)
   }
 
+  // GitHub: sign in with it, or link it to this account so a replay can be exported to it.
+  // Both leave for GitHub and come back to the app, so there's nothing to update here afterwards.
+  const github = ref(null) // { username, canDisconnect }, or null when not linked
+  const signInWithGitHub = (returnTo) => authApi.signInWithGitHub(returnTo)
+  const connectGitHub = () => authApi.connectGitHub()
+  async function loadGitHub() {
+    github.value = await authApi.getGitHubLink()
+  }
+  async function disconnectGitHub() {
+    await authApi.disconnectGitHub()
+    github.value = null
+  }
+
   function clear() {
     user.value = null
+    github.value = null
     useCoursesStore().reset() // the next person on this browser mustn't see these courses
   }
 
@@ -91,5 +105,10 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     updateName,
     changePassword,
+    github,
+    signInWithGitHub,
+    connectGitHub,
+    loadGitHub,
+    disconnectGitHub,
   }
 })

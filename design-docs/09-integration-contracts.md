@@ -414,14 +414,14 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Navigation | `nav-home`, `nav-courses`, `nav-replays`, `nav-profile`, `nav-connection-pill` |
 | Courses | `course-card-<code>`, `btn-new-course`, `btn-enrol-course`, `input-enrol-code`, `btn-enrol`, `enrol-link`, `btn-copy-enrol-link`, `enrol-qr` |
 | Lessons | `lesson-row-<slug>`, `lesson-start-<slug>`, `step-item-<order>`, `btn-step-up-<order>` |
-| Session | `join-code`, `join-qr`, `input-join-code`, `btn-save-checkpoint`, `btn-end-session`, `toast-checkpoint`, `input-announce`, `btn-announce`, `btn-clear-announce`, `announcement-banner` |
+| Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `btn-save-checkpoint`, `btn-end-session`, `toast-checkpoint`, `input-announce`, `btn-announce`, `btn-clear-announce`, `announcement-banner` |
 | Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `what-you-missed`, `workspace-step-current`, `tab-code`, `tab-preview`, `tab-console`, `tab-steps` |
 | Dashboard | `tile-<studentId>` (with `data-state="<TileState>"`), `summary-<state>`, `slow-down-count`, `error-group-<index>`, `btn-spotlight-<index>`, `spotlight-panel` |
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |
 | Replay | `timeline-step-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
 | Reports | `report-funnel`, `report-top-errors`, `btn-send-digest` |
-| Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login`, `link-register`, `link-login` |
-| Profile | `input-profile-name`, `btn-save-name`, `input-current-password`, `input-new-password`, `btn-change-password`, `btn-logout` |
+| Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login`, `btn-github-login`, `link-register`, `link-login` |
+| Profile | `input-profile-name`, `btn-save-name`, `input-current-password`, `input-new-password`, `btn-change-password`, `btn-logout`, `btn-connect-github`, `btn-disconnect-github`, `github-username` |
 | Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `input-user-search` |
 
 ---
@@ -433,7 +433,8 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Vercel (build) | `VITE_SUPABASE_URL` | Public by design |
 | Vercel (build) | `VITE_SUPABASE_ANON_KEY` | **Public — baked into the bundle. RLS is the only thing protecting the data.** |
 | Supabase secrets | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` | `supabase secrets set` — never in Vercel |
-| Supabase secrets | `GITHUB_TOKEN`, `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET` | Server-side imports + replay export |
+| Supabase secrets | `GITHUB_TOKEN` | Server-side imports |
+| Supabase Auth → GitHub provider | OAuth app client ID + secret (`supabase/.env` locally, the dashboard in the cloud — 02, "GitHub sign-in") | "Continue with GitHub", "Connect GitHub", and the token a replay export uses |
 | Supabase secrets | `LLM_API_KEY` | Optional; hints fall back to the rule table when empty |
 | Supabase secrets | `APP_URL` | Used in QR codes, Telegram links, replay links |
 | Supabase (auto) | `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL` | Injected into Edge Functions; **never** sent to the client |
