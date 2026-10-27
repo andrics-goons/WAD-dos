@@ -136,7 +136,7 @@ insert into seed.starter values ($mc$[
   {
     "path": "src/ca-probe.js",
     "language": "js",
-    "content": "// CodeAlong runtime probe: reports console output and errors to your CodeAlong workspace.\n// You don't need to edit this file.\n//\n// PLACEHOLDER: the real probe (design-docs/05-core-logic.md §1) replaces this file.\nexport {}\n"
+    "content": "// CodeAlong runtime probe: reports errors in your app to your CodeAlong workspace.\n// You don't need to edit this file.\n//\n// Each error goes to the Vite dev server, which prints it in the terminal for CodeAlong to read\n// (the ca-errors plugin in vite.config.js). Works in the preview and when it's popped out.\n\n// sends one error to the Vite dev server over its hot-reload connection.\n// import.meta.hot only exists while running under pnpm dev, so ?. skips it otherwise\nfunction sendError(raw) {\n  import.meta.hot?.send('ca:error', raw)\n}\n\n// errors thrown while the app runs, e.g. TypeError, ReferenceError\nwindow.addEventListener('error', (event) => {\n  sendError({\n    name: event.error?.name,\n    // event.message on its own starts with \"Uncaught \", the error object's message doesn't\n    message: event.error?.message ?? event.message,\n    filename: event.filename,\n    lineno: event.lineno,\n  })\n})\n\n// promises nobody caught, e.g. a failed await axios.get(...)\nwindow.addEventListener('unhandledrejection', (event) => {\n  const err = event.reason\n  // the browser doesn't say where a promise failed, so filename and lineno stay null\n  sendError({ name: err?.name, message: err?.message ?? String(err), filename: null, lineno: null })\n})\n"
   },
   {
     "path": "src/App.vue",
