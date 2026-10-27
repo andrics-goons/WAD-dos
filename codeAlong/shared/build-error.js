@@ -1,14 +1,11 @@
 import { Limits } from "./constants.js"
 
-// the first line of a Vite error, and the lines that mean it compiles again
-// creates a regex object to help with checking if its a start of an error or recovered
+// the first line of a Vite error
+// creates a regex object to help with checking if its a start of an error
 // ERROR_LABEL is everything in front of the message, e.g. "9:18:41 PM [vite] (client) Pre-transform error: "
 // Vite 8 adds "(client)", and says "Pre-transform error" when the page loads or "Internal server error" when a file is requested
-const ERROR_LABEL = /^.*?\[vite\] (?:\([\w-]+\) )?(?:Internal server error|Pre-transform error):\s*/
-const RECOVERED = /hmr update|page reload|ready in/
-// concurrently (the lesson's dev script) puts its name in front of every line, e.g. "[web]   File: ..."
-// [vite] is Vite's own label, so it's left alone
-const PREFIX = /^\[(?!vite\])[\w-]+\] ?/
+// exported so error-reader.js spots errors with the same regex this file removes
+export const ERROR_LABEL = /^.*?\[vite\] (?:\([\w-]+\) )?(?:Internal server error|Pre-transform error):\s*/
 
 // reads one finished vite error block
 // returns { source: "build", name, message, file, line }, or null if it isn't a vite error
@@ -43,49 +40,5 @@ export function parseBuildError (text) {
         message,
         file,
         line: match?.[2] ? Number(match[2]) : null,
-    }
-}
-
-// reads every line outputted by the terminal and finds vite errors
-export function createBuildErrorReader (onError) {
-    // defines the mode of the error reader when null (watching for error) or an array (collecting lines)
-    let block = null
-
-    // calls the parseBuildError function once all the needed output is collected and reset the block 
-    function finish () {
-        // appends the array elements (lines pushed from jsh) into the parseBuildError
-        const err = parseBuildError(block.join("\n"))
-        block = null
-        // chcekcs if the error was properly parsed
-        if (err) {
-            onError(err)
-        }
-    }
-
-    return (line) => {
-        // remove the "[web] " first, or the indent check below fails and the block ends before the File: line
-        line = line.replace(PREFIX, "")
-
-        if (block) {
-            // checks if the line is indented, all of the info needed shld be under the [vite] line with indents
-            if (/^\s+\S/.test(line)) {
-                block.push(line)
-                // only need up till "File:" line, call the finish function and call now
-                if (line.trim().startsWith("File:")) {
-                    finish()
-                }
-                return
-            }
-            // anything else ends the error, then gets checked like any other line below
-            finish()
-        }
-        // checks if its the start of an error
-        if (ERROR_LABEL.test(line)) {
-            block = [line]
-        }
-        // checks if its recovered instead, disregard
-        else if (RECOVERED.test(line)) { 
-            onError(null) 
-        }
     }
 }

@@ -1,5 +1,5 @@
 import { stripAnsi, createLineSplitter } from "./output.js"
-import { createBuildErrorReader } from "@shared/build-error.js"
+import { createErrorReader } from "@shared/error-reader.js"
 
 export async function connectShell(webcontainer, term, { onError } = {}) {
     // create shell process in webcontainer
@@ -7,7 +7,7 @@ export async function connectShell(webcontainer, term, { onError } = {}) {
         terminal:{ cols: term.cols, rows: term.rows }  //meant for resizing, TODO LATER
     })
 
-    const pushLine = createBuildErrorReader(onError)
+    const pushLine = createErrorReader(onError)
     const pushChunk = createLineSplitter((line => pushLine(stripAnsi(line))))
 
     // writing shell outputs into the terminal

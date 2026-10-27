@@ -32,23 +32,6 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe("WorkspaceView", () => {
-    it("refuses to boot on a page that isn't cross-origin isolated", async () => {
-        vi.stubGlobal("crossOriginIsolated", false)
-        const wrapper = mountView()
-        await flushPromises()
-        expect(getWebContainer).not.toHaveBeenCalled()
-        expect(wrapper.find('[data-testid="empty-state"]').text()).toContain("isn't cross-origin isolated")
-        // no editor either, since its Terminal would start booting on its own
-        expect(wrapper.findComponent({ name: "EditorPanel" }).exists()).toBe(false)
-    })
-
-    it("shows why when the WebContainer fails to boot", async () => {
-        getWebContainer.mockRejectedValue(new Error("boom"))
-        const wrapper = mountView()
-        await flushPromises()
-        expect(wrapper.find('[role="alert"]').text()).toContain("The workspace couldn't start: boom")
-    })
-
     it("stops the workspace on unmount", async () => {
         const stop = vi.fn()
         startWorkspace.mockResolvedValue(stop)

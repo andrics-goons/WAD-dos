@@ -7,14 +7,16 @@
   import { getWebContainer } from "@/runtime/webcontainer";
   import { startWorkspace } from "@/runtime/workspace";
   import { useWorkspaceStore } from "@/stores/workspace.js"
+  import { useSessionStore } from '@/stores/session'
 
   defineProps({ id: { type: String, required: true } })
 
   // reading workspace store and storing as variable
   const workspaceStore = useWorkspaceStore()
+  const sessionStore = useSessionStore()
 
   // WebContainer needs SharedArrayBuffer, which only exists on a cross-origin isolated page
-  // (the headers in vite.config.js / vercel.json). Checked before rendering anything, since
+
   // TerminalPanel.vue mounts before this view does and would otherwise start booting first.
   const isolated = window.crossOriginIsolated === true
   const bootError = ref(isolated ? "" : "This page isn't cross-origin isolated, so the workspace can't run here.")
