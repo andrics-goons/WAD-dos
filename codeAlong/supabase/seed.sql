@@ -116,7 +116,7 @@ insert into seed.starter values ($mc$[
   {
     "path": "package.json",
     "language": "json",
-    "content": "{\n  \"name\": \"mini-cart\",\n  \"version\": \"0.0.0\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"scripts\": {\n    \"dev\": \"concurrently --kill-others --names api,web \\\"node server/api.js\\\" \\\"vite\\\"\",\n    \"build\": \"vite build\"\n  },\n  \"dependencies\": {\n    \"axios\": \"^1.20.0\",\n    \"vue\": \"^3.5.44\"\n  },\n  \"devDependencies\": {\n    \"@vitejs/plugin-vue\": \"^6.0.10\",\n    \"concurrently\": \"^10.0.6\",\n    \"express\": \"^5.3.0\",\n    \"vite\": \"^8.1.5\"\n  }\n}\n"
+    "content": "{\n  \"name\": \"mini-cart\",\n  \"version\": \"0.0.0\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"scripts\": {\n    \"dev\": \"concurrently --kill-others --names api,web \\\"node server/api.js\\\" \\\"vite\\\"\",\n    \"build\": \"vite build\"\n  },\n  \"dependencies\": {\n    \"axios\": \"^1.20.0\",\n    \"vue\": \"^3.5.44\"\n  },\n  \"devDependencies\": {\n    \"@napi-rs/wasm-runtime\": \"1.2.5\",\n    \"@rolldown/binding-wasm32-wasi\": \"1.2.15\",\n    \"@vitejs/plugin-vue\": \"^6.0.10\",\n    \"concurrently\": \"^10.0.6\",\n    \"express\": \"^5.3.0\",\n    \"vite\": \"^8.1.5\"\n  }\n}\n"
   },
   {
     "path": "vite.config.js",
