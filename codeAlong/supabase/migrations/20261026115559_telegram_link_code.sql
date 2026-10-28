@@ -2,7 +2,7 @@
 -- the bot as /start <code>, and telegram-webhook saves their chat id (T-TG-01).
 -- Spec: design-docs/04-pages-routes-and-events.md ("Auth & profile")
 
--- Returns the link to open, e.g. https://t.me/TeleHelpbot?start=1a2b3c4d5e6f. The code works
+-- Returns the link to open, e.g. https://t.me/TeleHelp123bot?start=1a2b3c4d5e6f. The code works
 -- for 10 minutes, and asking again replaces it.
 create function public.issue_telegram_link_code()
 returns text
@@ -19,5 +19,5 @@ begin
            telegram_link_code_expires_at = now() + interval '10 minutes'
      where id = auth.uid();
 
-    return 'https://t.me/TeleHelpbot?start=' || v_code;
+    return 'https://t.me/TeleHelp123bot?start=' || v_code;
 end $$;
