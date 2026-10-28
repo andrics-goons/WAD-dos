@@ -1,5 +1,5 @@
 // github-export: copies a class's checkpoints into a new repo on the user's own GitHub, one
-// commit per step, so the history shows how the code was built (design-docs/05 §11).
+// commit per checkpoint, so the history shows how the code was built (design-docs/05 §11).
 //   { sessionId, repoName, private, providerToken } -> { repoUrl }
 // providerToken is the user's GitHub token from Supabase Auth (linkIdentity). It is used for
 // these calls only and never stored or logged.
@@ -9,7 +9,8 @@ import { GithubError, type Github } from '../_shared/github.ts'
 
 export interface ExportCheckpoint {
   files: { path: string; content: string }[]
-  step: { order: number; title: string }
+  seq: number
+  title: string | null // optional: the prof may save a checkpoint without one
 }
 
 export interface ExportDeps {
@@ -65,17 +66,14 @@ export async function handleExport(req: Request, deps: ExportDeps): Promise<Resp
     const base = `/repos/${repo.owner.login}/${repo.name}`
     const branch = repo.default_branch
     let parent = await firstCommit(gh, `${base}/git/ref/heads/${branch}`, deps.wait)
-    const readme = exportReadme(
-      data.lessonTitle,
-      data.checkpoints.map((c) => c.step),
-    )
+    const readme = exportReadme(data.lessonTitle, data.checkpoints)
     for (const checkpoint of data.checkpoints) {
       // No base_tree: each commit holds exactly that checkpoint's files
       const tree = await gh.json('POST', `${base}/git/trees`, {
         tree: exportTree(checkpoint.files, readme),
       })
       const commit = await gh.json('POST', `${base}/git/commits`, {
-        message: commitMessage(checkpoint.step),
+        message: commitMessage(checkpoint),
         tree: tree.sha,
         parents: [parent],
       })

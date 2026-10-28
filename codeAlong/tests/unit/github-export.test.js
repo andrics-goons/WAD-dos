@@ -1,7 +1,7 @@
 // Unit tests for github-export: shared/github.js helpers and the Edge Function handler,
 // with a fake GitHub that records every call (no network).
 import { describe, it, expect, vi } from 'vitest'
-import { commitMessage, exportTree, isValidRepoName } from '../../shared/github.js'
+import { commitMessage, exportReadme, exportTree, isValidRepoName } from '../../shared/github.js'
 import { handleExport } from '../../supabase/functions/github-export/handler.ts'
 import { GithubError, mockGithub } from '../../supabase/functions/_shared/github.ts'
 
@@ -12,8 +12,8 @@ const file = (path, content) => ({ path, content })
 const lesson = {
   lessonTitle: 'Week 6 · Mini Cart',
   checkpoints: [
-    { files: [file('index.html', '<div></div>')], step: { order: 1, title: 'Create the app' } },
-    { files: [file('index.html', '<ul></ul>')], step: { order: 2, title: 'Fetch items' } },
+    { files: [file('index.html', '<div></div>')], seq: 1, title: 'Create the app' },
+    { files: [file('index.html', '<ul></ul>')], seq: 2, title: null }, // saved without a title
   ],
 }
 
@@ -69,13 +69,13 @@ describe('github-export', () => {
     ])
   })
 
-  it('T-GH-04: names each commit after its step, and chains them in order', async () => {
+  it('T-GH-04: names each commit after its checkpoint, and chains them in order', async () => {
     const { github, run } = setup()
     await run()
     const commits = github.calls
       .filter(([, path]) => path.endsWith('/git/commits'))
       .map((c) => c[2])
-    expect(commits.map((c) => c.message)).toEqual(['Step 1: Create the app', 'Step 2: Fetch items'])
+    expect(commits.map((c) => c.message)).toEqual(['Checkpoint 1 · Create the app', 'Checkpoint 2'])
     // The fake hands out sha-1, sha-2… in call order: tree 1, commit 1, tree 2, commit 2
     expect(commits[0].parents).toEqual(['initial']) // the repo's first commit
     expect(commits[1].parents).toEqual(['sha-2']) // commit 1
@@ -127,8 +127,14 @@ describe('github-export', () => {
 })
 
 describe('export helpers', () => {
-  it('builds commit messages from the step', () => {
-    expect(commitMessage({ order: 3, title: 'Fetch items' })).toBe('Step 3: Fetch items')
+  it('builds commit messages from the checkpoint', () => {
+    expect(commitMessage({ seq: 3, title: 'Fetch items' })).toBe('Checkpoint 3 · Fetch items')
+    expect(commitMessage({ seq: 3, title: null })).toBe('Checkpoint 3')
+  })
+
+  it('lists the checkpoints in the README', () => {
+    const readme = exportReadme('Week 6 · Mini Cart', lesson.checkpoints)
+    expect(readme).toContain('- Checkpoint 1 · Create the app\n- Checkpoint 2\n')
   })
 
   it('keeps a lesson README instead of adding a second one', () => {

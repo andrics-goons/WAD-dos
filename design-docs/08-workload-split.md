@@ -9,8 +9,8 @@
 | **Ying Qi** | Live session engine + the frontend platform: session + checkpoint RPCs, Realtime channels, app shell, router, UI kit, core pages | F1 + platform | 2–3 | Vercel deployment, responsive/consistency review, the independent RLS sweep, load simulator + Realtime cap check, README assembly **(proposed)** |
 | **Dylan** | Student workspace runtime + IDE: WebContainer boot / install / run, terminal, preview, build-error capture, editor, Done / Slow down / Help bar | F2 | **3** | `CodeEditor` used by Evan, Ray Yien and Karin; the Week 8 WebContainer spikes; automatic step checks (COULD) |
 | **Karin** | Help + communication: Check my work / Ask for help, follow-ups, TA queue + review, Telegram, class announcements | F3 | 2 | Student-facing session UI (join page, checkpoint toast, connection pill, announcement banner); Playwright setup; AI hints (COULD) **(proposed)** |
-| **Evan** | Prof view: lessons + TODO plan, teach view (incl. live preview), class dashboard, insights report page | F4 | **3** | Error normaliser + grouping, `classify()`, Spotlight, the Mini Cart lesson project **(proposed)** |
-| **Ray Yien** | Files over time: IndexedDB cache, delta autosave, catch-up, diff / "What you missed", replay, GitHub import + export | F5 | 2–3 | `FileTree` and `DiffView`, used by Dylan and Karin |
+| **Evan** | Prof view: lessons, teach view (incl. live preview, saving checkpoints), class dashboard, insights report page | F4 | **3** | Error normaliser + grouping, `classify()`, Spotlight, the Mini Cart lesson project **(proposed)** |
+| **Ray Yien** | Files over time: IndexedDB cache, delta autosave, catch-up, diff, replay, GitHub import + export | F5 | 2–3 | `FileTree` and `DiffView`, used by Dylan and Karin |
 | **Andric** | Database, auth + insights data: **the whole schema** (tables, constraints, RLS, views, triggers), auth, accounts + courses data access, report builder | F6 + data platform | 2–3 | `seed.sql`, migration review, the free-tier keep-alive **(proposed)** |
 
 Everyone writes the **E2E specs, unit tests and RLS negative tests for their own feature** (test IDs on each card below and in [06-stages-and-tests.md](./06-stages-and-tests.md)). Karin owns the shared Playwright setup. **Everyone writes the README section for their own feature** — they are the ones who must explain it in Q&A; Ying Qi only assembles.
@@ -48,7 +48,7 @@ After the Supabase + WebContainer rewrites, Dylan's card was carrying more than 
 | Join page, checkpoint toast, connection pill | Ying Qi → **Karin** | Student-facing session UI; all of it subscribes to Ying Qi's `sessionChannel`, so no interface changes |
 | Join code card + QR display | Ying Qi → **Evan** | They live on Evan's teach view |
 | `classify()` + its SQL/JS agreement test | Ying Qi → **Evan** | The dashboard's client-side re-derivation; Andric owns the SQL view it must agree with |
-| Mini Cart lesson project (Vite + Express, the eight TODOs) | **unassigned** → Evan | He owns the TODO parser and the lesson editor; Dylan supplies `src/ca-probe.js` |
+| Mini Cart lesson project (Vite + Express, the eight TODOs) | **unassigned** → Evan | He owns the lesson editor; Dylan supplies `src/ca-probe.js` |
 | The prof's live preview on the teach view | **unassigned** → Evan | His page; it reuses Dylan's `container.js` rather than building a second runtime |
 | Realtime free-tier verification | Andric → **Ying Qi** | It *is* a run of her load simulator against her channels |
 
@@ -112,7 +112,7 @@ The pitch rubric gives 25% for "a functioning task". Each member shows one worki
 | Ying Qi | Start session → join by code → checkpoint broadcast to 3 laptops; app deployed to Vercel once (even if early) |
 | Dylan | Editor + sandboxed preview + console capturing a real error; Load checkpoint |
 | Karin | Telegram bot linked to a TA account; a message sent from the `telegram-notify` function |
-| Evan | Basic dashboard tiles updating live from `session_tiles`; TODO parser on the Mini Cart starter |
+| Evan | Basic dashboard tiles updating live from `session_tiles` |
 | Ray Yien | GitHub import of a public repo into a draft lesson |
 | Andric | Schema + RLS live on the cloud project; register / log in and enrol by code working through RLS against it |
 
@@ -212,8 +212,7 @@ Answers to #3 go in the README either way — the measurement is the decision re
 
 | What | File(s) | Done |
 |---|---|:---:|
-| Lessons + steps data access (upload, edit, reorder, delete) | `src/api/lessons.api.js`, `replace_steps` / `delete_step` RPCs | ⬜ |
-| TODO parser | `shared/todo-parser.js` | ⬜ |
+| Lessons data access (upload, edit, delete) | `src/api/lessons.api.js` | ⬜ |
 | New lesson (upload tab) + lesson editor | `views/LessonNewView.vue`, `views/LessonEditView.vue`, `components/lesson/*` | ⬜ |
 | **Mini Cart lesson project** — Vite + Express, the eight TODOs; Dylan supplies `ca-probe.js` **(was unassigned)** | `scripts/fixtures/mini-cart/` | ⬜ |
 | Teach view: prof editor, plan, Save checkpoint, summary bar, session bar (embeds Karin's announce input) | `views/TeachView.vue` | ⬜ |
@@ -223,11 +222,11 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | **`classify()` + the SQL/JS agreement test** **(moved)** | `shared/tile-state.js` | ⬜ |
 | Error normaliser + grouping (client-side `computed`) **(proposed)** | `shared/error-normalizer.js` | ⬜ |
 | `spotlight` function (pick snapshot, anonymise, broadcast) **(proposed)** | `supabase/functions/spotlight/`, `shared/spotlight.js` | ⬜ |
-| **Insights report page** — funnel, top errors, recurring steps, digest panel; reads Andric's `session_reports` **(moved)** | `views/ReportView.vue`, `components/insights/*` | ⬜ |
-| Tests | T-LES-* · T-TODO-* · T-DASH-* · T-ERRG-* · T-STAT-01–06, 10 · T-RESP-03, 04 · T-INS-04 | ⬜ |
+| **Insights report page** — funnel per checkpoint, top errors, recurring trouble checkpoints, digest panel; reads Andric's `session_reports` **(moved)** | `views/ReportView.vue`, `components/insights/*` | ⬜ |
+| Tests | T-LES-* · T-DASH-* · T-ERRG-* · T-STAT-01–06, 10 · T-RESP-03, 04 · T-INS-04 | ⬜ |
 
 **Boundary:** owns what the prof sees during and after class, and the lesson content itself. Reads Andric's views and report data; reuses Dylan's runtime and editor rather than building his own.
-**Note:** re-parse is a pure function call in the browser — there is no round-trip to build.
+**Note:** lessons have no steps any more — the prof saves checkpoints during class (05 §5).
 
 ---
 
@@ -261,9 +260,9 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | **The schema, one migration per layer** — each with its tables, helpers, RLS policies and RPCs **(moved)** | `supabase/migrations/` | |
 | · profiles, sign-up trigger, `app_role()`, `is_admin()` | `…_profiles.sql` | ✅ |
 | · courses, `course_staff`, `course_students`, `is_course_*()` helpers, `create_course` / `enrol_with_code` / `add_course_staff` / `remove_course_student`, "read coursemates" | `…_courses.sql` | ✅ |
-| · lessons, steps, `files_valid()` / `files_include()`, `can_read_lesson()` / `can_edit_lesson()`, `replace_steps` / `delete_step`, the shared `set_updated_at()` trigger (also on profiles + courses) | `…_lessons.sql` | ✅ |
+| · lessons, `files_valid()` / `files_include()`, the shared `set_updated_at()` trigger (also on profiles + courses) | `…_lessons.sql` | ✅ |
 | · sessions, checkpoints, `student_status`, `slow_down_flags`, `status_history` + the `session_tiles` / `session_summary` views + the Realtime channel policies **+ the taught-lesson guards** | `20261018153107_sessions.sql`, `tests/unit/rls/sessions.test.js` | ✅ |
-| · snapshots, help requests, notes, session reports + `slow_down_events`, `session_tiles.passed_steps`, `status_history.error_key` | `20261018154409_help_notes_reports.sql`, `tests/unit/rls/help_notes_reports.test.js` | ✅ |
+| · snapshots, help requests, notes, session reports + `slow_down_events`, `session_tiles.passed_seqs`, `status_history.error_key` | `20261018154409_help_notes_reports.sql`, `tests/unit/rls/help_notes_reports.test.js` | ✅ |
 | **Review every migration PR** — feature owners write their own RPCs **(moved)** | — | ⬜ |
 | Supabase client + error mapper | `src/lib/supabase.js`, `src/api/mapError.js` | ✅ |
 | Auth data access | `src/api/auth.api.js` | ✅ |
@@ -271,7 +270,7 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | **Enrol page** — typed code and `/enrol/:code` link, auto-submit **(new)**, `returnTo` through login/register | `views/EnrolView.vue` | ✅ |
 | Report builder + `end-session` function + trends RPC (the page is Evan's) | `shared/report-builder.js`, `supabase/functions/end-session/` | ⬜ |
 | Seed data (Dylan's Mini Cart project; past + live sessions, reports) | `supabase/seed.sql`, `tests/unit/rls/seed.test.js` | ✅ |
-| `seed:generate` — check the seed against the real `parseTodos` / `buildReport` once they exist | `scripts/seed-generate.js` | ⬜ |
+| `seed:generate` — check the seed against the real `buildReport` once it exists | `scripts/seed-generate.js` | ⬜ |
 | **`test_outbox` table** — Karin's mocked Telegram/GitHub functions write here; tests read it **(new)** | `…_test_outbox.sql`, `readOutbox()` in `tests/unit/rls/_helpers.js` | ✅ |
 | Keep-alive cron so the free-tier project can't pause before Week 18 | GitHub Actions cron | ⬜ |
 | **Sign-up role choice**: trigger allow-list (`prof`, else `student`) + `register({ role })` **(new)** | `…_profiles.sql`, `src/api/auth.api.js` | ✅ |
@@ -299,7 +298,7 @@ Dylan:    container.js + CodeEditor ─▶ Evan (teach preview), Ray Yien (repla
 Ray Yien: loadFiles / autosave / catchUp ─▶ Dylan (workspace)
 Ray Yien: FileTree / DiffView ───────▶ Dylan (IDE, What you missed), Karin (side-by-side)
 Karin:    telegram-notify ───────────▶ Andric (digest)
-Evan:     parseTodos + Mini Cart ────▶ Ray Yien (github-import), Andric (seed)
+Evan:     Mini Cart lesson ──────────▶ Andric (seed)
 ```
 
 | Risk | Mitigation |

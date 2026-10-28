@@ -8,9 +8,9 @@ import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import ClassSummaryBar from '@/components/dashboard/ClassSummaryBar.vue'
 import TileGrid from '@/components/dashboard/TileGrid.vue'
 import ErrorGroupList from '@/components/dashboard/ErrorGroupList.vue'
-import StepList from '@/components/lesson/StepList.vue'
 import JoinCodeCard from '@/components/session/JoinCodeCard.vue'
-import { lesson, steps, students, slowDownCount } from '@/mock/profMock'
+import { checkpointLabel } from '@shared/checkpoint-label.js'
+import { lesson, checkpoints, students, slowDownCount } from '@/mock/profMock'
 
 defineProps({ id: { type: String, required: true } })
 
@@ -19,6 +19,7 @@ const mobileTab = ref('dashboard')
 const filter = ref('all')
 const announcement = ref('')
 const confirmEnd = ref(false)
+const checkpointTitle = ref('')
 
 const files = ['App.vue', 'ItemCard.vue', 'main.js']
 const activeFile = ref('App.vue')
@@ -102,7 +103,7 @@ const codeLines = [
           :class="{ active: mobileTab === 'editor' }"
           @click="mobileTab = 'editor'"
         >
-          <i class="bi bi-code-slash" />Editor &amp; plan
+          <i class="bi bi-code-slash" />Editor &amp; checkpoints
         </button>
       </div>
 
@@ -166,31 +167,52 @@ $ pnpm dev
           </div>
         </div>
 
-        <!-- Join code + plan + error groups -->
+        <!-- Join code + checkpoints + error groups -->
         <div class="col-12 col-xl-4" :class="{ 'd-none d-xl-block': mobileTab !== 'editor' }">
           <div class="d-flex flex-column gap-3">
             <JoinCodeCard :code="lesson.joinCode" />
 
+            <!-- Save the editor's code as the next checkpoint, any time. Every student goes
+                 back to In progress until they click Done on it. -->
             <div class="ca-surface">
               <div
                 class="d-flex align-items-baseline justify-content-between gap-3 px-3 py-2 border-bottom"
               >
-                <span class="fw-semibold">Lesson plan</span>
-                <span class="small text-body-secondary">step 4 of 8</span>
+                <span class="fw-semibold">Checkpoints</span>
+                <span class="small text-body-secondary">{{ checkpoints.length }} saved</span>
               </div>
-              <StepList :steps="steps" />
-              <div class="d-grid gap-2 px-3 py-2 border-top">
+              <form class="d-grid gap-2 px-3 py-2 border-bottom" @submit.prevent>
+                <label for="checkpoint-title" class="visually-hidden">Checkpoint title</label>
+                <input
+                  id="checkpoint-title"
+                  v-model="checkpointTitle"
+                  type="text"
+                  class="ca-input"
+                  maxlength="80"
+                  placeholder="Title (optional), e.g. Added ItemCard"
+                  data-testid="input-checkpoint-title"
+                />
                 <button
-                  type="button"
+                  type="submit"
                   class="ca-btn ca-btn--primary ca-btn--block"
                   data-testid="btn-save-checkpoint"
                 >
-                  <i class="bi bi-flag-fill" />Save checkpoint for step 4
+                  <i class="bi bi-flag-fill" />Save checkpoint {{ checkpoints.length + 1 }}
                 </button>
                 <span class="small text-body-secondary text-center"
-                  >Broadcasts to every student's laptop</span
+                  >Sends it to every student and resets them to In progress</span
                 >
-              </div>
+              </form>
+              <ol class="list-unstyled m-0 px-3 py-2 d-grid gap-1">
+                <li
+                  v-for="c in [...checkpoints].reverse()"
+                  :key="c.seq"
+                  class="d-flex justify-content-between gap-2 small"
+                >
+                  <span class="text-truncate">{{ checkpointLabel(c.seq, c.title) }}</span>
+                  <span class="text-body-secondary text-nowrap">{{ c.savedAt }}</span>
+                </li>
+              </ol>
             </div>
 
             <ErrorGroupList :groups="errorGroups" />

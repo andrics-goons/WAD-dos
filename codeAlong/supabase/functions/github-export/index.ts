@@ -32,14 +32,11 @@ Deno.serve((req) =>
       if (!session) return null
       const { data: checkpoints, error } = await db
         .from('checkpoints')
-        .select('files, steps(order, title)')
+        .select('files, seq, title')
         .eq('session_id', sessionId)
         .order('seq')
       if (error) throw error
-      return {
-        lessonTitle: session.lessons.title,
-        checkpoints: checkpoints.map((c) => ({ files: c.files, step: c.steps })),
-      }
+      return { lessonTitle: session.lessons.title, checkpoints }
     },
     makeGithub: (token) => (isMockMode(env) ? mockGithub(admin, env) : liveGithub(fetch, token)),
     wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),

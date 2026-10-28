@@ -10,11 +10,11 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | 1 | Skeleton | Week 8 | `supabase start` + `pnpm dev` boots; `pnpm db:reset` applies every migration from scratch; the app reads one seeded row through RLS; **a WebContainer boots and serves a preview**; one Playwright smoke test passes |
 | 2 | Platform | Week 8 | Register/login/logout via Supabase Auth, course create + enrol, role guards; **every table has RLS enabled and one negative test** |
 | 3 | **Live session core (pitch demo)** | Week 9 Mon | Prof starts session → 3 students join by code → **their containers boot and the preview runs** → checkpoint broadcast reaches all 3 → a typo turns a tile red → student loads checkpoint → tile turns green |
-| 4 | Lesson plan | Week 9 | Upload starter → TODO parser proposes steps → prof edits/reorders/deletes → lesson `ready` |
+| 4 | Lessons | Week 9 | Upload starter → review files → edit starter files and details → lesson `ready` |
 | 5 | Status & dashboard | Week 10 | `session_tiles` returns correct state for all 5 cases; idle derives without a write; filters; anonymous slow-down count |
-| 6 | Catch-up | Week 10 | Load checkpoint keeps attempt; "What you missed" diff correct; restore attempt works |
+| 6 | Catch-up | Week 10 | Load checkpoint warns first, offers a .zip download, then replaces the code with the checkpoint |
 | 7 | Help flow | Week 10 | Check my work → pass/reply; Ask for help → claim/resolve; **a replied request can be followed up**; Telegram ping (mock in tests) |
-| 8 | Replay & GitHub | Week 11 | Replay steps through all checkpoints; notes/bookmarks; import + export (one commit per step) |
+| 8 | Replay & GitHub | Week 11 | Replay steps through all checkpoints; notes/bookmarks; import + export (one commit per checkpoint) |
 | 9 | Error groups & Spotlight | Week 11 | Grouping matches unit-test expectations; Spotlight shows an anonymised excerpt to everyone |
 | 10 | Insights | Week 11 | Report written by the `end-session` function; trouble score + trends; digest sent (mock in tests) |
 | 11 | Hardening | Week 11–12 | Validation + error states everywhere; responsive pass 375 → 1440 px; load test 40 students passes **inside the Realtime free-tier cap** |
@@ -29,7 +29,7 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | 3 | Writes go through RPCs where the client must not decide; broadcasts sent from the RPC, not the client; reconnect re-subscribes and re-reads |
 | 4 | Parser is a pure function in `shared/` with unit tests; prof reviews before saving |
 | 5 | **No `state` column anywhere**; tile state derived in `session_tiles`; staff queries select no code columns; **build errors pass through `parseBuildError()` before `normalizeError()`** |
-| 6 | `before_catchup` snapshot is written **inside** the `catch_up` transaction, before anything is returned; a dependency change shows an explicit installing state |
+| 6 | The student is warned and can download before anything is replaced; a `package.json` change tells them to run `pnpm install` |
 | 7 | Claim is a single conditional update (zero rows = conflict); the Telegram webhook cannot fail the student's request; replies append to `thread`, never overwrite |
 | 8 | No GitHub token in any row we own; import limited to safe file types and size |
 | 9 | Spotlight only uses help-request snapshots; names and comments removed |
@@ -43,7 +43,7 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | Layer | Tool | Scope | Why it matters for the rubric |
 |---|---|---|---|
 | **E2E** (main) | Playwright, Chromium | Every main user journey, with **multiple browser contexts in one test** (prof + TA + students) | "Tests cover the app's main user journeys" |
-| Unit | Vitest | Pure logic in `shared/`: classifier, normaliser, TODO parser, diff summary, build-error parser, report builder, spotlight excerpt; plus the IndexedDB cache and delta-autosave logic | Shows understanding of testing concepts; fast feedback |
+| Unit | Vitest | Pure logic in `shared/`: classifier, normaliser, checkpoint labels, diff summary, build-error parser, report builder, spotlight excerpt; plus the IndexedDB cache and delta-autosave logic | Shows understanding of testing concepts; fast feedback |
 | **RLS** (new) | Vitest + `supabase-js` | Authorization as data: sign in as the wrong user, assert **zero rows** | Authorization is now the database's job, so it needs its own tests |
 | Load | `scripts/simulate-class.js` | 40 Realtime clients in one session | Proves the live dashboard holds up in a real class, and that we fit the free tier |
 
@@ -141,9 +141,9 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
   await prof.getByTestId('lesson-start-mini-cart').click()
   const code = await prof.getByTestId('join-code').innerText()
 
-  // Act: Alex joins, prof saves checkpoint for step 1, Alex introduces a typo
+  // Act: Alex joins, prof saves checkpoint 1, Alex introduces a typo
   await alex.goto(`/join/${code}`)
-  await expect(alex.getByTestId('workspace-step-current')).toContainText('Step 1')
+  await expect(alex.getByTestId('workspace-checkpoint')).toContainText('Checkpoint 1')
   await prof.getByTestId('btn-save-checkpoint').click()
   await alex.getByTestId('editor').click()
   await alex.keyboard.type('itmes.push(1)')
@@ -155,7 +155,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 
   // Act + Assert: catch up → green after Done
   await alex.getByTestId('btn-load-checkpoint').click()
-  await expect(alex.getByTestId('what-you-missed')).toBeVisible()
+  await alex.getByRole('button', { name: 'Replace my code' }).click()
   await alex.getByTestId('btn-done').click()
   await expect(tile).toHaveAttribute('data-state', 'done')
 })
@@ -193,24 +193,18 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-20 | **Staff/student separation** | DB | A TA can enrol in a course they don't staff; enrolling in one they staff → `CONFLICT`; adding an enrolled student as TA → `CONFLICT` |
 | T-PLAT-21 | **Profile updates still work alongside "read coursemates"** | RLS | A student renaming themselves succeeds and promoting themselves fails with `42501` — never `42P17` (regression guard for the recursion fix) |
 
-### LESSON — Lessons & plan · `lessons.spec.js`, `todo-parser.test.js`
+### LESSON — Lessons · `lessons.spec.js`, `lesson-edit-view.test.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-LES-01 | Upload starter files → steps proposed | E2E | Step list shows the TODOs in order |
-| T-LES-02 | Edit step title/description | E2E | Saved; persists after reload |
-| T-LES-03 | Reorder steps (buttons on mobile, drag on desktop) | E2E `@responsive` | Orders contiguous 1…n after `replace_steps` |
-| T-LES-04 | Delete step | E2E | Remaining steps renumbered |
+| T-LES-01 | Upload starter files → draft lesson | E2E | Lesson created as a draft with its files; opens in the editor |
+| T-LES-02 | Edit a starter file and the lesson details | E2E | Saved; persists after reload |
+| T-LES-03 | ~~Reorder steps~~ | — | Removed with lesson steps |
+| T-LES-04 | ~~Delete step~~ | — | Removed with lesson steps |
 | T-LES-05 | Unsafe path / > 20 files / > 200 KB | DB | `files_valid()` / `octet_length` constraint rejects the insert |
 | T-LES-06 | Delete a lesson that was taught | DB | Trigger raises `CONFLICT` → UI offers Archive |
-| T-LES-07 | What an enrolled student can read | RLS | A **draft** lesson and its steps: zero rows. A **ready** lesson: visible, with its steps and starter `files` (RLS can't hide one column; starter files aren't secret — see [03](./03-data-model.md#policies-1)) |
-| T-TODO-01 | JS, HTML and CSS comment forms parsed | Unit | 3 steps with correct files/lines |
-| T-TODO-02 | Numbered TODOs sorted by number across files | Unit | Order follows numbers, not file order |
-| T-TODO-03 | Same number in two files → one step, two refs | Unit | `todoRefs.length === 2` |
-| T-TODO-04 | Unnumbered TODOs appended in scan order | Unit | After numbered ones |
-| T-TODO-05 | Gaps (1, 2, 5) → orders 1, 2, 3 | Unit | Original numbers noted |
-| T-TODO-06 | No TODOs → single default step | Unit | "Complete the exercise" |
-| T-TODO-07 | "TODO" inside a string literal | Unit | Ignored |
+| T-LES-07 | What an enrolled student can read | RLS | A **draft** lesson: zero rows. A **ready** lesson: visible, with its starter `files` (RLS can't hide one column; starter files aren't secret — see [03](./03-data-model.md#policies-1)) |
+| T-TODO-* | ~~TODO parser~~ | — | Removed with lesson steps |
 
 ### SESS — Live session engine · `live-session.spec.js`
 
@@ -218,10 +212,10 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 |---|---|:---:|---|
 | T-SESS-01 | Prof starts session | E2E | Join code (6 chars, no 0/O/1/I/L) + QR visible |
 | T-SESS-02 | Start on a draft lesson | DB | `start_session` raises `CONFLICT` |
-| T-SESS-03 | Student joins via code input and via `/join/:code` | E2E | Lands in workspace on Step 1 |
+| T-SESS-03 | Student joins via code input and via `/join/:code` | E2E | Lands in the workspace on the latest checkpoint (or "Starter code") |
 | T-SESS-04 | Non-enrolled user joins | E2E | "You're not in this course" |
 | T-SESS-05 | Wrong / ended code | E2E | "No live class with that code" |
-| T-SESS-06 | Checkpoint broadcast to 3 students | E2E | All 3 see the toast + new step within 2 s |
+| T-SESS-06 | Checkpoint broadcast to 3 students | E2E | All 3 see the toast + the new checkpoint (and its title) within 2 s, and their status is back to In progress |
 | T-SESS-07 | Student reconnects (go offline → online) | E2E | Pill shows Reconnecting… then Live; status re-read; checkpoint missed while offline is shown |
 | T-SESS-08 | Two quick checkpoint saves | DB | Distinct `seq` 1, 2 — the unique index plus the RPC retry |
 | T-SESS-09 | **Realtime subscribe without a session** | RLS | Anon client cannot subscribe to `session:<id>`; no messages received |
@@ -269,13 +263,13 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-STAT-01 | Before first checkpoint | Unit | `in_progress` (or `done` if step 1 Done) |
-| T-STAT-02 | done ≥ target | Unit | `done` |
-| T-STAT-03 | done = target − 1 | Unit | `in_progress` |
-| T-STAT-04 | done ≤ target − 2 | Unit | `behind` |
-| T-STAT-05 | Error overrides behind/done | Unit | `error` |
+| T-STAT-01 | Before first checkpoint | Unit | `in_progress` (or `done` if Done on the starter, `done_seq = 0`) |
+| T-STAT-02 | `done_seq` = latest checkpoint | Unit | `done` |
+| T-STAT-03 | `done_seq` is an older checkpoint, or null | Unit | `in_progress` |
+| T-STAT-04 | ~~Two or more behind~~ | — | Removed: there is no `behind` state; each checkpoint resets everyone |
+| T-STAT-05 | Error overrides done | Unit | `error` |
 | T-STAT-06 | Idle overrides everything | Unit | `idle` |
-| T-STAT-07 | New checkpoint re-derives all | E2E | Previously green tiles turn amber with no status writes |
+| T-STAT-07 | New checkpoint resets the class | E2E | Every Done (green) tile turns In progress (amber) with no status writes |
 | T-STAT-08 | Idle after `idleAfterSec` (set to 5 s in test) | E2E | Tile grey; returns on activity |
 | T-STAT-09 | **A student cannot forge their state** | DB | `student_status` has no `state` column; writing one is rejected |
 | T-STAT-10 | **`shared/tile-state.js` agrees with `session_tiles`** | DB+Unit | Same inputs → same state from SQL and JS, across all 6 cases |
@@ -308,28 +302,28 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-ERRG-08 | Spotlight with no help snapshot | E2E | Error + fix only, with explanation to prof |
 | T-ERRG-09 | **Student invokes the `spotlight` function** | DB | `FORBIDDEN` — the function checks `is_course_prof` before using the service role |
 
-### CATCH — Catch-up · `catch-up.spec.js`, `diff-summary.test.js`
+### CATCH — Catch-up · `catch-up.spec.js`, `stores/workspace.test.js`, `downloadProject.test.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-CATCH-01 | Load checkpoint | E2E | Editor shows checkpoint code; "What you missed" open |
-| T-CATCH-02 | Attempt preserved | DB | `before_catchup` snapshot exists in the same transaction, before files are returned |
-| T-CATCH-03 | Restore attempt | E2E | Original code back in the editor |
-| T-CATCH-04 | First-difference line correct | Unit | Points at the typo line |
-| T-CATCH-05 | Whitespace-only changes ignored | Unit | No hunks |
-| T-CATCH-06 | Catch-up before any checkpoint | DB | `CONFLICT` with message |
-| T-CATCH-07 | Catch-up when `allowCatchUp` is false | DB | `FORBIDDEN` "Catch-up is turned off for this class" |
-| T-CATCH-08 | "What you missed" readable at 375 px | E2E `@responsive` | Unified diff mode, no horizontal page scroll |
-| T-CATCH-09 | **Checkpoint with an unchanged dependency tree** | E2E | Files mount, HMR picks them up, **no install runs** |
-| T-CATCH-10 | **Checkpoint that changed `package.json`** | E2E | Explicit "installing dependencies" state, streamed to the terminal; completes and the preview runs |
+| T-CATCH-01 | Load checkpoint | E2E | A warning names the checkpoint; after **Replace my code** the editor shows the checkpoint's code |
+| T-CATCH-02 | Download first | E2E + Unit | **Download my project** saves a .zip with every file at its path, and nothing is replaced until the student confirms |
+| T-CATCH-03 | Autosave follows | DB | After loading, the student's autosave row has the checkpoint's `files_hash`, so a refresh keeps it |
+| T-CATCH-04 | Files the checkpoint doesn't have | Unit | Removed from the editor and the WebContainer; the entry file opens if the open file is gone |
+| T-CATCH-05 | Still in progress | E2E | The tile stays `in_progress` until the student clicks Done |
+| T-CATCH-06 | Catch-up before any checkpoint | E2E | Button disabled |
+| T-CATCH-07 | Catch-up when `allowCatchUp` is false | E2E | Button disabled |
+| T-CATCH-08 | The warning readable at 375 px | E2E `@responsive` | Buttons stacked, no horizontal page scroll |
+| T-CATCH-09 | **Checkpoint with an unchanged `package.json`** | E2E | Files written, HMR picks them up, plain "Loaded" toast |
+| T-CATCH-10 | **Checkpoint that changed `package.json`** | Unit + E2E | Toast tells the student to run `pnpm install`, then `pnpm dev` |
 
 ### HELP — Help flow · `help.spec.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-HELP-01 | Student sends Check my work | E2E | TA queue shows card instantly via Postgres Changes (name, step, type — no code) |
-| T-HELP-02 | TA claims → side-by-side view | E2E | Student code vs checkpoint for that step |
-| T-HELP-03 | Pass | E2E | Student sees tick on step; tile shows passed |
+| T-HELP-01 | Student sends Check my work | E2E | TA queue shows card instantly via Postgres Changes (name, checkpoint, type — no code) |
+| T-HELP-02 | TA claims → side-by-side view | E2E | Student code vs the checkpoint the class was on when they asked |
+| T-HELP-03 | Pass | E2E | Student sees a tick for that checkpoint; tile shows passed |
 | T-HELP-04 | Reply | E2E | Student sees reply in their help panel |
 | T-HELP-05 | Two TAs claim the same request | E2E | Second gets "already on this one" (zero rows updated) |
 | T-HELP-06 | Duplicate active request of same type | DB | Partial unique index → `CONFLICT` |
@@ -341,7 +335,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-HELP-12 | Non-claiming TA replies | DB | `FORBIDDEN` |
 | T-HELP-13 | **Student follows up on a replied request** | E2E | Same request returns to the queue **in its original place**, badged "Follow-up · last handled by Ana"; the TA sees the full thread |
 | T-HELP-14 | **Follow-up attaches the student's current code** | E2E | The TA's side-by-side shows the new snapshot, not the original |
-| T-HELP-15 | **Earlier snapshot no longer readable by staff** | RLS | After a follow-up, staff select on the previous snapshot returns zero rows |
+| T-HELP-15 | **Earlier snapshot still readable by the course's staff** | RLS | After a follow-up, the request points at the new snapshot; staff can still read the previous one (staff read every snapshot in their course), a classmate can't |
 | T-HELP-16 | **Fourth follow-up rejected** | DB | `BAD_REQUEST` "ask for in-person help instead"; `follow_ups` stays 3 |
 | T-HELP-17 | Follow-up on a `passed` / `resolved` / `cancelled` request | DB | `BAD_REQUEST` — only `replied` reopens |
 | T-HELP-18 | Another student follows up on someone else's request | RLS | `FORBIDDEN`, and no snapshot is left behind (the function rolls back) |
@@ -373,10 +367,10 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-GH-01 | Import public repo (mock) | E2E | Draft lesson with filtered files + steps |
+| T-GH-01 | Import public repo (mock) | E2E | Draft lesson with the filtered files |
 | T-GH-02 | Import filters unsafe types / > 40 files | Unit | Only allowed files kept |
 | T-GH-03 | Export creates one commit per checkpoint | Unit | Mock records 1 repo + n trees + n commits + 1 ref update, in order |
-| T-GH-04 | Commit messages `Step k: <title>` | Unit | Match |
+| T-GH-04 | Commit messages `checkpointLabel(seq, title)`: `Checkpoint k · <title>`, or `Checkpoint k` without a title | Unit | Match |
 | T-GH-05 | Repo name taken (422) | E2E | UI asks for another name |
 | T-GH-06 | **Token never persisted in our schema** | DB | No GitHub token in any row of any `public` table after an export |
 

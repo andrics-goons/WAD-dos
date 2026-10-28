@@ -5,10 +5,9 @@ import * as lessonsApi from '@/api/lessons.api'
 // nothing is shared between pages yet, so each page keeps its own copy of the lesson
 export const useLessonsStore = defineStore('lessons', () => {
   const get = (id) => lessonsApi.getLesson(id)
-  const create = (courseId, form, steps) => lessonsApi.createLesson(courseId, form, steps)
+  const create = (courseId, form) => lessonsApi.createLesson(courseId, form)
   const update = (id, changes) => lessonsApi.updateLesson(id, changes)
-  const saveSteps = (id, steps) => lessonsApi.replaceSteps(id, steps)
   const remove = (id) => lessonsApi.deleteLesson(id)
 
-  return { get, create, update, saveSteps, remove }
+  return { get, create, update, remove }
 })

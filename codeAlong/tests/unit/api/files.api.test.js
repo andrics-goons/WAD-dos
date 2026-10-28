@@ -84,10 +84,6 @@ beforeAll(async () => {
       .single()
   readyLesson = (await lesson('ready')).data
   draftLesson = (await lesson('draft')).data
-  const { data: steps } = await service
-    .from('steps')
-    .insert({ lesson_id: readyLesson.id, order: 1, title: 'Create the app' })
-    .select()
   session = (
     await service
       .from('sessions')
@@ -106,7 +102,6 @@ beforeAll(async () => {
       .from('checkpoints')
       .insert({
         session_id: session.id,
-        step_id: steps[0].id,
         seq: 1,
         files: PROF_CODE,
         created_by: prof.id,

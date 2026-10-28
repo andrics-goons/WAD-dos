@@ -6,7 +6,7 @@ This is the "how it actually works" document: the parts that make CodeAlong a Ti
 
 | Home | For | Why there |
 |---|---|---|
-| `shared/*.js` | Pure functions — parser, normaliser, classifier, diff, excerpt, report | No DOM, no network, no `Deno`; unit-tested with Vitest; imported by both the Vue app and the Edge Functions |
+| `shared/*.js` | Pure functions — normaliser, classifier, diff, excerpt, report, checkpoint labels | No DOM, no network, no `Deno`; unit-tested with Vitest; imported by both the Vue app and the Edge Functions |
 | `src/` (browser) | Anything the user's own data drives: the **WebContainer runtime**, re-parsing, diffing, error grouping, the IndexedDB cache | Already trusted with that data; a round-trip would add latency and nothing else |
 | Postgres (RPC / view / trigger) | Anything a client must not decide: roles, join codes, `seq`, state transitions, **tile state** | `security definer` and RLS make it unforgeable |
 | Edge Function (Deno) | Anything needing an API secret or elevated rights: Telegram, GitHub, LLM, Spotlight, reports | The only place secrets exist |
@@ -17,15 +17,15 @@ This is the "how it actually works" document: the parts that make CodeAlong a Ti
 | 2 | **Files, cache & dependencies** | Ray Yien (files, autosave) · Dylan (dependencies) | 2–3 | browser + Postgres | `tests/unit/files-cache.test.js`, E2E `workspace.spec.js` |
 | 3 | Session lifecycle | Ying Qi | 2 | RPC | `tests/unit/rls/sessions.test.js`, E2E `live-session.spec.js` |
 | 4 | Status reporting + classifier | Andric (view) · Evan (`classify()`) | 3 | view + `shared/` | `tests/unit/tile-state.test.js`, `tests/unit/rls/status.test.js` |
-| 5 | TODO parser → lesson plan | Evan | 2–3 | `shared/` | `tests/unit/todo-parser.test.js` |
+| 5 | ~~TODO parser → lesson plan~~ (removed: no lesson steps) | — | — | — | — |
 | 6 | Error normalisation + grouping (runtime **and build** errors) | Evan | **3** | `shared/` | `tests/unit/error-normalizer.test.js` |
-| 7 | Catch-up + "What you missed" | Ray Yien (RPC, diff) · Dylan (mount, reinstall) | 2–3 | RPC + browser | `tests/unit/diff-summary.test.js`, E2E `catch-up.spec.js` |
+| 7 | Catch-up (download, then replace) | Ray Yien · Dylan (mount) | 2 | browser | `tests/unit/stores/workspace.test.js`, `downloadProject.test.js`, E2E `catch-up.spec.js` |
 | 8 | Help queue + Telegram ping | Karin | 2 | RPC + function | E2E `help.spec.js` |
 | 9 | Spotlight anonymisation | Evan | 2 | function + `shared/` | `tests/unit/spotlight.test.js` |
 | 10 | Insights report + trends | Andric | 2–3 | function + `shared/` | `tests/unit/report-builder.test.js` |
 | 11 | Replay + GitHub import/export | Ray Yien | 2 | function | `tests/unit/github-export.test.js`, E2E `replay.spec.js` |
 | 12 | Telegram bot integration | Karin | 2 | function | `tests/unit/telegram.test.js` |
-| 13 | Stretch: auto step checks, AI hints, VS Code reporter | Dylan · Karin | 3 | — | — |
+| 13 | Stretch: auto checkpoint checks, AI hints, VS Code reporter | Dylan · Karin | 3 | — | — |
 
 ---
 
@@ -50,7 +50,7 @@ Supabase files   ──┘          (WASM Node)         source files only       
 | Step | Detail |
 |---|---|
 | 1. Resolve files | `files_hash` check against IndexedDB (see §2); fetch from Supabase only on a miss |
-| 2. Boot | `WebContainer.boot({ coep: 'credentialless' })` — one instance per tab, booted once and reused across step changes |
+| 2. Boot | `WebContainer.boot({ coep: 'credentialless' })` — one instance per tab, booted once and reused across checkpoints |
 | 3. Mount | `container.mount(toFileSystemTree(files))` — **source files only**, never `node_modules` |
 | 4. Install | `pnpm install` as a spawned process, streamed to the terminal panel. Skipped entirely when the dependency tree is unchanged (§2) |
 | 5. Run | `pnpm dev` (Vite) plus any second process the lesson needs (e.g. its Express endpoint); the `server-ready` event hands back the preview URL |
@@ -247,8 +247,8 @@ declare l public.lessons; s public.sessions; code text; tries int := 0;
 begin
   select * into l from public.lessons where id = p_lesson_id;
   if not found then raise exception 'NOT_FOUND|Lesson not found' using errcode='P0001'; end if;
-  if l.status <> 'ready' or (select count(*) from public.steps where lesson_id = l.id) = 0 then
-    raise exception 'CONFLICT|Mark the lesson ready and add at least one step first' using errcode='P0001';
+  if l.status <> 'ready' then
+    raise exception 'CONFLICT|Mark the lesson ready first' using errcode='P0001';
   end if;
   if not public.is_course_prof(l.course_id) then
     raise exception 'FORBIDDEN|Only the course prof can start a class' using errcode='P0001';
@@ -268,11 +268,11 @@ begin
 end $$;
 ```
 
-`join_session`, `save_checkpoint`, `catch_up`, `announce` and `end_session` follow the same shape — the step-by-step logic for each is in [04](./04-pages-routes-and-events.md#key-logic-rpc-bodies).
+`join_session`, `save_checkpoint`, `announce` and `end_session` follow the same shape — the step-by-step logic for each is in [04](./04-pages-routes-and-events.md#key-logic-rpc-bodies).
 
 ### Class announcements
 
-The prof can post a short free-text announcement to the whole class — "taking a 5-minute break", "skip step 6, we'll come back to it". Everything else the prof broadcasts is a structured event; this is the one free-text channel, and it is deliberately **one-way, prof only, one at a time**:
+The prof can post a short free-text announcement to the whole class — "taking a 5-minute break", "skip the cart for now, we'll come back to it". Everything else the prof broadcasts is a structured event; this is the one free-text channel, and it is deliberately **one-way, prof only, one at a time**:
 
 ```
 rpc('announce', { p_session_id, p_text })     ← 1–200 chars, or null to clear
@@ -297,20 +297,23 @@ Rendered with Vue's normal escaping like every other user-entered string (T-VAL-
 
 ### Client side (Dylan)
 
-The workspace keeps `{ doneStepOrder, lastError }` and upserts its `student_status` row **only when one of them changes**, throttled to `STATUS_WRITE_THROTTLE_MS` (2 s). A heartbeat touches `last_seen_at` every 30 s while the tab is visible (`document.visibilityState`). No keystrokes, no code — the table has no column for either.
+The workspace keeps `{ doneSeq, lastError }` (`stores/status.js`) and upserts its `student_status` row **only when one of them changes**, throttled to `STATUS_WRITE_THROTTLE_MS` (2 s). A heartbeat touches `last_seen_at` every 30 s while the tab is visible (`document.visibilityState`), and once straight away when the student comes back to the tab. No keystrokes, no code — the table has no column for either.
+
+- **Opening the workspace** writes the row at once, which is the attendance record (`joined_at`). A refresh reads the row back first, so a Done stays done.
+- **"My status"** in the workspace header is about the prof's **latest checkpoint**: *Done* sets `done_seq` to its number ("I've caught up to it"), *In progress* clears it. Before any checkpoint, Done means "I've got the starter code running" (`done_seq = 0`). When the prof saves a new checkpoint the toggle reads *In progress* again — nothing is written; the database just compares `done_seq` with the new `checkpoint_seq`.
+- **Errors** go through `setError({ source, name, message, file, line })`, which adds `key` / `shapeKey` with `normalizeError()` and cuts the message to `ERROR_MESSAGE_MAX`; `clearError()` after a clean run. Nothing calls them yet: the lesson's `ca-probe.js` is still a placeholder, and build errors still need `parseBuildError()`.
+- **After the class ends** the store stops writing (the table would refuse anyway).
 
 ### Derived in SQL (Andric)
 
-This is the design change worth understanding. In the Mongo version the server classified and stored `state`. Here the student's own browser writes the row, so a stored `state` would be forgeable. **There is no `state` column** — `session_tiles` derives it, with `target_order` = the step order of the session's latest checkpoint (0 before the first):
+This is the design change worth understanding. In the Mongo version the server classified and stored `state`. Here the student's own browser writes the row, so a stored `state` would be forgeable. **There is no `state` column** — `session_tiles` derives it, comparing the student's `done_seq` with the session's latest checkpoint, `checkpoint_seq` (0 before the first):
 
 ```sql
 case
   when now() - last_seen_at > make_interval(secs => idle_after_sec) then 'idle'
   when error is not null                                            then 'error'
-  when target_order = 0 then case when done_step_order >= 1 then 'done' else 'in_progress' end
-  when done_step_order >= target_order                              then 'done'
-  when done_step_order  = target_order - 1                          then 'in_progress'
-  else 'behind'
+  when done_seq is not distinct from checkpoint_seq                  then 'done'
+  else 'in_progress'
 end
 ```
 
@@ -320,9 +323,10 @@ The full view is in [03-data-model.md](./03-data-model.md#views-session_tiles-an
 |:---:|---|---|---|---|
 | 1 | `idle` | grey | `bi-moon` | No heartbeat or event for `idleAfterSec` (default 180 s) |
 | 2 | `error` | red | `bi-x-octagon` | Last run threw — the most actionable state |
-| 3 | `behind` | blue | `bi-hourglass` | Two or more steps behind the latest checkpoint |
-| 4 | `in_progress` | amber | `bi-pencil` | Working on the step the prof just finished |
-| 5 | `done` | green | `bi-check-circle` | Marked Done on the latest checkpoint's step |
+| 3 | `in_progress` | amber | `bi-pencil` | Still catching up to the latest checkpoint (everyone, right after the prof saves one) |
+| 4 | `done` | green | `bi-check-circle` | Clicked Done on the latest checkpoint |
+
+There is no `behind`: each checkpoint resets everyone, so how far behind someone is can't be counted — and doesn't need to be. The prof sees how many are still in progress on the current checkpoint.
 
 ### When re-classification happens
 
@@ -331,7 +335,7 @@ Derivation means most of this is now free — there is nothing to recompute and 
 | Trigger | What happens |
 |---|---|
 | Status change from a student | One row upserted → Postgres Changes → that tile re-reads the view |
-| New checkpoint | `sessions.current_step_id` changes → **every** tile re-derives with zero extra writes (the old design needed a re-classify sweep over 40 students) |
+| New checkpoint | `sessions.checkpoint_seq` moves → **every** Done tile drops back to in progress with zero extra writes (the old design needed a re-classify sweep over 40 students) |
 | Idle threshold crossed | Nothing is written. The view compares `last_seen_at` to `now()`, so staff clients re-read on a 15 s timer |
 | Settings change (`idleAfterSec`) | Same — the view reads `settings`, so it applies immediately |
 
@@ -347,33 +351,9 @@ A trigger on `student_status` appends to `status_history` when the **derived** s
 
 ---
 
-## 5. TODO Parser → Lesson Plan
+## 5. Lesson plans (removed)
 
-`shared/todo-parser.js` turns starter files into proposed steps. The prof always reviews them before saving.
-
-It runs in **two** places now: in the browser when a prof uploads files or re-parses, and inside the `github-import` function after fetching a repo. Same module, same tests — which is the reason `shared/` has no DOM or network dependencies.
-
-> Re-parse used to be `POST /api/lessons/:id/reparse`. It is now a function call in the browser with no round-trip at all.
-
-### Recognised comment forms
-
-| File | Pattern |
-|---|---|
-| `.js` | `// TODO 3: Emit add-to-cart` · `/* TODO: … */` |
-| `.html` | `<!-- TODO 2 - Show the item list -->` |
-| `.css` | `/* TODO 5: Highlight the selected category */` |
-
-Regex core (case-insensitive): `TODO\s*(\d+)?\s*[:.)\-–]?\s*(.+?)\s*(?:\*\/|-->)?$`
-
-### Ordering algorithm
-
-1. Scan files in this order: `entryFile` first, then the rest in their stored order; within a file, top to bottom.
-2. TODOs **with** numbers are sorted by number. Ties (the same number in two files, e.g. TODO 3 in `index.html` and `app.js`) become **one step** with two `todoRefs`.
-3. TODOs **without** numbers follow, in scan order.
-4. Titles: comment text, trimmed, first letter capitalised, max 120 chars.
-5. Result: `[{ order: 1…n, title, todoRefs: [{ file, line }] }]`, handed to `rpc('replace_steps')`.
-
-Edge cases covered by unit tests: no TODOs (→ one step "Complete the exercise"), duplicate numbers, gaps (1, 2, 5 → orders 1, 2, 3, original numbers kept in the description), TODO inside a string literal (ignored when not in a comment).
+Lessons used to carry an ordered list of steps, parsed from `// TODO 3:` comments in the starter files. They don't any more: a lesson is just its starter files, and **the prof saves a checkpoint whenever they like** during class, with an optional title (`rpc('save_checkpoint', { p_session_id, p_files, p_title })`). Each checkpoint resets every student to *In progress* until they click *Done* on it (§4). `shared/todo-parser.js`, the step editor and the `steps` table are gone. TODO comments can still sit in starter code as hints to students; nothing reads them.
 
 ---
 
@@ -422,8 +402,8 @@ export function normalizeError({ name = 'Error', message = '' }) {
 
 ### Grouping rules
 
-1. Group by `(stepOrder, key)`. Students follow the same code, so identifiers usually match — the exact key is the most useful label ("`items is not defined`" tells the prof exactly what to explain).
-2. Groups on the same step that share a `shapeKey` are shown as **one group with variants** ("`<id> is not defined` — items ×9, itmes ×2").
+1. Group by `key`. The whole class is working towards the same checkpoint and follows the same code, so identifiers usually match — the exact key is the most useful label ("`items is not defined`" tells the prof exactly what to explain).
+2. Groups that share a `shapeKey` are shown as **one group with variants** ("`<id> is not defined` — items ×9, itmes ×2").
 3. Only groups with **≥ 2 students** (or ≥ 10% of those present, whichever is larger) appear.
 4. Sort by student count desc, then most recent.
 5. A student leaves a group as soon as their next run has no error.
@@ -432,49 +412,48 @@ export function normalizeError({ name = 'Error', message = '' }) {
 
 ---
 
-## 7. Catch-up & "What You Missed"
+## 7. Catch-up ("Load latest checkpoint")
 
-**Promise to the student:** loading the checkpoint never loses your work.
+**Promise to the student:** you're told plainly that your code will be replaced, and you can download it first. Nothing else keeps it.
 
 ```
-Student clicks "Load checkpoint"
-  1. rpc('catch_up', { p_session_id, p_files })
-       → inserts Snapshot { reason: 'before_catchup' } BEFORE returning anything
-       → increments catch_ups
-       → returns { checkpoint, attempt_snapshot_id }
-  2. Client computes diffSummary(attemptFiles, checkpointFiles)    ← shared/diff-summary.js
-  3. "What you missed" panel opens:
-       • per file: lines you're missing (green) / lines that differ (red → green)
-       • "First difference: app.js line 22 — you wrote `items`, checkpoint has `props.items`"
-       • Optional: "What the class did since your last Done" = diff(checkpoint at your step, latest)
-  4. Editor loads the checkpoint files; tile re-derives on the next run
-  5. "Restore my attempt" stays available (query snapshots where reason='before_catchup')
+Student clicks "Load latest checkpoint"   (disabled: no checkpoint yet · catch-up turned off · class ended)
+  1. CatchUpModal: "Your code will be replaced with Checkpoint 4 · Added the cart.
+                    Anything you haven't downloaded will be lost."
+       [Download my project (.zip)]  → downloadProject(): zips the workspace's files in the
+                                       browser (fflate), nothing is uploaded
+       [Cancel]   [Replace my code]
+  2. workspaceStore.loadLatestCheckpoint():
+       • files = loadFiles('checkpoint', id, files_hash)             ← the file cache (§2)
+       • WebContainer: write every checkpoint file, remove files it doesn't have
+       • the editor shows the checkpoint (the open file stays open if the checkpoint has it)
+       • autosave + flush → my autosave row now holds the checkpoint, so a refresh doesn't
+         bring the old code back
+  3. Toast "Loaded Checkpoint 4 · …". The student stays In progress and clicks Done once it runs.
 ```
 
-The ordering in step 1 is the whole guarantee, and it is now atomic: the snapshot insert and the checkpoint read are in one transaction, so there is no window in which the attempt is lost. T-CATCH-02 asserts it.
+**No RPC and no server copy.** This replaced the earlier design (`rpc('catch_up')` writing a `before_catchup` snapshot, a "What you missed" diff and "Restore my attempt"): the download is the student's copy. `snapshots.reason = 'before_catchup'` and `student_status.catch_ups` stay in the schema but nothing writes them, so the report's `catchUps` is 0 for now.
 
 ### Catching up may change the dependency tree
 
-New with WebContainer, and the one place catch-up can stop feeling instant. Checkpoints store source files only, so if the prof added a dependency at step 5, loading that checkpoint brings a different `package.json` — and the student needs those packages before the project will run.
+New with WebContainer, and the one place catch-up can stop feeling instant. Checkpoints store source files only, so if the prof added a dependency in checkpoint 5, loading that checkpoint brings a different `package.json` — and the student needs those packages before the project will run.
 
 ```
-diff(attempt, checkpoint)
-   │
-   ├─ package.json / pnpm-lock.yaml unchanged  →  mount files, HMR picks them up   (instant)
-   └─ dependency tree changed                  →  mount files, then pnpm install   (show an
-                                                   explicit "installing dependencies" state,
-                                                   streamed to the terminal — never a frozen UI)
+package.json unchanged  →  files written, Vite's HMR picks them up   (instant)
+package.json changed    →  files written; the toast says "Its packages changed: run pnpm install
+                            in the terminal, then pnpm dev" (the student runs the dev server
+                            in the terminal, so the app doesn't restart it for them)
 ```
 
-So "Load checkpoint" has two speeds, and the slow one must be **visible and explained** rather than looking broken. This is also the strongest argument for the dependency cache in §2: with a local cache, the second path becomes a mount instead of an install.
+So "Load checkpoint" has two speeds, and the slow one is **explained** rather than looking broken. This is also the strongest argument for the dependency cache in §2: with a local cache, the second path becomes a mount instead of an install.
 
-`shared/diff-summary.js` uses jsdiff `diffLines` per file and returns `{ files: [{ path, added, removed, firstDiffLine, hunks }] }`. Whitespace-only changes are ignored (`ignoreWhitespace: true`) so indentation doesn't drown out the real mistake.
+`shared/diff-summary.js` (jsdiff `diffLines` per file, whitespace-only changes ignored) is still used by the TA's side-by-side and the replay; catch-up no longer shows a diff.
 
 ---
 
 ## 8. Help Queue & Telegram Ping
 
-- **Check my work** (`type: 'check'`): TA opens the side-by-side view (student snapshot vs checkpoint for that step) and either **Pass** (student gets a tick on that step — shown on their tile too) or **Reply** with what's wrong.
+- **Check my work** (`type: 'check'`): TA opens the side-by-side view (student snapshot vs the checkpoint the class was on when they asked) and either **Pass** (student gets a tick for that checkpoint — shown on their tile too) or **Reply** with what's wrong.
 - **Ask for help** (`type: 'help'`): same queue; if the student ticks "Come to my seat" (`in_person`) and enters a seat, staff get a Telegram ping.
 - **Queue order:** oldest first (`created_at`). Each card shows live waiting time; requests waiting > 3 min get an amber badge.
 - **Claiming** is a single conditional `update … where status = 'open'`. Zero rows updated **is** the conflict, so two TAs cannot take the same request — see `claim_help_request` in [03](./03-data-model.md#help_requests).
@@ -510,7 +489,7 @@ rpc('create_help_request')  → row committed
         │
         ▼ trigger on insert where in_person = true → pg_net (03, "In-person ping")
    telegram-notify (Edge Function)
-        1. service role: read request + student name + step title + staff chat ids
+        1. service role: read request + student name + checkpoint title + staff chat ids
         2. fetch Telegram sendMessage (HTML-escaped)
         3. update help_requests.telegram_notified_at
 ```
@@ -522,7 +501,7 @@ Example ping:
 ```
 🙋 Help needed — IS216 G2 · Mini Cart
 Alex Tan · Row C, seat 4
-Step 4: Emit add-to-cart from ItemCard
+On: Checkpoint 4 · Emit add-to-cart
 Open: https://<app>/help/66f1…
 ```
 
@@ -549,29 +528,28 @@ Built by the `end-session` Edge Function, invoked by a Database Webhook when `se
 
 All figures are counts — no per-student detail is written, which is what makes T-INS-05 pass by construction.
 
-For each step *k* (with `t_k` = time of the checkpoint for step *k*):
+For each checkpoint *k* (with `t_k` = when the prof saved it):
 
 | Metric | Definition |
 |---|---|
-| `reachedDone` | Students whose `done_step_order` ever reached ≥ *k* |
+| `reachedDone` | Students who clicked Done on checkpoint *k* (a `done` history row with `checkpoint_seq = k`) |
 | `dropOff` | `reachedDone(k-1) − reachedDone(k)` |
-| `errorStudents` | Distinct students with any `error` state while working on step *k* |
-| `peakBehind` | Max students in `behind` between `t_k` and `t_{k+1}` |
-| `medianMinutesToDone` | Median of (first Done ≥ *k*) − `t_{k-1}` (session start for *k* = 1) |
-| `catchUps`, `helpRequests` | Counts tagged with step *k* |
+| `errorStudents` | Distinct students with any `error` state while checkpoint *k* was the latest |
+| `medianMinutesToDone` | Median of (their Done on *k*) − `t_k` |
+| `catchUps`, `helpRequests` | Counts while checkpoint *k* was the latest (help requests carry `checkpoint_seq`) |
 
 **Trouble score** (shown with its formula, so profs can trust it):
 `trouble_k = 0.4 × errorStudents/joined + 0.3 × dropOff/joined + 0.2 × catchUps/joined + 0.1 × helpRequests/joined`
 
-The report highlights the top 3 steps, the top 5 error groups and the peak "Slow down" count. Error groups come from `status_history.error_key` (the live `student_status` row keeps only the latest error); the peak comes from `session_slow_down_peak()` over `slow_down_events`.
+The report highlights the top 3 checkpoints, the top 5 error groups and the peak "Slow down" count. Error groups come from `status_history.error_key` (the live `student_status` row keeps only the latest error); the peak comes from `session_slow_down_peak()` over `slow_down_events`.
 
-**Trends across terms** (`rpc('lesson_trends')`): for every past session of the same lesson (or a lesson with the same title in a course with the same course code) **among the calling prof's own courses**, a step counts as *recurring trouble* if it was in the top 3 by trouble score in at least two sessions. Steps are matched by `step_id` when the lesson is reused, otherwise by normalised title. This is a SQL aggregate now rather than a JS loop over documents.
+**Trends across terms** (`rpc('lesson_trends')`): for every past session of the same lesson (or a lesson with the same title in a course with the same course code) **among the calling prof's own courses**, a checkpoint counts as *recurring trouble* if it was in the top 3 by trouble score in at least two sessions. Checkpoints are matched by normalised **title** (the prof tends to reuse them when teaching the same lesson), falling back to the number. Without lesson steps this is a heuristic: a prof who titles nothing, or saves checkpoints at different points each term, gets weaker trends. This is a SQL aggregate now rather than a JS loop over documents.
 
 **Courses are per prof, so trends are too.** Two profs who both teach IS216 never see each other's sessions in their trends — the function filters on `courses.owner_id = auth.uid()` before matching anything. (Admins can still read every report row directly; they just don't get a cross-prof trends view.)
 
 **Digest** (`functions.invoke('digest')`, content by Andric, sending by Karin):
-- **To TAs:** attendance, top 3 trouble steps, top errors, open help requests left.
-- **To absent students** (enrolled, no `student_status` row for the session, Telegram linked): "You missed *Week 6 · Mini Cart*. Replay: <link>. Most classmates got stuck at Step 4 — start there."
+- **To TAs:** attendance, top 3 trouble checkpoints, top errors, open help requests left.
+- **To absent students** (enrolled, no `student_status` row for the session, Telegram linked): "You missed *Week 6 · Mini Cart*. Replay: <link>. Most classmates got stuck at checkpoint 4 — start there."
 
 ---
 
@@ -579,9 +557,9 @@ The report highlights the top 3 steps, the top 5 error groups and the peak "Slow
 
 ### Replay
 
-The replay view queries `checkpoints` joined to `steps` in `seq` order. For each, the client shows the step title, the prof's note, the code with lines changed since the previous checkpoint highlighted (`diffSummary`, client-side), and a live preview (same sandbox as the workspace, read-only). Notes and bookmarks anchor to a `checkpoint_id`.
+The replay view queries `checkpoints` in `seq` order. For each, the client shows its title, the code with lines changed since the previous checkpoint highlighted (`diffSummary`, client-side), and a live preview (same sandbox as the workspace, read-only). Notes and bookmarks anchor to a `checkpoint_id`.
 
-Search is `rpc('search')`: a ranked full-text query over step titles, checkpoint notes and the caller's own notes, using the GIN index on `notes.body`. Because it is a parameterised function, regex characters in the query are literal — no escaping to remember (T-REP-06).
+Search is `rpc('search')`: a ranked full-text query over checkpoint titles and the caller's own notes, using the GIN index on `notes.body`. Because it is a parameterised function, regex characters in the query are literal — no escaping to remember (T-REP-06).
 
 ### GitHub import (server token) — `github-import`
 
@@ -592,7 +570,7 @@ Search is `rpc('search')`: a ranked full-text query over step titles, checkpoint
 4. Keep files under <dir> that a lesson can hold (shared/lesson-files.js), ≤ 40 files, ≤ 200 KB total —
    checked from the tree before anything is downloaded
 5. GET /repos/{owner}/{repo}/contents/{path}?ref={ref}        → raw text   (one per file)
-6. Return files → the browser runs parseTodos → insert lesson + rpc('replace_steps')
+6. Return files → the browser inserts the lesson
 ```
 
 ≈ 2 + n requests per import. Only a prof may import. `GITHUB_TOKEN` is a function secret and never reaches the browser; without it GitHub allows only 60 requests an hour, and the function answers `RATE_LIMITED`.
@@ -616,13 +594,13 @@ The old design hand-rolled OAuth and held the token in server memory for 10 minu
      POST /repos/{o}/{r}/git/trees  { tree: [README.md + checkpoint files as
                                       { path, mode: '100644', type: 'blob', content }] }
                                                                       → treeSha
-     POST /repos/{o}/{r}/git/commits { message: "Step 3: Fetch items for the selected category",
+     POST /repos/{o}/{r}/git/commits { message: "Checkpoint 3 · Fetch items for the selected category",
                                        tree: treeSha, parents: [parentSha] } → parentSha = new sha
 4. PATCH /repos/{o}/{r}/git/refs/heads/main { sha: parentSha }
 5. Return https://github.com/{o}/{r}/commits/main
 ```
 
-≈ 3 + 2 × checkpoints requests (19 for an 8-step lesson). Trees are built **without** `base_tree`, so each commit contains exactly that checkpoint's files. The generated README lists each step with a link to its commit and, if the student opts in, their notes. Name already taken → 422 → the UI asks for another name.
+≈ 3 + 2 × checkpoints requests (19 for a class with 8 checkpoints). Trees are built **without** `base_tree`, so each commit contains exactly that checkpoint's files. The generated README lists each checkpoint with a link to its commit and, if the student opts in, their notes. Name already taken → 422 → the UI asks for another name.
 
 > **Contract change worth flagging to the team.** The old rule was "the GitHub token lives only in server memory for 10 minutes and is never written to the database." The new rule: the token is held by Supabase Auth on the session and passed to the function per call — so it does reach the browser, which is weaker than before. We never persist it in our own tables, and T-GH-06 is rewritten to assert that: no GitHub token in any row we own.
 
@@ -648,8 +626,8 @@ The old design hand-rolled OAuth and held the token in server memory for 10 minu
 
 | Stretch | Sketch | Owner |
 |---|---|---|
-| **Automatic step checks** | When the prof saves checkpoint *k*, generate checks from what changed since *k-1*: elements with new ids/classes (`dom-exists`), new mock-API calls seen when running the checkpoint in a hidden sandbox (`network-call`), "runs without errors" (`no-runtime-error`). The student's sandbox runs them after each run and writes `checks: { passed, total }` to their status row. The prof can switch any check off; failed checks show as "possible issue", never as a hard fail. | Dylan |
-| **AI hints** | Rule table first (`shapeKey` → hint, e.g. `<id> is not defined` → "Check the spelling, or whether it was declared in this scope"). If `hintsEnabled` and `LLM_API_KEY` set, the `hint` function prompts with step title, error and ±10 lines; instruction "one sentence, max 25 words, never give code". Output filter rejects code blocks or > 2 lines. Cached by `(lesson_id, step_id, error_key)` in a table; daily cap of 200 calls. | Karin |
+| **Automatic checkpoint checks** | When the prof saves checkpoint *k*, generate checks from what changed since *k-1*: elements with new ids/classes (`dom-exists`), new mock-API calls seen when running the checkpoint in a hidden sandbox (`network-call`), "runs without errors" (`no-runtime-error`). The student's sandbox runs them after each run and writes `checks: { passed, total }` to their status row. The prof can switch any check off; failed checks show as "possible issue", never as a hard fail. | Dylan |
+| **AI hints** | Rule table first (`shapeKey` → hint, e.g. `<id> is not defined` → "Check the spelling, or whether it was declared in this scope"). If `hintsEnabled` and `LLM_API_KEY` set, the `hint` function prompts with the checkpoint title, error and ±10 lines; instruction "one sentence, max 25 words, never give code". Output filter rejects code blocks or > 2 lines. Cached by `(session_id, checkpoint_seq, error_key)` in a table; daily cap of 200 calls. | Karin |
 | **VS Code reporter** | A one-line `<script src="…/reporter.js" data-token="…">` in the starter code, with a per-student reporter token, writing the same status row through a dedicated Edge Function. | Ying Qi |
 
 ---

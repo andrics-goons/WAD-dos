@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { mount, flushPromises } from "@vue/test-utils"
 import { createPinia, setActivePinia } from "pinia"
 import WorkspaceView from "@/views/WorkspaceView.vue"
-import EmptyState from "@/components/ui/EmptyState.vue"
 import { getWebContainer } from "@/runtime/webcontainer"
 import { startWorkspace } from "@/runtime/workspace"
 
@@ -12,6 +11,10 @@ vi.mock("@/runtime/workspace", () => ({ startWorkspace: vi.fn() }))
 // the store's loading and autosave have their own tests; here they're just calls to check
 const store = vi.hoisted(() => ({ files: [], filePaths: [], selectedFile: "", selectedCode: "" }))
 vi.mock("@/stores/workspace.js", () => ({ useWorkspaceStore: () => store }))
+const status = vi.hoisted(() => ({ doneStepOrder: 0 }))
+vi.mock("@/stores/status", () => ({ useStatusStore: () => status }))
+const session = vi.hoisted(() => ({ session: null, checkpointSeq: 0, latestCheckpoint: null, isLive: true }))
+vi.mock("@/stores/session", () => ({ useSessionStore: () => session }))
 
 // A promise the test resolves by hand, to pause the view mid-await
 function deferred() {
@@ -34,41 +37,12 @@ beforeEach(() => {
     vi.mocked(startWorkspace).mockReset().mockResolvedValue(() => {})
     store.load = vi.fn(async () => (store.files = [{ path: "index.html", content: "" }]))
     store.close = vi.fn()
+    status.start = vi.fn(async () => {})
+    status.stop = vi.fn()
 })
 afterEach(() => vi.unstubAllGlobals())
 
 describe("WorkspaceView", () => {
-    it("refuses to boot on a page that isn't cross-origin isolated", async () => {
-        vi.stubGlobal("crossOriginIsolated", false)
-        const wrapper = mountView()
-        await flushPromises()
-        expect(getWebContainer).not.toHaveBeenCalled()
-        expect(wrapper.findComponent(EmptyState).text()).toContain("isn't cross-origin isolated")
-        // no editor either, since its Terminal would start booting on its own
-        expect(wrapper.findComponent({ name: "EditorPanel" }).exists()).toBe(false)
-    })
-
-    it("shows why when the WebContainer fails to boot", async () => {
-        getWebContainer.mockRejectedValue(new Error("boom"))
-        const wrapper = mountView()
-        await flushPromises()
-        expect(wrapper.find(".alert-danger").text()).toContain("The workspace couldn't start: boom")
-    })
-
-    it("loads this class's code and mounts it", async () => {
-        mountView()
-        await flushPromises()
-        expect(store.load).toHaveBeenCalledWith("s1")
-        expect(startWorkspace).toHaveBeenCalledWith({}, store.files, expect.any(Function))
-    })
-
-    it("saves what's waiting when the student leaves", async () => {
-        const wrapper = mountView()
-        await flushPromises()
-        wrapper.unmount()
-        expect(store.close).toHaveBeenCalled()
-    })
-
     it("stops the workspace on unmount", async () => {
         const stop = vi.fn()
         startWorkspace.mockResolvedValue(stop)

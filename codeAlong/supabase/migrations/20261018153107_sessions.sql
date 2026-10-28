@@ -26,14 +26,16 @@ $$;
 
 -- The classifier from 05 §4, minus idle (idle needs now(), so only the view can know it).
 -- The view and the status_history triggers both call this, so there is one copy of the rule.
+--   p_done    the checkpoint the student marked Done on (0 = the starter files), null if not
+--   p_target  the session's latest checkpoint (0 before the first)
+-- Done only counts for the latest checkpoint, so a new checkpoint puts everyone back to
+-- in_progress without a single write.
 create function public.tile_state(p_done int, p_error jsonb, p_target int) returns text
 language sql immutable set search_path = '' as $$
     select case
-        when p_error is not null       then 'error'
-        when p_target = 0              then case when p_done >= 1 then 'done' else 'in_progress' end
-        when p_done >= p_target        then 'done'
-        when p_done = p_target - 1     then 'in_progress'
-        else 'behind'
+        when p_error is not null                 then 'error'
+        when p_done is not distinct from p_target then 'done'
+        else 'in_progress'
     end
 $$;
 
@@ -48,7 +50,9 @@ create table public.sessions (
     started_by       uuid not null references public.profiles(id),
     join_code        text not null check (join_code ~ '^[A-Z0-9]{6}$'),
     status           text not null default 'live' check (status in ('live', 'ended')),
-    current_step_id  uuid references public.steps(id),            -- step of the latest checkpoint
+    -- the latest checkpoint's seq, 0 before the first. save_checkpoint moves it; the tiles
+    -- compare each student's done_seq with it.
+    checkpoint_seq   int not null default 0 check (checkpoint_seq >= 0),
     settings         jsonb not null
                      default '{"allowCatchUp": true, "hintsEnabled": false, "idleAfterSec": 180}'
                      check (public.session_settings_valid(settings)),
@@ -67,13 +71,12 @@ create index sessions_lesson_idx on public.sessions (lesson_id);
 create table public.checkpoints (
     id          uuid primary key default gen_random_uuid(),
     session_id  uuid not null references public.sessions(id) on delete cascade,
-    step_id     uuid not null references public.steps(id),
     seq         int not null check (seq >= 1),                    -- 1, 2, 3… in save order
     files       jsonb not null check (
                     public.files_valid(files) and octet_length(files::text) <= 200000
                 ),
     files_hash  text generated always as (md5(files::text)) stored,
-    note        text check (char_length(note) <= 500),
+    title       text check (char_length(title) between 1 and 80),  -- optional: "Added ItemCard"; blank shows "Checkpoint 3"
     created_by  uuid not null references public.profiles(id),
     created_at  timestamptz not null default now(),
     unique (session_id, seq)
@@ -86,7 +89,9 @@ create table public.checkpoints (
 create table public.student_status (
     session_id       uuid not null references public.sessions(id) on delete cascade,
     student_id       uuid not null references public.profiles(id),
-    done_step_order  int not null default 0 check (done_step_order >= 0),
+    -- the checkpoint seq they clicked Done on (0 = the starter files, before any checkpoint);
+    -- null until they do. They're done only while it equals sessions.checkpoint_seq.
+    done_seq         int check (done_seq >= 0),
     -- { source: 'runtime' | 'build', name, message, file, line, key, shapeKey, at }
     error            jsonb check (
                          error is null or (
@@ -115,8 +120,8 @@ create table public.status_history (
     id          bigint generated always as identity primary key,
     session_id  uuid not null references public.sessions(id) on delete cascade,
     student_id  uuid not null references public.profiles(id),
-    state       text not null check (state in ('error', 'behind', 'in_progress', 'done')),
-    step_order  int not null,
+    state           text not null check (state in ('error', 'in_progress', 'done')),
+    checkpoint_seq  int not null,                                 -- the session's latest checkpoint then
     at          timestamptz not null default now()
 );
 
@@ -231,14 +236,15 @@ create policy "admin reads all" on public.status_history
 -- security_invoker: the view runs with the CALLER's rights, so the policies above still
 -- apply. Without it a view runs as its owner and would leak every session's rows.
 
--- The only thing the dashboard reads. target_order = the step of the latest checkpoint.
+-- The only thing the dashboard reads. checkpoint_seq = the session's latest checkpoint;
+-- done_seq = the one this student marked Done on.
 create view public.session_tiles with (security_invoker = true) as
 select
     ss.session_id,
     ss.student_id,
     p.name,
-    coalesce(st."order", 0)              as target_order,
-    ss.done_step_order                   as step_order,
+    s.checkpoint_seq,
+    ss.done_seq,
     ss.error->>'source'                  as error_source,
     ss.error->>'key'                     as error_key,
     left(ss.error->>'message', 120)      as error_preview,
@@ -247,12 +253,11 @@ select
     case
         when now() - ss.last_seen_at >
              make_interval(secs => (s.settings->>'idleAfterSec')::numeric) then 'idle'
-        else public.tile_state(ss.done_step_order, ss.error, coalesce(st."order", 0))
+        else public.tile_state(ss.done_seq, ss.error, s.checkpoint_seq)
     end                                  as state
 from public.student_status ss
 join public.sessions s on s.id = ss.session_id
-join public.profiles p on p.id = ss.student_id
-left join public.steps st on st.id = s.current_step_id;
+join public.profiles p on p.id = ss.student_id;
 
 -- Counts for the summary bar. slow_down_count is a number, so no query staff can write
 -- returns WHO asked to slow down (T-PRIV-04).
@@ -263,7 +268,6 @@ select
     count(*) filter (where state = 'done')          as done,
     count(*) filter (where state = 'in_progress')   as in_progress,
     count(*) filter (where state = 'error')         as error,
-    count(*) filter (where state = 'behind')        as behind,
     count(*) filter (where state = 'idle')          as idle,
     public.session_slow_down_count(session_id)           as slow_down_count
 from public.session_tiles
@@ -278,43 +282,53 @@ group by session_id;
 create function public.record_status_change() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
-    v_state text;
+    v_target int;
+    v_state  text;
 begin
-    select public.tile_state(new.done_step_order, new.error, coalesce(st."order", 0))
-      into v_state
-      from public.sessions s
-      left join public.steps st on st.id = s.current_step_id
-     where s.id = new.session_id;
+    select s.checkpoint_seq into v_target from public.sessions s where s.id = new.session_id;
+    v_state := public.tile_state(new.done_seq, new.error, v_target);
 
     if v_state is distinct from (
         select h.state from public.status_history h
          where h.session_id = new.session_id and h.student_id = new.student_id
          order by h.at desc, h.id desc limit 1
     ) then
-        insert into public.status_history (session_id, student_id, state, step_order)
-        values (new.session_id, new.student_id, v_state, new.done_step_order);
+        insert into public.status_history (session_id, student_id, state, checkpoint_seq)
+        values (new.session_id, new.student_id, v_state, v_target);
     end if;
     return null;
 end $$;
 
 create trigger record_status_change
-    after insert or update of done_step_order, error on public.student_status
+    after insert or update of done_seq, error on public.student_status
     for each row execute function public.record_status_change();
 
--- A new checkpoint moves the target step, which re-derives EVERY student's state without
--- any of them writing. Record those changes too, or history misses every "behind".
+-- Every write a student makes to their status row (a change or the 30 s heartbeat) means
+-- they're here. Stamped with the server's clock, so a lab PC with the wrong time can't make
+-- them look idle, or never idle. Writes that aren't the student's own (the seed, tests using
+-- the service role) keep the time they set.
+create function public.touch_last_seen() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+    if new.student_id = auth.uid() then
+        new.last_seen_at := now();
+    end if;
+    return new;
+end $$;
+
+create trigger touch_last_seen before insert or update on public.student_status
+    for each row execute function public.touch_last_seen();
+
+-- A new checkpoint puts every "done" student back to in_progress without any of them
+-- writing. Record those changes too, or history never shows the reset.
 create function public.record_checkpoint_states() returns trigger
 language plpgsql security definer set search_path = '' as $$
-declare
-    v_target int;
 begin
-    select coalesce(max("order"), 0) into v_target from public.steps where id = new.current_step_id;
-
-    insert into public.status_history (session_id, student_id, state, step_order)
-    select ss.session_id, ss.student_id, x.state, ss.done_step_order
+    insert into public.status_history (session_id, student_id, state, checkpoint_seq)
+    select ss.session_id, ss.student_id, x.state, new.checkpoint_seq
       from public.student_status ss
      cross join lateral (
-         select public.tile_state(ss.done_step_order, ss.error, v_target) as state
+         select public.tile_state(ss.done_seq, ss.error, new.checkpoint_seq) as state
      ) x
      where ss.session_id = new.id
        and x.state is distinct from (
@@ -326,8 +340,8 @@ begin
 end $$;
 
 create trigger record_checkpoint_states
-    after update of current_step_id on public.sessions
-    for each row when (old.current_step_id is distinct from new.current_step_id)
+    after update of checkpoint_seq on public.sessions
+    for each row when (old.checkpoint_seq is distinct from new.checkpoint_seq)
     execute function public.record_checkpoint_states();
 
 -- A lesson that has been taught keeps its history: it can't be deleted or moved to
@@ -364,37 +378,6 @@ end $$;
 create trigger guard_taught_course before delete on public.courses
     for each row execute function public.guard_taught_course();
 
--- Once taught, a lesson's step numbers are history: done_step_order, status_history and
--- checkpoints all mean "step N". So steps can be reworded and added at the end, but not
--- removed or reordered. (replace_steps and delete_step hit this too.)
-create function public.guard_taught_steps() returns trigger
-language plpgsql security definer set search_path = '' as $$
-declare
-    v_lesson uuid := case tg_op when 'DELETE' then old.lesson_id else new.lesson_id end;
-begin
-    if not exists (select 1 from public.sessions where lesson_id = v_lesson) then
-        return case tg_op when 'DELETE' then old else new end;
-    end if;
-
-    if tg_op = 'DELETE' then
-        raise exception 'CONFLICT|This lesson has been taught, so its steps can''t be removed'
-            using errcode = 'P0001';
-    elsif tg_op = 'UPDATE' and (new."order" is distinct from old."order"
-                                or new.lesson_id is distinct from old.lesson_id) then
-        raise exception 'CONFLICT|This lesson has been taught, so its steps can''t be reordered'
-            using errcode = 'P0001';
-    elsif tg_op = 'INSERT' and new."order" <= (
-        select coalesce(max("order"), 0) from public.steps where lesson_id = v_lesson
-    ) then
-        raise exception 'CONFLICT|This lesson has been taught, so new steps can only go at the end'
-            using errcode = 'P0001';
-    end if;
-    return new;
-end $$;
-
-create trigger guard_taught_steps before insert or delete or update of "order", lesson_id
-    on public.steps
-    for each row execute function public.guard_taught_steps();
 
 
 -- Realtime ------------------------------------

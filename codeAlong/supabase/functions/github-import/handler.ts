@@ -1,5 +1,5 @@
 // github-import: a prof pastes a public repo link and gets its starter files back
-// (design-docs/05 §11). The browser then parses the TODOs and saves the lesson, as for an upload.
+// (design-docs/05 §11). The browser then saves the lesson, as for an upload.
 //   { repoUrl } -> { files, entryFile, source }
 // Uses the server's GITHUB_TOKEN, which never reaches the browser.
 import { buildLessonFiles, LIMITS } from '../../../shared/lesson-files.js'

@@ -9,6 +9,7 @@ import {
   cleanup,
   track,
   uniqueEmail,
+  service,
 } from './_helpers.js'
 import { mapError } from '@/api/mapError'
 
@@ -42,6 +43,21 @@ describe('sign-up creates a profile (on_auth_user_created)', () => {
   it('a missing name falls back to "Student"', async () => {
     const user = await createUser({})
     expect((await profileOf(user.id)).name).toBe('Student')
+  })
+
+  // What GitHub sends Supabase: a display name if they've set one, always a username, never a role
+  it.each([
+    [{ name: 'The Octocat', user_name: 'octocat' }, 'The Octocat'],
+    [{ user_name: 'octocat' }, 'octocat'],
+  ])('a GitHub sign-up %o is a student named %s', async (metadata, name) => {
+    const { data, error } = await service.auth.admin.createUser({
+      email: uniqueEmail('github'),
+      email_confirm: true,
+      user_metadata: { ...metadata, provider_id: '583231', avatar_url: 'https://x/y.png' },
+    })
+    expect(error).toBeNull()
+    track(data.user.id)
+    expect(await profileOf(data.user.id)).toEqual({ name, role: 'student' })
   })
 })
 

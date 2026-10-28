@@ -42,14 +42,19 @@ create policy "admin reads all" on public.profiles
 
 -- Triggers ------------------------------------
 
--- create user in public.profiles on registration
+-- create user in public.profiles on registration: the email form, or "Continue with GitHub".
+-- GitHub sends no role, so a GitHub sign-up is always a student.
 create function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
     insert into public.profiles (id, name, role)        -- ← the missing line
     values (
         new.id,
-        coalesce(new.raw_user_meta_data->>'name', 'Student'),
+        coalesce(
+            new.raw_user_meta_data->>'name',       -- the sign-up form, or the GitHub display name
+            new.raw_user_meta_data->>'user_name',  -- the GitHub username, if they have no display name
+            'Student'
+        ),
         case new.raw_user_meta_data->>'role'
             when 'prof' then 'prof'
             else 'student'

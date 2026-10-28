@@ -19,7 +19,7 @@ const randomCode = () =>
 const createdCourses = []
 const createdSessions = []
 let prof, ta, stu, stu2, outsider, admin
-let course, otherCourse, lesson, otherLesson, steps, session
+let course, otherCourse, lesson, session
 
 async function createCourse(p_code) {
   const { data, error } = await prof.client.rpc('create_course', {
@@ -67,20 +67,16 @@ async function startSession(lessonRow = lesson) {
   return data
 }
 
-// Stand-in for save_checkpoint: the checkpoint row plus the session's current step.
-async function checkpointAt(step, seq) {
+// Stand-in for save_checkpoint: the checkpoint row plus the session's latest checkpoint number.
+async function checkpointAt(seq) {
   const ins = await service.from('checkpoints').insert({
     session_id: session.id,
-    step_id: step.id,
     seq,
     files: STARTER,
     created_by: prof.id,
   })
   if (ins.error) throw ins.error
-  const upd = await service
-    .from('sessions')
-    .update({ current_step_id: step.id })
-    .eq('id', session.id)
+  const upd = await service.from('sessions').update({ checkpoint_seq: seq }).eq('id', session.id)
   if (upd.error) throw upd.error
 }
 
@@ -89,7 +85,7 @@ const writeStatus = (who, fields = {}) =>
   who.client.from('student_status').upsert({
     session_id: session.id,
     student_id: who.id,
-    done_step_order: 0,
+    done_seq: null,
     error: null,
     last_seen_at: new Date().toISOString(),
     ...fields,
@@ -98,7 +94,7 @@ const writeStatus = (who, fields = {}) =>
 async function tileOf(who) {
   const { data, error } = await prof.client
     .from('session_tiles')
-    .select('state, step_order, target_order')
+    .select('state, done_seq, checkpoint_seq')
     .eq('session_id', session.id)
     .eq('student_id', who.id)
     .single()
@@ -110,7 +106,7 @@ const historyOf = async (who) =>
   (
     await service
       .from('status_history')
-      .select('state, step_order')
+      .select('state, checkpoint_seq')
       .eq('session_id', session.id)
       .eq('student_id', who.id)
       .order('id')
@@ -134,16 +130,6 @@ beforeAll(async () => {
   await stu2.client.rpc('enrol_with_code', { p_code: course.enrol_code })
 
   lesson = await createLesson()
-  otherLesson = await createLesson({ title: 'Week 7' })
-  const { data } = await prof.client.rpc('replace_steps', {
-    p_lesson_id: lesson.id,
-    p_steps: [{ title: 'Create the app' }, { title: 'Add the cart' }, { title: 'Checkout' }],
-  })
-  steps = data
-  await prof.client.rpc('replace_steps', {
-    p_lesson_id: otherLesson.id,
-    p_steps: [{ title: 'Other step' }],
-  })
 
   session = await startSession()
 })
@@ -217,7 +203,7 @@ describe('student_status', () => {
   it('a student writes their own status with an upsert', async () => {
     expect((await writeStatus(stu)).error).toBeNull()
     expect((await writeStatus(stu2)).error).toBeNull()
-    expect((await writeStatus(stu, { done_step_order: 0 })).error).toBeNull() // second upsert updates
+    expect((await writeStatus(stu, { done_seq: null })).error).toBeNull() // second upsert updates
   })
 
   it("a student cannot write someone else's status", async () => {
@@ -273,6 +259,17 @@ describe('student_status', () => {
       .single()
     expect(Object.keys(data)).not.toContain('files')
     expect(Object.keys(data)).not.toContain('lost') // "Slow down" lives in slow_down_flags, which staff can't read
+  })
+
+  it("last_seen_at is the server's clock, whatever time the student's browser sends", async () => {
+    const before = Date.now()
+    await writeStatus(stu, { last_seen_at: '2020-01-01T00:00:00Z' }) // a PC with the wrong clock
+    const { data } = await stu.client
+      .from('student_status')
+      .select('last_seen_at')
+      .eq('session_id', session.id)
+      .single()
+    expect(Date.parse(data.last_seen_at)).toBeGreaterThanOrEqual(before - 5_000)
   })
 
   it('a student cannot delete their row (it is the attendance record)', async () => {
@@ -361,28 +358,28 @@ describe('T-PRIV-04: "Slow down" is only ever a count to staff', () => {
 })
 
 describe('session_tiles: the classifier in SQL', () => {
-  it('before the first checkpoint, a student is in progress until they mark step 1 done', async () => {
-    await writeStatus(stu, { done_step_order: 0 })
+  it('before the first checkpoint, a student is in progress until they click Done (on the starter, 0)', async () => {
+    await writeStatus(stu, { done_seq: null })
     expect((await tileOf(stu)).state).toBe('in_progress')
-    await writeStatus(stu, { done_step_order: 1 })
+    await writeStatus(stu, { done_seq: 0 })
     expect((await tileOf(stu)).state).toBe('done')
   })
 
-  it('a checkpoint at step 2 re-derives every tile without anyone writing', async () => {
-    await writeStatus(stu2, { done_step_order: 0 })
-    await checkpointAt(steps[1], 1)
-    expect(await tileOf(stu)).toEqual({ state: 'in_progress', step_order: 1, target_order: 2 })
-    expect((await tileOf(stu2)).state).toBe('behind')
+  it('a new checkpoint puts every Done student back to in progress, without anyone writing', async () => {
+    await writeStatus(stu2, { done_seq: null })
+    await checkpointAt(1)
+    expect(await tileOf(stu)).toEqual({ state: 'in_progress', done_seq: 0, checkpoint_seq: 1 })
+    expect((await tileOf(stu2)).state).toBe('in_progress')
   })
 
-  it('done once they reach the checkpoint step', async () => {
-    await writeStatus(stu, { done_step_order: 2 })
+  it('done again once they click Done on the new checkpoint', async () => {
+    await writeStatus(stu, { done_seq: 1 })
     expect((await tileOf(stu)).state).toBe('done')
   })
 
   it('an error beats progress', async () => {
     await writeStatus(stu, {
-      done_step_order: 2,
+      done_seq: 1,
       error: { source: 'build', key: 'k1', message: 'Unexpected token' },
     })
     const { data } = await prof.client
@@ -405,7 +402,7 @@ describe('session_tiles: the classifier in SQL', () => {
       .update({ last_seen_at: tenMinutesAgo })
       .eq('student_id', stu.id)
     expect((await tileOf(stu)).state).toBe('idle')
-    await writeStatus(stu, { done_step_order: 2 }) // heartbeat + error cleared
+    await writeStatus(stu, { done_seq: 1 }) // heartbeat + error cleared
     expect((await tileOf(stu)).state).toBe('done')
   })
 
@@ -425,33 +422,33 @@ describe('session_tiles: the classifier in SQL', () => {
   it('the summary counts each state', async () => {
     const { data } = await prof.client
       .from('session_summary')
-      .select('total, done, in_progress, error, behind, idle')
+      .select('total, done, in_progress, error, idle')
       .eq('session_id', session.id)
       .single()
-    expect(data).toEqual({ total: 2, done: 1, in_progress: 0, error: 0, behind: 1, idle: 0 })
+    expect(data).toEqual({ total: 2, done: 1, in_progress: 1, error: 0, idle: 0 })
   })
 })
 
 describe('status_history', () => {
   it('records each change of derived state, in order', async () => {
     expect(await historyOf(stu)).toEqual([
-      { state: 'in_progress', step_order: 0 },
-      { state: 'done', step_order: 1 },
-      { state: 'in_progress', step_order: 1 }, // the checkpoint moved the target
-      { state: 'done', step_order: 2 },
-      { state: 'error', step_order: 2 },
-      { state: 'done', step_order: 2 },
+      { state: 'in_progress', checkpoint_seq: 0 },
+      { state: 'done', checkpoint_seq: 0 },
+      { state: 'in_progress', checkpoint_seq: 1 }, // the new checkpoint reset them
+      { state: 'done', checkpoint_seq: 1 },
+      { state: 'error', checkpoint_seq: 1 },
+      { state: 'done', checkpoint_seq: 1 },
     ])
   })
 
   it('a heartbeat that changes nothing writes nothing', async () => {
     const before = (await historyOf(stu)).length
-    await writeStatus(stu, { done_step_order: 2 })
+    await writeStatus(stu, { done_seq: 1 })
     expect(await historyOf(stu)).toHaveLength(before)
   })
 
-  it('records "behind" for a student who never wrote after the checkpoint', async () => {
-    expect((await historyOf(stu2)).map((h) => h.state)).toEqual(['in_progress', 'behind'])
+  it("a checkpoint adds nothing for a student who wasn't Done (still in progress)", async () => {
+    expect((await historyOf(stu2)).map((h) => h.state)).toEqual(['in_progress'])
   })
 
   it('staff read history; students do not', async () => {
@@ -480,7 +477,6 @@ describe('checkpoints', () => {
   it('nobody inserts a checkpoint directly (save_checkpoint only)', async () => {
     const { error } = await prof.client.from('checkpoints').insert({
       session_id: session.id,
-      step_id: steps[2].id,
       seq: 2,
       files: STARTER,
       created_by: prof.id,
@@ -508,45 +504,6 @@ describe('a taught lesson keeps its history', () => {
     expect(codeOf(error)).toBe('CONFLICT')
   })
 
-  it("its steps can't be removed or reordered", async () => {
-    const remove = await prof.client.rpc('replace_steps', {
-      p_lesson_id: lesson.id,
-      p_steps: steps.slice(0, 2).map(({ id, title }) => ({ id, title })),
-    })
-    const reorder = await prof.client.rpc('replace_steps', {
-      p_lesson_id: lesson.id,
-      p_steps: [...steps].reverse().map(({ id, title }) => ({ id, title })),
-    })
-    const del = await prof.client.rpc('delete_step', { p_step_id: steps[2].id })
-    expect(codeOf(remove.error)).toBe('CONFLICT')
-    expect(codeOf(reorder.error)).toBe('CONFLICT')
-    expect(codeOf(del.error)).toBe('CONFLICT')
-  })
-
-  it('but its steps can be reworded and added to at the end', async () => {
-    const { data, error } = await prof.client.rpc('replace_steps', {
-      p_lesson_id: lesson.id,
-      p_steps: [
-        ...steps.map(({ id }, i) => ({ id, title: `Step ${i + 1}, reworded` })),
-        { title: 'Bonus' },
-      ],
-    })
-    expect(error).toBeNull()
-    expect(data.map((s) => s.title)).toEqual([
-      'Step 1, reworded',
-      'Step 2, reworded',
-      'Step 3, reworded',
-      'Bonus',
-    ])
-  })
-
-  it('inserting a step in the middle is a CONFLICT', async () => {
-    const { error } = await prof.client
-      .from('steps')
-      .insert({ lesson_id: lesson.id, order: 2, title: 'Squeezed in' })
-    expect(codeOf(error)).toBe('CONFLICT')
-  })
-
   it('a lesson that was never taught can still be deleted (control)', async () => {
     const spare = await createLesson({ title: 'Spare' })
     const { error } = await prof.client.from('lessons').delete().eq('id', spare.id)
@@ -565,7 +522,7 @@ describe('ending a session', () => {
       .update({ status: 'ended', ended_at: new Date().toISOString() })
       .eq('id', ended.id)
 
-    expect((await writeStatus(stu, { done_step_order: 1 })).error?.code).toBe('42501')
+    expect((await writeStatus(stu, { done_seq: 1 })).error?.code).toBe('42501')
     const flag = await stu.client
       .from('slow_down_flags')
       .insert({ session_id: ended.id, student_id: stu.id })

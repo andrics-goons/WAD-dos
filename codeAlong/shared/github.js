@@ -1,6 +1,7 @@
 // GitHub import / export helpers (design-docs/05-core-logic.md §11).
 // Pure: no DOM, no network, so the Edge Functions and Vitest share them.
 
+import { checkpointLabel } from './checkpoint-label.js'
 import { isIgnored, languageForPath } from './lesson-files.js'
 
 // 'https://github.com/owner/repo[/tree/<ref>/<dir>]' -> { owner, repo, ref, dir }; null if it isn't one.
@@ -30,13 +31,14 @@ export function importCandidates(tree, dir) {
 export const isValidRepoName = (name) =>
   /^[\w.-]{1,100}$/.test(name) && name !== '.' && name !== '..'
 
-// One commit per checkpoint, named after its step: 'Step 3: Fetch items for the selected category'
-export const commitMessage = (step) => `Step ${step.order}: ${step.title}`
+// One commit per checkpoint, named like everywhere else in the app:
+// 'Checkpoint 3 · Fetch items for the selected category', or 'Checkpoint 3' without a title
+export const commitMessage = (checkpoint) => checkpointLabel(checkpoint.seq, checkpoint.title)
 
-// README.md for the exported repo: what it is, and the steps in order
-export function exportReadme(lessonTitle, steps) {
-  const list = steps.map((s) => `${s.order}. ${s.title}`).join('\n')
-  return `# ${lessonTitle}\n\nExported from CodeAlong: one commit per step, so the history shows how the code was built.\n\n${list}\n`
+// README.md for the exported repo: what it is, and the checkpoints in order
+export function exportReadme(lessonTitle, checkpoints) {
+  const list = checkpoints.map((c) => `- ${commitMessage(c)}`).join('\n')
+  return `# ${lessonTitle}\n\nExported from CodeAlong: one commit per checkpoint, so the history shows how the code was built.\n\n${list}\n`
 }
 
 // The files of one commit: exactly the checkpoint's files, plus our README unless it has its own

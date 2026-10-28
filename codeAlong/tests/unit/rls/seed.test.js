@@ -92,40 +92,35 @@ describe.skipIf(!isSeeded)('seed.sql', () => {
   })
 
   describe('the lesson', () => {
-    it('is ready, with the 8 Mini Cart steps and their TODO locations', async () => {
+    it('is ready, with the Mini Cart starter files', async () => {
       const { data } = await alex
         .from('lessons')
-        .select('status, entry_file, files, steps(order, title, todo_refs)')
+        .select('status, entry_file, files')
         .eq('course_id', COURSE)
         .single()
-      const steps = data.steps.sort((a, b) => a.order - b.order)
       expect(data.status).toBe('ready')
+      expect(data.entry_file).toBe('index.html')
       expect(data.files.map((f) => f.path)).toContain('server/api.js')
-      expect(steps).toHaveLength(8)
-      expect(steps[3].title).toBe('Emit add-to-cart from ItemCard')
-      expect(steps[2].todo_refs.map((r) => r.file)).toEqual([
-        'src/App.vue',
-        'src/components/ItemCard.vue',
-      ])
     })
   })
 
   describe('T-SEED-03: the past session has what replay and the report need', () => {
-    it('8 checkpoints whose code grows step by step', async () => {
+    it('8 titled checkpoints whose code grows one change at a time', async () => {
       const { data } = await alex
         .from('checkpoints')
-        .select('seq, files_hash')
+        .select('seq, title, files_hash')
         .eq('session_id', PAST)
         .order('seq')
       expect(data.map((c) => c.seq)).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
+      expect(data[3].title).toBe('Emit add-to-cart — props.items in the script, not items!')
       expect(new Set(data.map((c) => c.files_hash)).size).toBe(8) // every checkpoint differs
     })
 
-    it('11 students: 8 finished, 3 behind', async () => {
-      const { data } = await prof.from('session_tiles').select('step_order').eq('session_id', PAST)
-      const done = data.filter((t) => t.step_order === 8).length
+    it('11 students: 8 Done on the last checkpoint, 3 never caught up after checkpoint 6', async () => {
+      const { data } = await prof.from('session_tiles').select('done_seq').eq('session_id', PAST)
       expect(data).toHaveLength(11)
-      expect(done).toBe(8)
+      expect(data.filter((t) => t.done_seq === 8)).toHaveLength(8)
+      expect(data.filter((t) => t.done_seq === 6)).toHaveLength(3)
     })
 
     it('5 help requests: 2 passed checks, 2 replied, 1 resolved in person', async () => {
@@ -147,17 +142,17 @@ describe.skipIf(!isSeeded)('seed.sql', () => {
       expect(staff.data).toEqual([])
     })
 
-    it('the report makes step 4 the top trouble step, with the history behind it', async () => {
+    it('the report makes checkpoint 4 the top trouble spot, with the history behind it', async () => {
       const { data } = await prof
         .from('session_reports')
         .select('*')
         .eq('session_id', PAST)
         .single()
-      const top = [...data.steps].sort((a, b) => b.trouble - a.trouble)[0]
+      const top = [...data.checkpoints].sort((a, b) => b.trouble - a.trouble)[0]
       expect(data.attendance).toEqual({ joined: 11, enrolled: 11 })
-      expect(top.order).toBe(4)
+      expect(top.seq).toBe(4)
       expect(top.errorStudents).toBe(6)
-      expect(data.steps[6].dropOff).toBe(3) // three never finish step 7
+      expect(data.checkpoints[6].dropOff).toBe(3) // three never caught up to checkpoint 7
       expect(data.top_errors[0]).toMatchObject({
         key: 'ReferenceError: items is not defined',
         students: 6,
@@ -186,7 +181,7 @@ describe.skipIf(!isSeeded)('seed.sql', () => {
   })
 
   describe('the live session (CART42)', () => {
-    it('shows one of each tile state', async () => {
+    it('on checkpoint 3: two Done, two still in progress, one with a build error', async () => {
       const { data } = await ana
         .from('session_tiles')
         .select('student_id, state')
@@ -197,7 +192,7 @@ describe.skipIf(!isSeeded)('seed.sql', () => {
         [uid(8)]: 'done',
         [uid(6)]: 'in_progress',
         [uid(5)]: 'error',
-        [uid(7)]: 'behind',
+        [uid(7)]: 'in_progress',
       })
     })
 

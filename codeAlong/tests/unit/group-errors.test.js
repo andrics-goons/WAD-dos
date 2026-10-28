@@ -4,13 +4,12 @@ import { groupErrors, normalizeError } from '../../shared/error-normalizer.js'
 // fake student tile with the same fields the dashboard will get from session_tiles
 let nextId = 1
 function tile({
-  step = 4,
   name = 'ReferenceError',
   message,
   source = 'runtime',
   at = '2026-10-17T10:00:00Z',
 } = {}) {
-  const base = { studentId: `s${nextId++}`, stepOrder: step, lastSeenAt: at }
+  const base = { studentId: `s${nextId++}`, lastSeenAt: at }
   if (!message) return { ...base, errorKey: null, errorShapeKey: null }
   const { key, shapeKey } = normalizeError({ name, message })
   return {
@@ -23,7 +22,7 @@ function tile({
 }
 
 describe('groupErrors', () => {
-  it('puts students with the same mistake on the same step into one group', () => {
+  it('puts students with the same mistake into one group', () => {
     const tiles = [
       tile({ message: 'items is not defined' }),
       tile({ message: 'items is not defined' }),
@@ -31,7 +30,6 @@ describe('groupErrors', () => {
     const groups = groupErrors(tiles)
     expect(groups).toHaveLength(1)
     expect(groups[0]).toMatchObject({
-      stepOrder: 4,
       key: 'ReferenceError: items is not defined',
       count: 2,
       source: 'runtime',
@@ -39,18 +37,14 @@ describe('groupErrors', () => {
     expect(groups[0].studentIds).toEqual([tiles[0].studentId, tiles[1].studentId])
   })
 
-  it('keeps the same mistake on different steps apart', () => {
+  it('keeps different mistakes apart', () => {
     const tiles = [
-      tile({ step: 3, message: 'items is not defined' }),
-      tile({ step: 3, message: 'items is not defined' }),
-      tile({ step: 4, message: 'items is not defined' }),
-      tile({ step: 4, message: 'items is not defined' }),
+      tile({ message: 'items is not defined' }),
+      tile({ message: 'items is not defined' }),
+      tile({ name: 'TypeError', message: 'cart.push is not a function' }),
+      tile({ name: 'TypeError', message: 'cart.push is not a function' }),
     ]
-    expect(
-      groupErrors(tiles)
-        .map((g) => g.stepOrder)
-        .sort(),
-    ).toEqual([3, 4])
+    expect(groupErrors(tiles)).toHaveLength(2)
   })
 
   it('shows typos of the same mistake as one group with variants', () => {
@@ -118,9 +112,9 @@ describe('groupErrors', () => {
       tile({ message: 'a is not defined', at: '2026-10-17T10:00:00Z' }),
       tile({ message: 'x.y is not a function', name: 'TypeError', at: '2026-10-17T10:05:00Z' }),
       tile({ message: 'x.y is not a function', name: 'TypeError', at: '2026-10-17T10:05:00Z' }),
-      tile({ step: 2, message: 'Unexpected token', name: 'SyntaxError', source: 'build' }),
-      tile({ step: 2, message: 'Unexpected token', name: 'SyntaxError', source: 'build' }),
-      tile({ step: 2, message: 'Unexpected token', name: 'SyntaxError', source: 'build' }),
+      tile({ message: 'Unexpected token', name: 'SyntaxError', source: 'build' }),
+      tile({ message: 'Unexpected token', name: 'SyntaxError', source: 'build' }),
+      tile({ message: 'Unexpected token', name: 'SyntaxError', source: 'build' }),
     ]
     const keys = groupErrors(tiles).map((g) => g.key)
     expect(keys).toEqual([
@@ -132,8 +126,8 @@ describe('groupErrors', () => {
 
   it('labels build errors so the dashboard can say "won\'t compile"', () => {
     const tiles = [
-      tile({ step: 3, name: 'SyntaxError', message: 'Unexpected token', source: 'build' }),
-      tile({ step: 3, name: 'SyntaxError', message: 'Unexpected token', source: 'build' }),
+      tile({ name: 'SyntaxError', message: 'Unexpected token', source: 'build' }),
+      tile({ name: 'SyntaxError', message: 'Unexpected token', source: 'build' }),
     ]
     expect(groupErrors(tiles)[0].source).toBe('build')
   })

@@ -9,6 +9,7 @@
         selectedFile: { type: String, default: "" },
         selectedCode: { type: String, default: "" },
         saveStatus: { type: String, default: null },
+        filesVersion: { type: Number, default: 0 }, // goes up when every file is replaced (a checkpoint load)
     })
 
     const emit = defineEmits(["update:selectedFile", "update:selectedCode", "show-preview"])
@@ -111,9 +112,10 @@
                     </button>
                 </div>
                 <div class="pane-body">
-                    <!-- :key remounts the editor when the file changes, since it only reads selectedCode on mount -->
+                    <!-- :key remounts the editor when the file changes, or when every file was replaced
+                         (a checkpoint load), since it only reads selectedCode on mount -->
                     <CodeEditor
-                        :key="selectedFile"
+                        :key="`${selectedFile}:${filesVersion}`"
                         :selected-file="selectedFile"
                         :selected-code="selectedCode"
                         @update:selected-code="emit('update:selectedCode', $event)"
@@ -199,9 +201,9 @@
         flex: 1;
         min-height: 0;
     }
-    /* xterm is a fixed 80x24 until a FitAddon is wired up, so let it scroll instead of spilling out */
+    /* the FitAddon sizes xterm to this box, so clip the sub-pixel leftovers instead of showing scrollbars */
     .terminal-body {
-        overflow: auto;
+        overflow: hidden;
     }
     .toggle-btn {
         display: flex;

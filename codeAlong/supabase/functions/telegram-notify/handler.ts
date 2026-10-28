@@ -16,7 +16,7 @@ export interface PingContext {
   studentName: string
   seat: string | null
   message: string | null
-  stepTitle: string
+  checkpoint: string // e.g. "Checkpoint 3 · Added ItemCard"
   courseLabel: string // e.g. "IS216 G2"
   lessonTitle: string
   chatIds: string[] // Telegram chat ids of the course's staff who have linked the bot
@@ -57,7 +57,7 @@ export async function handleNotify(req: Request, deps: NotifyDeps): Promise<Resp
     lessonTitle: ctx.lessonTitle,
     studentName: ctx.studentName,
     seat: ctx.seat ?? '?',
-    stepTitle: ctx.stepTitle,
+    checkpoint: ctx.checkpoint,
     message: ctx.message,
     link: `${env('APP_URL') ?? ''}/help/${ctx.requestId}`,
   })

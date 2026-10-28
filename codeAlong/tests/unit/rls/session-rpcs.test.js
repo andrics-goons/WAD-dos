@@ -9,7 +9,7 @@ const FILES = [{ path: 'index.html', language: 'html', content: '<div id="app"><
 
 const createdCourses = []
 let prof, ta, stu, stu2, outsider
-let course, lesson, draftLesson, emptyLesson, otherLesson, steps
+let course, lesson, draftLesson
 
 async function createLesson(fields = {}) {
   const { data, error } = await prof.client
@@ -32,12 +32,11 @@ async function startAs(who, lessonRow = lesson) {
   return who.client.rpc('start_session', { p_lesson_id: lessonRow.id })
 }
 
-const saveAs = (who, session, step, note = null) =>
+const saveAs = (who, session, title = null) =>
   who.client.rpc('save_checkpoint', {
     p_session_id: session.id,
-    p_step_id: step.id,
     p_files: FILES,
-    p_note: note,
+    p_title: title,
   })
 
 // Join the session's channel. Resolves once connected, with `next`: a promise for the next
@@ -103,23 +102,7 @@ beforeAll(async () => {
   await stu2.client.rpc('enrol_with_code', { p_code: course.enrol_code })
 
   lesson = await createLesson()
-  steps = (
-    await prof.client.rpc('replace_steps', {
-      p_lesson_id: lesson.id,
-      p_steps: [{ title: 'Create the app' }, { title: 'Add the cart' }],
-    })
-  ).data
   draftLesson = await createLesson({ title: 'Draft', status: 'draft' })
-  await prof.client.rpc('replace_steps', {
-    p_lesson_id: draftLesson.id,
-    p_steps: [{ title: 'One' }],
-  })
-  emptyLesson = await createLesson({ title: 'No steps' })
-  otherLesson = await createLesson({ title: 'Other' })
-  await prof.client.rpc('replace_steps', {
-    p_lesson_id: otherLesson.id,
-    p_steps: [{ title: 'Elsewhere' }],
-  })
 
   await warmUp((await startAs(prof)).data)
 }, 30_000)
@@ -146,10 +129,6 @@ describe('start_session', () => {
 
   it('T-SESS-02: a draft lesson cannot be started', async () => {
     expect(codeOf((await startAs(prof, draftLesson)).error)).toBe('CONFLICT')
-  })
-
-  it('a lesson with no steps cannot be started', async () => {
-    expect(codeOf((await startAs(prof, emptyLesson)).error)).toBe('CONFLICT')
   })
 
   it('a TA or student cannot start a class', async () => {
@@ -245,47 +224,43 @@ describe('save_checkpoint', () => {
     session = (await startAs(prof)).data
   })
 
-  it('the prof saves a checkpoint: numbered 1 and the class moves to that step', async () => {
-    const { data, error } = await saveAs(prof, session, steps[0], 'Done step 1')
+  it('the prof saves a checkpoint any time: numbered 1, titled, and the class moves on to it', async () => {
+    const { data, error } = await saveAs(prof, session, '  Added ItemCard  ')
     expect(error).toBeNull()
-    expect(data).toMatchObject({
-      seq: 1,
-      step_id: steps[0].id,
-      note: 'Done step 1',
-      created_by: prof.id,
-    })
+    expect(data).toMatchObject({ seq: 1, title: 'Added ItemCard', created_by: prof.id })
     const { data: s } = await prof.client
       .from('sessions')
-      .select('current_step_id')
+      .select('checkpoint_seq')
       .eq('id', session.id)
       .single()
-    expect(s.current_step_id).toBe(steps[0].id)
+    expect(s.checkpoint_seq).toBe(1)
+  })
+
+  it('the title is optional: blank is stored as no title', async () => {
+    const { data } = await saveAs(prof, session, '   ')
+    expect(data.title).toBeNull()
+  })
+
+  it('a title over 80 characters is a validation error', async () => {
+    expect(codeOf((await saveAs(prof, session, 'x'.repeat(81))).error)).toBe('VALIDATION_FAILED')
   })
 
   it('T-SESS-08: two saves at the same moment get different numbers', async () => {
-    const [a, b] = await Promise.all([
-      saveAs(prof, session, steps[1]),
-      saveAs(prof, session, steps[1]),
-    ])
+    const [a, b] = await Promise.all([saveAs(prof, session), saveAs(prof, session)])
     expect(a.error).toBeNull()
     expect(b.error).toBeNull()
-    expect([a.data.seq, b.data.seq].sort()).toEqual([2, 3])
+    expect(b.data.seq).not.toBe(a.data.seq)
+    expect(Math.abs(b.data.seq - a.data.seq)).toBe(1)
   })
 
   it('T-SESS-13: a student or TA cannot save a checkpoint', async () => {
-    expect(codeOf((await saveAs(stu, session, steps[0])).error)).toBe('FORBIDDEN')
-    expect(codeOf((await saveAs(ta, session, steps[0])).error)).toBe('FORBIDDEN')
-  })
-
-  it('a step from another lesson is refused', async () => {
-    const [other] = (await prof.client.from('steps').select().eq('lesson_id', otherLesson.id)).data
-    expect(codeOf((await saveAs(prof, session, other)).error)).toBe('BAD_REQUEST')
+    expect(codeOf((await saveAs(stu, session)).error)).toBe('FORBIDDEN')
+    expect(codeOf((await saveAs(ta, session)).error)).toBe('FORBIDDEN')
   })
 
   it('a checkpoint with no files is a validation error, not "Something went wrong"', async () => {
     const { error } = await prof.client.rpc('save_checkpoint', {
       p_session_id: session.id,
-      p_step_id: steps[0].id,
       p_files: null,
     })
     expect(codeOf(error)).toBe('VALIDATION_FAILED')
@@ -293,14 +268,14 @@ describe('save_checkpoint', () => {
 
   it('T-SESS-06: students receive checkpoint:new straight away (without the files)', async () => {
     const channel = await listen(stu2.client, session.id, 'checkpoint:new')
-    const { data: saved } = await saveAs(prof, session, steps[1])
+    const { data: saved } = await saveAs(prof, session, 'Add the cart')
     const payload = await channel.next
     expect(payload).toMatchObject({
       sessionId: session.id,
+      checkpointId: saved.id,
       seq: saved.seq,
-      stepId: steps[1].id,
-      stepOrder: 2,
       title: 'Add the cart',
+      filesHash: saved.files_hash,
     })
     expect(payload).not.toHaveProperty('files')
   }, 15_000)
@@ -353,6 +328,6 @@ describe('end_session', () => {
     expect(codeOf((await prof.client.rpc('end_session', { p_session_id: session.id })).error)).toBe(
       'CONFLICT',
     )
-    expect(codeOf((await saveAs(prof, session, steps[0])).error)).toBe('CONFLICT')
+    expect(codeOf((await saveAs(prof, session)).error)).toBe('CONFLICT')
   })
 })

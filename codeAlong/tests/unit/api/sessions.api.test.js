@@ -16,7 +16,7 @@ import { userClient, service, cleanup } from '../rls/_helpers.js'
 
 const FILES = [{ path: 'index.html', language: 'html', content: '<div id="app"></div>' }]
 
-let prof, stu, course, lesson, steps
+let prof, stu, course, lesson
 
 // the app's single supabase client, signed in as someone
 async function as(user) {
@@ -64,12 +64,6 @@ beforeAll(async () => {
       .select()
       .single()
   ).data
-  steps = (
-    await prof.client.rpc('replace_steps', {
-      p_lesson_id: lesson.id,
-      p_steps: [{ title: 'Create the app' }, { title: 'Add the cart' }],
-    })
-  ).data
 })
 
 afterAll(async () => {
@@ -89,10 +83,10 @@ describe('sessions.api + checkpoints.api', () => {
     expect(session.join_code).toMatch(/^[A-Z0-9]{6}$/)
   })
 
-  it('getSession says you are staff, lists the steps in order, and has no checkpoint yet', async () => {
+  it('getSession says you are staff, and has no checkpoint yet', async () => {
     const s = await sessionsApi.getSession(session.id)
     expect(s.role).toBe('staff')
-    expect(s.steps.map((st) => st.title)).toEqual(['Create the app', 'Add the cart'])
+    expect(s.checkpoint_seq).toBe(0)
     expect(s.latest_checkpoint).toBeNull()
   })
 
@@ -106,13 +100,15 @@ describe('sessions.api + checkpoints.api', () => {
     })
   })
 
-  it('saveCheckpoint numbers it, and lists leave the files out', async () => {
-    const cp = await checkpointsApi.saveCheckpoint(session.id, steps[0].id, FILES, 'step 1')
-    expect(cp.seq).toBe(1)
+  it('saveCheckpoint numbers it with its title, and lists leave the files out', async () => {
+    const cp = await checkpointsApi.saveCheckpoint(session.id, FILES, 'Created the app')
+    expect(cp).toMatchObject({ seq: 1, title: 'Created the app' })
     const list = await checkpointsApi.listCheckpoints(session.id)
     expect(list).toHaveLength(1)
     expect(list[0]).not.toHaveProperty('files')
-    expect((await sessionsApi.getSession(session.id)).latest_checkpoint.seq).toBe(1)
+    const s = await sessionsApi.getSession(session.id)
+    expect(s.checkpoint_seq).toBe(1)
+    expect(s.latest_checkpoint).toMatchObject({ seq: 1, title: 'Created the app' })
   })
 
   it('a student joins with the code, then can download the checkpoint files', async () => {
@@ -128,9 +124,7 @@ describe('sessions.api + checkpoints.api', () => {
 
   it('errors come back as friendly codes', async () => {
     expect(await codeOf(sessionsApi.joinSession('ZZZZZZ'))).toBe('NOT_FOUND')
-    expect(await codeOf(checkpointsApi.saveCheckpoint(session.id, steps[0].id, FILES))).toBe(
-      'FORBIDDEN',
-    )
+    expect(await codeOf(checkpointsApi.saveCheckpoint(session.id, FILES))).toBe('FORBIDDEN')
     expect(await codeOf(sessionsApi.endSession(session.id))).toBe('FORBIDDEN')
   })
 
@@ -188,14 +182,14 @@ describe('session store (a student following a live class)', () => {
   it('open() loads the class and connects to its live channel', async () => {
     await store.open(session.id)
     expect(store.session.join_code).toBe(session.join_code)
-    expect(store.steps).toHaveLength(2)
+    expect(store.checkpointSeq).toBe(0)
     expect(store.isStaff).toBe(false)
     await vi.waitFor(() => expect(store.connection).toBe('live'), { timeout: 10_000 })
     await warmUp(store, session)
   }, 30_000)
 
-  it('T-SESS-03: before the first checkpoint, the student is on Step 1', () => {
-    expect(store.currentStep.title).toBe('Create the app')
+  it('T-SESS-03: before the first checkpoint, the student is on the starter code', () => {
+    expect(store.latestCheckpoint).toBeNull()
   })
 
   it('the prof sees the student as present (attendance)', async () => {
@@ -206,16 +200,16 @@ describe('session store (a student following a live class)', () => {
     await prof.client.removeChannel(channel)
   }, 15_000)
 
-  it("T-SESS-06: the prof's checkpoint moves the student to that step straight away", async () => {
+  it("T-SESS-06: the prof's checkpoint reaches the student straight away, with its title", async () => {
     await prof.client.rpc('save_checkpoint', {
       p_session_id: session.id,
-      p_step_id: steps[1].id,
       p_files: FILES,
+      p_title: 'Add the cart',
     })
-    await vi.waitFor(() => expect(store.currentStep?.title).toBe('Add the cart'), {
+    await vi.waitFor(() => expect(store.latestCheckpoint?.title).toBe('Add the cart'), {
       timeout: 10_000,
     })
-    expect(store.latestCheckpoint.seq).toBe(1)
+    expect(store.checkpointSeq).toBe(1)
   }, 15_000)
 
   it('the new checkpoint can be downloaded, and its hash matches (for the file cache)', async () => {
@@ -283,15 +277,15 @@ describe('session store + channel for staff (the dashboard)', () => {
   it('T-SESS-07: after the connection drops, it catches up on a checkpoint it missed', async () => {
     supabase.realtime.disconnect() // the wifi drops
     await vi.waitFor(() => expect(store.connection).not.toBe('live'), { timeout: 10_000 })
+    const missed = store.checkpointSeq + 1
     await prof.client.rpc('save_checkpoint', {
       p_session_id: session.id,
-      p_step_id: steps[1].id,
       p_files: FILES,
+      p_title: 'Missed this one',
     })
     supabase.realtime.connect() // and comes back
-    await vi.waitFor(() => expect(store.currentStep?.title).toBe('Add the cart'), {
-      timeout: 10_000,
-    })
+    await vi.waitFor(() => expect(store.checkpointSeq).toBe(missed), { timeout: 10_000 })
+    expect(store.latestCheckpoint.title).toBe('Missed this one')
   }, 20_000)
 
   it("the dashboard hears a student's status change live (onChange)", async () => {
@@ -299,11 +293,10 @@ describe('session store + channel for staff (the dashboard)', () => {
     const stop = store.onChange('student_status', (row) => rows.push(row))
     await stu.client
       .from('student_status')
-      .upsert({ session_id: session.id, student_id: stu.id, done_step_order: 1 })
-    await vi.waitFor(
-      () => expect(rows.at(-1)).toMatchObject({ student_id: stu.id, done_step_order: 1 }),
-      { timeout: 10_000 },
-    )
+      .upsert({ session_id: session.id, student_id: stu.id, done_seq: 1 })
+    await vi.waitFor(() => expect(rows.at(-1)).toMatchObject({ student_id: stu.id, done_seq: 1 }), {
+      timeout: 10_000,
+    })
     stop()
   }, 15_000)
 })

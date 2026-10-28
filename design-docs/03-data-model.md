@@ -13,11 +13,8 @@ Fifteen tables in Supabase Postgres (plus a test-only outbox), joined by `uuid` 
         owner_id        │        course_staff / course_students        │
                   ┌─────▼─────┐   1:N   ┌─────────┐   1:N   ┌────────┐│
                   │  courses  │────────▶│ lessons │────────▶│sessions││
-                  └───────────┘         └────┬────┘         └───┬────┘│
-                                             │ 1:N              │     │
-                                        ┌────▼────┐             │     │
-                                        │  steps  │◄────────────┤     │
-                                        └─────────┘             │     │
+                  └───────────┘         └─────────┘         └───┬────┘│
+                                                                │     │
         ┌──────────────┬──────────────┬───────────────┬─────────┴──┬──┴──────────┐
         ▼              ▼              ▼               ▼            ▼             ▼
 ┌─────────────┐ ┌──────────────┐ ┌───────────┐ ┌──────────────┐ ┌───────┐ ┌───────────────┐
@@ -34,19 +31,21 @@ Fifteen tables in Supabase Postgres (plus a test-only outbox), joined by `uuid` 
 
 ```
 Course  (one prof, their TAs, their enrolled students)
- ├── Lessons    the reusable plans: starter files + ordered steps
+ ├── Lessons    the reusable starter code (no plan: the prof saves checkpoints as they teach)
  └── Sessions   every live class the prof has started in this course — each one a run of a lesson
        └── checkpoints, statuses, snapshots, help requests, notes, report
 ```
 
-A session points at **both** its lesson (what was taught) and its course (`sessions.course_id`), so the course page can list every session started in it, live and past, without going through lessons. Lessons sit in between so the same plan can be taught again — next week to another section, or next term — and the runs compared in the insights report.
+A session points at **both** its lesson (what was taught) and its course (`sessions.course_id`), so the course page can list every session started in it, live and past, without going through lessons. Lessons sit in between so the same starter code can be taught again — next week to another section, or next term — and the runs compared in the insights report.
+
+**There are no lesson steps.** The prof saves a checkpoint of their code whenever they like during class, with an optional title. Each new checkpoint puts every student back to *In progress*; a student clicks *Done* once they've caught up to it. So a checkpoint's number (`seq`) is the only "where are we" marker, and it belongs to the session, not the lesson.
 
 **Changes from the MongoDB design** (read this before you port anything):
 
 | Was | Now | Why |
 |---|---|---|
 | `Course.staff[]`, `Course.students[]` embedded arrays | `course_staff`, `course_students` tables | Policies and joins need real rows; `$addToSet` has no SQL equivalent worth emulating |
-| `Lesson.steps[]` sub-documents | `steps` table | `checkpoints`, `student_status`, `help_requests`, `notes` all reference a step by id — that needs a FK target |
+| `Lesson.steps[]` sub-documents | **gone** | The prof saves checkpoints any time; progress is "Done on the latest checkpoint" (`student_status.done_seq` vs `sessions.checkpoint_seq`) |
 | `StudentStatus.state` (written by the server) | **gone** — derived in `session_tiles` | A client can write its own status row, so a stored `state` would be forgeable. No column, nothing to forge |
 | `StudentStatus.stateHistory[]` capped at 200 | `status_history` table | Append-only rows; the funnel reads them with SQL instead of unwinding an array |
 | `files` as a sub-document array | `jsonb` | Same `[{ path, language, content }]` shape; validated by a `check` constraint |
@@ -254,7 +253,7 @@ All four check for a logged-in caller first (`UNAUTHENTICATED`). Two decisions w
 
 ## lessons
 
-Built by the **lessons migration** (`supabase/migrations/…_lessons.sql`), together with `steps`, the `files_valid()` / `files_include()` helpers and the shared `set_updated_at()` trigger.
+Built by the **lessons migration** (`supabase/migrations/…_lessons.sql`), together with the `files_valid()` / `files_include()` helpers and the shared `set_updated_at()` trigger. A lesson is a title and its starter files — nothing else.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -263,7 +262,7 @@ Built by the **lessons migration** (`supabase/migrations/…_lessons.sql`), toge
 | `title` | `text not null check (char_length(title) between 1 and 100)` | e.g. "Week 6 · Mini Cart" |
 | `week` | `int check (week between 1 and 13)` | Optional; orders the library |
 | `description` | `text check (char_length(description) <= 500)` | |
-| `files` | `jsonb not null check (public.files_valid(files) and octet_length(files::text) <= 200000)` | Starter code with TODOs — a real Vite project, source files only |
+| `files` | `jsonb not null check (public.files_valid(files) and octet_length(files::text) <= 200000)` | Starter code — a real Vite project, source files only |
 | `files_hash` | `text generated always as (md5(files::text)) stored` | Cheap change check for the IndexedDB cache — the client selects this, not `files` |
 | `entry_file` | `text not null` | `index.html` for the dev server; checked by the `entry_file_exists` constraint |
 | `dev_command` | `text not null default 'pnpm dev'` (1–200 chars) | What WebContainer spawns |
@@ -276,59 +275,10 @@ Built by the **lessons migration** (`supabase/migrations/…_lessons.sql`), toge
 
 **Indexes:** `(course_id, week)`.
 
-## steps
-
-Promoted from a sub-document, because other tables point at a step — see the explanation below.
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | `uuid` PK | Referenced by checkpoints, sessions, snapshots and help requests |
-| `lesson_id` | `uuid not null → lessons` on delete cascade | |
-| `order` | `int not null check ("order" >= 1)` | 1-based, always contiguous (1, 2, 3…) |
-| `title` | `text not null check (char_length(title) between 1 and 120)` | Defaults to the TODO text |
-| `description` | `text check (char_length(description) <= 1000)` | |
-| `todo_refs` | `jsonb not null default '[]'` | `[{ file, line }]` — one step can span files |
-| `checks` | `jsonb not null default '[]'` | Automatic step checks (COULD) |
-
-**Constraint:** `unique (lesson_id, "order") deferrable initially deferred`.
-
-> **Why deferrable.** A normal unique constraint is checked **row by row, in the middle of an update**. Moving step 3 to position 1 briefly gives two steps `order = 1`, so the change fails even though the finished result is fine. A deferred constraint is checked only when the transaction commits, by which time every order is unique again. Copying a plain `unique (lesson_id, "order")` into any future migration brings that bug back.
-
-> `order` is a reserved word — always quote it as `"order"` in SQL. The API layer exposes it as `order` in camelCase JS.
-
-**Why steps are a separate table.** Other tables point at a *specific* step (a help request is "stuck on this step"; a checkpoint is saved "for this step"), and in Postgres that pointer is a foreign key — which can only target a row in a table, not an item inside a JSON list. It also keeps a step's identity stable when steps are reordered, and lets one step be edited without rewriting its lesson's 200 KB of files.
-
-### Helpers
-
-```sql
--- Staff see every lesson; enrolled students see everything except drafts.
-create function public.can_read_lesson(lid uuid) returns boolean
-language sql security definer stable set search_path = '' as $$
-    select exists (
-        select 1 from public.lessons l
-        where l.id = lid
-          and (public.is_course_staff(l.course_id)
-               or (public.is_enrolled(l.course_id) and l.status <> 'draft'))
-    )
-$$;
-
--- Only the course's prof edits a lesson or its steps (not TAs).
-create function public.can_edit_lesson(lid uuid) returns boolean
-language sql security definer stable set search_path = '' as $$
-    select exists (
-        select 1 from public.lessons l
-        where l.id = lid and public.is_course_prof(l.course_id)
-    )
-$$;
-```
-
-Every steps policy goes through these, so the "can this person see / edit that lesson?" rule lives in one place. Use them in any later policy that needs the same question.
-
 ### Policies
 
 ```sql
 alter table public.lessons enable row level security;
-alter table public.steps   enable row level security;
 
 -- lessons
 create policy "staff read lessons, students read non-drafts" on public.lessons
@@ -342,42 +292,13 @@ create policy "prof edits lessons" on public.lessons
 create policy "prof deletes lessons" on public.lessons
   for delete using (public.is_course_prof(course_id));
 
--- steps
-create policy "readers of the lesson read its steps" on public.steps
-  for select using (public.can_read_lesson(lesson_id));
-create policy "prof writes steps" on public.steps
-  for all using (public.can_edit_lesson(lesson_id)) with check (public.can_edit_lesson(lesson_id));
-
--- plus `admin reads all` on both tables
+-- plus `admin reads all`
 ```
 
 **Two reading rules worth knowing:**
 
-- **Students never see draft lessons**, nor their steps — a half-finished plan doesn't belong in the student's library. Ready and archived lessons stay visible, so replays of past classes keep their titles.
+- **Students never see draft lessons** — half-finished starter code doesn't belong in the student's library. Ready and archived lessons stay visible, so replays of past classes keep their titles.
 - **Students can read a non-draft lesson's starter `files`.** RLS controls *rows*, not columns, so it can't hide one column from some readers; students also need the starter files the moment class starts. Starter code is the *unfinished* exercise — the prof's worked solutions live in checkpoints, which are session-scoped. (This replaces an earlier plan for a `lesson_files_for_member` gate, which was never built.)
-
-### RPCs
-
-**`replace_steps(p_lesson_id, p_steps)`** — save a lesson's whole step list in one transaction. `p_steps` is `[{ id?, title, description?, todo_refs? }, …]` in display order.
-
-1. Not logged in → `UNAUTHENTICATED`
-2. Not this course's prof (TAs included) → `FORBIDDEN`
-3. `p_steps` isn't a list → `BAD_REQUEST`
-4. Any step with an empty title → `VALIDATION_FAILED`
-5. A step `id` belonging to **another lesson** → `BAD_REQUEST` (otherwise a prof could rewrite someone else's lesson through it)
-6. Steps whose `id` is missing from the list are **deleted**
-7. Steps with an `id` are **updated** at their position in the list
-8. Steps without an `id` are **created**
-9. **Any `order` sent is ignored** — steps are always renumbered 1, 2, 3… by list position
-10. Returns the lesson's steps in order
-
-**`delete_step(p_step_id)`** — delete one step and close the gap (1, 2, 4 → 1, 2, 3). `FORBIDDEN` for anyone but the course's prof, including for a step that doesn't exist.
-
-Single-step edits (renaming one step) are a direct `update` on `steps`, allowed by the "prof writes steps" policy — no RPC needed.
-
-### Once a lesson has been taught
-
-Its step numbers become history: `student_status.done_step_order`, `status_history.step_order` and every checkpoint mean "step N". So the sessions migration adds guards (see [Guards on taught lessons](#guards-on-taught-lessons)). **Until a lesson has a session, everything above applies unchanged.**
 
 ---
 
@@ -393,7 +314,7 @@ Migration: `supabase/migrations/20261018153107_sessions.sql`.
 | `started_by` | `uuid not null → profiles` | |
 | `join_code` | `text not null check (join_code ~ '^[A-Z0-9]{6}$')` | From `JOIN_CODE_ALPHABET` |
 | `status` | `text not null default 'live' check (status in ('live','ended'))` | |
-| `current_step_id` | `uuid → steps` | Step of the latest checkpoint |
+| `checkpoint_seq` | `int not null default 0 check (checkpoint_seq >= 0)` | The latest checkpoint's `seq`, 0 before the first. `save_checkpoint` moves it; every tile compares the student's `done_seq` with it |
 | `settings` | `jsonb not null default '{"allowCatchUp":true,"hintsEnabled":false,"idleAfterSec":180}' check (session_settings_valid(settings))` | Prof toggles during class. **All three keys are required on every update**, and `idleAfterSec` must be a number from 30 to 3600 — the view casts it, so one bad value would break every tile |
 | `spotlight` | `jsonb check (≤ 20 000 bytes)` | Anonymised excerpt, or null |
 | `announcement` | `jsonb check (announcement is null or char_length(announcement->>'text') between 1 and 200)` | `{ text, at }` — the prof's current class announcement, or null. Stored so late joiners and reconnecting students see it, not just whoever was subscribed at the moment it was sent. Written only by `rpc('announce')`, so the broadcast always accompanies the write |
@@ -406,7 +327,7 @@ Migration: `supabase/migrations/20261018153107_sessions.sql`.
 
 The prof writes `settings` and `spotlight` directly (see [04](./04-pages-routes-and-events.md)); everything else on a session is changed by the session RPCs. The update policy's `with check` stops a prof moving a session into a course they don't run.
 
-`start_session`, `join_session`, `save_checkpoint` and `end_session` (Ying Qi), `announce` (Karin) and `catch_up` (Ray Yien) are RPCs — a client cannot be trusted to allocate a unique join code or decide its own role. Full bodies in [05-core-logic.md](./05-core-logic.md#3-session-lifecycle). **They are not in this migration**; each owner adds theirs. Until `start_session` exists, tests create sessions with the service role.
+`start_session`, `join_session`, `save_checkpoint` and `end_session` (Ying Qi), and `announce` (Karin) are RPCs — a client cannot be trusted to allocate a unique join code or decide its own role. Full bodies in [05-core-logic.md](./05-core-logic.md#3-session-lifecycle). **They are not in this migration**; each owner adds theirs. Until `start_session` exists, tests create sessions with the service role.
 
 ### Session helpers
 
@@ -428,17 +349,16 @@ All `security definer`, for the same reason as the course helpers.
 |---|---|---|
 | `id` | `uuid` PK | |
 | `session_id` | `uuid not null → sessions` on delete cascade | |
-| `step_id` | `uuid not null → steps` | Must be a step of the session's lesson (trigger, `BAD_REQUEST`) |
 | `seq` | `int not null check (seq >= 1)` | 1, 2, 3… in save order |
 | `files` | `jsonb not null check (public.files_valid(files) and octet_length(files::text) <= 200000)` | Full snapshot of the prof's code |
 | `files_hash` | `text generated always as (md5(files::text)) stored` | Cache key; also how the client detects that `package.json` changed between checkpoints |
-| `note` | `text check (char_length(note) <= 500)` | Shown in replay |
+| `title` | `text check (char_length(title) between 1 and 80)` | Optional, typed by the prof when saving ("Added ItemCard"). Blank is stored as null and shown as "Checkpoint 3" (`shared/checkpoint-label.js`) |
 | `created_by` | `uuid not null → profiles` | |
 | `created_at` | `timestamptz not null default now()` | |
 
 **Indexes:** `unique (session_id, seq)`.
 
-**Policies:** "members read checkpoints" (`is_session_member`), "admin reads all". Inserts only via `rpc('save_checkpoint')`: it allocates `seq`, sets `current_step_id` and broadcasts.
+**Policies:** "members read checkpoints" (`is_session_member`), "admin reads all". Inserts only via `rpc('save_checkpoint')`: it allocates `seq`, sets `sessions.checkpoint_seq` and broadcasts. The prof can save one **at any time**; there is no plan to follow.
 
 > Two "Save checkpoint" clicks at once would race for the same `seq`. `save_checkpoint` locks the session row first (`select … for update`), so the second save waits and takes the next number; the unique index is the backstop.
 
@@ -454,11 +374,11 @@ All `security definer`, for the same reason as the course helpers.
 |---|---|---|
 | `session_id` | `uuid not null → sessions` on delete cascade | `primary key (session_id, student_id)` |
 | `student_id` | `uuid not null → profiles` | |
-| `done_step_order` | `int not null default 0 check (done_step_order >= 0)` | Highest step marked Done |
+| `done_seq` | `int check (done_seq >= 0)` | The checkpoint the student clicked **Done** on (0 = the starter code, before any checkpoint); null until they do. They count as done only while it equals `sessions.checkpoint_seq`, so a new checkpoint resets everyone to in progress without a write |
 | `error` | `jsonb check (null, or an object whose message ≤ 300)` | `{ source: 'runtime' \| 'build', name, message, file, line, key, shapeKey, at }`. Send SQL `null` to clear it. **Build errors have their code frame stripped before they get here** — see [05 §1](./05-core-logic.md#1-client-side-runtime-webcontainer) |
 | `checks` | `jsonb` | `{ passed, total }` — only when automatic checks exist (COULD) |
-| `catch_ups` | `int not null default 0` | Times the student loaded a checkpoint. Incremented by `rpc('catch_up')` |
-| `last_seen_at` | `timestamptz not null default now()` | Heartbeat or any event |
+| `catch_ups` | `int not null default 0` | Times the student loaded a checkpoint. **Unused for now**: catch-up is client-only (05 §7), so nothing increments it |
+| `last_seen_at` | `timestamptz not null default now()` | Heartbeat or any event. The `touch_last_seen` trigger sets it to the server's `now()` on every insert or update the student makes to their own row, so a wrong clock on a lab PC can't make them idle (or never idle). Writes by the service role or the seed keep the time they set |
 | `joined_at` | `timestamptz not null default now()` | Attendance for digests |
 
 **Indexes:** the primary key (it starts with `session_id`). Added to the `supabase_realtime` publication, so staff can subscribe to it.
@@ -498,8 +418,8 @@ Append-only; replaces the capped `stateHistory[]` array. Written only by trigger
 | `id` | `bigint generated always as identity` PK |
 | `session_id` | `uuid not null → sessions` on delete cascade |
 | `student_id` | `uuid not null → profiles` |
-| `state` | `text not null check (state in ('error','behind','in_progress','done'))` — never `idle`, see below |
-| `step_order` | `int not null` — the student's `done_step_order` at that moment |
+| `state` | `text not null check (state in ('error','in_progress','done'))` — never `idle`, see below |
+| `checkpoint_seq` | `int not null` — the session's latest checkpoint at that moment |
 | `error_key` | `text` — the error's `key` when `state = 'error'`, else null. Added by the help/notes/reports migration so the report can count its top errors after class: `student_status` keeps only the latest error |
 | `at` | `timestamptz not null default now()` |
 
@@ -511,8 +431,8 @@ Two triggers write it:
 
 | Trigger | Fires on | Appends |
 |---|---|---|
-| `record_status_change` | insert, or update of `done_step_order` / `error`, on `student_status` | One row, if that student's derived state differs from **their last history row** — or the state is still `error` but with a different `error_key`. Compared with the last row, not `OLD`, so a heartbeat upsert that changes nothing writes nothing |
-| `record_checkpoint_states` | update of `sessions.current_step_id` | One row for **every** student whose state the new checkpoint changed. Without this, history would miss every "behind", because the students who fell behind never wrote anything |
+| `record_status_change` | insert, or update of `done_seq` / `error`, on `student_status` | One row, if that student's derived state differs from **their last history row** — or the state is still `error` but with a different `error_key`. Compared with the last row, not `OLD`, so a heartbeat upsert that changes nothing writes nothing |
+| `record_checkpoint_states` | update of `sessions.checkpoint_seq` | One row for **every** student whose state the new checkpoint changed (each Done student goes back to in progress). Without this, history would miss the reset, because nobody wrote anything |
 
 `idle` is never recorded. It depends on `now()`, so no write ever happens at the moment a student becomes idle.
 
@@ -521,14 +441,13 @@ Two triggers write it:
 `session_tiles` is the only thing the dashboard reads. The classifier from [05](./05-core-logic.md#4-status-classifier) lives in one SQL function, `tile_state(done, error, target)`, which the view **and** both history triggers call, so the three can never disagree:
 
 ```sql
+-- p_done = the checkpoint the student clicked Done on (null if not), p_target = the latest
 create function public.tile_state(p_done int, p_error jsonb, p_target int) returns text
 language sql immutable set search_path = '' as $$
     select case
-        when p_error is not null       then 'error'
-        when p_target = 0              then case when p_done >= 1 then 'done' else 'in_progress' end
-        when p_done >= p_target        then 'done'
-        when p_done = p_target - 1     then 'in_progress'
-        else 'behind'
+        when p_error is not null                  then 'error'
+        when p_done is not distinct from p_target then 'done'
+        else 'in_progress'
     end
 $$;
 
@@ -537,8 +456,8 @@ select
     ss.session_id,
     ss.student_id,
     p.name,
-    coalesce(st."order", 0)              as target_order,
-    ss.done_step_order                   as step_order,
+    s.checkpoint_seq,
+    ss.done_seq,
     ss.error->>'source'                  as error_source,
     ss.error->>'key'                     as error_key,
     left(ss.error->>'message', 120)      as error_preview,
@@ -547,17 +466,18 @@ select
     case
         when now() - ss.last_seen_at >
              make_interval(secs => (s.settings->>'idleAfterSec')::numeric) then 'idle'
-        else public.tile_state(ss.done_step_order, ss.error, coalesce(st."order", 0))
+        else public.tile_state(ss.done_seq, ss.error, s.checkpoint_seq)
     end                                  as state
 from public.student_status ss
 join public.sessions s on s.id = ss.session_id
-join public.profiles p on p.id = ss.student_id
-left join public.steps st on st.id = s.current_step_id;
+join public.profiles p on p.id = ss.student_id;
 ```
+
+There is **no "behind" state**: a new checkpoint resets everyone, so a student is either done on the latest one or still working towards it.
 
 `security_invoker = true` makes the view run with the caller's rights, so the RLS policies above still apply — **without it a view would leak every session's rows.** A student querying it sees only their own tile.
 
-The help/notes/reports migration appends one more column, `passed_steps int[]`: the step orders this student's `check` requests were **passed** on, e.g. `{1,3}`. (`create or replace view` can only add columns at the end, so it comes after `state`.)
+The help/notes/reports migration appends one more column, `passed_seqs int[]`: the checkpoints this student's `check` requests were **passed** on (each request's `checkpoint_seq`), e.g. `{1,3}`. (`create or replace view` can only add columns at the end, so it comes after `state`.)
 
 ```sql
 create view public.session_summary with (security_invoker = true) as
@@ -567,7 +487,6 @@ select
     count(*) filter (where state = 'done')          as done,
     count(*) filter (where state = 'in_progress')   as in_progress,
     count(*) filter (where state = 'error')         as error,
-    count(*) filter (where state = 'behind')        as behind,
     count(*) filter (where state = 'idle')          as idle,
     public.session_slow_down_count(session_id)           as slow_down_count
 from public.session_tiles
@@ -584,9 +503,8 @@ group by session_id;
 |---|---|
 | `guard_taught_lesson` | Deleting a taught lesson, or moving it to another course |
 | `guard_taught_course` | Deleting a course that has any session. It fires before the delete cascades into the lessons, so the message talks about the course |
-| `guard_taught_steps` | Deleting a step, changing a step's `order`, or inserting a step anywhere but after the last one. **Rewording a step and appending new steps still work** — including through `replace_steps` and `delete_step` |
 
-To restructure a taught lesson, the prof makes a new lesson. The foreign keys back the triggers up: `sessions → lessons/courses` and `checkpoints → steps` do not cascade.
+A taught lesson's starter files can still be edited: past classes keep their own checkpoints, so nothing in their history depends on the lesson's files. The foreign keys back the triggers up: `sessions → lessons/courses` do not cascade.
 
 ---
 
@@ -597,7 +515,6 @@ To restructure a taught lesson, the prof makes a new lesson. The foreign keys ba
 | `id` | `uuid` PK | |
 | `session_id` | `uuid not null → sessions` on delete cascade | |
 | `student_id` | `uuid not null → profiles` | |
-| `step_id` | `uuid → steps` | Step the student was on |
 | `reason` | `text not null check (reason in ('autosave','before_catchup','help_request'))` | |
 | `files` | `jsonb not null check (public.files_valid(files) and octet_length(files::text) <= 200000)` | Source files only — `SYNC_IGNORE` keeps `node_modules/`, `dist/` and `.vite/` out |
 | `files_hash` | `text generated always as (md5(files::text)) stored` | Cache key |
@@ -616,7 +533,7 @@ Migration: `supabase/migrations/20261018154409_help_notes_reports.sql` (snapshot
 ```sql
 alter table public.snapshots enable row level security;
 
--- students only READ: autosave_patch, catch_up and the help RPCs write every row, so a
+-- students only READ: autosave_patch and the help RPCs write every row, so a
 -- snapshot already sent to a TA can't be edited afterwards
 create policy "student reads own snapshots" on public.snapshots
     for select using (student_id = auth.uid());
@@ -643,7 +560,7 @@ create policy "admin reads all" on public.snapshots for select using (public.is_
 | `id` | `uuid` PK | |
 | `session_id` | `uuid not null → sessions` on delete cascade | |
 | `student_id` | `uuid not null → profiles` | |
-| `step_id` | `uuid not null → steps` | |
+| `checkpoint_seq` | `int not null default 0` | The class's latest checkpoint when they asked (0 = before the first). Set by `create_help_request` from `sessions.checkpoint_seq`, never sent by the student; the TA's side-by-side compares with that checkpoint |
 | `type` | `text not null check (type in ('check','help'))` | |
 | `snapshot_id` | `uuid not null → snapshots` | Created in the same RPC, `reason = 'help_request'` |
 | `message` | `text check (char_length(message) <= 300)` | The student's opening message |
@@ -713,7 +630,7 @@ begin
 end $$;
 ```
 
-`create_help_request` also refuses a class that has ended (`CONFLICT`) and a step that isn't part of the session's lesson (`BAD_REQUEST`). The step id comes from the student's browser, and the table no longer checks it. A follow-up needs a non-blank message (`VALIDATION_FAILED`).
+`create_help_request` also refuses a class that has ended (`CONFLICT`), and records the class's latest checkpoint itself, so the student never sends one. A follow-up needs a non-blank message (`VALIDATION_FAILED`).
 
 ### In-person ping
 
@@ -744,8 +661,8 @@ language plpgsql security definer set search_path = '' as $$
 declare r public.help_requests; snap uuid;
 begin
   -- 1. fresh snapshot of the student's CURRENT code — the reply may have prompted changes
-  insert into public.snapshots (session_id, student_id, step_id, reason, files)
-  select session_id, student_id, step_id, 'help_request', p_files
+  insert into public.snapshots (session_id, student_id, reason, files)
+  select session_id, student_id, 'help_request', p_files
     from public.help_requests where id = p_request_id and student_id = auth.uid()
   returning id into snap;
   if snap is null then
@@ -821,15 +738,15 @@ T-PRIV-05 passes by construction — a note belonging to someone else is not a 4
 | `session_id` | `uuid` PK → `sessions` on delete cascade | One per ended session |
 | `course_id`, `lesson_id` | `uuid` | For cross-term trends |
 | `attendance` | `jsonb` | `{ joined, enrolled }` |
-| `steps` | `jsonb` | Per-step funnel — see [05](./05-core-logic.md#10-insights-report): `[{ order, stepId, title, reachedDone, dropOff, errorStudents, peakBehind, medianMinutesToDone, catchUps, helpRequests, trouble }]` (the shape `seed.sql` writes and `buildReport` must produce) |
-| `top_errors` | `jsonb` | Top 5, counts only: `[{ key, students, stepOrder }]` |
+| `checkpoints` | `jsonb` | Per-checkpoint funnel — see [05](./05-core-logic.md#10-insights-report): `[{ seq, title, reachedDone, dropOff, errorStudents, medianMinutesToDone, catchUps, helpRequests, trouble }]` (the shape `seed.sql` writes and `buildReport` must produce) |
+| `top_errors` | `jsonb` | Top 5, counts only: `[{ key, students, seq }]` |
 | `slow_down_peak` | `int` | Max simultaneous "Slow down" |
 | `generated_at` | `timestamptz default now()` | |
 | `digest` | `jsonb` | `{ sentAt, recipients }` — counts only |
 
 Written by the `end-session` Edge Function (triggered by a Database Webhook when `sessions.status` becomes `ended`). The report page polls until the row exists.
 
-`session_id → sessions` on delete cascade; `course_id → courses` and `lesson_id → lessons` for trends. `attendance` is required; `steps` and `top_errors` default to `[]`, `slow_down_peak` to 0. Index `(course_id, lesson_id)` for trends.
+`session_id → sessions` on delete cascade; `course_id → courses` and `lesson_id → lessons` for trends. `attendance` is required; `checkpoints` and `top_errors` default to `[]`, `slow_down_peak` to 0. Index `(course_id, lesson_id)` for trends.
 
 ```sql
 alter table public.session_reports enable row level security;
@@ -930,8 +847,8 @@ Handled by `on delete cascade` on the foreign keys, so there is no controller-si
 
 | Deleting | Also deletes |
 |---|---|
-| Course (owner prof only) | Its lessons → steps, sessions → everything under each session |
-| Lesson | Its steps. **Will be** blocked by a trigger if any session exists — archived instead, so replays keep working. The trigger arrives with the sessions migration; until then, deletion is allowed |
+| Course (owner prof only) | Its lessons, sessions → everything under each session |
+| Lesson | Blocked by a trigger if any session exists — archived instead, so replays keep working |
 | Session (owner prof, ended only) | Checkpoints, statuses, history, snapshots, help requests, notes, report |
 | Removing a student from a course | Their `course_students` row only; past statuses/snapshots stay for the report |
 
@@ -948,7 +865,7 @@ The contract, enforced by RLS policies and `security definer` RPCs. **Admin** is
 | View course + lesson library | ✅ | ✅ | ✅ | ✅ (every course) |
 | **Create / edit / archive** course | ❌ | ❌ | ✅ (own courses only) | ❌ |
 | Add TA to course | ❌ | ❌ | ✅ (owner) | ❌ |
-| **Create / edit / delete** lesson, edit steps, import from GitHub | ❌ | ❌ | ✅ | ❌ |
+| **Create / edit / delete** lesson, import from GitHub | ❌ | ❌ | ✅ | ❌ |
 | Start / end a live session, save checkpoints, Spotlight | ❌ | ❌ | ✅ | ❌ |
 | Post / clear a class announcement | ❌ | ❌ | ✅ | ❌ |
 | Join a live session | ✅ | ✅ (as staff) | ✅ | — |
@@ -979,13 +896,12 @@ Each rule exists **twice**: a zod schema in `src/validators/` for the per-field 
 | Login | email, password | generic "Invalid email or password" | Supabase Auth (rate-limited by the platform) |
 | Course | code, title, term, section | code uppercase A–Z0–9 | `unique (owner_id, code, term, section)` — per prof |
 | Lesson | title, files, entry_file | 1–40 files; safe relative paths; no duplicate paths; `entry_file` exists; ≤ 200 KB | `files_valid()` + `octet_length` check + `entry_file_exists` constraint |
-| Step edit | title | 1–120 chars; order unique and contiguous | deferred `unique (lesson_id, "order")` + `replace_steps` |
 | GitHub import | repo URL | `https://github.com/<owner>/<repo>[/tree/<ref>/<dir>]`; only `.html/.css/.js/.json/.md` | `github-import` function |
-| Start session | lesson_id | lesson `ready`, ≥ 1 step, caller is prof staff | `start_session` RPC |
+| Start session | lesson_id | lesson `ready`, caller is the course prof | `start_session` RPC |
 | Join session | join_code | 6 chars; live session; caller is a member | `join_session` RPC |
-| Checkpoint | step_id, files | step belongs to the lesson; session live | `save_checkpoint` RPC |
-| Status update | done_step_order, error? | within 0…steps.length; message ≤ 300; no code frame in a build error | `student_status` policy + check; T-PRIV-09 |
-| Help request | type, step_id, files | one active per type; seat required if in_person | partial unique index |
+| Checkpoint | files, title? | title ≤ 80 chars; session live; caller is the course prof | `save_checkpoint` RPC |
+| Status update | done_seq, error? | done_seq ≥ 0 or null; message ≤ 300; no code frame in a build error | `student_status` policy + check; T-PRIV-09 |
+| Help request | type, files | one active per type; seat required if in_person | partial unique index |
 | Help reply | reply | 1–1000 chars; claiming staff only; appended to `thread` | `transition_help_request` |
 | Help follow-up | message, files | 1–300 chars; own request; status `replied`; ≤ 3 follow-ups | `follow_up_help_request` + `follow_ups` check |
 | Announcement | text | 1–200 chars; prof of the course; session live | `announce` RPC + `announcement` check |

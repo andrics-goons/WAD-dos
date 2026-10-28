@@ -33,7 +33,8 @@ export async function getCurrentUser() {
     .eq('id', user.id)
     .single()
   if (error) throw mapError(error)
-  return data // { id, name, role }
+  // hasPassword: false for an account made with "Continue with GitHub", which has no password to change
+  return { ...data, hasPassword: user.app_metadata.providers?.includes('email') ?? false }
 }
 
 /**
@@ -94,4 +95,57 @@ export async function changePassword({ currentPassword, newPassword }) {
  */
 export function onAuthChange(callback) {
   return supabase.auth.onAuthStateChange((event, session) => callback(event, session))
+}
+
+// --- GitHub ------------------------------------------------------------------------
+// Supabase Auth does the OAuth dance with GitHub. Both calls below leave this page for
+// GitHub and come back to `returnTo` signed in (or linked); supabase-js reads the session
+// from the URL when the app loads again.
+
+const backTo = (path) => new URL(path, window.location.origin).href
+
+/** "Continue with GitHub" on the login and register pages. A first sign-in creates a student account. */
+export async function signInWithGitHub(returnTo = '/home') {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'github',
+    options: { redirectTo: backTo(returnTo) },
+  })
+  if (error) throw mapError(error)
+}
+
+/**
+ * The GitHub account linked to mine: { username, canDisconnect }, or null if there isn't one.
+ * canDisconnect is false when GitHub is my only way to log in.
+ */
+export async function getGitHubLink() {
+  const { data, error } = await supabase.auth.getUserIdentities()
+  if (error) throw mapError(error)
+  const github = data.identities.find((i) => i.provider === 'github')
+  if (!github) return null
+  return {
+    username: github.identity_data.user_name,
+    canDisconnect: data.identities.length > 1,
+  }
+}
+
+/**
+ * "Connect GitHub" on the profile page: links a GitHub account to the one I'm logged in with,
+ * with the repo access that exporting a replay needs (design-docs/05 §11).
+ */
+export async function connectGitHub(returnTo = '/profile') {
+  const { error } = await supabase.auth.linkIdentity({
+    provider: 'github',
+    options: { scopes: 'public_repo', redirectTo: backTo(returnTo) },
+  })
+  if (error) throw mapError(error)
+}
+
+/** Unlink GitHub. Refused by Supabase if it's my only way to log in. */
+export async function disconnectGitHub() {
+  const { data, error } = await supabase.auth.getUserIdentities()
+  if (error) throw mapError(error)
+  const github = data.identities.find((i) => i.provider === 'github')
+  if (!github) return
+  const { error: unlinkError } = await supabase.auth.unlinkIdentity(github)
+  if (unlinkError) throw mapError(unlinkError)
 }

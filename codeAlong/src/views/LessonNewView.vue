@@ -1,16 +1,14 @@
 <script setup>
-// 3-step stepper (Source → Review files → Review steps).
+// 2-stage stepper (Source → Review files). A lesson is just its starter files: the prof saves
+// checkpoints during class, so there is no plan to review.
 // upload + parsing happen in the browser, create lesson saves through lessons.api.js
 // saving needs the lessons table and a real course id in the url
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import GithubImportTab from '@/components/lesson/GithubImportTab.vue'
-import StepList from '@/components/lesson/StepList.vue'
-import EmptyState from '@/components/ui/EmptyState.vue'
 import { useLessonsStore } from '@/stores/lessons'
 import { useToastStore } from '@/stores/toast'
 import { buildLessonFiles, isIgnored, languageForPath } from '../../shared/lesson-files.js'
-import { parseTodos } from '../../shared/todo-parser.js'
 
 const props = defineProps({ id: { type: String, required: true } }) // the course id
 const router = useRouter()
@@ -19,7 +17,7 @@ const toast = useToastStore()
 
 const stage = ref(1)
 const source = ref('upload')
-const stages = ['Source', 'Review files', 'Review steps']
+const stages = ['Source', 'Review files']
 
 const files = ref([])
 const entryFile = ref(null)
@@ -27,8 +25,6 @@ const skipped = ref([]) // files the converter rejected one by one (e.g. unsafe 
 const ignoredCount = ref(0) // files dropped before reading: node_modules, images, lockfiles...
 const errors = ref([])
 const githubSource = ref(null) // { type: 'github', repo, ref, dir } from the last import
-const parsedSteps = ref([]) // steps from parseTodos, this is what gets saved
-const steps = ref([]) // same steps but formatted for StepList
 
 // lesson details
 const title = ref('')
@@ -65,24 +61,15 @@ function load(entries, options) {
   skipped.value = result.skipped
   ignoredCount.value = 0
   errors.value = result.errors
-  // Same function the lesson editor will call for "Re-parse TODOs".
-  parsedSteps.value = parseTodos(result.files, result.entryFile)
-  steps.value = parsedSteps.value.map((s) => ({
-    id: s.order,
-    order: s.order,
-    title: s.title,
-    file: s.todoRefs.map((r) => `${r.file}:${r.line}`).join('  ·  '),
-    status: 'todo',
-  }))
 }
 
-// github-import has already checked the files; load() parses the TODOs like an upload
+// github-import has already checked the files; from here they're handled like an upload
 function onImported(result) {
   load(result.files)
   githubSource.value = result.source
 }
 
-// check the title before leaving step 1
+// check the title before leaving the first stage
 function next() {
   if (stage.value === 1 && !title.value.trim()) {
     titleError.value = 'Give the lesson a title before you continue'
@@ -95,18 +82,15 @@ function next() {
 async function create() {
   saving.value = true
   try {
-    const { lesson } = await lessons.create(
-      props.id,
-      {
-        title: title.value.trim(),
-        week: week.value ? Number(week.value) : null,
-        description: description.value.trim(),
-        files: files.value,
-        entryFile: entryFile.value,
-        source: source.value === 'github' ? githubSource.value : { type: 'upload' },
-      },
-      parsedSteps.value,
-    )
+    const lesson = await lessons.create(props.id, {
+      title: title.value.trim(),
+      week: week.value ? Number(week.value) : null,
+      description: description.value.trim(),
+      files: files.value,
+      entryFile: entryFile.value,
+      // an import keeps where it came from (repo, branch, folder) — design-docs/03 lessons.source
+      source: source.value === 'github' ? githubSource.value : { type: 'upload' },
+    })
     toast.show('Lesson created as a draft', 'success')
     router.push({ name: 'lesson-edit', params: { id: lesson.id } })
   } catch (err) {
@@ -194,7 +178,7 @@ async function onFolderPicked(event) {
         <div>
           <div class="ca-eyebrow">Lessons</div>
           <h1>New lesson</h1>
-          <p class="text-body-secondary mb-0">Turn starter code into a step-by-step lesson plan.</p>
+          <p class="text-body-secondary mb-0">Upload the starter code your class begins from.</p>
         </div>
       </div>
 
@@ -310,10 +294,7 @@ async function onFolderPicked(event) {
           class="alert alert-success d-flex align-items-start gap-2 small mt-3 mb-0"
         >
           <i class="bi bi-check-circle-fill flex-shrink-0" />
-          <span
-            >Found {{ files.length }} files and {{ steps.length }} steps. Click Next to review
-            them.</span
-          >
+          <span>Found {{ files.length }} files. Click Next to review them.</span>
         </div>
 
         <hr class="my-4" />
@@ -395,27 +376,12 @@ async function onFolderPicked(event) {
         </div>
       </div>
 
-      <!-- 3 Review steps -->
-      <div v-else class="ca-surface">
-        <div
-          class="d-flex flex-wrap align-items-baseline justify-content-between column-gap-3 row-gap-1 px-3 py-2 border-bottom"
-        >
-          <span class="fw-semibold">{{ steps.length }} steps proposed from your TODOs</span>
-          <span class="small text-body-secondary">You can reorder them later</span>
-        </div>
-        <StepList v-if="steps.length" :steps="steps" />
-        <EmptyState v-else icon="bi-list-check" title="No TODOs found" compact>
-          Add comments like <span class="ca-mono">// TODO 1: Render the product list</span> to your
-          starter code, then upload it again.
-        </EmptyState>
-      </div>
-
       <div class="d-flex justify-content-between gap-2 mt-3">
         <button type="button" class="ca-btn" :disabled="stage === 1" @click="stage--">
           <i class="bi bi-arrow-left" />Back
         </button>
         <button
-          v-if="stage < 3"
+          v-if="stage < stages.length"
           type="button"
           class="ca-btn ca-btn--primary"
           :disabled="!canContinue"

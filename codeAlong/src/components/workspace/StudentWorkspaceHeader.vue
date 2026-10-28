@@ -1,13 +1,28 @@
 <script setup>
-    // Styling only for now: course name and title are hard-coded, and the status
-    // toggle + buttons don't do anything yet. TODO FUTURE: pass these in from the lesson.
+    // The lesson, the prof's latest checkpoint, and "My status" for it: a new checkpoint puts
+    // everyone back to In progress, and Done means "I'm caught up to it". "Load latest
+    // checkpoint" asks the page to replace my code with it (the page confirms first).
+    import HelpButton from "@/components/help/HelpButton.vue"
+
+    defineProps({
+        lessonTitle: { type: String, default: "" },
+        checkpoint: { type: String, default: "" },    // "Checkpoint 3 · Added ItemCard", or "Starter code"
+        done: { type: Boolean, default: false },      // I've clicked Done on that checkpoint
+        disabled: { type: Boolean, default: false },  // still loading, or the class has ended
+        canLoadCheckpoint: { type: Boolean, default: false }, // there is one, and the prof allows catching up
+        sessionId: { type: [String, Number], default: null },
+        files: { type: Array, default: () => [] },
+    })
+
+    // done: I'm caught up to the checkpoint · undo: back to In progress · load-checkpoint: catch up
+    const emit = defineEmits(["done", "undo", "load-checkpoint"])
 </script>
 
 <template>
     <header class="workspace-header">
         <div class="header-title">
-            <div class="course-name text-truncate">IS216 Web Application Development II</div>
-            <h1 class="text-truncate">Class workspace</h1>
+            <div class="course-name text-truncate" data-testid="workspace-checkpoint">{{ checkpoint }}</div>
+            <h1 class="text-truncate">{{ lessonTitle || "Class workspace" }}</h1>
         </div>
 
         <!-- below lg the buttons show only their icon (Load keeps a short label); the visually-hidden span keeps its name -->
@@ -16,31 +31,46 @@
             <div class="status-group">
                 <span class="status-label d-none d-lg-inline">My status</span>
                 <div class="status-toggle">
-                    <button type="button" class="status-option status-option--in-progress active">
+                    <button
+                        type="button"
+                        class="status-option status-option--in-progress"
+                        :class="{ active: !done }"
+                        :disabled="disabled"
+                        @click="done && emit('undo')"
+                    >
                         <i class="bi bi-clock" />
                         <span class="d-none d-lg-inline">In progress</span>
                         <span class="visually-hidden d-lg-none">In progress</span>
                     </button>
-                    <button type="button" class="status-option status-option--done">
+                    <button
+                        type="button"
+                        class="status-option status-option--done"
+                        :class="{ active: done }"
+                        :disabled="disabled"
+                        data-testid="btn-done"
+                        @click="!done && emit('done')"
+                    >
                         <i class="bi bi-check-circle" />
-                        <span class="d-none d-lg-inline">Completed</span>
-                        <span class="visually-hidden d-lg-none">Completed</span>
+                        <span class="d-none d-lg-inline">Done</span>
+                        <span class="visually-hidden d-lg-none">Done</span>
                     </button>
                 </div>
             </div>
 
             <div class="divider d-none d-lg-block" />
 
-            <button type="button" class="ca-btn ca-btn--secondary">
+            <button
+                type="button"
+                class="ca-btn ca-btn--secondary"
+                :disabled="disabled || !canLoadCheckpoint"
+                data-testid="btn-load-checkpoint"
+                @click="emit('load-checkpoint')"
+            >
                 <i class="bi bi-arrow-counterclockwise" />
                 <span class="d-none d-lg-inline">Load latest checkpoint</span>
                 <span class="d-lg-none">Load</span>
             </button>
-            <button type="button" class="ca-btn ca-btn--secondary">
-                <i class="bi bi-question-circle" />
-                <span class="d-none d-lg-inline">Help</span>
-                <span class="visually-hidden d-lg-none">Help</span>
-            </button>
+            <HelpButton v-if="sessionId" :session-id="sessionId" :files="files" />
         </div>
     </header>
 </template>
