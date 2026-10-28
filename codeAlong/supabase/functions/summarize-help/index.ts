@@ -24,13 +24,19 @@ function dbFor(req: Request): SummarizeDb {
       return data === true
     },
     async listAnalyses(sessionId) {
-      const { data, error } = await caller
-        .from('help_requests')
-        .select('analysis, step:steps(title, "order")')
-        .eq('session_id', sessionId)
-        .eq('type', 'help')
-        .not('status', 'in', '(resolved,cancelled)')
+      const [{ data, error }, { data: checkpoints, error: cpError }] = await Promise.all([
+        caller
+          .from('help_requests')
+          .select('analysis, checkpoint_seq')
+          .eq('session_id', sessionId)
+          .eq('type', 'help')
+          .not('status', 'in', '(resolved,cancelled)'),
+        // titles, to name each group's checkpoint ("Checkpoint 3 · Fetch items")
+        caller.from('checkpoints').select('seq, title').eq('session_id', sessionId),
+      ])
       if (error) throw error
+      if (cpError) throw cpError
+      const titleOf = new Map((checkpoints ?? []).map((c) => [c.seq, c.title]))
 
       const analysed: AnalysedRequest[] = []
       let pending = 0
@@ -38,7 +44,11 @@ function dbFor(req: Request): SummarizeDb {
         if (!r.analysis) pending++
         else if (!r.analysis.status) {
           // { status: 'failed' } rows are left out: there's nothing to summarise
-          analysed.push({ stepOrder: r.step.order, stepTitle: r.step.title, analysis: r.analysis })
+          analysed.push({
+            checkpointSeq: r.checkpoint_seq,
+            checkpointTitle: titleOf.get(r.checkpoint_seq) ?? null,
+            analysis: r.analysis,
+          })
         }
       }
       return { analysed, pending }

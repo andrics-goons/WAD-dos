@@ -12,7 +12,7 @@ const db: AnalyzeDb = {
     const { data: r, error } = await admin
       .from('help_requests')
       .select(
-        'id, type, session_id, student_id, step:steps!step_id(*), snapshot:snapshots!snapshot_id(files)',
+        'id, type, session_id, student_id, checkpoint_seq, snapshot:snapshots!snapshot_id(files)',
       )
       .eq('id', requestId)
       .maybeSingle()
@@ -26,22 +26,32 @@ const db: AnalyzeDb = {
         .eq('session_id', r.session_id)
         .eq('student_id', r.student_id)
         .maybeSingle(),
-      // the prof's latest checkpoint for this step is the "correct" version to compare against
+      // the checkpoint the class was on when they asked is the "correct" version to compare
+      // against (none yet while the class is on the starter code, seq 0)
       admin
         .from('checkpoints')
-        .select('files')
+        .select('files, title')
         .eq('session_id', r.session_id)
-        .eq('step_id', r.step.id)
-        .order('seq', { ascending: false })
-        .limit(1)
+        .eq('seq', r.checkpoint_seq)
         .maybeSingle(),
     ])
 
+    // before the first checkpoint the reference is the lesson's starter code
+    let reference = checkpoint?.files ?? null
+    if (!reference && r.checkpoint_seq === 0) {
+      const { data: session } = await admin
+        .from('sessions')
+        .select('lesson:lessons(files)')
+        .eq('id', r.session_id)
+        .maybeSingle()
+      reference = session?.lesson?.files ?? null
+    }
+
     return {
       type: r.type,
-      step: { order: r.step.order, title: r.step.title, todoRefs: r.step.todo_refs ?? [] },
+      checkpoint: { seq: r.checkpoint_seq, title: checkpoint?.title ?? null },
       files: r.snapshot?.files ?? [],
-      checkpointFiles: checkpoint?.files ?? null,
+      checkpointFiles: reference,
       error: status?.error ?? null,
     }
   },

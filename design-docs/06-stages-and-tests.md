@@ -306,16 +306,19 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-AIH-01 | Prompt has the step, the error, the student's code and the checkpoint region | Unit | All four present |
+| T-AIH-01 | Prompt has the checkpoint, the error, the student's code and the checkpoint region | Unit | All four present |
 | T-AIH-02 | Comment lines dropped, `TODO` kept | Unit | A name in a comment never reaches the prompt |
 | T-AIH-03 | Huge file | Unit | Prompt stays under the 6,000-character cap |
-| T-AIH-04 | Valid reply | Unit | Fields kept; `stuckAt.step` from the request, not the model |
+| T-AIH-04 | Valid reply | Unit | Fields kept; `stuckAt.checkpoint` from the request, not the model |
 | T-AIH-05 | Unknown category, code block in `rootCause` | Unit | `other`; code block removed |
 | T-AIH-06 | Help request analysed | Unit | `analysis` saved with `model` and `analyzedAt` |
 | T-AIH-07 | "Check my work" request | Unit | Skipped; no LLM call |
 | T-AIH-08 | Provider 429 or non-JSON reply | Unit | `{ status: 'failed' }` saved; nothing thrown |
 | T-AIH-09 | `EXTERNAL_APIS=mock` | Unit | Prompt in `test_outbox` (`channel = 'llm'`); model never called |
-| T-AIH-10 | Class summary grouping (`summarize-help.test.js`) | Unit | Students counted per `(step, category)` in code, biggest first |
+| T-AIH-20 | No error: only the files that differ from the reference are sent | Unit | A changed file reaches the model however many unchanged files there are |
+| T-AIH-21 | No error and code identical to the reference | Unit | Prompt says so; the model is told not to invent a mistake |
+| T-AIH-22 | Files left out of the prompt | Unit | Listed by name, so the model never assumes they're missing |
+| T-AIH-10 | Class summary grouping (`summarize-help.test.js`) | Unit | Students counted per `(checkpoint, category)` in code, biggest first |
 | T-AIH-11 | Prompt 2 | Unit | Each group's key and count listed; diagnoses treated as data |
 | T-AIH-12 | Prompt 2 reply | Unit | Model words on our groups; counts unchanged; skipped group keeps plain text |
 | T-AIH-13 | Caller is not session staff | Unit | `FORBIDDEN`, nothing read, no model call |

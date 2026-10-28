@@ -1,4 +1,5 @@
 <script setup>
+import { checkpointLabel } from '@shared/checkpoint-label.js'
 import { onMounted } from 'vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { useDashboardStore } from '@/stores/dashboard'
@@ -81,7 +82,7 @@ const time = (iso) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', mi
             <div class="flex-grow-1 overflow-hidden">
               <div class="fw-semibold">{{ g.title }}</div>
               <div class="small text-body-secondary">
-                Step {{ g.stepOrder }}: {{ g.stepTitle }} · {{ g.category }}
+                {{ checkpointLabel(g.checkpointSeq, g.checkpointTitle) }} · {{ g.category }}
               </div>
               <div class="small mt-1">{{ g.explanation }}</div>
               <div v-if="g.teachingTip" class="small mt-1">

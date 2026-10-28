@@ -11,8 +11,8 @@ const SUMMARY = {
   groups: [
     {
       key: 'g1',
-      stepOrder: 4,
-      stepTitle: 'Show each item',
+      checkpointSeq: 4,
+      checkpointTitle: 'Show each item',
       category: 'missing-prop',
       count: 3,
       title: 'ItemCard gets no item',
@@ -48,6 +48,7 @@ describe('HelpSummaryPanel', () => {
     const group = wrapper.find('[data-testid="help-summary-group-0"]')
     expect(group.text()).toContain('3')
     expect(group.text()).toContain('ItemCard gets no item')
+    expect(group.text()).toContain('Checkpoint 4 · Show each item · missing-prop')
     expect(group.text()).toContain('Show the binding')
     expect(wrapper.text()).toContain('1 still being analysed')
 
