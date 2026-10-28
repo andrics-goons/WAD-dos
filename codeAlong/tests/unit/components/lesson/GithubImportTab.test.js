@@ -7,7 +7,6 @@ import { AppError } from '@/api/mapError'
 
 vi.mock('@/api/github.api', () => ({
   importFromGithub: vi.fn(),
-  linkGithub: vi.fn(),
   exportToGithub: vi.fn(),
 }))
 import { importFromGithub } from '@/api/github.api'

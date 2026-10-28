@@ -241,8 +241,8 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | Diff utility + `DiffView` (split/unified) | `shared/diff-summary.js`, `components/replay/DiffView.vue` | ✅ |
 | "What you missed" panel (embedded in Dylan's workspace) | `components/replay/WhatYouMissed.vue` | ⬜ |
 | Lesson library (search, list) in course page — built by Ying Qi | `components/lesson/LessonLibrary.vue` | ✅ |
-| `github-import` function + import tab in New lesson | `supabase/functions/github-import/`, `components/lesson/GithubImportTab.vue` | ⬜ |
-| `github-export` function (Git Data API, one commit per checkpoint) + GitHub identity link | `supabase/functions/github-export/`, `linkIdentity` | ⬜ |
+| `github-import` function + import tab in New lesson | `supabase/functions/github-import/`, `components/lesson/GithubImportTab.vue` | ✅ |
+| `github-export` function (Git Data API, one commit per checkpoint) + GitHub identity link — the link is Andric's "Connect GitHub" on the profile page | `supabase/functions/github-export/`, `connectGitHub()` in `auth.api.js` | ✅ |
 | Replay + notes data access; `search()` RPC | `src/api/replays.api.js`, `notes.api.js` | ⬜ |
 | Replay list + viewer, timeline, notes drawer, export dialog | `views/ReplayListView.vue`, `views/ReplayView.vue`, `components/replay/*` | ⬜ |
 | Tests | T-REP-* · T-GH-* · T-CATCH-01–08 · T-SBX-11, 13–16, 18–23 · T-LOAD-04 | ⬜ |
