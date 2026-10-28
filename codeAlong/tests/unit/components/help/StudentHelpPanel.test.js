@@ -9,6 +9,7 @@ vi.mock('@/api/help.api', () => ({
   listHelpRequests: vi.fn(),
   createHelpRequest: vi.fn(),
   transitionHelpRequest: vi.fn(),
+  followUpHelpRequest: vi.fn(),
 }))
 
 // the live channel: the test calls pushRow to play a change arriving from the database
@@ -31,6 +32,7 @@ const row = (fields = {}) => ({
   status: 'open',
   message: null,
   thread: [],
+  follow_ups: 0,
   ...fields,
 })
 
@@ -123,5 +125,30 @@ describe('StudentHelpPanel', () => {
     await flushPromises()
 
     expect(wrapper.get('[data-testid="help-status"]').text()).toContain('Passed')
+  })
+
+  it('T-HELP-13: after a reply I can follow up with my current code, and the request goes back to waiting', async () => {
+    helpApi.followUpHelpRequest.mockResolvedValue(row({ status: 'open', follow_ups: 1 }))
+    await render([row({ status: 'replied', thread: [{ role: 'staff', body: 'Check line 3' }] })])
+    expect(wrapper.get('[data-testid="btn-follow-up"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('3 follow-ups left')
+
+    await wrapper.get('[data-testid="input-follow-up"]').setValue('Still NaN')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(helpApi.followUpHelpRequest).toHaveBeenCalledWith('r1', {
+      message: 'Still NaN',
+      files: FILES,
+    })
+    expect(wrapper.find('[data-testid="input-follow-up"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="help-status"]').text()).toContain('Waiting for a TA')
+  })
+
+  it('T-HELP-16: after the third follow-up the form is replaced by "ask for in-person help instead"', async () => {
+    await render([row({ status: 'replied', follow_ups: 3 })])
+
+    expect(wrapper.find('[data-testid="input-follow-up"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Ask for in-person help instead')
   })
 })
