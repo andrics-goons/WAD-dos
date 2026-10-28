@@ -3,8 +3,9 @@ import { computed } from 'vue'
 import { HelpStatus } from '@shared/constants.js'
 import HelpStatusPill from './HelpStatusPill.vue'
 import { HELP_TYPE_LABEL, askedAt, waitingFor, lastHandledBy, isActive } from './helpLabels.js'
+import { checkpointLabel } from '@shared/checkpoint-label.js'
 
-// One request in the queue: who, which step, what kind, how long they've waited. No code.
+// One request in the queue: who, which checkpoint, what kind, how long they've waited. No code.
 const props = defineProps({
   request: { type: Object, required: true },
   staffNames: { type: Object, default: () => ({}) },
@@ -40,9 +41,7 @@ const claimedBy = computed(() => {
     </div>
 
     <div class="small text-body-secondary mb-2">
-      {{ HELP_TYPE_LABEL[request.type] }}
-      · Step {{ request.step?.order
-      }}<span v-if="request.step?.title"> · {{ request.step.title }}</span>
+      {{ HELP_TYPE_LABEL[request.type] }} · {{ checkpointLabel(request.checkpoint_seq) }}
     </div>
 
     <div class="d-flex flex-wrap gap-2 mb-2">

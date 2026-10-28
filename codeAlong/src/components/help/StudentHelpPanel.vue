@@ -7,10 +7,10 @@ import { useHelpStore } from '@/stores/help'
 import { useToastStore } from '@/stores/toast'
 
 // Send my code to a TA, and follow what happens to it. The workspace passes in the class,
-// the step I'm on and my current files — that's the code the TA gets.
+// and my current files — that's the code the TA gets. The server notes which checkpoint the
+// class is on, so the TA compares my code with it.
 const props = defineProps({
   sessionId: { type: String, required: true },
-  stepId: { type: String, required: true },
   files: { type: Array, required: true },
 })
 
@@ -58,7 +58,6 @@ async function run(action) {
 const request = (type, extra = {}) =>
   help.send({
     sessionId: props.sessionId,
-    stepId: props.stepId,
     type,
     files: props.files,
     ...extra,

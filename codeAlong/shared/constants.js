@@ -20,13 +20,11 @@ export const TileState = Object.freeze({
   DONE: 'done',
   IN_PROGRESS: 'in_progress',
   ERROR: 'error',
-  BEHIND: 'behind',
   IDLE: 'idle',
 })
 // order for the dashboard: students who need help first
 export const TileStateOrder = [
   TileState.ERROR,
-  TileState.BEHIND,
   TileState.IN_PROGRESS,
   TileState.IDLE,
   TileState.DONE,

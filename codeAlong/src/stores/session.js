@@ -16,12 +16,8 @@ export const useSessionStore = defineStore('session', () => {
   let connectedBefore = false
   const rowListeners = { student_status: new Set(), help_requests: new Set() }
 
-  const steps = computed(() => session.value?.steps ?? [])
-  // the step of the latest checkpoint; before the first checkpoint, step 1
-  const currentStep = computed(
-    () =>
-      steps.value.find((s) => s.id === session.value?.current_step_id) ?? steps.value[0] ?? null,
-  )
+  // the prof's latest checkpoint: its number (0 before the first) and { id, seq, title, … }
+  const checkpointSeq = computed(() => session.value?.checkpoint_seq ?? 0)
   const latestCheckpoint = computed(() => session.value?.latest_checkpoint ?? null)
   const isLive = computed(() => session.value?.status === 'live')
   const isStaff = computed(() => session.value?.role === 'staff')
@@ -40,11 +36,11 @@ export const useSessionStore = defineStore('session', () => {
     closeChannel = openSessionChannel(id, {
       events: {
         [RtEvent.CHECKPOINT_NEW]: (cp) => {
-          session.value.current_step_id = cp.stepId
+          session.value.checkpoint_seq = cp.seq
           session.value.latest_checkpoint = {
             id: cp.checkpointId,
             seq: cp.seq,
-            step_id: cp.stepId,
+            title: cp.title,
             files_hash: cp.filesHash,
             created_at: cp.createdAt,
           }
@@ -104,8 +100,8 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   // Prof actions. The channel brings the result back to everyone, this tab included.
-  const saveCheckpoint = (stepId, files, note) =>
-    checkpointsApi.saveCheckpoint(session.value.id, stepId, files, note)
+  const saveCheckpoint = (files, title) =>
+    checkpointsApi.saveCheckpoint(session.value.id, files, title)
 
   async function updateSettings(changes) {
     const updated = await sessionsApi.updateSettings(session.value.id, {
@@ -125,8 +121,7 @@ export const useSessionStore = defineStore('session', () => {
     session,
     connection,
     present,
-    steps,
-    currentStep,
+    checkpointSeq,
     latestCheckpoint,
     isLive,
     isStaff,

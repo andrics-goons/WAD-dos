@@ -16,7 +16,7 @@ const request = (changes = {}) => ({
   thread: [],
   created_at: '2026-10-26T10:18:00Z',
   student: { name: 'Bea Koh' },
-  step: { order: 3, title: 'ItemCard' },
+  checkpoint_seq: 3,
   ...changes,
 })
 const mountCard = (changes, props = {}) =>
@@ -32,10 +32,10 @@ const mountCard = (changes, props = {}) =>
   })
 
 describe('HelpRequestCard', () => {
-  it('shows who, which step, what kind and how long they have waited — no code', () => {
+  it('shows who, which checkpoint, what kind and how long they have waited — no code', () => {
     const text = mountCard().text()
     expect(text).toContain('Bea Koh')
-    expect(text).toContain('Help · Step 3 · ItemCard')
+    expect(text).toContain('Help · Checkpoint 3')
     expect(text).toContain('12 min')
     expect(text).toContain('Waiting')
   })

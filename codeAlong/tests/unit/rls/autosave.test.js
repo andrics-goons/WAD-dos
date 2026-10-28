@@ -55,7 +55,6 @@ beforeAll(async () => {
       .select()
       .single()
   ).data
-  await prof.client.rpc('replace_steps', { p_lesson_id: lesson.id, p_steps: [{ title: 'One' }] })
   session = (await prof.client.rpc('start_session', { p_lesson_id: lesson.id })).data
 })
 

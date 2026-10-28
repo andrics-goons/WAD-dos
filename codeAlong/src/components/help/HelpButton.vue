@@ -7,7 +7,6 @@ import StudentHelpPanel from '@/components/help/StudentHelpPanel.vue'
 // is still received. Props are passed straight to the panel.
 defineProps({
   sessionId: { type: String, required: true },
-  stepId: { type: String, required: true },
   files: { type: Array, required: true },
 })
 
@@ -35,7 +34,7 @@ const open = ref(false)
             <i class="bi bi-x-lg" /><span class="visually-hidden">Close</span>
           </button>
         </div>
-        <StudentHelpPanel :session-id="sessionId" :step-id="stepId" :files="files" />
+        <StudentHelpPanel :session-id="sessionId" :files="files" />
       </div>
     </div>
   </Teleport>

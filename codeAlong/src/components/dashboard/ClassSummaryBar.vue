@@ -11,7 +11,7 @@ const props = defineProps({
 })
 defineEmits(['filter'])
 
-// Most actionable first: error → behind → in progress → idle → done
+// Most actionable first: error → in progress → idle → done
 const segments = computed(() =>
   TileStateOrder.map((key) => ({ key, ...tileStateMeta(key), n: props.counts[key] ?? 0 })),
 )

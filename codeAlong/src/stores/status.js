@@ -6,12 +6,13 @@ import { getMyStatus, saveStatus } from '@/api/workspace.api'
 import { useAuthStore } from '@/stores/auth'
 import { useSessionStore } from '@/stores/session'
 
-// What the prof's dashboard knows about me in this class (design-docs/05 §4): the highest step
-// I've marked Done and my latest error. Never my code: the table has no column for it.
+// What the prof's dashboard knows about me in this class (design-docs/05 §4): which checkpoint
+// I've clicked Done on and my latest error. A new checkpoint makes me In progress again
+// (the database compares doneSeq with the latest), so nothing here resets. Never my code: the table has no column for it.
 // My row is written when either changes (at most once every 2 s) and every 30 s while the tab
 // is visible, so the dashboard can tell I'm still here. The database works out my tile state.
 export const useStatusStore = defineStore('status', () => {
-  const doneStepOrder = ref(0)
+  const doneSeq = ref(null) // the checkpoint I clicked Done on (0 = the starter code), or null
   const error = ref(null)
 
   let sessionId = null
@@ -27,7 +28,7 @@ export const useStatusStore = defineStore('status', () => {
     const mine = await getMyStatus(id)
     sessionId = id
     studentId = useAuthStore().user.id
-    doneStepOrder.value = mine?.done_step_order ?? 0
+    doneSeq.value = mine?.done_seq ?? null
     error.value = mine?.error ?? null
     await write()
     heartbeat = setInterval(
@@ -53,7 +54,7 @@ export const useStatusStore = defineStore('status', () => {
     lastWrite = Date.now()
     try {
       await saveStatus(sessionId, studentId, {
-        doneStepOrder: doneStepOrder.value,
+        doneSeq: doneSeq.value,
         error: error.value,
       })
     } catch (e) {
@@ -73,13 +74,13 @@ export const useStatusStore = defineStore('status', () => {
     }, wait)
   }
 
-  // "Completed" on a step, and undoing it ("In progress" again)
-  function markDone(stepOrder) {
-    doneStepOrder.value = stepOrder
+  // "Done" on the prof's latest checkpoint, and undoing it ("In progress" again)
+  function markDone(seq) {
+    doneSeq.value = seq
     changed()
   }
-  function markInProgress(stepOrder) {
-    doneStepOrder.value = Math.max(0, stepOrder - 1)
+  function markInProgress() {
+    doneSeq.value = null
     changed()
   }
 
@@ -108,5 +109,5 @@ export const useStatusStore = defineStore('status', () => {
     changed()
   }
 
-  return { doneStepOrder, error, start, stop, markDone, markInProgress, setError, clearError }
+  return { doneSeq, error, start, stop, markDone, markInProgress, setError, clearError }
 })

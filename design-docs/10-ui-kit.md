@@ -42,7 +42,7 @@ codeAlong/
     │   ├── AppToast.vue           ← toast stack (already mounted — use the toast store)
     │   ├── ConfirmModal.vue       ← confirm before destructive actions
     │   ├── EmptyState.vue         ← empty / not-found / no-access screens
-    │   ├── StatusPill.vue         ← the 5 tile states (done, in_progress, error, behind, idle)
+    │   ├── StatusPill.vue         ← the 4 tile states (done, in_progress, error, idle)
     │   ├── JoinCodeInput.vue      ← the 6-box join code input
     │   └── tileStates.js          ← label + icon per tile state
     ├── stores/toast.js            ← useToastStore().show(text, variant)
@@ -163,7 +163,7 @@ onMounted(async () => {
   <!-- Full height under the navbar, dark palette for everything inside -->
   <div class="ca-ide ca-fill-viewport d-flex flex-column" data-bs-theme="dark">
     <div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom">
-      <span class="fw-semibold text-truncate">Step 4 · Emit add-to-cart</span>
+      <span class="fw-semibold text-truncate">Checkpoint 4 · Emit add-to-cart</span>
       <StatusPill state="error" size="sm" class="ms-auto" />
       <button class="ca-btn ca-btn--primary ca-btn--sm" data-testid="btn-load-checkpoint">Load checkpoint</button>
     </div>
@@ -303,7 +303,7 @@ Use as `var(--ca-…)` in `<style scoped>`. Values change inside `.ca-ide` autom
 | Semantic | `--ca-success`, `--ca-danger`, `--ca-warning`, `--ca-info` (+ `-hover` for success/danger/warning), `--ca-on-warning` |
 | Surfaces & text | `--ca-bg` (page), `--ca-surface` (panels), `--ca-surface-muted` (hover/stripes), `--ca-border`, `--ca-border-strong` (inputs), `--ca-text`, `--ca-text-muted`, `--ca-backdrop` |
 | IDE palette | `--ca-ide-bg`, `--ca-ide-surface`, `--ca-ide-raised`, `--ca-ide-border`, `--ca-ide-text`, `--ca-ide-muted`, `--ca-ide-accent` |
-| Tile states | `--ca-state-<state>` (solid), `--ca-state-<state>-bg` (fill), `--ca-state-<state>-fg` (text on fill), for `done`, `in_progress`, `error`, `behind`, `idle`. Names match `TileState` values, so `` `var(--ca-state-${tile.state})` `` works |
+| Tile states | `--ca-state-<state>` (solid), `--ca-state-<state>-bg` (fill), `--ca-state-<state>-fg` (text on fill), for `done`, `in_progress`, `error`, `idle` (plus `behind`, no longer a tile state, kept as the blue the help pills use). Names match `TileState` values, so `` `var(--ca-state-${tile.state})` `` works |
 | Type | `--ca-font-sans` (Inter), `--ca-font-mono` (JetBrains Mono), `--ca-text-xs` 12 · `-sm` 14 · `-base` 16 · `-lg` 18 · `-xl` 24 · `-2xl` 32 px |
 | Spacing | `--ca-space-1` 4 · `-2` 8 · `-3` 12 · `-4` 16 · `-5` 24 · `-6` 32 · `-7` 48 px |
 | Shape | `--ca-radius-sm`, `--ca-radius`, `--ca-radius-lg`, `--ca-radius-pill`, `--ca-shadow-sm`, `--ca-shadow`, `--ca-shadow-lg` |
@@ -333,11 +333,11 @@ Example scoped style:
 ```vue
 <StatusPill :state="tile.state" />                       <!-- icon + "Error" -->
 <StatusPill :state="tile.state" size="sm" />             <!-- compact -->
-<StatusPill state="done" label="Step 4 · Done" />         <!-- custom label -->
+<StatusPill state="done" label="Checkpoint 4 · Done" />         <!-- custom label -->
 ```
 Props: `state` (required, a `TileState` value), `size` (`'md'` default | `'sm'`), `label` (override text). Renders `data-state="<state>"`. Need the label/icon elsewhere (e.g. a filter chip)? `import { tileStateMeta } from '@/components/ui/tileStates.js'` → `{ label, icon }`.
 
-**Colouring anything by state** (a dashboard tile, a chart bar): add the class `ca-state--done` (or `in_progress`, `error`, `behind`, `idle`) and use `var(--state)`, `var(--state-bg)` and `var(--state-fg)` in your scoped CSS — e.g. `` :class="`ca-state--${tile.state}`" `` with `.tile { border: 2px solid var(--state); background: var(--state-bg); }`.
+**Colouring anything by state** (a dashboard tile, a chart bar): add the class `ca-state--done` (or `in_progress`, `error`, `idle`) and use `var(--state)`, `var(--state-bg)` and `var(--state-fg)` in your scoped CSS — e.g. `` :class="`ca-state--${tile.state}`" `` with `.tile { border: 2px solid var(--state); background: var(--state-bg); }`.
 
 ### `JoinCodeInput`: typing a join code
 

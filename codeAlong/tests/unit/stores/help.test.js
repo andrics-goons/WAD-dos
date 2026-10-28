@@ -28,7 +28,7 @@ const bea = () => ({
   claimed_by: null,
   thread: [],
   student: { name: 'Bea Koh' },
-  step: { order: 3, title: 'ItemCard' },
+  checkpoint_seq: 3,
 })
 let onRow
 
@@ -55,7 +55,7 @@ describe('help store', () => {
     expect(sessionStore.onChange).toHaveBeenCalledWith('help_requests', expect.any(Function))
   })
 
-  it('a change to a request it has updates it in place and keeps the name and step', async () => {
+  it('a change to a request it has updates it in place and keeps the name', async () => {
     const help = useHelpStore()
     await help.open('s1')
     await onRow({ id: 'r1', session_id: 's1', status: 'claimed', claimed_by: 'ana', thread: [] })
@@ -63,7 +63,7 @@ describe('help store', () => {
     expect(helpApi.listHelpRequests).toHaveBeenCalledOnce()
   })
 
-  it('a request it has never seen re-reads the list, for its name and step', async () => {
+  it('a request it has never seen re-reads the list, for its name', async () => {
     const help = useHelpStore()
     await help.open('s1')
     await onRow({ id: 'r2', session_id: 's1', status: 'open', thread: [] })
@@ -103,17 +103,21 @@ describe('help store', () => {
     expect(loadFiles).not.toHaveBeenCalled()
   })
 
-  it("compares with the prof's latest checkpoint for that step, or nothing if there isn't one", async () => {
+  it('compares with the checkpoint the class was on when they asked; nothing before the first', async () => {
     listCheckpoints.mockResolvedValue([
-      { id: 'cp1', seq: 1, step_id: 'st3', files_hash: 'h1' },
-      { id: 'cp2', seq: 2, step_id: 'st4', files_hash: 'h2' },
-      { id: 'cp3', seq: 3, step_id: 'st3', files_hash: 'h3' },
+      { id: 'cp1', seq: 1, title: null, files_hash: 'h1' },
+      { id: 'cp2', seq: 2, title: 'Added ItemCard', files_hash: 'h2' },
+      { id: 'cp3', seq: 3, title: null, files_hash: 'h3' },
     ])
     loadFiles.mockResolvedValue(['checkpoint'])
     const help = useHelpStore()
-    expect(await help.checkpointFor('s1', 'st3')).toMatchObject({ seq: 3, files: ['checkpoint'] })
-    expect(loadFiles).toHaveBeenCalledWith('checkpoint', 'cp3', 'h3')
-    expect(await help.checkpointFor('s1', 'st9')).toBeNull()
+    expect(await help.checkpointFor('s1', 2)).toMatchObject({
+      seq: 2,
+      title: 'Added ItemCard',
+      files: ['checkpoint'],
+    })
+    expect(loadFiles).toHaveBeenCalledWith('checkpoint', 'cp2', 'h2')
+    expect(await help.checkpointFor('s1', 0)).toBeNull()
   })
 
   it('close() stops listening and leaves the class channel', async () => {

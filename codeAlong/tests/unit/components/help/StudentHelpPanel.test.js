@@ -24,7 +24,7 @@ vi.mock('@/stores/session', () => ({
 }))
 
 const FILES = [{ path: 'index.html', language: 'html', content: '<div></div>' }]
-const props = { sessionId: 's1', stepId: 'step1', files: FILES }
+const props = { sessionId: 's1', files: FILES }
 
 const row = (fields = {}) => ({
   id: 'r1',
@@ -52,7 +52,7 @@ beforeEach(() => {
 afterEach(() => wrapper?.unmount())
 
 describe('StudentHelpPanel', () => {
-  it('T-HELP-01: Check my work sends my files for the current step, and shows it waiting', async () => {
+  it('T-HELP-01: Check my work sends my files (the server notes the checkpoint), and shows it waiting', async () => {
     helpApi.createHelpRequest.mockResolvedValue(row())
     await render()
     // a request we haven't seen makes the store re-read the list, which now has it
@@ -63,7 +63,6 @@ describe('StudentHelpPanel', () => {
 
     expect(helpApi.createHelpRequest).toHaveBeenCalledWith({
       sessionId: 's1',
-      stepId: 'step1',
       type: 'check',
       files: FILES,
     })
@@ -83,7 +82,6 @@ describe('StudentHelpPanel', () => {
 
     expect(helpApi.createHelpRequest).toHaveBeenCalledWith({
       sessionId: 's1',
-      stepId: 'step1',
       type: 'help',
       files: FILES,
       message: 'My cart is empty',

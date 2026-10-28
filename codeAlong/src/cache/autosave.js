@@ -3,7 +3,8 @@
 // Only files that changed since the last good save are sent; their hashes are kept in
 // IndexedDB so a page refresh doesn't re-upload everything.
 //
-//   const saver = createAutosave({ sessionId, userId, onStatus })
+//   const saver = createAutosave({ sessionId, userId, saved, onStatus })
+//     saved: the files Supabase has right now ([] if none), when the caller has just loaded them
 //   saver.autosave(files)   // on every edit, with the editor's [{ path, content }]
 //   await saver.stop()      // when leaving the workspace: saves anything still pending
 
@@ -29,7 +30,7 @@ const NO_RETRY = [
 // onStatus(state): 'pending' (waiting to save), 'saving', 'saved', 'retrying' (last save
 // failed), 'too_large' (over MAX_FILES / MAX_SNAPSHOT_BYTES, so nothing is sent), 'ended'
 // (the class has ended, so saving has stopped) or 'error' (refused; tried again on the next edit)
-export function createAutosave({ sessionId, userId, onStatus = () => {} }) {
+export function createAutosave({ sessionId, userId, saved = null, onStatus = () => {} }) {
   // Keyed by user too: lab PCs are shared, and someone else's hashes would make us skip files
   const key = `synced:${userId}:${sessionId}`
   let latest = null // newest file list from the editor
@@ -41,7 +42,11 @@ export function createAutosave({ sessionId, userId, onStatus = () => {} }) {
 
   async function saveNow() {
     if (!latest) return
-    synced ??= (await idbGet(key)) ?? {}
+    // What Supabase has, so only real changes are sent and deleted files are removed. Taken
+    // from `saved` when the workspace has just loaded it: IndexedDB can be empty (another
+    // device, cleared site data) or stale (the row was changed elsewhere), and either way a
+    // file the server has but this browser doesn't know about would never be removed.
+    synced ??= saved ? (await planAutosave(saved, {})).hashes : ((await idbGet(key)) ?? {})
     const plan = await planAutosave(latest, synced)
     if (plan.tooLarge) return onStatus('too_large')
     // Nothing changed since the last save: no request at all

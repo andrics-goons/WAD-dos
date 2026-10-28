@@ -62,7 +62,7 @@ export const useHelpStore = defineStore('help', () => {
     requests.value = []
   }
 
-  // A changed row, from the channel or an RPC's reply. The row has no name or step title,
+  // A changed row, from the channel or an RPC's reply. The row has no student name,
   // so a request we haven't seen yet means re-reading the list.
   async function apply(row) {
     const known = requests.value.find((r) => r.id === row.id)
@@ -85,9 +85,9 @@ export const useHelpStore = defineStore('help', () => {
     return snapshotFiles.get(snapshotId)
   }
 
-  // The prof's latest checkpoint for that step, with its files; null if there isn't one yet
-  async function checkpointFor(sessionId, stepId) {
-    const checkpoint = (await listCheckpoints(sessionId)).findLast((c) => c.step_id === stepId)
+  // The checkpoint the class was on when they asked, with its files; null before the first
+  async function checkpointFor(sessionId, seq) {
+    const checkpoint = (await listCheckpoints(sessionId)).find((c) => c.seq === seq)
     if (!checkpoint) return null
     return {
       ...checkpoint,

@@ -1,27 +1,27 @@
 <script setup>
-    // The lesson, the step the prof is on, and "My status" for that step. Load latest checkpoint
-    // and Help don't do anything yet.
+    // The lesson, the prof's latest checkpoint, and "My status" for it: a new checkpoint puts
+    // everyone back to In progress, and Done means "I'm caught up to it". "Load latest
+    // checkpoint" asks the page to replace my code with it (the page confirms first).
+    import HelpButton from "@/components/help/HelpButton.vue"
+
     defineProps({
         lessonTitle: { type: String, default: "" },
-        step: { type: Object, default: null },        // the prof's current step { order, title }
-        stepCount: { type: Number, default: 0 },
-        done: { type: Boolean, default: false },      // I've marked this step Completed
+        checkpoint: { type: String, default: "" },    // "Checkpoint 3 · Added ItemCard", or "Starter code"
+        done: { type: Boolean, default: false },      // I've clicked Done on that checkpoint
         disabled: { type: Boolean, default: false },  // still loading, or the class has ended
+        canLoadCheckpoint: { type: Boolean, default: false }, // there is one, and the prof allows catching up
         sessionId: { type: [String, Number], default: null },
-        stepId: { type: [String, Number], default: null },
         files: { type: Array, default: () => [] },
     })
 
-    // done: mark the current step Completed · undo: back to In progress
-    const emit = defineEmits(["done", "undo"])
+    // done: I'm caught up to the checkpoint · undo: back to In progress · load-checkpoint: catch up
+    const emit = defineEmits(["done", "undo", "load-checkpoint"])
 </script>
 
 <template>
     <header class="workspace-header">
         <div class="header-title">
-            <div class="course-name text-truncate" data-testid="workspace-step-current">
-                <template v-if="step">Step {{ step.order }} of {{ stepCount }} · {{ step.title }}</template>
-            </div>
+            <div class="course-name text-truncate" data-testid="workspace-checkpoint">{{ checkpoint }}</div>
             <h1 class="text-truncate">{{ lessonTitle || "Class workspace" }}</h1>
         </div>
 
@@ -51,20 +51,26 @@
                         @click="!done && emit('done')"
                     >
                         <i class="bi bi-check-circle" />
-                        <span class="d-none d-lg-inline">Completed</span>
-                        <span class="visually-hidden d-lg-none">Completed</span>
+                        <span class="d-none d-lg-inline">Done</span>
+                        <span class="visually-hidden d-lg-none">Done</span>
                     </button>
                 </div>
             </div>
 
             <div class="divider d-none d-lg-block" />
 
-            <button type="button" class="ca-btn ca-btn--secondary">
+            <button
+                type="button"
+                class="ca-btn ca-btn--secondary"
+                :disabled="disabled || !canLoadCheckpoint"
+                data-testid="btn-load-checkpoint"
+                @click="emit('load-checkpoint')"
+            >
                 <i class="bi bi-arrow-counterclockwise" />
                 <span class="d-none d-lg-inline">Load latest checkpoint</span>
                 <span class="d-lg-none">Load</span>
             </button>
-            <HelpButton v-if="stepId" :session-id="sessionId" :step-id="stepId" :files="files" />
+            <HelpButton v-if="sessionId" :session-id="sessionId" :files="files" />
         </div>
     </header>
 </template>

@@ -26,7 +26,7 @@ const randomCode = () =>
 const createdCourses = []
 const createdSessions = []
 let prof, ta, ta2, stu, stu2, outsider
-let course, lesson, steps, session
+let course, lesson, session
 
 async function createCourse(owner, p_code) {
   const { data, error } = await owner.client.rpc('create_course', {
@@ -61,7 +61,6 @@ async function startSession(lessonRow, startedBy, extra = {}) {
 const ask = (who, fields = {}) =>
   who.client.rpc('create_help_request', {
     p_session_id: session.id,
-    p_step_id: steps[0].id,
     p_type: 'check',
     p_files: MY_CODE,
     p_message: 'Is my cart right?',
@@ -122,11 +121,6 @@ beforeAll(async () => {
     .select()
     .single()
   lesson = l
-  const { data } = await prof.client.rpc('replace_steps', {
-    p_lesson_id: lesson.id,
-    p_steps: [{ title: 'Create the app' }, { title: 'Add the cart' }],
-  })
-  steps = data
 
   session = await startSession(lesson, prof.id)
 })
@@ -160,18 +154,12 @@ describe('create_help_request', () => {
     await stu.client.rpc('transition_help_request', { p_request_id: first.id, p_to: 'cancelled' })
   })
 
-  it("a step from another lesson is refused (the step id comes from the student's browser)", async () => {
-    const { data: other } = await prof.client
-      .from('lessons')
-      .insert({ course_id: course.id, title: 'Week 7', files: STARTER, entry_file: 'index.html' })
-      .select()
-      .single()
-    const { data: otherSteps } = await prof.client.rpc('replace_steps', {
-      p_lesson_id: other.id,
-      p_steps: [{ title: 'Something else' }],
-    })
-    const { error } = await ask(stu, { p_step_id: otherSteps[0].id })
-    expect(codeOf(error)).toBe('BAD_REQUEST')
+  it("records the class's latest checkpoint from the server, so the TA compares with it", async () => {
+    await service.from('sessions').update({ checkpoint_seq: 2 }).eq('id', session.id)
+    const { data, error } = await ask(stu)
+    expect(error).toBeNull()
+    expect(data.checkpoint_seq).toBe(2)
+    await service.from('sessions').update({ checkpoint_seq: 0 }).eq('id', session.id)
   })
 
   it('a class that has ended takes no new requests', async () => {

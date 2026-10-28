@@ -13,7 +13,7 @@ This is the **single source of truth** for anything two or more people depend on
 ```
 shared/
 ├── constants.js         ← the enums below
-├── todo-parser.js       ← Evan
+├── checkpoint-label.js  ← Andric ("Checkpoint 3 · Added ItemCard" / "Starter code", app + Telegram ping)
 ├── error-normalizer.js  ← Evan
 ├── tile-state.js        ← Evan (classify(), must agree with Andric's SQL view)
 ├── diff-summary.js      ← Ray Yien
@@ -34,9 +34,9 @@ export const LessonStatus = Object.freeze({ DRAFT: 'draft', READY: 'ready', ARCH
 export const SessionStatus = Object.freeze({ LIVE: 'live', ENDED: 'ended' })
 
 export const TileState = Object.freeze({
-  DONE: 'done', IN_PROGRESS: 'in_progress', ERROR: 'error', BEHIND: 'behind', IDLE: 'idle',
+  DONE: 'done', IN_PROGRESS: 'in_progress', ERROR: 'error', IDLE: 'idle',
 })
-export const TileStateOrder = [TileState.ERROR, TileState.BEHIND, TileState.IN_PROGRESS, TileState.IDLE, TileState.DONE] // grid sort
+export const TileStateOrder = [TileState.ERROR, TileState.IN_PROGRESS, TileState.IDLE, TileState.DONE] // grid sort
 
 export const SnapshotReason = Object.freeze({ AUTOSAVE: 'autosave', BEFORE_CATCHUP: 'before_catchup', HELP_REQUEST: 'help_request' })
 
@@ -277,7 +277,7 @@ This is the section the architecture change affects most. Previously three of th
 | A student's code is readable by them and their course's staff, never by classmates or other courses' staff | `snapshots` SELECT policy: own rows, or `is_session_staff(session_id)` | T-PRIV-02, T-PRIV-03 |
 | Dashboard data contains no code | `student_status` has **no** `files` column, and `session_tiles` selects none | T-PRIV-01 |
 | "Slow down" is only ever a count **to staff** | The flag is a row in `slow_down_flags`, readable only by its owner (and admins) — not a column of `student_status`, which staff read and receive over Postgres Changes. Staff read `session_summary`, which exposes `slow_down_count` and no ids | T-PRIV-04 |
-| A student cannot forge their tile state | There is **no** `state` column. `session_tiles` derives it in SQL from `done_step_order`, `error`, `last_seen_at` | T-STAT-09 |
+| A student cannot forge their tile state | There is **no** `state` column. `session_tiles` derives it in SQL from `done_seq`, `error`, `last_seen_at` and the session's `checkpoint_seq` | T-STAT-09 |
 | Notes are private to the author (admins excepted) | `notes` policies keyed on `user_id = auth.uid()` | T-PRIV-05 |
 | **Admins read, but write only accounts** | One `admin reads all` `select` policy per table; no admin policy for any other command; admin writes only through the admin functions | T-ADM-* |
 | Reports contain counts only | `session_reports` built by the `end-session` function from aggregates; no `student_id` anywhere in the row | T-INS-05 |
@@ -296,7 +296,7 @@ Three mechanisms, each for one job. Channel name is always `session:<sessionId>`
 Sent from `security definer` RPCs and Edge Functions via `realtime.send()`; clients only subscribe.
 
 ```js
-'checkpoint:new'   { sessionId, checkpointId, seq, stepId, stepOrder, title, filesHash, createdAt }
+'checkpoint:new'   { sessionId, checkpointId, seq, title, filesHash, createdAt }   ← title may be null
 'session:settings' { sessionId, allowCatchUp, hintsEnabled }
 'session:ended'    { sessionId, replayUrl }  // replayUrl is a path: /replays/<id>
 'spotlight:show'   { sessionId, errorPreview, excerpt: { path, startLine, code }, fix: { path, startLine, code } }
@@ -331,14 +331,14 @@ A browser tab can hold only **one** channel per class, so pages never open `sess
 | Store | What it gives you |
 |---|---|
 | `open(sessionId)` / `close()` | Load the class and connect; call `close()` when leaving the page |
-| `session` | The session row plus `role` (`'staff'` / `'student'`), `steps` (in order), `lesson` (`{ title, files_hash, entry_file, dev_command }` — the starter project, no files) and `latest_checkpoint` (`{ id, seq, step_id, files_hash, created_at }` or null). Kept current by the channel: checkpoints, settings, announcement, spotlight, ended |
-| `currentStep` | The step of the latest checkpoint — step 1 before the first one |
+| `session` | The session row (including `checkpoint_seq`) plus `role` (`'staff'` / `'student'`), `lesson` (`{ title, files_hash, entry_file, dev_command }` — the starter project, no files) and `latest_checkpoint` (`{ id, seq, title, files_hash, created_at }` or null). Kept current by the channel: checkpoints, settings, announcement, spotlight, ended |
+| `checkpointSeq` | The latest checkpoint's number, 0 before the first. A student is Done only while their `done_seq` equals it |
 | `latestCheckpoint` | Shortcut for `session.latest_checkpoint`; download its files with `getCheckpointFiles(id)` (`checkpoints.api.js`) |
 | `isLive`, `isStaff` | Booleans |
 | `connection` | `'live' | 'reconnecting' | 'offline'` — for the connection pill. After a reconnect the store re-reads the session, so missed checkpoints aren't lost |
 | `present` | Staff only: `[{ userId, name }]` of students here now (students are tracked automatically) |
 | `onChange(table, handler)` | `'student_status'` (staff) or `'help_requests'` (staff: the queue; students: their own). Returns a `stop()` function |
-| `start(lessonId)`, `join(code)`, `saveCheckpoint(stepId, files, note)`, `updateSettings(changes)`, `end()` | The actions; results come back to every tab through the channel |
+| `start(lessonId)`, `join(code)`, `saveCheckpoint(files, title)`, `updateSettings(changes)`, `end()` | The actions; results come back to every tab through the channel |
 
 ### Connection lifecycle
 
@@ -364,18 +364,16 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `rpc('remove_course_student')` | Andric | Course people page | `(p_course_id uuid, p_user_id uuid) → void` — owner only |
 | `rpc('start_session')` | Ying Qi | Teach view | `(p_lesson_id uuid) → session row` (includes `join_code`) |
 | `rpc('join_session')` | Ying Qi | Join view | `(p_join_code text) → { session_id, role }` |
-| `rpc('save_checkpoint')` | Ying Qi | Teach view | `(p_session_id uuid, p_step_id uuid, p_files jsonb, p_note text) → checkpoint row` |
+| `rpc('save_checkpoint')` | Ying Qi | Teach view | `(p_session_id uuid, p_files jsonb, p_title text default null) → checkpoint row` — any time while live; title optional (≤ 80, blank → null); moves `sessions.checkpoint_seq`, which resets every student to in progress |
 | `rpc('end_session')` | Ying Qi | Teach view | `(p_session_id uuid) → session row` |
 | `rpc('announce')` | Karin | Teach view (Karin's `AnnounceInput`, embedded by Evan) | `(p_session_id uuid, p_text text \| null) → session row` — sets `sessions.announcement` and broadcasts `session:announce`; `null` clears |
-| `rpc('catch_up')` | Ray Yien | Workspace store | `(p_session_id uuid, p_files jsonb) → { checkpoint, attempt_snapshot_id }` |
+| `loadLatestCheckpoint()` (workspace store) | Dylan + Ray Yien | Workspace page | `() → { packageChanged }` — no RPC: replaces the student's files with the latest checkpoint and autosaves them. `downloadProject(files, name)` in `src/utils/downloadProject.js` zips the project first, in the browser |
 | `rpc('autosave_patch')` | Ray Yien | `src/cache/autosave.js` | `(p_session_id uuid, p_upsert jsonb, p_delete text[]) → { files_hash }` — merges changed files into the autosave row; see [05 §2](./05-core-logic.md#2-files-cache--dependencies) |
 | `rpc('claim_help_request')` | Karin | Help queue | `(p_request_id uuid) → request row` (raises `CONFLICT\|…` if taken) |
 | `rpc('transition_help_request')` | Karin | Help review | `(p_request_id uuid, p_to text, p_reply text) → request row` — a reply is **appended to `thread`**, never overwritten |
 | `rpc('follow_up_help_request')` | Karin | Student help panel | `(p_request_id uuid, p_message text, p_files jsonb) → request row` — `replied → open`, fresh snapshot, max `MAX_FOLLOW_UPS` |
-| `rpc('replace_steps')` | Andric (written with the lessons schema; Evan calls it) | Lesson editor | `(p_lesson_id uuid, p_steps jsonb) → steps[]` — renumbers 1…n by list position, ignoring any `order` sent; refuses blank titles and other lessons' step ids |
-| `rpc('delete_step')` | Andric (with the lessons schema) | Lesson editor | `(p_step_id uuid) → void` — deletes and renumbers |
-| `view session_tiles` | Andric | Evan (dashboard) | `(session_id, student_id, name, state, target_order, step_order, error_source, error_key, error_preview, passed_steps, checks, last_seen_at)` — `error_source` is `'runtime'` or `'build'`, so the dashboard can label a group "won't compile" vs "throws". `passed_steps` is `int[]` of step orders whose `check` was passed, and comes last in the actual column order |
-| `view session_summary` | Andric | Evan (summary bar) | `(session_id, total, done, in_progress, error, behind, idle, slow_down_count)` — `slow_down_count` is `null` for anyone but staff and admins |
+| `view session_tiles` | Andric | Evan (dashboard) | `(session_id, student_id, name, checkpoint_seq, done_seq, error_source, error_key, error_preview, checks, last_seen_at, state, passed_seqs)` — `state` is `done` / `in_progress` / `error` / `idle` (no `behind`). `error_source` is `'runtime'` or `'build'`, so the dashboard can label a group "won't compile" vs "throws". `passed_seqs` is `int[]` of checkpoints whose `check` was passed |
+| `view session_summary` | Andric | Evan (summary bar) | `(session_id, total, done, in_progress, error, idle, slow_down_count)` — `slow_down_count` is `null` for anyone but staff and admins |
 | `normalizeError` | Evan | Dylan (before writing status) | `({ name, message }) => { key, shapeKey }` |
 | `parseBuildError` | Dylan | Dylan (dev-server output) | `(stdout: string) => { name, message, file, line } \| null` — **drops the code frame**; run before `normalizeError` |
 | `container.mount(files)` / `boot()` | Dylan | Evan (teach preview), Ray Yien (replay preview) | The one WebContainer runtime; nobody builds a second |
@@ -383,8 +381,8 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `autosave(tree)` | Ray Yien | Dylan (editor changes) | Debounced 5 s; sends only changed files |
 | `catchUp(sessionId, files)` | Ray Yien | Dylan (Load checkpoint) | `→ { checkpoint, attemptSnapshotId, depsChanged }` — Dylan reinstalls when `depsChanged` |
 | `groupErrors` | Evan | Evan (client summary) | `(tiles, { min, presentCount }) => errorGroups[]` |
-| `classify` | Evan | Evan (dashboard re-derive) — must agree with Andric's `session_tiles` | `({ doneStepOrder, error, lastSeenAt, targetOrder, now, idleAfterMs }) => TileState` |
-| `parseTodos` | Evan | Ray Yien (`github-import`), Andric (seed) | `(files, entryFile) => steps[]` |
+| `classify` | Evan | Evan (dashboard re-derive) — must agree with Andric's `session_tiles` | `({ doneSeq, error, lastSeenAt, checkpointSeq, now, idleAfterMs }) => TileState` |
+| `checkpointLabel` | Andric | Workspace, help screens, report, Telegram ping | `(seq, title?) => 'Checkpoint 3 · Added ItemCard' \| 'Checkpoint 3' \| 'Starter code'` |
 | `diffSummary` | Ray Yien | Dylan, Karin | `(beforeFiles, afterFiles) => { files: [{ path, added, removed, firstDiffLine, hunks }] }` |
 | `<DiffView>` | Ray Yien | Dylan, Karin | props `before`, `after`, `mode` |
 | `fn('github-import')` | Ray Yien | Lesson new view | `{ repoUrl } → { files, entryFile, source }` |
@@ -413,12 +411,12 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 |---|---|
 | Navigation | `nav-home`, `nav-courses`, `nav-replays`, `nav-profile`, `nav-connection-pill` |
 | Courses | `course-card-<code>`, `btn-new-course`, `btn-enrol-course`, `input-enrol-code`, `btn-enrol`, `enrol-link`, `btn-copy-enrol-link`, `enrol-qr` |
-| Lessons | `lesson-row-<slug>`, `lesson-start-<slug>`, `step-item-<order>`, `btn-step-up-<order>` |
-| Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `btn-save-checkpoint`, `btn-end-session`, `toast-checkpoint`, `input-announce`, `btn-announce`, `btn-clear-announce`, `announcement-banner` |
-| Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `what-you-missed`, `workspace-step-current`, `tab-code`, `tab-preview`, `tab-console`, `tab-steps` |
+| Lessons | `lesson-row-<slug>`, `lesson-start-<slug>` |
+| Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `input-checkpoint-title`, `btn-save-checkpoint`, `btn-end-session`, `toast-checkpoint`, `input-announce`, `btn-announce`, `btn-clear-announce`, `announcement-banner` |
+| Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `btn-download-project`, `workspace-checkpoint`, `tab-code`, `tab-preview`, `tab-console` |
 | Dashboard | `tile-<studentId>` (with `data-state="<TileState>"`), `summary-<state>`, `slow-down-count`, `error-group-<index>`, `btn-spotlight-<index>`, `spotlight-panel` |
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |
-| Replay | `timeline-step-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
+| Replay | `timeline-checkpoint-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
 | Reports | `report-funnel`, `report-top-errors`, `btn-send-digest` |
 | Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login`, `btn-github-login`, `link-register`, `link-login` |
 | Profile | `input-profile-name`, `btn-save-name`, `input-current-password`, `input-new-password`, `btn-change-password`, `btn-logout`, `btn-connect-github`, `btn-disconnect-github`, `github-username` |
@@ -466,12 +464,12 @@ Full list in [02-tech-stack.md](./02-tech-stack.md#environment-variables).
 - [ ] Landing page loads at `/` on the deployed Vercel URL
 - [ ] **Deep links work on the deployed URL** — `/join/<code>` from the QR, and a refresh on `/s/:id/code` (needs the `vercel.json` rewrite)
 - [ ] Register → enrol → join a live session works end to end
-- [ ] Prof imports/uploads a lesson, edits steps, starts a session
+- [ ] Prof imports/uploads a lesson, starts a session, saves checkpoints whenever they like
 - [ ] Checkpoint broadcast reaches every student; reconnect recovers missed checkpoints
 - [ ] Runtime error turns a tile red with the right file/line; Done turns it green
-- [ ] Idle and behind states appear at the right times (derived in `session_tiles`)
+- [ ] Idle appears at the right time, and a new checkpoint puts Done students back to in progress (derived in `session_tiles`)
 - [ ] "Slow down" count correct and anonymous
-- [ ] Load checkpoint keeps the attempt; "What you missed" points at the right line
+- [ ] Load checkpoint warns first, the download has the student's code, and the editor then shows the checkpoint
 - [ ] Check my work → pass/reply; Ask for help → Telegram ping → resolve
 - [ ] A replied request can be followed up (same request, original queue place, fresh code), up to 3 times
 - [ ] Prof announcement reaches every student, and a late joiner still sees it

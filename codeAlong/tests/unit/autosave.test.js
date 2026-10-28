@@ -37,6 +37,24 @@ afterEach(async () => {
 })
 
 describe('autosave', () => {
+  it('removes files the server has but this browser never saved, when told what the server has', async () => {
+    const saver = createAutosave({ sessionId: 's1', userId: 'u1', saved: project() }) // e.g. another device
+    savers.push(saver)
+    saver.autosave([f('src/a.js', 'a changed')]) // b and c are gone, e.g. after loading a checkpoint
+    await saver.flush()
+    expect(sentPaths(autosavePatch.mock.calls[0])).toEqual(['src/a.js'])
+    expect(autosavePatch.mock.calls[0][2]).toEqual(['src/b.js', 'src/c.js'])
+  })
+
+  it('with nothing saved on the server yet, the first save sends every file', async () => {
+    store.set('synced:u1:s1', { 'src/a.js': 'stale hash from an old session' })
+    const saver = createAutosave({ sessionId: 's1', userId: 'u1', saved: [] })
+    savers.push(saver)
+    saver.autosave(project())
+    await saver.flush()
+    expect(sentPaths(autosavePatch.mock.calls[0])).toEqual(['src/a.js', 'src/b.js', 'src/c.js'])
+  })
+
   it('T-SBX-18: waits until 5 s after the last edit, then saves once', async () => {
     const { saver } = setup()
     saver.autosave(project())
