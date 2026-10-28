@@ -10,6 +10,7 @@
         selectedCode: { type: String, default: "" },
         saveStatus: { type: String, default: null },
         filesVersion: { type: Number, default: 0 }, // goes up when every file is replaced (a checkpoint load)
+        switchable: { type: Boolean, default: false }, // show the preview button at every size, e.g. the teach view
     })
 
     const emit = defineEmits(["update:selectedFile", "update:selectedCode", "show-preview"])
@@ -98,9 +99,10 @@
                     <span class="ms-auto small text-nowrap" :class="saveLabel?.tone" data-testid="save-status">
                         <template v-if="saveLabel"><i class="bi" :class="saveLabel.icon" /> {{ saveLabel.text }}</template>
                     </span>
-                    <!-- below xl the preview isn't beside the editor, so this swaps to it -->
+                    <!-- below xl the preview isn't beside the editor, so this swaps to it (always, when switchable) -->
                     <button
-                        class="toggle-btn d-xl-none"
+                        class="toggle-btn"
+                        :class="{ 'd-xl-none': !switchable }"
                         type="button"
                         title="Show preview"
                         @click="emit('show-preview')"
