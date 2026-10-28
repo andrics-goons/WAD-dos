@@ -32,6 +32,7 @@ export const useHelpStore = defineStore('help', () => {
 
   const send = async (request) => apply(await helpApi.createHelpRequest(request))
   const cancel = (id) => move(id, HelpStatus.CANCELLED)
+  const followUp = async (id, payload) => apply(await helpApi.followUpHelpRequest(id, payload))
 
   // Opens a class's queue and keeps it live until close()
   async function open(sessionId) {
@@ -101,6 +102,7 @@ export const useHelpStore = defineStore('help', () => {
     stop,
     send,
     cancel,
+    followUp,
     open,
     openRequest,
     close,

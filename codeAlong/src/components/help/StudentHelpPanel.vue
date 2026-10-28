@@ -1,6 +1,8 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import FollowUpForm from '@/components/help/FollowUpForm.vue'
 import HelpThread from '@/components/help/HelpThread.vue'
+import { Limits } from '@shared/constants.js'
 import { useHelpStore } from '@/stores/help'
 import { useToastStore } from '@/stores/toast'
 
@@ -124,6 +126,13 @@ async function sendHelp() {
         >
       </div>
       <HelpThread :request="r" />
+      <FollowUpForm
+        v-if="r.status === 'replied'"
+        :request="r"
+        :remaining="Limits.MAX_FOLLOW_UPS - r.follow_ups"
+        :busy="busy"
+        @submit="(text) => run(() => help.followUp(r.id, { message: text, files: props.files }))"
+      />
       <button
         v-if="r.status === 'open'"
         class="ca-btn ca-btn--secondary ca-btn--sm mt-2"
