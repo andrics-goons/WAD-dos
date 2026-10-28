@@ -15,8 +15,12 @@ const runtime = vi.hoisted(() => ({ getWebContainer: vi.fn(), startWorkspace: vi
 vi.mock('@/runtime/webcontainer', () => ({ getWebContainer: runtime.getWebContainer }))
 vi.mock('@/runtime/workspace', () => ({ startWorkspace: runtime.startWorkspace }))
 
-const api = vi.hoisted(() => ({ listCheckpoints: vi.fn() }))
+const api = vi.hoisted(() => ({ listCheckpoints: vi.fn(), getClassSummary: vi.fn() }))
 vi.mock('@/api/checkpoints.api', () => ({ listCheckpoints: api.listCheckpoints }))
+vi.mock('@/api/dashboard.api', () => ({
+  getClassSummary: api.getClassSummary,
+  getHelpSummary: vi.fn(),
+}))
 
 const push = vi.hoisted(() => vi.fn())
 vi.mock('vue-router', async (original) => ({ ...(await original()), useRouter: () => ({ push }) }))
@@ -37,7 +41,11 @@ function session(overrides = {}) {
   }
 }
 
+// row changes the dashboard listens for, by table, so a test can send one
+let listeners
+
 function fakeSession(data) {
+  listeners = {}
   const store = reactive({
     session: null,
     present: [],
@@ -52,6 +60,10 @@ function fakeSession(data) {
       return data
     }),
     close: vi.fn(),
+    onChange: vi.fn((table, handler) => {
+      listeners[table] = handler
+      return () => delete listeners[table]
+    }),
     saveCheckpoint: vi.fn(async () => ({})),
     end: vi.fn(async () => {
       store.session.status = 'ended'
@@ -103,6 +115,14 @@ beforeEach(() => {
     { id: 'cp-1', seq: 1, title: null, created_at: '2026-10-28T02:10:00Z' },
     { id: 'cp-2', seq: 2, title: 'Fetch items', created_at: '2026-10-28T02:20:00Z' },
   ])
+  api.getClassSummary.mockResolvedValue({
+    total: 24,
+    done: 14,
+    slowDown: 2,
+    help: 3,
+    check: 1,
+    errors: [],
+  })
   runtime.getWebContainer.mockResolvedValue({})
   runtime.startWorkspace.mockResolvedValue(() => {})
 })
@@ -132,24 +152,23 @@ describe('TeachView', () => {
     expect(runtime.startWorkspace).toHaveBeenCalledWith({}, FILES, expect.any(Function))
   })
 
-  it('switches between the code and the preview', async () => {
+  it("switches between the code and the preview with the workspace's own buttons", async () => {
     await open(session(), { isolated: true })
     const editor = () => wrapper.findComponent({ name: 'EditorPanel' })
     const preview = () => wrapper.findComponent({ name: 'PreviewPanel' })
+    // dylan's panels show their switch button at every size when switchable
+    expect(editor().props('switchable')).toBe(true)
+    expect(preview().props('switchable')).toBe(true)
     expect(editor().isVisible()).toBe(true)
     expect(preview().isVisible()).toBe(false)
 
-    await wrapper
-      .findAll('button')
-      .find((b) => b.text() === 'Preview')
-      .trigger('click')
+    editor().vm.$emit('show-preview')
+    await flushPromises()
     expect(editor().isVisible()).toBe(false)
     expect(preview().isVisible()).toBe(true)
 
-    await wrapper
-      .findAll('button')
-      .find((b) => b.text() === 'Code')
-      .trigger('click')
+    preview().vm.$emit('show-editor')
+    await flushPromises()
     expect(editor().isVisible()).toBe(true)
   })
 
@@ -223,6 +242,50 @@ describe('TeachView', () => {
     })
     await flushPromises()
     expect(wrapper.text()).toContain('Class not found')
+  })
+
+  it('shows what the class clicked as numbers, with no student tiles', async () => {
+    await open()
+    expect(api.getClassSummary).toHaveBeenCalledWith('ses-1')
+    expect(wrapper.find('[data-testid="summary-done"]').text()).toContain('of 24')
+    expect(wrapper.find('[data-testid="slow-down-count"]').text()).toContain('2')
+    expect(wrapper.find('[data-testid^="tile-"]').exists()).toBe(false)
+  })
+
+  it('groups the real class errors in Common errors', async () => {
+    const err = (studentId) => ({
+      studentId,
+      errorKey: 'ReferenceError: itmes is not defined',
+      errorShapeKey: null,
+      errorSource: 'runtime',
+      errorPreview: 'itmes is not defined',
+      lastSeenAt: new Date().toISOString(),
+    })
+    api.getClassSummary.mockResolvedValue({
+      total: 4,
+      done: 0,
+      slowDown: 0,
+      help: 0,
+      check: 0,
+      errors: [err('a'), err('b')],
+    })
+    await open()
+    expect(wrapper.find('[data-testid="error-group-0"]').text()).toContain('itmes is not defined')
+  })
+
+  it('refreshes the counts when a student or a help request changes', async () => {
+    await open()
+    expect(api.getClassSummary).toHaveBeenCalledTimes(1)
+    listeners.student_status({})
+    listeners.help_requests({})
+    // changes are batched, at most one reload a second
+    await vi.waitFor(() => expect(api.getClassSummary).toHaveBeenCalledTimes(2), { timeout: 2000 })
+  })
+
+  it('refreshes the counts when a new checkpoint resets Done', async () => {
+    await open()
+    live.session.checkpoint_seq = 3
+    await vi.waitFor(() => expect(api.getClassSummary).toHaveBeenCalledTimes(2), { timeout: 2000 })
   })
 
   it('closes the class when leaving', async () => {

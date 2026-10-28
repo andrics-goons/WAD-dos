@@ -374,7 +374,7 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `rpc('transition_help_request')` | Karin | Help review | `(p_request_id uuid, p_to text, p_reply text) → request row` — a reply is **appended to `thread`**, never overwritten |
 | `rpc('follow_up_help_request')` | Karin | Student help panel | `(p_request_id uuid, p_message text, p_files jsonb) → request row` — `replied → open`, fresh snapshot, max `MAX_FOLLOW_UPS` |
 | `view session_tiles` | Andric | Evan (dashboard) | `(session_id, student_id, name, checkpoint_seq, done_seq, error_source, error_key, error_preview, checks, last_seen_at, state, passed_seqs)` — `state` is `done` / `in_progress` / `error` / `idle` (no `behind`). `error_source` is `'runtime'` or `'build'`, so the dashboard can label a group "won't compile" vs "throws". `passed_seqs` is `int[]` of checkpoints whose `check` was passed |
-| `view session_summary` | Andric | Evan (summary bar) | `(session_id, total, done, in_progress, error, idle, slow_down_count)` — `slow_down_count` is `null` for anyone but staff and admins |
+| `view session_summary` | Andric | Evan (class summary card) | `(session_id, total, done, in_progress, error, idle, slow_down_count)` — `slow_down_count` is `null` for anyone but staff and admins |
 | `normalizeError` | Evan | Dylan (before writing status) | `({ name, message }) => { key, shapeKey }` |
 | `parseBuildError` | Dylan | Dylan (dev-server output) | `(stdout: string) => { name, message, file, line } \| null` — **drops the code frame**; run before `normalizeError` |
 | `container.mount(files)` / `boot()` | Dylan | Evan (teach preview), Ray Yien (replay preview) | The one WebContainer runtime; nobody builds a second |
@@ -417,7 +417,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Lessons | `lesson-row-<slug>`, `lesson-start-<slug>` |
 | Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `input-checkpoint-title`, `btn-save-checkpoint`, `btn-end-session`, `toast-checkpoint`, `input-announce`, `btn-announce`, `btn-clear-announce`, `announcement-banner` |
 | Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `btn-download-project`, `workspace-checkpoint`, `tab-code`, `tab-preview`, `tab-console` |
-| Dashboard | `tile-<studentId>` (with `data-state="<TileState>"`), `summary-<state>`, `slow-down-count`, `error-group-<index>`, `btn-spotlight-<index>`, `spotlight-panel`, `help-summary`, `help-summary-headline`, `help-summary-group-<index>`, `btn-refresh-help-summary` |
+| Dashboard | `summary-done`, `slow-down-count`, `error-group-<index>`, `btn-spotlight-<index>`, `spotlight-panel`, `help-summary`, `help-summary-headline`, `help-summary-group-<index>`, `btn-refresh-help-summary` |
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |
 | Replay | `timeline-checkpoint-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
 | Reports | `report-funnel`, `report-top-errors`, `btn-send-digest` |

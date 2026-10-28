@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as dashboardApi from '@/api/dashboard.api'
 
-// The prof dashboard's data. So far: the help summary (design-docs/05 §8a, part 2).
+// The prof dashboard's data: the class summary card and the help summary (design-docs/05 §8a, part 2).
 export const useDashboardStore = defineStore('dashboard', () => {
   const helpSummary = ref(null)
   const loadingHelpSummary = ref(false)
@@ -21,5 +21,26 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
 
-  return { helpSummary, loadingHelpSummary, helpSummaryError, loadHelpSummary }
+  // what students clicked (🍎 Done, 🍌 Slow down, help, check) and their errors, as numbers
+  const classSummary = ref(null)
+  const classSummaryError = ref(null)
+
+  async function loadClassSummary(sessionId) {
+    classSummaryError.value = null
+    try {
+      classSummary.value = await dashboardApi.getClassSummary(sessionId)
+    } catch (err) {
+      classSummaryError.value = err
+    }
+  }
+
+  return {
+    helpSummary,
+    loadingHelpSummary,
+    helpSummaryError,
+    loadHelpSummary,
+    classSummary,
+    classSummaryError,
+    loadClassSummary,
+  }
 })

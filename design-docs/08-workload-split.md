@@ -215,7 +215,7 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | Lessons data access (upload, edit, delete) | `src/api/lessons.api.js` | ⬜ |
 | New lesson (upload tab) + lesson editor | `views/LessonNewView.vue`, `views/LessonEditView.vue`, `components/lesson/*` | ⬜ |
 | **Mini Cart lesson project** — Vite + Express, the eight TODOs; Dylan supplies `ca-probe.js` **(was unassigned)** | `scripts/fixtures/mini-cart/` | ⬜ |
-| Teach view: prof editor, plan, Save checkpoint, summary bar, session bar (embeds Karin's announce input) | `views/TeachView.vue` | ⬜ |
+| Teach view: prof editor, checkpoints, Save checkpoint, class summary card, session bar (embeds Karin's announce input) | `views/TeachView.vue` | ⬜ |
 | **Prof's live preview** — reuses Dylan's `container.js` and `CodeEditor` **(was unassigned)** | `views/TeachView.vue` | ⬜ |
 | **Join code card + QR display** **(moved)** | `components/session/JoinCodeCard.vue`, `QrDisplay.vue` | ⬜ |
 | Tiles, grid, filters, slow-down count — reading `session_tiles` | `components/dashboard/*`, `stores/dashboard.js` | ⬜ |

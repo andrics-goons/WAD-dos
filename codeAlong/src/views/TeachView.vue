@@ -1,7 +1,7 @@
 <script setup>
 // The prof's live class. The editor, terminal and preview are the real workspace (Dylan's
 // panels and store); the class, join code and checkpoints come from ying qi's session store.
-// The dashboard is still hard-coded data from @/mock/profMock.
+// The dashboard shows what the class clicked as numbers (no tiles) and their common errors.
 // No navbar here: the global nav (AppNavbar) wraps every page from App.vue.
 import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -17,13 +17,12 @@ import { useWorkspaceStore } from '@/stores/workspace.js'
 import { useSessionStore } from '@/stores/session'
 import { useTeachStore } from '@/stores/teach'
 import { useToastStore } from '@/stores/toast'
-import ClassSummaryBar from '@/components/dashboard/ClassSummaryBar.vue'
-import TileGrid from '@/components/dashboard/TileGrid.vue'
+import ClassChoices from '@/components/dashboard/ClassChoices.vue'
 import ErrorGroupList from '@/components/dashboard/ErrorGroupList.vue'
 import HelpSummaryPanel from '@/components/dashboard/HelpSummaryPanel.vue'
 import JoinCodeCard from '@/components/session/JoinCodeCard.vue'
 import { checkpointLabel } from '@shared/checkpoint-label.js'
-import { students, slowDownCount } from '@/mock/profMock'
+import { useDashboardStore } from '@/stores/dashboard'
 
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
@@ -36,9 +35,8 @@ const loadError = ref('')
 
 // xs: dashboard-first with the editor behind a tab. xl: everything visible at once.
 const mobileTab = ref('dashboard')
-// the editor area shows either the code or the running app
+// the editor area shows either the code or the running app, switched by the panels' own buttons
 const editorView = ref('code')
-const filter = ref('all')
 const announcement = ref('')
 
 const workspaceStore = useWorkspaceStore()
@@ -94,7 +92,35 @@ async function loadCheckpoints() {
 }
 watch(
   () => live.isLive && live.checkpointSeq,
-  (seq) => seq !== false && loadCheckpoints(),
+  (seq) => {
+    if (seq === false) return
+    loadCheckpoints()
+    loadSummary() // a new checkpoint puts every Done back to In progress
+  },
+)
+
+// the dashboard's numbers: reloaded when a student's status or a help request changes
+const dashboard = useDashboardStore()
+const loadSummary = () => dashboard.loadClassSummary(props.id)
+// a whole class sends a lot of changes, so reload at most once a second
+let summaryTimer = null
+function refreshSummarySoon() {
+  if (summaryTimer) return
+  summaryTimer = setTimeout(() => {
+    summaryTimer = null
+    loadSummary()
+  }, Limits.SUMMARY_THROTTLE_MS)
+}
+const stopStatusChanges = live.onChange('student_status', refreshSummarySoon)
+const stopHelpChanges = live.onChange('help_requests', refreshSummarySoon)
+// 🍌 flags never go out on the channel (staff only ever see the count), so check every 10 s
+const slowDownPoll = setInterval(() => live.isLive && loadSummary(), 10_000)
+
+// common errors, from the real class
+const errorGroups = computed(() =>
+  groupErrors(dashboard.classSummary?.errors ?? [], {
+    presentCount: dashboard.classSummary?.total ?? 0,
+  }),
 )
 const savedAt = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -148,17 +174,14 @@ const elapsed = computed(() => {
 onBeforeUnmount(() => {
   unmounted = true
   clearInterval(timer)
+  clearInterval(slowDownPoll)
+  clearTimeout(summaryTimer)
+  stopStatusChanges()
+  stopHelpChanges()
   stopWorkspace?.()
   workspaceStore.close() // saves my draft, then leaves the class channel
   live.close() // when the editor couldn't run, the class was opened here
 })
-
-// works out the error groups from the mock students for now
-const errorGroups = computed(() => groupErrors(students))
-
-const counts = computed(() =>
-  students.reduce((acc, s) => ({ ...acc, [s.state]: (acc[s.state] ?? 0) + 1 }), {}),
-)
 </script>
 
 <template>
@@ -240,58 +263,54 @@ const counts = computed(() =>
         </div>
 
         <div class="row g-3">
-          <!-- Editor (with the terminal under it) + preview -->
-          <div
-            class="col-12 col-xl-8 d-flex flex-column gap-3"
-            :class="{ 'd-none d-xl-flex': mobileTab !== 'editor' }"
-          >
-            <EmptyState
-              v-if="!isolated"
-              icon="bi-exclamation-triangle"
-              title="The editor can't start"
-            >
-              {{ bootError }} Try reloading the page.
-            </EmptyState>
+          <!-- The class summary, then the editor (terminal under it) / preview filling the rest,
+               so its bottom lines up with the right-hand column -->
+          <div class="col-12 col-xl-8 d-flex flex-column gap-3">
+            <!-- what the class clicked: first on phones (the Dashboard tab), on top from xl -->
+            <div :class="{ 'd-none d-xl-block': mobileTab !== 'dashboard' }">
+              <ClassChoices :summary="dashboard.classSummary" />
+              <p v-if="dashboard.classSummaryError" class="small text-danger mt-2 mb-0">
+                Couldn't refresh the numbers: {{ dashboard.classSummaryError.message }}
+              </p>
+            </div>
 
-            <template v-else>
-              <!-- boot failed: keep the editor so my code is still visible, but say why nothing runs -->
-              <div v-if="bootError" class="alert alert-danger m-0">
+            <div
+              class="d-flex flex-column flex-grow-1 gap-3"
+              :class="{ 'd-none d-xl-flex': mobileTab !== 'editor' }"
+            >
+              <EmptyState
+                v-if="!isolated"
+                icon="bi-exclamation-triangle"
+                title="The editor can't start"
+              >
                 {{ bootError }} Try reloading the page.
-              </div>
-              <!-- one area, switched between the code and the running app -->
-              <div class="d-flex justify-content-end">
-                <div class="ca-surface nav nav-pills gap-1 p-1">
-                  <button
-                    type="button"
-                    class="nav-link d-flex align-items-center gap-2 py-1"
-                    :class="{ active: editorView === 'code' }"
-                    @click="editorView = 'code'"
-                  >
-                    <i class="bi bi-code-slash" />Code
-                  </button>
-                  <button
-                    type="button"
-                    class="nav-link d-flex align-items-center gap-2 py-1"
-                    :class="{ active: editorView === 'preview' }"
-                    @click="editorView = 'preview'"
-                  >
-                    <i class="bi bi-window" />Preview
-                  </button>
+              </EmptyState>
+
+              <template v-else>
+                <!-- boot failed: keep the editor so my code is still visible, but say why nothing runs -->
+                <div v-if="bootError" class="alert alert-danger m-0">
+                  {{ bootError }} Try reloading the page.
                 </div>
-              </div>
-              <!-- v-show keeps both mounted, so switching loses neither the code nor the app -->
-              <div v-show="editorView === 'code'" class="editor-box">
-                <EditorPanel
-                  v-model:selected-file="workspaceStore.selectedFile"
-                  v-model:selected-code="workspaceStore.selectedCode"
-                  :file-paths="workspaceStore.filePaths"
-                  :files-version="workspaceStore.filesVersion"
-                />
-              </div>
-              <div v-show="editorView === 'preview'" class="editor-box">
-                <PreviewPanel :preview-url="previewUrl" />
-              </div>
-            </template>
+                <!-- v-show keeps both mounted, so switching loses neither the code nor the app -->
+                <div v-show="editorView === 'code'" class="editor-box">
+                  <EditorPanel
+                    v-model:selected-file="workspaceStore.selectedFile"
+                    v-model:selected-code="workspaceStore.selectedCode"
+                    :file-paths="workspaceStore.filePaths"
+                    :files-version="workspaceStore.filesVersion"
+                    switchable
+                    @show-preview="editorView = 'preview'"
+                  />
+                </div>
+                <div v-show="editorView === 'preview'" class="editor-box">
+                  <PreviewPanel
+                    :preview-url="previewUrl"
+                    switchable
+                    @show-editor="editorView = 'code'"
+                  />
+                </div>
+              </template>
+            </div>
           </div>
 
           <!-- Join code + checkpoints + error groups -->
@@ -348,27 +367,6 @@ const counts = computed(() =>
               <ErrorGroupList :groups="errorGroups" />
             </div>
           </div>
-
-          <!-- Dashboard (full width below on xl; first below xl) -->
-          <div
-            class="col-12"
-            :class="
-              mobileTab === 'dashboard'
-                ? 'order-first order-xl-last'
-                : 'd-none d-xl-block order-xl-last'
-            "
-          >
-            <div class="d-flex flex-column gap-3">
-              <ClassSummaryBar
-                :counts="counts"
-                :total="students.length"
-                :slow-down-count="slowDownCount"
-                :active="filter"
-                @filter="filter = $event"
-              />
-              <TileGrid :tiles="students" :filter="filter" />
-            </div>
-          </div>
         </div>
       </div>
     </template>
@@ -396,9 +394,11 @@ const counts = computed(() =>
   padding-block: 0;
   font-size: var(--ca-text-sm);
 }
-/* Dylan's panels fill their box, so the boxes set the height */
+/* Dylan's panels fill their box, so the box sets the height: it grows to the bottom of
+   the right-hand column, and never gets shorter than this */
 .editor-box {
-  height: 36rem;
+  flex: 1 1 auto;
+  min-height: 36rem;
   border-radius: var(--ca-radius);
   overflow: hidden;
 }

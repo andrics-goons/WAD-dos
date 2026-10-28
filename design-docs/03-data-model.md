@@ -771,7 +771,7 @@ The policy checks the **session**, not the row's `course_id`, so it can never di
 | `delta` | `smallint not null check (delta in (1, -1))` |
 | `at` | `timestamptz not null default now()` |
 
-**No `student_id`.** Its only policy is `admin reads all`: even anonymous timestamps, next to the live tile grid, could hint at who tapped. Staff and the `end-session` function get the number from `session_slow_down_peak(sid)` — a `security definer` running sum, the peak for staff and admins, `null` for anyone else.
+**No `student_id`.** Its only policy is `admin reads all`: even anonymous timestamps, next to the live dashboard, could hint at who tapped. Staff and the `end-session` function get the number from `session_slow_down_peak(sid)` — a `security definer` running sum, the peak for staff and admins, `null` for anyone else.
 
 ## test_outbox (local + test only)
 

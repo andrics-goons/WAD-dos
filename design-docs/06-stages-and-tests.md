@@ -280,13 +280,13 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-DASH-01 | Initial snapshot loads for a running session | E2E | Tiles for all joined students |
-| T-DASH-02 | Summary counts match tiles | E2E | `session_summary` equals the computed counts |
-| T-DASH-03 | Filter by clicking a summary segment | E2E `@responsive` | Only that state's tiles shown |
-| T-DASH-04 | "Slow down" from 2 students | E2E | Slow-down count = 2; no tile shows who |
+| T-DASH-01 | Summary card loads for a running session | E2E | Counts for the joined students |
+| T-DASH-02 | Counts are what students clicked | Unit + DB | 🍎 Done = Done on the latest checkpoint (even with an error since); help / check = open or claimed requests |
+| T-DASH-03 | ~~Filter by clicking a summary segment~~ | — | Removed: no per-student tiles to filter |
+| T-DASH-04 | "Slow down" from 2 students | E2E | 🍌 count = 2; nothing on the dashboard shows who |
 | T-DASH-05 | Student un-taps "Slow down" | E2E | Count decrements |
 | T-DASH-06 | TA (staff) can view dashboard; student cannot | RLS | TA gets tile rows; a student gets zero rows from `session_tiles` |
-| T-DASH-07 | Tiles show icon + label, not only colour | E2E | `data-state` + visible label text |
+| T-DASH-07 | ~~Tiles show icon + label~~ | — | Removed: no per-student tiles |
 
 ### ERRG — Error groups & Spotlight · `error-normalizer.test.js`, `spotlight.test.js`, `spotlight.spec.js`
 
@@ -452,7 +452,7 @@ Admins read everything and write only accounts. Most of these are negative tests
 | T-RESP-01 | Workspace at 375 px | E2E | Tabs Code/Preview/Terminal/Steps; **file tree is an offcanvas drawer**; sticky bottom bar; no horizontal scroll |
 | T-RESP-02 | Workspace at 1280 px | E2E | File tree rail + editor + preview, terminal docked below |
 | T-RESP-03 | Teach view at 375 px | E2E | Dashboard-first layout; editor behind tab |
-| T-RESP-04 | Teach view at 1280 px | E2E | Editor + plan + tile grid visible together |
+| T-RESP-04 | Teach view at 1280 px | E2E | Editor + checkpoints + class summary card visible together |
 | T-RESP-05 | No page has horizontal scroll at 375 px | E2E | `scrollWidth <= innerWidth` on every route |
 | T-RESP-06 | Landscape 667×375 workspace | E2E | Usable; bottom bar doesn't cover editor |
 
