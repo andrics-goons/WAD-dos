@@ -235,16 +235,16 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | What | File(s) | Done |
 |---|---|:---:|
 | **IndexedDB file cache keyed by `files_hash`** **(moved)** — built by Andric | `src/cache/files.js`, `src/api/files.api.js` | ✅ |
-| **Delta autosave** (5 s debounce, changed files only) + `autosave_patch` RPC **(moved)** | `src/cache/autosave.js` | ⬜ |
+| **Delta autosave** (5 s debounce, changed files only) + `autosave_patch` RPC **(moved)** — wired into the workspace by Andric | `src/cache/autosave.js` | ✅ |
 | **`catch_up` RPC, my attempts, restore attempt** **(moved)** | `src/api/workspace.api.js` | ⬜ |
 | **`FileTree`** (create/rename/delete; `SYNC_IGNORE` hidden; read-only mode for replay) **(moved)** | `components/workspace/FileTree.vue` | ⬜ |
-| Diff utility + `DiffView` (split/unified) | `shared/diff-summary.js`, `components/replay/DiffView.vue` | ⬜ |
+| Diff utility + `DiffView` (split/unified) | `shared/diff-summary.js`, `components/replay/DiffView.vue` | ✅ |
 | "What you missed" panel (embedded in Dylan's workspace) | `components/replay/WhatYouMissed.vue` | ⬜ |
-| Lesson library (search, list) in course page | `components/lesson/LessonLibrary.vue` | ⬜ |
-| `github-import` function + import tab in New lesson | `supabase/functions/github-import/`, `components/lesson/GithubImportTab.vue` | ⬜ |
-| `github-export` function (Git Data API, one commit per checkpoint) + GitHub identity link | `supabase/functions/github-export/`, `linkIdentity` | ⬜ |
+| Lesson library (search, list) in course page — built by Ying Qi | `components/lesson/LessonLibrary.vue` | ✅ |
+| `github-import` function + import tab in New lesson | `supabase/functions/github-import/`, `components/lesson/GithubImportTab.vue` | ✅ |
+| `github-export` function (Git Data API, one commit per checkpoint) + GitHub identity link — the link is Andric's "Connect GitHub" on the profile page | `supabase/functions/github-export/`, `connectGitHub()` in `auth.api.js` | ✅ |
 | Replay + notes data access; `search()` RPC | `src/api/replays.api.js`, `notes.api.js` | ✅ |
-| Replay list + viewer, timeline, notes drawer, export dialog — list, search, timeline, diff and notes done; read-only preview and export dialog still to do | `views/ReplayListView.vue`, `views/ReplayView.vue`, `components/replay/*` | ⬜ |
+| Replay list + viewer, timeline, notes drawer, export dialog — all done except the read-only preview | `views/ReplayListView.vue`, `views/ReplayView.vue`, `components/replay/*` | ⬜ |
 | Tests | T-REP-* · T-GH-* · T-CATCH-01–08 · T-SBX-11, 13–16, 18–23 · T-LOAD-04 | ⬜ |
 
 **Boundary:** owns every version of a file after it leaves the editor — cached, synced, snapshotted, diffed, replayed, exported. Hands Dylan files to mount; takes edits back through `autosave()`.
