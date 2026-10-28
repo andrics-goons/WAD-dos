@@ -571,6 +571,7 @@ create policy "admin reads all" on public.snapshots for select using (public.is_
 | `thread` | `jsonb not null default '[]'` | Append-only exchange after the opening message: `[{ role: 'staff' \| 'student', author_id, body, at }]`. Staff replies ≤ 1000 chars, student follow-ups ≤ 300. **Text only — never code** |
 | `follow_ups` | `int not null default 0 check (follow_ups <= 3)` | `Limits.MAX_FOLLOW_UPS`. Stops a request turning into a chat |
 | `telegram_notified_at` | `timestamptz` | |
+| `analysis` | `jsonb check (octet_length(analysis::text) <= 4000)` | `help` only. The LLM's diagnosis, written by the `analyze-help` Edge Function (service role): `{ summary, rootCause, category, stuckAt: { step, file, line }, confidence, model, analyzedAt }`, or `{ status: 'failed', reason, analyzedAt }`. Null until analysed. See [05 §8a](./05-core-logic.md#8a-help-request-analysis) |
 | `created_at` / `updated_at` | `timestamptz` | `created_at` drives queue order — **a follow-up keeps its original place** |
 
 **Allowed transitions** (enforced inside `rpc('transition_help_request')`, except the follow-up, which has its own RPC)
@@ -649,6 +650,8 @@ select vault.create_secret('<service role key>', 'service_role_key');
 ```
 
 `supabase db reset` wipes Vault, so run the local pair again after a reset. To check it worked: `select status_code, content from net._http_response order by id desc limit 1;` should show `200` from `telegram-notify`.
+
+A second trigger, `analyze_help_request` (after insert, or update of `snapshot_id` on a follow-up, where `type = 'help'`), uses the same Vault pair to call the `analyze-help` Edge Function. Same rule: until Vault is set, it does nothing.
 
 ### Follow-ups
 

@@ -1,18 +1,26 @@
 <script setup>
-// Layout only: hard-coded data from @/mock/profMock. No store or API calls.
+// The editor, terminal and preview are the real workspace (Dylan's panels and store);
+// the rest is still hard-coded data from @/mock/profMock.
 // No navbar here: the global nav (AppNavbar) wraps every page from App.vue.
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { Limits } from '@shared/constants.js'
 import { groupErrors } from '@shared/error-normalizer.js'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import EditorPanel from '@/components/workspace/EditorPanel.vue'
+import PreviewPanel from '@/components/workspace/PreviewPanel.vue'
+import { getWebContainer } from '@/runtime/webcontainer'
+import { startWorkspace } from '@/runtime/workspace'
+import { useWorkspaceStore } from '@/stores/workspace.js'
 import ClassSummaryBar from '@/components/dashboard/ClassSummaryBar.vue'
 import TileGrid from '@/components/dashboard/TileGrid.vue'
 import ErrorGroupList from '@/components/dashboard/ErrorGroupList.vue'
+import HelpSummaryPanel from '@/components/dashboard/HelpSummaryPanel.vue'
 import JoinCodeCard from '@/components/session/JoinCodeCard.vue'
 import { checkpointLabel } from '@shared/checkpoint-label.js'
 import { lesson, checkpoints, students, slowDownCount } from '@/mock/profMock'
 
-defineProps({ id: { type: String, required: true } })
+const props = defineProps({ id: { type: String, required: true } })
 
 // xs: dashboard-first with the editor behind a tab. xl: everything visible at once.
 const mobileTab = ref('dashboard')
@@ -21,8 +29,44 @@ const announcement = ref('')
 const confirmEnd = ref(false)
 const checkpointTitle = ref('')
 
-const files = ['App.vue', 'ItemCard.vue', 'main.js']
-const activeFile = ref('App.vue')
+const workspaceStore = useWorkspaceStore()
+
+// WebContainer needs SharedArrayBuffer, which only exists on a cross-origin isolated page
+const isolated = window.crossOriginIsolated === true
+const bootError = ref(
+  isolated ? '' : "This page isn't cross-origin isolated, so the editor can't run here.",
+)
+const previewUrl = ref('')
+let stopWorkspace
+// set on unmount, so a boot that finishes after leaving doesn't leave a listener behind
+let unmounted = false
+
+// boot the WebContainer while my code loads (my draft in this browser, else the latest checkpoint)
+onMounted(async () => {
+  if (!isolated) return
+  try {
+    const [webcontainer] = await Promise.all([
+      getWebContainer(),
+      workspaceStore.loadForTeaching(props.id),
+    ])
+    if (unmounted) return workspaceStore.close()
+    const stop = await startWorkspace(
+      webcontainer,
+      workspaceStore.files,
+      (url) => (previewUrl.value = url),
+    )
+    if (unmounted) stop()
+    else stopWorkspace = stop
+  } catch (e) {
+    if (!unmounted) bootError.value = `The editor couldn't start: ${e.message}`
+  }
+})
+
+onBeforeUnmount(() => {
+  unmounted = true
+  stopWorkspace?.()
+  workspaceStore.close() // saves my draft, then leaves the class channel
+})
 
 // works out the error groups from the mock students for now
 const errorGroups = computed(() => groupErrors(students))
@@ -30,19 +74,6 @@ const errorGroups = computed(() => groupErrors(students))
 const counts = computed(() =>
   students.reduce((acc, s) => ({ ...acc, [s.state]: (acc[s.state] ?? 0) + 1 }), {}),
 )
-
-const codeLines = [
-  'import axios from "axios"',
-  'import { ref } from "vue"',
-  '',
-  'const items = ref([])',
-  'const cart = ref([])',
-  '',
-  '// TODO 4: handle the add-to-cart event',
-  'function onAdd(item) {',
-  '  // push item into cart',
-  '}',
-]
 </script>
 
 <template>
@@ -108,63 +139,32 @@ const codeLines = [
       </div>
 
       <div class="row g-3">
-        <!-- Editor + preview + terminal -->
-        <!-- Stretches to the right column's height so there is no empty gap below -->
+        <!-- Editor (with the terminal under it) + preview -->
         <div
           class="col-12 col-xl-8 d-flex flex-column gap-3"
           :class="{ 'd-none d-xl-flex': mobileTab !== 'editor' }"
         >
-          <div
-            class="ca-surface ca-ide overflow-hidden d-flex flex-column flex-grow-1"
-            data-bs-theme="dark"
-          >
-            <div class="nav nav-underline flex-nowrap overflow-auto px-3 border-bottom">
-              <button
-                v-for="f in files"
-                :key="f"
-                type="button"
-                class="nav-link ca-mono small"
-                :class="{ active: f === activeFile }"
-                :data-testid="`file-tab-${f}`"
-                @click="activeFile = f"
-              >
-                {{ f }}
-              </button>
-            </div>
-            <pre
-              class="code ca-mono small m-0 px-3 py-2 flex-grow-1 overflow-auto bg-body"
-            ><code v-for="(line, i) in codeLines" :key="i" class="d-block"><span class="code__ln d-inline-block me-3 text-end text-body-secondary user-select-none">{{ i + 1 }}</span>{{ line }}</code></pre>
-          </div>
+          <EmptyState v-if="!isolated" icon="bi-exclamation-triangle" title="The editor can't start">
+            {{ bootError }} Try reloading the page.
+          </EmptyState>
 
-          <div class="row g-3">
-            <div class="col-12 col-md-7">
-              <div class="ca-surface h-100">
-                <div
-                  class="d-flex align-items-baseline justify-content-between gap-3 px-3 py-2 border-bottom"
-                >
-                  <span class="fw-semibold">Live preview</span>
-                </div>
-                <div
-                  class="placeholder-box d-flex align-items-center justify-content-center gap-2 p-3 text-body-secondary"
-                >
-                  <i class="bi bi-window" />Preview (WebContainer iframe)
-                </div>
-              </div>
+          <template v-else>
+            <!-- boot failed: keep the editor so my code is still visible, but say why nothing runs -->
+            <div v-if="bootError" class="alert alert-danger m-0">
+              {{ bootError }} Try reloading the page.
             </div>
-            <div class="col-12 col-md-5">
-              <div class="ca-surface ca-ide h-100" data-bs-theme="dark">
-                <div
-                  class="d-flex align-items-baseline justify-content-between gap-3 px-3 py-2 border-bottom"
-                >
-                  <span class="fw-semibold">Terminal</span>
-                </div>
-                <pre class="terminal ca-mono small m-0 px-3 py-2 overflow-auto">
-$ pnpm dev
-  VITE ready in 612 ms
-  ➜  Local: http://localhost:5173/</pre>
-              </div>
+            <div class="editor-box">
+              <EditorPanel
+                v-model:selected-file="workspaceStore.selectedFile"
+                v-model:selected-code="workspaceStore.selectedCode"
+                :file-paths="workspaceStore.filePaths"
+                :files-version="workspaceStore.filesVersion"
+              />
             </div>
-          </div>
+            <div class="preview-box">
+              <PreviewPanel :preview-url="previewUrl" />
+            </div>
+          </template>
         </div>
 
         <!-- Join code + checkpoints + error groups -->
@@ -215,6 +215,7 @@ $ pnpm dev
               </ol>
             </div>
 
+            <HelpSummaryPanel :session-id="id" />
             <ErrorGroupList :groups="errorGroups" />
           </div>
         </div>
@@ -264,15 +265,13 @@ $ pnpm dev
   padding-block: 0;
   font-size: var(--ca-text-sm);
 }
-/* placeholders until dylan's CodeEditor and the preview iframe exist */
-.code {
-  min-height: 14rem;
+/* Dylan's panels fill their box, so the boxes set the height */
+.editor-box {
+  height: 36rem;
+  border-radius: var(--ca-radius);
+  overflow: hidden;
 }
-.code__ln {
-  width: 2ch;
-}
-.terminal,
-.placeholder-box {
-  min-height: 9rem;
+.preview-box {
+  height: 24rem;
 }
 </style>

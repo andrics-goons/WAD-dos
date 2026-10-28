@@ -187,6 +187,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 |---|---|---|---|
 | Query | `from('session_tiles').select().eq('session_id', id)` | Tiles with state derived in SQL — **no code columns exist** | Staff |
 | Query | `from('session_summary').select().eq('session_id', id).single()` | Counts + `slow_down_count` as an aggregate | Staff |
+| Function | `summarize-help` → `{ sessionId }` | "What the class is stuck on": groups the open help requests' LLM analyses by step + category, then the LLM writes a title, explanation and teaching tip per group ([05 §8a](./05-core-logic.md#8a-help-request-analysis)). Runs on dashboard load and Refresh | Staff |
 | Function | `spotlight` → `{ sessionId, errorKey, helpRequestId? }` | Reads an eligible help-request snapshot with elevated rights, builds the anonymised excerpt, broadcasts `spotlight:show` | Prof |
 | Query | `from('lessons').select('id, files_hash')` then `files` only on a cache miss | The `files_hash` check that keeps repeat loads near-zero egress — see [05 §2](./05-core-logic.md#2-files-cache--dependencies) | Member |
 | Query | `from('sessions').update({ spotlight: null })` | Trigger broadcasts `spotlight:hide` | Prof |

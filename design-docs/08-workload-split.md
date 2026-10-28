@@ -222,8 +222,10 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | **`classify()` + the SQL/JS agreement test** **(moved)** | `shared/tile-state.js` | ⬜ |
 | Error normaliser + grouping (client-side `computed`) **(proposed)** | `shared/error-normalizer.js` | ⬜ |
 | `spotlight` function (pick snapshot, anonymise, broadcast) **(proposed)** | `supabase/functions/spotlight/`, `shared/spotlight.js` | ⬜ |
+| **Help request analysis** — LLM diagnosis of each "Ask for help" (05 §8a); the `help_requests.analysis` column + trigger need Andric's review **(proposed)** | `supabase/functions/analyze-help/`, `supabase/functions/_shared/groq.ts` | ⬜ |
+| **Class summary** — "What the class is stuck on" panel, summarised from those diagnoses (05 §8a part 2) **(proposed)** | `supabase/functions/summarize-help/`, `api/dashboard.api.js`, `stores/dashboard.js`, `components/dashboard/HelpSummaryPanel.vue` | ⬜ |
 | **Insights report page** — funnel per checkpoint, top errors, recurring trouble checkpoints, digest panel; reads Andric's `session_reports` **(moved)** | `views/ReportView.vue`, `components/insights/*` | ⬜ |
-| Tests | T-LES-* · T-DASH-* · T-ERRG-* · T-STAT-01–06, 10 · T-RESP-03, 04 · T-INS-04 | ⬜ |
+| Tests | T-LES-* · T-DASH-* · T-ERRG-* · T-AIH-* · T-STAT-01–06, 10 · T-RESP-03, 04 · T-INS-04 | ⬜ |
 
 **Boundary:** owns what the prof sees during and after class, and the lesson content itself. Reads Andric's views and report data; reuses Dylan's runtime and editor rather than building his own.
 **Note:** lessons have no steps any more — the prof saves checkpoints during class (05 §5).
