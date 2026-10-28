@@ -9,6 +9,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import CheckpointTimeline from '@/components/replay/CheckpointTimeline.vue'
 import DiffView from '@/components/replay/DiffView.vue'
 import NotesPanel from '@/components/replay/NotesPanel.vue'
+import ExportDialog from '@/components/replay/ExportDialog.vue'
 
 // One class, step by step: pick a checkpoint and see what changed since the one before it,
 // with my notes and bookmarks beside it. Owner: Ray Yien. design-docs/04, 05 §11.
@@ -130,6 +131,17 @@ const removeNote = (id) =>
     await store.removeNote(id)
     notes.value = notes.value.filter((n) => n.id !== id)
   })
+
+// Export to GitHub: the dialog, and the new repo's link once it's done
+const exportOpen = ref(false)
+const exportedUrl = ref('')
+// "Week 6 · Mini Cart" → "week-6-mini-cart", a name GitHub accepts
+const repoSlug = (title) =>
+  title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 100)
 </script>
 
 <template>
@@ -159,7 +171,30 @@ const removeNote = (id) =>
           </RouterLink>
           <h1 class="mb-0">{{ session.lesson.title }}</h1>
         </div>
+        <button
+          v-if="checkpoints.length"
+          type="button"
+          class="ca-btn ca-btn--secondary"
+          data-testid="btn-export-github"
+          @click="exportOpen = true"
+        >
+          <i class="bi bi-github" />Export to GitHub
+        </button>
       </div>
+
+      <div v-if="exportedUrl" class="alert alert-success d-flex align-items-start gap-2 small">
+        <i class="bi bi-check-circle-fill flex-shrink-0" />
+        <span>
+          Exported.
+          <a :href="exportedUrl" target="_blank" rel="noopener">See the commits on GitHub</a>
+        </span>
+      </div>
+      <ExportDialog
+        v-model:open="exportOpen"
+        :session-id="sessionId"
+        :default-name="repoSlug(session.lesson.title)"
+        @exported="exportedUrl = $event"
+      />
 
       <div v-if="!checkpoints.length" class="ca-surface">
         <EmptyState icon="bi-clock-history" title="Nothing to replay">
