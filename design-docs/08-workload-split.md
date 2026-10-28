@@ -243,8 +243,8 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | Lesson library (search, list) in course page | `components/lesson/LessonLibrary.vue` | ⬜ |
 | `github-import` function + import tab in New lesson | `supabase/functions/github-import/`, `components/lesson/GithubImportTab.vue` | ⬜ |
 | `github-export` function (Git Data API, one commit per checkpoint) + GitHub identity link | `supabase/functions/github-export/`, `linkIdentity` | ⬜ |
-| Replay + notes data access; `search()` RPC | `src/api/replays.api.js`, `notes.api.js` | ⬜ |
-| Replay list + viewer, timeline, notes drawer, export dialog | `views/ReplayListView.vue`, `views/ReplayView.vue`, `components/replay/*` | ⬜ |
+| Replay + notes data access; `search()` RPC | `src/api/replays.api.js`, `notes.api.js` | ✅ |
+| Replay list + viewer, timeline, notes drawer, export dialog — list, search, timeline, diff and notes done; read-only preview and export dialog still to do | `views/ReplayListView.vue`, `views/ReplayView.vue`, `components/replay/*` | ⬜ |
 | Tests | T-REP-* · T-GH-* · T-CATCH-01–08 · T-SBX-11, 13–16, 18–23 · T-LOAD-04 | ⬜ |
 
 **Boundary:** owns every version of a file after it leaves the editor — cached, synced, snapshotted, diffed, replayed, exported. Hands Dylan files to mount; takes edits back through `autosave()`.
