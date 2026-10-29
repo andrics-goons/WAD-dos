@@ -65,6 +65,7 @@ function fakeSession(data) {
       return () => delete listeners[table]
     }),
     saveCheckpoint: vi.fn(async () => ({})),
+    announce: vi.fn(async () => ({})),
     end: vi.fn(async () => {
       store.session.status = 'ended'
     }),
@@ -286,6 +287,16 @@ describe('TeachView', () => {
     await open()
     live.session.checkpoint_seq = 3
     await vi.waitFor(() => expect(api.getClassSummary).toHaveBeenCalledTimes(2), { timeout: 2000 })
+  })
+
+  it("sends karin's announcement to the class, then clears the box", async () => {
+    await open()
+    await wrapper.find('#announce').setValue('5 minute break')
+    await wrapper.find('[data-testid="btn-announce"]').trigger('submit')
+    await flushPromises()
+    expect(live.announce).toHaveBeenCalledWith('ses-1', '5 minute break')
+    expect(wrapper.find('#announce').element.value).toBe('')
+    expect(lastToast()).toMatchObject({ variant: 'success', text: 'Announcement sent' })
   })
 
   it('closes the class when leaving', async () => {
