@@ -4,6 +4,7 @@
   import PreviewPanel from "@/components/workspace/PreviewPanel.vue"
   import StudentWorkspaceHeader from "@/components/workspace/StudentWorkspaceHeader.vue"
   import CatchUpModal from "@/components/workspace/CatchUpModal.vue"
+  import AnnouncementBanner from "@/components/session/AnnouncementBanner.vue"
   import EmptyState from "@/components/ui/EmptyState.vue"
   import { getWebContainer } from "@/runtime/webcontainer";
   import { startWorkspace } from "@/runtime/workspace";
@@ -122,6 +123,8 @@
       @undo="statusStore.markInProgress()"
       
     />
+
+    <AnnouncementBanner :announcement="sessionStore.session?.announcement" />
 
     <CatchUpModal
       v-model:open="catchUpOpen"

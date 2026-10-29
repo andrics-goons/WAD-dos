@@ -12,7 +12,7 @@ const dismissedAt = ref(null)
 <template>
   <div
     v-if="announcement && announcement.at !== dismissedAt"
-    class="alert alert-info d-flex align-items-center gap-2 mb-0"
+    class="alert alert-info d-flex align-items-center gap-2"
     data-testid="announcement-banner"
   >
     <i class="bi bi-megaphone" />
