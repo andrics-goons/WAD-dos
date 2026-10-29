@@ -104,3 +104,10 @@ export async function endSession(id) {
   if (error) throw mapError(error)
   return data
 }
+
+/** Profs only, live classes only. Students see it as a banner (session:announce); no text clears it. */
+export async function announce(id, text) {
+  const { data, error } = await supabase.rpc('announce', { p_session_id: id, p_text: text })
+  if (error) throw mapError(error)
+  return data
+}

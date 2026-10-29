@@ -2,6 +2,7 @@
 // The prof's live class. The editor, terminal and preview are the real workspace (Dylan's
 // panels and store); the class, join code and checkpoints come from ying qi's session store.
 // The dashboard shows what the class clicked as numbers (no tiles) and their common errors.
+// The announce box is karin's: students see the message as a banner.
 // No navbar here: the global nav (AppNavbar) wraps every page from App.vue.
 import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -38,6 +39,17 @@ const mobileTab = ref('dashboard')
 // the editor area shows either the code or the running app, switched by the panels' own buttons
 const editorView = ref('code')
 const announcement = ref('')
+
+// karin's announcements: students see it as a banner. Sending an empty box clears the current one
+async function sendAnnouncement() {
+  try {
+    await live.announce(props.id, announcement.value)
+    toast.show(announcement.value.trim() ? 'Announcement sent' : 'Announcement cleared', 'success')
+    announcement.value = ''
+  } catch (error) {
+    toast.show(error.message, 'danger')
+  }
+}
 
 const workspaceStore = useWorkspaceStore()
 
@@ -213,7 +225,10 @@ onBeforeUnmount(() => {
         <span class="small text-body-secondary"
           >{{ live.present.length }} joined · {{ elapsed }}</span
         >
-        <form class="col-12 col-md d-flex align-items-center gap-2" @submit.prevent>
+        <form
+          class="col-12 col-md d-flex align-items-center gap-2"
+          @submit.prevent="sendAnnouncement"
+        >
           <label for="announce" class="visually-hidden">Announcement</label>
           <input
             id="announce"

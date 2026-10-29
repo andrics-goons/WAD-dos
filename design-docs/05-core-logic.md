@@ -605,12 +605,13 @@ Search is `rpc('search')`: a ranked full-text query over checkpoint titles and t
 1. Parse https://github.com/<owner>/<repo>[/tree/<ref>/<dir>]
 2. GET /repos/{owner}/{repo}                                  → default branch if no ref
 3. GET /repos/{owner}/{repo}/git/trees/{ref}?recursive=1      → file list
-4. Keep files under <dir> with .html .css .js .json .md, ≤ 20 files, ≤ 200 KB total
-5. GET /repos/{owner}/{repo}/contents/{path}?ref={ref}        → base64 → text   (one per file)
+4. Keep files under <dir> that a lesson can hold (shared/lesson-files.js), ≤ 40 files, ≤ 200 KB total —
+   checked from the tree before anything is downloaded
+5. GET /repos/{owner}/{repo}/contents/{path}?ref={ref}        → raw text   (one per file)
 6. Return files → the browser inserts the lesson
 ```
 
-≈ 2 + n requests per import. `GITHUB_TOKEN` is a function secret and never reaches the browser.
+≈ 2 + n requests per import. Only a prof may import. `GITHUB_TOKEN` is a function secret and never reaches the browser; without it GitHub allows only 60 requests an hour, and the function answers `RATE_LIMITED`.
 
 ### GitHub export (the student's own GitHub identity) — one commit per checkpoint
 
@@ -631,7 +632,7 @@ The old design hand-rolled OAuth and held the token in server memory for 10 minu
      POST /repos/{o}/{r}/git/trees  { tree: [README.md + checkpoint files as
                                       { path, mode: '100644', type: 'blob', content }] }
                                                                       → treeSha
-     POST /repos/{o}/{r}/git/commits { message: "Checkpoint 3: Fetch items for the selected category",
+     POST /repos/{o}/{r}/git/commits { message: "Checkpoint 3 · Fetch items for the selected category",
                                        tree: treeSha, parents: [parentSha] } → parentSha = new sha
 4. PATCH /repos/{o}/{r}/git/refs/heads/main { sha: parentSha }
 5. Return https://github.com/{o}/{r}/commits/main

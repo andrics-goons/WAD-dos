@@ -387,7 +387,7 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `diffSummary` | Ray Yien | Dylan, Karin | `(beforeFiles, afterFiles) => { files: [{ path, added, removed, firstDiffLine, hunks }] }` |
 | `<DiffView>` | Ray Yien | Dylan, Karin | props `before`, `after`, `mode` |
 | `fn('github-import')` | Ray Yien | Lesson new view | `{ repoUrl } → { files, entryFile, source }` |
-| `fn('github-export')` | Ray Yien | Replay view | `{ sessionId, repoName, private } → { repoUrl }` |
+| `fn('github-export')` | Ray Yien | Replay view | `{ sessionId, repoName, private, providerToken } → { repoUrl }` — `providerToken` is the user's GitHub token from Supabase Auth, never stored |
 | `fn('spotlight')` | Evan | Teach view | `{ sessionId, errorKey, helpRequestId? } → { excerpt, fix, errorPreview }` |
 | `fn('analyze-help')` | Evan | `analyze_help_request` trigger (not the client) | `{ requestId } → { saved: 'ok' \| 'failed' } \| { skipped }` — writes `help_requests.analysis` |
 | `fn('summarize-help')` | Evan | Teach view (`dashboard.api` `getHelpSummary`) | `{ sessionId } → { headline, groups: [{ key, stepOrder, stepTitle, category, count, title, explanation, teachingTip }], analysedCount, pendingCount, source: 'llm' \| 'rules' \| 'none', model, generatedAt }`; `FORBIDDEN` unless session staff |
