@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 
 // What the class has clicked, as numbers only: no names, no tiles.
-// 🍎 and 🍌 are what the prof already uses for Done and Slow down in the class chat.
 // Colours come from the kit: the state colours on each badge, the brand on the bar.
 const props = defineProps({
   // { total, done, slowDown, help, check } from dashboard.api's getClassSummary, or null
@@ -15,7 +14,7 @@ const choices = computed(() => {
   return [
     {
       label: 'Done',
-      emoji: '🍎',
+      icon: 'bi-check2-square',
       n: s.done ?? 0,
       note: `of ${total} · Caught up`,
       percent: total ? Math.round(((s.done ?? 0) / total) * 100) : 0,
@@ -24,7 +23,7 @@ const choices = computed(() => {
     },
     {
       label: 'Slow down',
-      emoji: '🍌',
+      icon: 'bi-exclamation-circle',
       n: s.slowDown ?? 0,
       note: 'Need more time',
       badge: 'ca-state--in_progress',
@@ -32,14 +31,14 @@ const choices = computed(() => {
     },
     {
       label: 'Asked for help',
-      icon: 'bi-life-preserver',
+      icon: 'bi-question-circle',
       n: s.help ?? 0,
       note: 'Waiting for help',
       badge: 'bg-primary-subtle text-primary',
     },
     {
       label: 'Check my work',
-      icon: 'bi-check2-square',
+      icon: 'bi-clipboard-check',
       n: s.check ?? 0,
       note: 'Waiting for a check',
       badge: 'ca-state--idle',
@@ -55,10 +54,7 @@ const choices = computed(() => {
       <div class="ca-surface h-100 px-3 py-2" :data-testid="c.testid">
         <div class="d-flex align-items-center justify-content-between gap-2">
           <span class="ca-eyebrow text-truncate">{{ c.label }}</span>
-          <span class="ca-pill" :class="c.badge">
-            <template v-if="c.emoji">{{ c.emoji }}</template>
-            <i v-else class="bi" :class="c.icon" />
-          </span>
+          <span class="ca-pill" :class="c.badge"><i class="bi" :class="c.icon" /></span>
         </div>
         <div class="fs-3 fw-bold lh-1 mt-2">{{ c.n }}</div>
         <div class="small text-body-secondary mt-1">{{ c.note }}</div>

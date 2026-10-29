@@ -113,7 +113,7 @@ function refreshSummarySoon() {
 }
 const stopStatusChanges = live.onChange('student_status', refreshSummarySoon)
 const stopHelpChanges = live.onChange('help_requests', refreshSummarySoon)
-// 🍌 flags never go out on the channel (staff only ever see the count), so check every 10 s
+// slow-down flags never go out on the channel (staff only ever see the count), so check every 10 s
 const slowDownPoll = setInterval(() => live.isLive && loadSummary(), 10_000)
 
 // common errors, from the real class

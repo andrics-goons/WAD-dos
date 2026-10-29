@@ -14,10 +14,13 @@ describe('ClassChoices', () => {
     expect(wrapper.text()).toContain('Check my work')
   })
 
-  it('uses the apple for Done and the banana for Slow down', () => {
+  it('gives each count an icon that says what it is', () => {
     const wrapper = mount(ClassChoices, { props: { summary } })
-    expect(wrapper.find('[data-testid="summary-done"]').text()).toContain('🍎')
-    expect(wrapper.find('[data-testid="slow-down-count"]').text()).toContain('🍌')
+    const icon = (testid) => wrapper.find(`[data-testid="${testid}"] .bi`).classes()
+    expect(icon('summary-done')).toContain('bi-check2-square')
+    expect(icon('slow-down-count')).toContain('bi-exclamation-circle')
+    expect(wrapper.find('.bi-question-circle').exists()).toBe(true) // asked for help
+    expect(wrapper.find('.bi-clipboard-check').exists()).toBe(true) // check my work
   })
 
   it('shows how much of the class is done as a bar', () => {

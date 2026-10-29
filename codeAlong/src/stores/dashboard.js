@@ -21,7 +21,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
 
-  // what students clicked (🍎 Done, 🍌 Slow down, help, check) and their errors, as numbers
+  // what students clicked (Done, Slow down, help, check) and their errors, as numbers
   const classSummary = ref(null)
   const classSummaryError = ref(null)
 

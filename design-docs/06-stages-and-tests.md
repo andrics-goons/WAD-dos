@@ -281,9 +281,9 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
 | T-DASH-01 | Summary card loads for a running session | E2E | Counts for the joined students |
-| T-DASH-02 | Counts are what students clicked | Unit + DB | 🍎 Done = Done on the latest checkpoint (even with an error since); help / check = open or claimed requests |
+| T-DASH-02 | Counts are what students clicked | Unit + DB | Done = Done on the latest checkpoint (even with an error since); help / check = open or claimed requests |
 | T-DASH-03 | ~~Filter by clicking a summary segment~~ | — | Removed: no per-student tiles to filter |
-| T-DASH-04 | "Slow down" from 2 students | E2E | 🍌 count = 2; nothing on the dashboard shows who |
+| T-DASH-04 | "Slow down" from 2 students | E2E | Slow-down count = 2; nothing on the dashboard shows who |
 | T-DASH-05 | Student un-taps "Slow down" | E2E | Count decrements |
 | T-DASH-06 | TA (staff) can view dashboard; student cannot | RLS | TA gets tile rows; a student gets zero rows from `session_tiles` |
 | T-DASH-07 | ~~Tiles show icon + label~~ | — | Removed: no per-student tiles |
