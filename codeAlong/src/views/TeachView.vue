@@ -1,5 +1,5 @@
 <script setup>
-// Layout only: hard-coded data from @/mock/profMock. No store or API calls.
+// Layout only: hard-coded data from @/mock/profMock. The announce form is the one live part.
 // No navbar here: the global nav (AppNavbar) wraps every page from App.vue.
 import { computed, ref } from 'vue'
 import { Limits } from '@shared/constants.js'
@@ -11,8 +11,13 @@ import ErrorGroupList from '@/components/dashboard/ErrorGroupList.vue'
 import JoinCodeCard from '@/components/session/JoinCodeCard.vue'
 import { checkpointLabel } from '@shared/checkpoint-label.js'
 import { lesson, checkpoints, students, slowDownCount } from '@/mock/profMock'
+import { useSessionStore } from '@/stores/session'
+import { useToastStore } from '@/stores/toast'
 
-defineProps({ id: { type: String, required: true } })
+const props = defineProps({ id: { type: String, required: true } })
+
+const sessionStore = useSessionStore()
+const toast = useToastStore()
 
 // xs: dashboard-first with the editor behind a tab. xl: everything visible at once.
 const mobileTab = ref('dashboard')
@@ -20,6 +25,17 @@ const filter = ref('all')
 const announcement = ref('')
 const confirmEnd = ref(false)
 const checkpointTitle = ref('')
+
+// Students see it as a banner. Sending an empty box clears the current announcement.
+async function sendAnnouncement() {
+  try {
+    await sessionStore.announce(props.id, announcement.value)
+    toast.show(announcement.value.trim() ? 'Announcement sent' : 'Announcement cleared', 'success')
+    announcement.value = ''
+  } catch (error) {
+    toast.show(error.message, 'danger')
+  }
+}
 
 const files = ['App.vue', 'ItemCard.vue', 'main.js']
 const activeFile = ref('App.vue')
@@ -58,7 +74,10 @@ const codeLines = [
         <i class="bi bi-circle-fill" />Live
       </span>
       <span class="small text-body-secondary">24 joined · 00:42:10</span>
-      <form class="col-12 col-md d-flex align-items-center gap-2" @submit.prevent>
+      <form
+        class="col-12 col-md d-flex align-items-center gap-2"
+        @submit.prevent="sendAnnouncement"
+      >
         <label for="announce" class="visually-hidden">Announcement</label>
         <input
           id="announce"

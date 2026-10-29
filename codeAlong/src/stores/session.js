@@ -117,6 +117,9 @@ export const useSessionStore = defineStore('session', () => {
     session.value.ended_at = ended.ended_at
   }
 
+  // Takes the class id, so a page that hasn't opened the class can still announce. No text clears it.
+  const announce = (sessionId, text) => sessionsApi.announce(sessionId, text)
+
   return {
     session,
     connection,
@@ -133,5 +136,6 @@ export const useSessionStore = defineStore('session', () => {
     saveCheckpoint,
     updateSettings,
     end,
+    announce,
   }
 })
