@@ -1,5 +1,5 @@
 <script setup>
-  import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+  import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
   import EditorPanel from "@/components/workspace/EditorPanel.vue"
   import PreviewPanel from "@/components/workspace/PreviewPanel.vue"
   import StudentWorkspaceHeader from "@/components/workspace/StudentWorkspaceHeader.vue"
@@ -58,6 +58,15 @@
       catchingUp.value = false
     }
   }
+
+  // A heads-up when the prof saves a new checkpoint while I'm here. Not on opening the page:
+  // the checkpoint I join on only counts once everything has loaded.
+  watch(
+    () => sessionStore.checkpointSeq,
+    (seq, before) => {
+      if (loaded.value && seq > before) toast.show(checkpoint.value, "info", { title: "New checkpoint" })
+    },
+  )
 
   // WebContainer needs SharedArrayBuffer, which only exists on a cross-origin isolated page
 

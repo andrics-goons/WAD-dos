@@ -8,7 +8,7 @@
 |---|---|---|:---:|---|
 | **Ying Qi** | Live session engine + the frontend platform: session + checkpoint RPCs, Realtime channels, app shell, router, UI kit, core pages | F1 + platform | 2–3 | Vercel deployment, responsive/consistency review, the independent RLS sweep, load simulator + Realtime cap check, README assembly **(proposed)** |
 | **Dylan** | Student workspace runtime + IDE: WebContainer boot / install / run, terminal, preview, build-error capture, editor, Done / Slow down / Help bar | F2 | **3** | `CodeEditor` used by Evan, Ray Yien and Karin; the Week 8 WebContainer spikes; automatic step checks (COULD) |
-| **Karin** | Help + communication: Check my work / Ask for help, follow-ups, TA queue + review, Telegram, class announcements | F3 | 2 | Student-facing session UI (join page, checkpoint toast, connection pill, announcement banner); Playwright setup; AI hints (COULD) **(proposed)** |
+| **Karin** | Help + communication: Check my work / Ask for help, follow-ups, TA queue + review, Telegram, class announcements | F3 | 2 | Student-facing session UI (join page, checkpoint toast, announcement banner); Playwright setup; AI hints (COULD) **(proposed)** |
 | **Evan** | Prof view: lessons, teach view (incl. live preview, saving checkpoints), class dashboard, insights report page | F4 | **3** | Error normaliser + grouping, `classify()`, Spotlight, the Mini Cart lesson project **(proposed)** |
 | **Ray Yien** | Files over time: IndexedDB cache, delta autosave, catch-up, diff, replay, GitHub import + export | F5 | 2–3 | `FileTree` and `DiffView`, used by Dylan and Karin |
 | **Andric** | Database, auth + insights data: **the whole schema** (tables, constraints, RLS, views, triggers), auth, accounts + courses data access, report builder | F6 + data platform | 2–3 | `seed.sql`, migration review, the free-tier keep-alive **(proposed)** |
@@ -45,7 +45,7 @@ After the Supabase + WebContainer rewrites, Dylan's card was carrying more than 
 | IndexedDB file cache, delta autosave + `autosave_patch`, `catch_up` + my attempts + restore | Dylan → **Ray Yien** | "Versions of files over time" was already Ray Yien's domain (diff, What you missed, checkpoint replay). The interface is clean: `loadFiles()`, `autosave()` and `catchUp()` hand files to Dylan's `mount()` |
 | `FileTree` | Dylan → **Ray Yien** | Self-contained (props in, events out), and reused read-only in the replay viewer |
 | Class announcements (RPC, banner, input box) | Ying Qi + Evan → **Karin** | Announcements are communication — the same domain as help replies, follow-ups and Telegram |
-| Join page, checkpoint toast, connection pill | Ying Qi → **Karin** | Student-facing session UI; all of it subscribes to Ying Qi's `sessionChannel`, so no interface changes |
+| Join page, checkpoint toast | Ying Qi → **Karin** | Student-facing session UI; all of it subscribes to Ying Qi's `sessionChannel`, so no interface changes |
 | Join code card + QR display | Ying Qi → **Evan** | They live on Evan's teach view |
 | `classify()` + its SQL/JS agreement test | Ying Qi → **Evan** | The dashboard's client-side re-derivation; Andric owns the SQL view it must agree with |
 | Mini Cart lesson project (Vite + Express, the eight TODOs) | **unassigned** → Evan | He owns the lesson editor; Dylan supplies `src/ca-probe.js` |
@@ -197,7 +197,7 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | Queue subscription (Postgres Changes on `help_requests`) | `src/api/help.api.js` | ⬜ |
 | **Class announcements: `announce` RPC, banner, input box** (Evan embeds the input in the teach view) **(moved)** | `components/session/AnnouncementBanner.vue`, `AnnounceInput.vue` | ⬜ |
 | **Join page** — 6-box code input, `/join/:code` pre-fill, auto-submit **(moved)** | `views/JoinView.vue` | ⬜ |
-| **Checkpoint toast + connection pill** **(moved)** | `components/session/CheckpointToast.vue`, `ConnectionPill.vue` | ⬜ |
+| **Checkpoint toast** — a `toast.show()` from the workspace page when the prof saves a checkpoint (no new component); the connection pill was dropped **(moved)** | `views/WorkspaceView.vue` | ⬜ |
 | `digest` send path used by Andric's report | `supabase/functions/digest/` | ⬜ |
 | **Playwright config + the localStorage session fixture** (prof, TA and N students logged in) **(moved)** | `playwright.config.js`, `tests/e2e/fixtures.js` | ⬜ |
 | AI hints (COULD) **(proposed)** | `supabase/functions/hint/`, `shared/hint-rules.js` | ⬜ |

@@ -390,7 +390,7 @@ Variants: `'info'` (default), `'success'`, `'warning'`, `'danger'`. Auto-dismiss
 
 ### `AppNavbar`: don't render it
 
-Mounted once in `App.vue`. It has a `#status` slot for live indicators (e.g. Karin's `ConnectionPill`); to add something there, ask Ying Qi to wire it in `App.vue`. Test ids (from doc 09): `nav-courses`, `nav-replays`, `nav-profile`. Find the other links and buttons by their text, e.g. `getByRole('link', { name: 'Join a class' })`.
+Mounted once in `App.vue`. It has a `#status` slot for live indicators; to add something there, ask Ying Qi to wire it in `App.vue`. Test ids (from doc 09): `nav-courses`, `nav-replays`, `nav-profile`. Find the other links and buttons by their text, e.g. `getByRole('link', { name: 'Join a class' })`.
 
 ### Shared constants
 

@@ -336,7 +336,7 @@ A browser tab can hold only **one** channel per class, so pages never open `sess
 | `checkpointSeq` | The latest checkpoint's number, 0 before the first. A student is Done only while their `done_seq` equals it |
 | `latestCheckpoint` | Shortcut for `session.latest_checkpoint`; download its files with `getCheckpointFiles(id)` (`checkpoints.api.js`) |
 | `isLive`, `isStaff` | Booleans |
-| `connection` | `'live' | 'reconnecting' | 'offline'` — for the connection pill. After a reconnect the store re-reads the session, so missed checkpoints aren't lost |
+| `connection` | `'live' | 'reconnecting' | 'offline'` — the channel state. After a reconnect the store re-reads the session, so missed checkpoints aren't lost |
 | `present` | Staff only: `[{ userId, name }]` of students here now (students are tracked automatically) |
 | `onChange(table, handler)` | `'student_status'` (staff) or `'help_requests'` (staff: the queue; students: their own). Returns a `stop()` function |
 | `start(lessonId)`, `join(code)`, `saveCheckpoint(files, title)`, `updateSettings(changes)`, `end()` | The actions; results come back to every tab through the channel |
@@ -412,10 +412,10 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 
 | Area | Examples |
 |---|---|
-| Navigation | `nav-home`, `nav-courses`, `nav-replays`, `nav-profile`, `nav-connection-pill` |
+| Navigation | `nav-home`, `nav-courses`, `nav-replays`, `nav-profile` |
 | Courses | `course-card-<code>`, `btn-new-course`, `btn-enrol-course`, `input-enrol-code`, `btn-enrol`, `enrol-link`, `btn-copy-enrol-link`, `enrol-qr` |
 | Lessons | `lesson-row-<slug>`, `lesson-start-<slug>` |
-| Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `input-checkpoint-title`, `btn-save-checkpoint`, `btn-end-session`, `toast-checkpoint`, `input-announce`, `btn-announce`, `btn-clear-announce`, `announcement-banner` |
+| Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `input-checkpoint-title`, `btn-save-checkpoint`, `btn-end-session`, `input-announce`, `btn-announce`, `btn-clear-announce`, `announcement-banner` |
 | Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `btn-download-project`, `workspace-checkpoint`, `tab-code`, `tab-preview`, `tab-console` |
 | Dashboard | `summary-done`, `slow-down-count`, `error-group-<index>`, `btn-spotlight-<index>`, `spotlight-panel`, `help-summary`, `help-summary-headline`, `help-summary-group-<index>`, `btn-refresh-help-summary` |
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |

@@ -102,7 +102,7 @@ xs (375 px) ──────────────────────�
 
 | Rule | How we apply it |
 |---|---|
-| Visibility of system status | Connection pill in the navbar (Live · Reconnecting… · Offline) driven by the Realtime channel state; saving indicator in the workspace |
+| Visibility of system status | Saving indicator in the workspace |
 | Match the real world | Labels say "Done", "Slow down", "Load checkpoint", "Check my work" — no jargon like "sync state" |
 | User control & freedom | Load checkpoint always keeps your attempt (restorable); help requests can be cancelled |
 | Consistency | Same tile colours, icons and labels everywhere (`StatusPill`); one button style per action type |
@@ -376,7 +376,7 @@ disconnect                 → nothing is written; the view reports `idle` once 
 reconnect (automatic)      → re-subscribe, re-read latest checkpoint and my own status
 ```
 
-The navbar connection pill reflects the channel state (`SUBSCRIBED` → Live, `CHANNEL_ERROR`/`TIMED_OUT` → Reconnecting…, offline → Offline). Edits continue locally throughout; autosave retries.
+Edits continue locally throughout; autosave retries.
 
 ---
 
@@ -424,7 +424,7 @@ Unchanged — components never knew where the data came from, which is why this 
 | Wrong or archived enrol code | "No course with that code" under the input | `enrol_with_code` raises `NOT_FOUND\|…` |
 | Enrol link opened while logged out | Sent to log in (or register), then straight back to the enrol link, which completes | `returnTo` carried through **both** login and register — a new student following the link usually has no account yet |
 | Session ended while coding | Banner "Class ended — your work is saved. Open replay" | `session:ended` broadcast |
-| Realtime disconnected | Navbar pill turns amber "Reconnecting…"; edits continue locally; autosave retries | Channel state callback; supabase-js reconnects with backoff |
+| Realtime disconnected | Edits continue locally; autosave retries | Channel state callback; supabase-js reconnects with backoff |
 | Autosave fails | "Not saved — retrying" next to the file name; never blocks typing | Exponential retry; work kept in memory |
 | Saving indicator | `save-status` next to the file name: "Saved", "Unsaved changes" (waiting out the 5 s), "Saving…", or a "Not saved — …" warning (retrying, project too large, refused) / "Class ended — no longer saving" | autosave's `onStatus`, kept in the workspace store as `saveStatus` |
 | Help already claimed by another TA | Toast "Ana is already on this one" and the card updates | `claim_help_request` raises `CONFLICT\|…`; the card updates from Postgres Changes |
