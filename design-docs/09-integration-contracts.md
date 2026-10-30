@@ -276,6 +276,7 @@ This is the section the architecture change affects most. Previously three of th
 |---|---|---|
 | A student's code is readable by them and their course's staff, never by classmates or other courses' staff | `snapshots` SELECT policy: own rows, or `is_session_staff(session_id)` | T-PRIV-02, T-PRIV-03 |
 | Dashboard data contains no code | `student_status` has **no** `files` column, and `session_tiles` selects none | T-PRIV-01 |
+| The LLM only ever sees code a student sent with a help request | `analyze-help` reads only the request's own `help_request` snapshot; no name or id goes in the prompt | T-AIH-01, T-AIH-02 |
 | "Slow down" is only ever a count **to staff** | The flag is a row in `slow_down_flags`, readable only by its owner (and admins) — not a column of `student_status`, which staff read and receive over Postgres Changes. Staff read `session_summary`, which exposes `slow_down_count` and no ids | T-PRIV-04 |
 | A student cannot forge their tile state | There is **no** `state` column. `session_tiles` derives it in SQL from `done_seq`, `error`, `last_seen_at` and the session's `checkpoint_seq` | T-STAT-09 |
 | Notes are private to the author (admins excepted) | `notes` policies keyed on `user_id = auth.uid()` | T-PRIV-05 |
@@ -373,7 +374,7 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `rpc('transition_help_request')` | Karin | Help review | `(p_request_id uuid, p_to text, p_reply text) → request row` — a reply is **appended to `thread`**, never overwritten |
 | `rpc('follow_up_help_request')` | Karin | Student help panel | `(p_request_id uuid, p_message text, p_files jsonb) → request row` — `replied → open`, fresh snapshot, max `MAX_FOLLOW_UPS` |
 | `view session_tiles` | Andric | Evan (dashboard) | `(session_id, student_id, name, checkpoint_seq, done_seq, error_source, error_key, error_preview, checks, last_seen_at, state, passed_seqs)` — `state` is `done` / `in_progress` / `error` / `idle` (no `behind`). `error_source` is `'runtime'` or `'build'`, so the dashboard can label a group "won't compile" vs "throws". `passed_seqs` is `int[]` of checkpoints whose `check` was passed |
-| `view session_summary` | Andric | Evan (summary bar) | `(session_id, total, done, in_progress, error, idle, slow_down_count)` — `slow_down_count` is `null` for anyone but staff and admins |
+| `view session_summary` | Andric | Evan (class summary card) | `(session_id, total, done, in_progress, error, idle, slow_down_count)` — `slow_down_count` is `null` for anyone but staff and admins |
 | `normalizeError` | Evan | Dylan (before writing status) | `({ name, message }) => { key, shapeKey }` |
 | `parseBuildError` | Dylan | Dylan (dev-server output) | `(stdout: string) => { name, message, file, line } \| null` — **drops the code frame**; run before `normalizeError` |
 | `container.mount(files)` / `boot()` | Dylan | Evan (teach preview), Ray Yien (replay preview) | The one WebContainer runtime; nobody builds a second |
@@ -388,6 +389,8 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `fn('github-import')` | Ray Yien | Lesson new view | `{ repoUrl } → { files, entryFile, source }` |
 | `fn('github-export')` | Ray Yien | Replay view | `{ sessionId, repoName, private, providerToken } → { repoUrl }` — `providerToken` is the user's GitHub token from Supabase Auth, never stored |
 | `fn('spotlight')` | Evan | Teach view | `{ sessionId, errorKey, helpRequestId? } → { excerpt, fix, errorPreview }` |
+| `fn('analyze-help')` | Evan | `analyze_help_request` trigger (not the client) | `{ requestId } → { saved: 'ok' \| 'failed' } \| { skipped }` — writes `help_requests.analysis` |
+| `fn('summarize-help')` | Evan | Teach view (`dashboard.api` `getHelpSummary`) | `{ sessionId } → { headline, groups: [{ key, stepOrder, stepTitle, category, count, title, explanation, teachingTip }], analysedCount, pendingCount, source: 'llm' \| 'rules' \| 'none', model, generatedAt }`; `FORBIDDEN` unless session staff |
 | `fn('digest')` | Andric (content) / Karin (send) | Report view (Evan) | `{ sessionId, audience: ['tas','absent'] } → { sent, failed }` |
 | `buildReport` | Andric | `end-session` function, seed | `(rows) => sessionReport` |
 
@@ -414,7 +417,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Lessons | `lesson-row-<slug>`, `lesson-start-<slug>` |
 | Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `input-checkpoint-title`, `btn-save-checkpoint`, `btn-end-session`, `toast-checkpoint`, `input-announce`, `btn-announce`, `btn-clear-announce`, `announcement-banner` |
 | Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `btn-download-project`, `workspace-checkpoint`, `tab-code`, `tab-preview`, `tab-console` |
-| Dashboard | `tile-<studentId>` (with `data-state="<TileState>"`), `summary-<state>`, `slow-down-count`, `error-group-<index>`, `btn-spotlight-<index>`, `spotlight-panel` |
+| Dashboard | `summary-done`, `slow-down-count`, `error-group-<index>`, `btn-spotlight-<index>`, `spotlight-panel`, `help-summary`, `help-summary-headline`, `help-summary-group-<index>`, `btn-refresh-help-summary` |
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |
 | Replay | `timeline-checkpoint-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
 | Reports | `report-funnel`, `report-top-errors`, `btn-send-digest` |
@@ -433,7 +436,8 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Supabase secrets | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` | `supabase secrets set` — never in Vercel |
 | Supabase secrets | `GITHUB_TOKEN` | Server-side imports |
 | Supabase Auth → GitHub provider | OAuth app client ID + secret (`supabase/.env` locally, the dashboard in the cloud — 02, "GitHub sign-in") | "Continue with GitHub", "Connect GitHub", and the token a replay export uses |
-| Supabase secrets | `LLM_API_KEY` | Optional; hints fall back to the rule table when empty |
+| Supabase secrets | `LLM_API_KEY` | Groq key, shared by hints and `analyze-help`. Optional: hints fall back to the rule table, and help analysis stores `failed`, when empty |
+| Supabase secrets | `LLM_MODEL` | Optional; default `openai/gpt-oss-20b` |
 | Supabase secrets | `APP_URL` | Used in QR codes, Telegram links, replay links |
 | Supabase (auto) | `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL` | Injected into Edge Functions; **never** sent to the client |
 | Function env | `EXTERNAL_APIS` | `live` \| `mock` — `mock` writes to `test_outbox` instead of calling out |

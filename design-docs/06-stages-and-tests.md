@@ -280,13 +280,13 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-DASH-01 | Initial snapshot loads for a running session | E2E | Tiles for all joined students |
-| T-DASH-02 | Summary counts match tiles | E2E | `session_summary` equals the computed counts |
-| T-DASH-03 | Filter by clicking a summary segment | E2E `@responsive` | Only that state's tiles shown |
-| T-DASH-04 | "Slow down" from 2 students | E2E | Slow-down count = 2; no tile shows who |
+| T-DASH-01 | Summary card loads for a running session | E2E | Counts for the joined students |
+| T-DASH-02 | Counts are what students clicked | Unit + DB | Done = Done on the latest checkpoint (even with an error since); help / check = open or claimed requests |
+| T-DASH-03 | ~~Filter by clicking a summary segment~~ | — | Removed: no per-student tiles to filter |
+| T-DASH-04 | "Slow down" from 2 students | E2E | Slow-down count = 2; nothing on the dashboard shows who |
 | T-DASH-05 | Student un-taps "Slow down" | E2E | Count decrements |
 | T-DASH-06 | TA (staff) can view dashboard; student cannot | RLS | TA gets tile rows; a student gets zero rows from `session_tiles` |
-| T-DASH-07 | Tiles show icon + label, not only colour | E2E | `data-state` + visible label text |
+| T-DASH-07 | ~~Tiles show icon + label~~ | — | Removed: no per-student tiles |
 
 ### ERRG — Error groups & Spotlight · `error-normalizer.test.js`, `spotlight.test.js`, `spotlight.spec.js`
 
@@ -301,6 +301,30 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-ERRG-07 | Excerpt anonymised | Unit | No student names, no comments, ≤ 30 lines |
 | T-ERRG-08 | Spotlight with no help snapshot | E2E | Error + fix only, with explanation to prof |
 | T-ERRG-09 | **Student invokes the `spotlight` function** | DB | `FORBIDDEN` — the function checks `is_course_prof` before using the service role |
+
+### AIH — Help request analysis · `analyze-help.test.js`
+
+| ID | Test | Layer | Expected |
+|---|---|:---:|---|
+| T-AIH-01 | Prompt has the checkpoint, the error, the student's code and the checkpoint region | Unit | All four present |
+| T-AIH-02 | Comment lines dropped, `TODO` kept | Unit | A name in a comment never reaches the prompt |
+| T-AIH-03 | Huge file | Unit | Prompt stays under the 6,000-character cap |
+| T-AIH-04 | Valid reply | Unit | Fields kept; `stuckAt.checkpoint` from the request, not the model |
+| T-AIH-05 | Unknown category, code block in `rootCause` | Unit | `other`; code block removed |
+| T-AIH-06 | Help request analysed | Unit | `analysis` saved with `model` and `analyzedAt` |
+| T-AIH-07 | "Check my work" request | Unit | Skipped; no LLM call |
+| T-AIH-08 | Provider 429 or non-JSON reply | Unit | `{ status: 'failed' }` saved; nothing thrown |
+| T-AIH-09 | `EXTERNAL_APIS=mock` | Unit | Prompt in `test_outbox` (`channel = 'llm'`); model never called |
+| T-AIH-20 | No error: only the files that differ from the reference are sent | Unit | A changed file reaches the model however many unchanged files there are |
+| T-AIH-21 | No error and code identical to the reference | Unit | Prompt says so; the model is told not to invent a mistake |
+| T-AIH-22 | Files left out of the prompt | Unit | Listed by name, so the model never assumes they're missing |
+| T-AIH-10 | Class summary grouping (`summarize-help.test.js`) | Unit | Students counted per `(checkpoint, category)` in code, biggest first |
+| T-AIH-11 | Prompt 2 | Unit | Each group's key and count listed; diagnoses treated as data |
+| T-AIH-12 | Prompt 2 reply | Unit | Model words on our groups; counts unchanged; skipped group keeps plain text |
+| T-AIH-13 | Caller is not session staff | Unit | `FORBIDDEN`, nothing read, no model call |
+| T-AIH-14 | Summary returned | Unit | `source: 'llm'`, true counts, `pendingCount` |
+| T-AIH-15 | Model fails or replies badly | Unit | `source: 'rules'`: the same groups with plain text |
+| T-AIH-16 | Dashboard panel (`help-summary-panel.test.js`) | Unit | Loads on open and on Refresh; shows headline, groups, pending count |
 
 ### CATCH — Catch-up · `catch-up.spec.js`, `stores/workspace.test.js`, `downloadProject.test.js`
 
@@ -428,7 +452,7 @@ Admins read everything and write only accounts. Most of these are negative tests
 | T-RESP-01 | Workspace at 375 px | E2E | Tabs Code/Preview/Terminal/Steps; **file tree is an offcanvas drawer**; sticky bottom bar; no horizontal scroll |
 | T-RESP-02 | Workspace at 1280 px | E2E | File tree rail + editor + preview, terminal docked below |
 | T-RESP-03 | Teach view at 375 px | E2E | Dashboard-first layout; editor behind tab |
-| T-RESP-04 | Teach view at 1280 px | E2E | Editor + plan + tile grid visible together |
+| T-RESP-04 | Teach view at 1280 px | E2E | Editor + checkpoints + class summary card visible together |
 | T-RESP-05 | No page has horizontal scroll at 375 px | E2E | `scrollWidth <= innerWidth` on every route |
 | T-RESP-06 | Landscape 667×375 workspace | E2E | Usable; bottom bar doesn't cover editor |
 

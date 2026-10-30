@@ -4,6 +4,7 @@
     const props = defineProps({
         // url the webcontainer's dev server gives us, empty until it's ready
         previewUrl: { type: String, default: "" },
+        switchable: { type: Boolean, default: false }, // show the code button at every size, e.g. the teach view
     })
 
     const emit = defineEmits(["show-editor"])
@@ -42,9 +43,10 @@
                         <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0z"/>
                     </svg>
                 </button>
-                <!-- below xl the editor isn't beside the preview, so this swaps back to it -->
+                <!-- below xl the editor isn't beside the preview, so this swaps back to it (always, when switchable) -->
                 <button
-                    class="toggle-btn d-xl-none"
+                    class="toggle-btn"
+                    :class="{ 'd-xl-none': !switchable }"
                     type="button"
                     title="Show code"
                     @click="emit('show-editor')"

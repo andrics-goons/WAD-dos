@@ -1,7 +1,5 @@
-// Hard-coded sample data for the prof-view wireframes. Nothing here is fetched:
-// the shapes only mimic what session_tiles / checkpoints / session_reports will return later.
-
-import { normalizeError } from '@shared/error-normalizer.js'
+// Hard-coded sample data for the report page, until session_reports has real data.
+// Nothing here is fetched: the shapes only mimic what session_reports will return later.
 
 export const lesson = {
   id: 'demo',
@@ -9,86 +7,6 @@ export const lesson = {
   course: 'IS216 · G2',
   joinCode: 'K7QX2M',
 }
-
-// the checkpoints the prof has saved so far, newest last
-export const checkpoints = [
-  { seq: 1, title: 'ItemCard props', savedAt: '10:12' },
-  { seq: 2, title: 'Emit add-to-cart', savedAt: '10:24' },
-  { seq: 3, title: null, savedAt: '10:31' },
-  { seq: 4, title: 'Handle the add event', savedAt: '10:40' },
-]
-
-// state: a TileState value from @shared/constants.js (error | in_progress | idle | done)
-const rawStudents = [
-  {
-    id: 1,
-    name: 'Aisha Rahman',
-    state: 'error',
-    error: { name: 'TypeError', message: "Cannot read properties of undefined (reading 'price')" },
-  },
-  {
-    id: 2,
-    name: 'Ben Tan',
-    state: 'error',
-    error: { name: 'TypeError', message: "Cannot read properties of undefined (reading 'price')" },
-  },
-  { id: 3, name: 'Chloe Lim', state: 'in_progress' },
-  { id: 4, name: 'Daniel Ong', state: 'in_progress' },
-  { id: 5, name: 'Eli Koh', state: 'in_progress' },
-  { id: 6, name: 'Farah Yusof', state: 'done' },
-  { id: 7, name: 'Gavin Teo', state: 'in_progress' },
-  {
-    id: 8,
-    name: 'Hana Seah',
-    state: 'error',
-    error: { name: 'ReferenceError', message: "'axios' is not defined" },
-  },
-  { id: 9, name: 'Ian Chua', state: 'in_progress' },
-  { id: 10, name: 'Jia Wen', state: 'idle' },
-  { id: 11, name: 'Kai Ng', state: 'in_progress' },
-  { id: 12, name: 'Lena Goh', state: 'in_progress' },
-  { id: 13, name: 'Marcus Wee', state: 'done' },
-  {
-    id: 14,
-    name: 'Nadia Pang',
-    state: 'error',
-    error: { name: 'TypeError', message: "Cannot read properties of undefined (reading 'price')" },
-  },
-  { id: 15, name: 'Owen Lee', state: 'in_progress' },
-  { id: 16, name: 'Priya Nair', state: 'idle' },
-  { id: 17, name: 'Quinn Sim', state: 'done' },
-  { id: 18, name: 'Ravi Menon', state: 'in_progress' },
-  { id: 19, name: 'Sara Ho', state: 'in_progress' },
-  { id: 20, name: 'Tom Yeo', state: 'in_progress' },
-  { id: 21, name: 'Uma Das', state: 'done' },
-  { id: 22, name: 'Victor Lau', state: 'idle' },
-  {
-    id: 23,
-    name: 'Wendy Chia',
-    state: 'error',
-    error: { name: 'SyntaxError', message: 'Unexpected token (14:8)', source: 'build' },
-  },
-  { id: 24, name: 'Xavier Ang', state: 'in_progress' },
-]
-
-// add the error fields session_tiles will have, using the same normalizeError the students' browsers will run
-export const students = rawStudents.map(({ error, ...s }) => {
-  const { key, shapeKey } = error ? normalizeError(error) : {}
-  return {
-    ...s,
-    studentId: s.id,
-    note: error?.message ?? '',
-    errorKey: key ?? null,
-    errorShapeKey: shapeKey ?? null,
-    errorSource: error ? (error.source ?? 'runtime') : null,
-    errorPreview: error?.message ?? null,
-    lastSeenAt: '2026-10-17T10:00:00Z',
-  }
-})
-
-export const slowDownCount = 3
-
-// no fake error groups here, TeachView works them out from the students with groupErrors()
 
 export const report = {
   attended: 24,

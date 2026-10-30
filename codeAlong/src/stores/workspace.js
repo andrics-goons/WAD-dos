@@ -1,12 +1,14 @@
-import { ref, computed } from 'vue'
+import { ref, computed, toRaw } from 'vue'
 import { defineStore } from 'pinia'
 import { writeToContainer, debounceByPath } from '@/runtime/sync'
 import { getWebContainer } from '@/runtime/webcontainer'
 import { findMyAutosave } from '@/api/files.api'
 import { loadFiles } from '@/cache/files.js'
 import { createAutosave } from '@/cache/autosave.js'
+import { idbGet, idbSet } from '@/cache/idb.js'
 import { useAuthStore } from '@/stores/auth'
 import { useSessionStore } from '@/stores/session'
+import { useStatusStore } from '@/stores/status'
 
 const syncEdit = debounceByPath(async (path, content) => {
     // runs on a timer, so nothing else would catch a failure: log it instead of an unhandled rejection
@@ -35,9 +37,13 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     // which reads a file's code only when it opens, shows the new code
     const filesVersion = ref(0)
 
+    // From the terminal's error reader: a parsed build or runtime error, or null when the dev
+    // server compiles again (every hmr update, so on most keystrokes). The status store skips a
+    // repeat of the same error and a clear when there's nothing to clear, so neither writes again.
     function reportError (err) {
-      // FOR EVAN
-      // MAKE SURE IT HANDLES IF reportError(null) so that it doesnt constantly run reportError null on every single keystroke
+        const status = useStatusStore()
+        if (err) status.setError(err)
+        else status.clearError()
     }
 
     // computed so view can vmodel it
@@ -80,6 +86,36 @@ export const useWorkspaceStore = defineStore('workspace', () => {
             onStatus: (status) => (saveStatus.value = status),
         })
     }
+    // The prof's editor (TeachView): my unsaved work from this browser if I refreshed,
+    // otherwise the latest checkpoint, or the starter files before the first one.
+    // Saved only to this browser: Save checkpoint is what sends it to the class.
+    async function loadForTeaching(sessionId) {
+        await close()
+        const auth = useAuthStore()
+        const [session] = await Promise.all([useSessionStore().open(sessionId), auth.ensureLoaded()])
+        const key = `draft:${auth.user.id}:${sessionId}`
+        const checkpoint = session.latest_checkpoint
+        files.value = (await idbGet(key))
+            ?? (checkpoint
+                ? await loadFiles('checkpoint', checkpoint.id, checkpoint.files_hash)
+                : await loadFiles('lesson', session.lesson_id, session.lesson.files_hash))
+        selectedFile.value = session.lesson.entry_file
+        // same shape as autosave's saver, so selectedCode and close() work unchanged
+        let timer = null
+        const save = () => {
+            clearTimeout(timer)
+            return idbSet(key, structuredClone(toRaw(files.value)))
+        }
+        saver = {
+            autosave: () => {
+                clearTimeout(timer)
+                timer = setTimeout(save, 1000)
+            },
+            flush: save,
+            stop: save,
+        }
+    }
+
     // "Load latest checkpoint" (design-docs/05 §7): replace my code with the prof's latest
     // checkpoint. The workspace asks first and offers a download; after this my old code is gone,
     // because the autosave row is overwritten too. Returns whether package.json changed, since the
@@ -119,6 +155,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
     return {
         files, filePaths, selectedFile, selectedCode, saveStatus, filesVersion,
-        load, close, loadLatestCheckpoint,
+        load, loadForTeaching, close, loadLatestCheckpoint, reportError,
     }
 })

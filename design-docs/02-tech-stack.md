@@ -85,7 +85,7 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   ├── components/
 │   │   ├── ui/                  ← AppNavbar, AppToast, ConfirmModal, EmptyState, StatusPill (Ying Qi)
 │   │   ├── workspace/           ← CodeEditor, FileTabs, PreviewFrame, ConsolePanel, DoneButton (Dylan); FileTree (Ray Yien)
-│   │   ├── dashboard/           ← StudentTile, TileGrid, ErrorGroupList, ClassSummaryBar (Evan)
+│   │   ├── dashboard/           ← ClassChoices, ErrorGroupList, HelpSummaryPanel (Evan)
 │   │   ├── lesson/              ← LessonLibrary, StarterUpload (Evan)
 │   │   ├── session/             ← CheckpointToast, ConnectionPill, AnnouncementBanner, AnnounceInput (Karin); JoinCodeCard, QrDisplay (Evan)
 │   │   ├── help/                ← HelpQueue, HelpRequestCard, SideBySideView (Karin)
@@ -234,10 +234,10 @@ Useful for the "explain how you used JS/Vue/CSS" part of the video.
 | Concept | Where we use it |
 |---|---|
 | Vue reactivity (`ref`, `reactive`) | Workspace file buffers, dashboard tiles |
-| `computed` | Tile counts per state, filtered tiles, error groups, progress %, changed-line counts in the replay diff |
+| `computed` | Class summary counts, error groups, progress %, changed-line counts in the replay diff |
 | `watch` | Autosave debounce on editor changes; re-run preview when files change |
-| Components, props, emits | `StudentTile` (props: tile) → emits `select`; `CodeEditor` emits `update:modelValue`, `save` |
-| `v-for`, `v-if`, `v-model`, `:class` | Tile grid, filter chips, checkpoint list, state colours |
+| Components, props, emits | `ClassChoices` (props: summary); `ErrorGroupList` (props: groups) → emits `spotlight`; `CodeEditor` emits `update:modelValue`, `save` |
+| `v-for`, `v-if`, `v-model`, `:class` | Class summary card, checkpoint list, error groups, state colours |
 | Lifecycle hooks | `onMounted` subscribes to the session channel; `onBeforeUnmount` unsubscribes and clears timers |
 | Vue Router + guards | Role-guarded routes (`meta.roles`), `/join/:code` deep link from QR |
 | Pinia | Shared session state between editor, toolbar, console and checkpoint list |
@@ -246,7 +246,7 @@ Useful for the "explain how you used JS/Vue/CSS" part of the video.
 | Relational data + SQL | Tables, joins, foreign keys, partial unique indexes, aggregate views, RLS policies |
 | DOM events / `postMessage` | Sandbox iframe ↔ parent communication |
 | `localStorage` | Supabase session storage (by the client library) + remembered editor font size and last-open file |
-| Bootstrap grid + breakpoints | Workspace 3 panes (lg+) → tabs (< md); tile grid columns per breakpoint |
+| Bootstrap grid + breakpoints | Workspace 3 panes (lg+) → tabs (< md); class summary card 2 → 4 columns per breakpoint |
 
 ---
 

@@ -1,0 +1,488 @@
+<!doctype html>
+<!-- Test page for scripts/try-analyze-help.mjs --serve (not part of the app). -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Help analysis test bench</title>
+    <style>
+      :root {
+        --bg: #f8fafc;
+        --surface: #fff;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
+        --brand: #4f46e5;
+        --brand-subtle: #eef2ff;
+        --danger: #b91c1c;
+        --danger-bg: #fee2e2;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          15px/1.5 system-ui,
+          sans-serif;
+      }
+      header {
+        padding: 16px 24px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      header h1 {
+        margin: 0;
+        font-size: 18px;
+      }
+      header p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 20px;
+        padding: 20px 24px;
+      }
+      @media (max-width: 900px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+      }
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+      }
+      .panel h2 {
+        margin: 0 0 12px;
+        font-size: 15px;
+      }
+      label {
+        display: block;
+        margin: 10px 0 4px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 7px 9px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font: inherit;
+        background: #fff;
+      }
+      textarea {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        line-height: 1.5;
+        min-height: 190px;
+        resize: vertical;
+        white-space: pre;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 90px;
+        gap: 8px;
+      }
+      .check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+        font-size: 13px;
+      }
+      .check input {
+        width: auto;
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 12.5px;
+        margin: 4px 0 0;
+      }
+      button {
+        margin-top: 16px;
+        padding: 9px 18px;
+        border: 0;
+        border-radius: 6px;
+        background: var(--brand);
+        color: #fff;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: progress;
+      }
+      .wide {
+        grid-column: 1 / -1;
+      }
+      .buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .buttons button {
+        margin-top: 8px;
+      }
+      button.secondary {
+        background: #fff;
+        color: var(--text);
+        border: 1px solid #cbd5e1;
+      }
+      .group {
+        display: flex;
+        gap: 12px;
+        padding: 12px 0;
+        border-top: 1px solid var(--border);
+      }
+      .count {
+        flex: none;
+        min-width: 2rem;
+        height: 2rem;
+        display: grid;
+        place-items: center;
+        border-radius: 6px;
+        background: var(--danger-bg);
+        color: var(--danger);
+        font-weight: 700;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 12.5px;
+      }
+      .empty {
+        color: var(--muted);
+      }
+      .summary {
+        font-size: 17px;
+        font-weight: 600;
+        margin: 0 0 10px;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 14px;
+      }
+      .chip {
+        padding: 2px 10px;
+        border-radius: 999px;
+        background: var(--brand-subtle);
+        color: var(--brand);
+        font-size: 12.5px;
+        font-weight: 600;
+      }
+      .chip.grey {
+        background: #f1f5f9;
+        color: var(--muted);
+      }
+      .cause {
+        margin: 0;
+        white-space: pre-wrap;
+      }
+      .error {
+        padding: 10px 12px;
+        border-radius: 6px;
+        background: var(--danger-bg);
+        color: var(--danger);
+        white-space: pre-wrap;
+        font-size: 13px;
+      }
+      details {
+        margin-top: 16px;
+      }
+      summary {
+        cursor: pointer;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      pre {
+        margin: 8px 0 0;
+        padding: 10px;
+        overflow: auto;
+        max-height: 360px;
+        background: #f1f5f9;
+        border-radius: 6px;
+        font: 12px/1.5 var(--mono);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Help analysis test bench</h1>
+      <p>
+        Edit a stuck student's code, then click Analyse. This runs the same prompt and checks as the
+        <code>analyze-help</code> Edge Function. Each click uses one Groq request (about 1,000 free
+        a day).
+      </p>
+    </header>
+
+    <main>
+      <section class="panel" aria-labelledby="input-heading">
+        <h2 id="input-heading">The student's help request</h2>
+
+        <label for="example">Start from an example</label>
+        <select id="example"></select>
+
+        <label for="step">Step the student is on</label>
+        <input id="step" />
+
+        <label for="err-message">Error the student sees</label>
+        <input id="err-message" placeholder="Leave empty if nothing crashes" />
+        <div class="row">
+          <div>
+            <label for="err-name">Error type</label>
+            <input id="err-name" placeholder="TypeError" />
+          </div>
+          <div>
+            <label for="err-file">In file</label>
+            <input id="err-file" placeholder="src/App.vue" />
+          </div>
+          <div>
+            <label for="err-line">Line</label>
+            <input id="err-line" type="number" min="1" />
+          </div>
+        </div>
+
+        <div class="check">
+          <input id="use-checkpoint" type="checkbox" checked />
+          <label for="use-checkpoint" style="margin: 0; font-weight: 400">
+            Compare with the prof's checkpoint (the working Mini Cart)
+          </label>
+        </div>
+
+        <div id="files"></div>
+
+        <button id="analyse" type="button">Analyse</button>
+      </section>
+
+      <section class="panel" aria-labelledby="output-heading" aria-live="polite">
+        <h2 id="output-heading">What the prof would see</h2>
+        <div id="output"><p class="empty">Click Analyse to get a diagnosis.</p></div>
+        <details id="prompt-box" hidden>
+          <summary>Prompt sent to the model</summary>
+          <pre id="prompt"></pre>
+        </details>
+      </section>
+
+      <section class="panel wide" aria-labelledby="class-heading" aria-live="polite">
+        <h2 id="class-heading">Pipeline 2: what the class is stuck on (the prof's dashboard)</h2>
+        <p class="hint">
+          Every diagnosis above is collected here as one "student". Summarise them the way the
+          dashboard does, or use a ready-made class of 12 students.
+          <span id="collected">0 students collected.</span>
+        </p>
+        <div class="buttons">
+          <button id="summarise" type="button" disabled>Summarise these students</button>
+          <button id="sample" type="button" class="secondary">
+            Use a sample class (12 students)
+          </button>
+          <button id="clear" type="button" class="secondary">Clear</button>
+        </div>
+        <div id="class-output"></div>
+        <details id="class-prompt-box" hidden>
+          <summary>Prompt sent to the model</summary>
+          <pre id="class-prompt"></pre>
+        </details>
+      </section>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id)
+      let examples = {}
+      let collected = [] // part 1 results from this page, one per "student"
+
+      function showCollected() {
+        const n = collected.length
+        $('collected').textContent = `${n} ${n === 1 ? 'student' : 'students'} collected.`
+        $('summarise').disabled = n === 0
+      }
+
+      // Same layout as the dashboard's "What the class is stuck on" panel
+      function showSummary(s) {
+        const out = $('class-output')
+        out.replaceChildren()
+        $('class-prompt').textContent = s.prompt ?? ''
+        $('class-prompt-box').hidden = !s.prompt
+        if (s.error) return out.append(el('div', 'error', `Couldn't summarise: ${s.error}`))
+
+        const who =
+          s.source === 'llm'
+            ? `Summarised by AI (${s.model})`
+            : 'AI summary unavailable: plain text from the diagnoses'
+        out.append(
+          el('p', 'summary', s.headline),
+          el('p', 'meta', `${who} · ${s.ms} ms · from ${s.analysedCount} help requests`),
+        )
+        for (const g of s.groups) {
+          const row = el('div', 'group')
+          const body = el('div')
+          body.append(
+            el('div', 'summary', g.title),
+            el('div', 'meta', `Step ${g.stepOrder}: ${g.stepTitle} · ${g.category}`),
+            el('p', 'cause', g.explanation),
+          )
+          if (g.teachingTip) body.append(el('p', 'cause', `💡 ${g.teachingTip}`))
+          row.append(el('span', 'count', String(g.count)), body)
+          out.append(row)
+        }
+      }
+
+      async function summarise(useSample) {
+        const buttons = [$('summarise'), $('sample')]
+        buttons.forEach((b) => (b.disabled = true))
+        $('class-output').replaceChildren(el('p', 'empty', 'Summarising…'))
+        try {
+          const res = await fetch('/summarise', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(useSample ? { useSample: true } : { analyses: collected }),
+          })
+          showSummary(await res.json())
+        } catch (err) {
+          showSummary({ error: `the test server isn't responding (${err.message})` })
+        } finally {
+          $('sample').disabled = false
+          showCollected()
+        }
+      }
+
+      // Builds an element with text only: model output is never inserted as HTML
+      function el(tag, className, text) {
+        const node = document.createElement(tag)
+        if (className) node.className = className
+        if (text !== undefined) node.textContent = text
+        return node
+      }
+
+      function showFiles(files) {
+        const box = $('files')
+        box.replaceChildren()
+        files.forEach((f, i) => {
+          const label = el('label', '', f.path)
+          label.htmlFor = `file-${i}`
+          const area = el('textarea')
+          area.id = `file-${i}`
+          area.dataset.path = f.path
+          area.spellcheck = false
+          area.value = f.content
+          box.append(label, area)
+        })
+      }
+
+      function loadExample(name) {
+        const ex = examples[name]
+        $('err-message').value = ex.error?.message ?? ''
+        $('err-name').value = ex.error?.name ?? ''
+        $('err-file').value = ex.error?.file ?? ''
+        $('err-line').value = ex.error?.line ?? ''
+        showFiles(ex.files)
+      }
+
+      function showResult(r) {
+        const out = $('output')
+        out.replaceChildren()
+        $('prompt').textContent = r.prompt ?? ''
+        $('prompt-box').hidden = !r.prompt
+
+        if (!r.ok) {
+          out.append(
+            el(
+              'div',
+              'error',
+              `Couldn't analyse: ${r.error}${r.raw ? `\n\nRaw reply:\n${r.raw}` : ''}`,
+            ),
+          )
+          return
+        }
+        const a = r.analysis
+        // every diagnosis becomes one "student" for pipeline 2
+        collected.push({ stepOrder: a.stuckAt.step, stepTitle: $('step').value, analysis: a })
+        showCollected()
+        const where = [a.stuckAt.file, a.stuckAt.line].filter(Boolean).join(':') || 'unknown place'
+        const chips = el('div', 'chips')
+        chips.append(
+          el('span', 'chip', a.category),
+          el('span', 'chip grey', `confidence: ${a.confidence}`),
+          el('span', 'chip grey', `step ${a.stuckAt.step} · ${where}`),
+          el('span', 'chip grey', `${r.ms} ms · ${r.model}`),
+        )
+        out.append(
+          el('p', 'summary', a.summary),
+          chips,
+          el('h2', '', 'Root cause'),
+          el('p', 'cause', a.rootCause),
+        )
+      }
+
+      async function analyse() {
+        const button = $('analyse')
+        button.disabled = true
+        button.textContent = 'Analysing…'
+        try {
+          const res = await fetch('/analyse', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              stepTitle: $('step').value,
+              useCheckpoint: $('use-checkpoint').checked,
+              error: {
+                name: $('err-name').value,
+                message: $('err-message').value,
+                file: $('err-file').value,
+                line: $('err-line').value,
+              },
+              files: [...document.querySelectorAll('#files textarea')].map((t) => ({
+                path: t.dataset.path,
+                content: t.value,
+              })),
+            }),
+          })
+          showResult(await res.json())
+        } catch (err) {
+          showResult({
+            ok: false,
+            error: `the test server isn't responding (${err.message}). Is it still running?`,
+          })
+        } finally {
+          button.disabled = false
+          button.textContent = 'Analyse'
+        }
+      }
+
+      async function start() {
+        const data = await (await fetch('/examples')).json()
+        examples = data.examples
+        $('step').value = data.step.title
+        for (const [name, ex] of Object.entries(examples)) {
+          const option = el('option', '', `${name}: ${ex.about}`)
+          option.value = name
+          $('example').append(option)
+        }
+        $('example').addEventListener('change', (e) => loadExample(e.target.value))
+        $('analyse').addEventListener('click', analyse)
+        $('summarise').addEventListener('click', () => summarise(false))
+        $('sample').addEventListener('click', () => summarise(true))
+        $('clear').addEventListener('click', () => {
+          collected = []
+          showCollected()
+          $('class-output').replaceChildren()
+          $('class-prompt-box').hidden = true
+        })
+        loadExample(Object.keys(examples)[0])
+      }
+
+      start()
+    </script>
+  </body>
+</html>

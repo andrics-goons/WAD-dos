@@ -1,40 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import ClassSummaryBar from '@/components/dashboard/ClassSummaryBar.vue'
 import ErrorGroupList from '@/components/dashboard/ErrorGroupList.vue'
-
-describe('ClassSummaryBar', () => {
-  const props = { counts: { error: 3, in_progress: 2, done: 5 }, total: 10, slowDownCount: 2 }
-
-  it('T-DASH-03: clicking a summary segment asks to filter by that state', async () => {
-    const wrapper = mount(ClassSummaryBar, { props })
-    await wrapper.find('[data-testid="summary-error"]').trigger('click')
-    await wrapper
-      .findAll('button')
-      .find((b) => b.text().includes('All'))
-      .trigger('click')
-    expect(wrapper.emitted('filter')).toEqual([['error'], ['all']])
-  })
-
-  it('shows the count for each state and marks the active one', () => {
-    const wrapper = mount(ClassSummaryBar, { props: { ...props, active: 'in_progress' } })
-    const inProgress = wrapper.find('[data-testid="summary-in_progress"]')
-    expect(inProgress.text()).toContain('2')
-    expect(inProgress.classes()).toContain('active')
-    expect(wrapper.find('[data-testid="summary-done"]').classes()).not.toContain('active')
-  })
-
-  it('T-DASH-04: shows how many asked to slow down, as a number only', () => {
-    const wrapper = mount(ClassSummaryBar, { props })
-    expect(wrapper.find('[data-testid="slow-down-count"]').text()).toContain('2')
-  })
-
-  it('colours the chips with the kit state classes, not inline styles', () => {
-    const chip = mount(ClassSummaryBar, { props }).find('[data-testid="summary-error"]')
-    expect(chip.classes()).toContain('ca-state--error')
-    expect(chip.attributes('style')).toBeUndefined()
-  })
-})
 
 describe('ErrorGroupList', () => {
   const group = {
