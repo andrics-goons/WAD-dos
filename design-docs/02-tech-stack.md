@@ -87,7 +87,7 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   │   ├── workspace/           ← CodeEditor, FileTabs, PreviewFrame, ConsolePanel, DoneButton (Dylan); FileTree (Ray Yien)
 │   │   ├── dashboard/           ← ClassChoices, ErrorGroupList, HelpSummaryPanel (Evan)
 │   │   ├── lesson/              ← LessonLibrary, StarterUpload (Evan)
-│   │   ├── session/             ← CheckpointToast, ConnectionPill, AnnouncementBanner, AnnounceInput (Karin); JoinCodeCard, QrDisplay (Evan)
+│   │   ├── session/             ← AnnouncementBanner (Karin); JoinCodeCard, QrDisplay (Evan)
 │   │   ├── help/                ← HelpQueue, HelpRequestCard, SideBySideView (Karin)
 │   │   ├── replay/              ← CheckpointTimeline, DiffView, NoteEditor (Ray Yien)
 │   │   └── insights/            ← CheckpointFunnelChart, TopErrorsTable (Evan)

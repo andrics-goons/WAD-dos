@@ -216,7 +216,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-SESS-04 | Non-enrolled user joins | E2E | "You're not in this course" |
 | T-SESS-05 | Wrong / ended code | E2E | "No live class with that code" |
 | T-SESS-06 | Checkpoint broadcast to 3 students | E2E | All 3 see the toast + the new checkpoint (and its title) within 2 s, and their status is back to In progress |
-| T-SESS-07 | Student reconnects (go offline → online) | E2E | Pill shows Reconnecting… then Live; status re-read; checkpoint missed while offline is shown |
+| T-SESS-07 | Student reconnects (go offline → online) | E2E | Status re-read after reconnecting; checkpoint missed while offline is shown |
 | T-SESS-08 | Two quick checkpoint saves | DB | Distinct `seq` 1, 2 — the unique index plus the RPC retry |
 | T-SESS-09 | **Realtime subscribe without a session** | RLS | Anon client cannot subscribe to `session:<id>`; no messages received |
 | T-SESS-10 | **Subscribe to another course's session channel** | RLS | Rejected by the `realtime.messages` policy |

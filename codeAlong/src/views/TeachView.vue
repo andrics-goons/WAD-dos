@@ -219,9 +219,6 @@ onBeforeUnmount(() => {
         <div class="me-auto overflow-hidden">
           <div class="fw-semibold text-truncate">{{ live.session.lesson.title }}</div>
         </div>
-        <span class="ca-pill ca-pill--sm ca-state--done text-uppercase">
-          <i class="bi bi-circle-fill" />Live
-        </span>
         <span class="small text-body-secondary"
           >{{ live.present.length }} joined · {{ elapsed }}</span
         >
