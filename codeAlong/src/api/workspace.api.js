@@ -40,3 +40,29 @@ export async function saveStatus(sessionId, studentId, { doneSeq, error }) {
     )
   if (dbError) throw mapError(dbError)
 }
+
+// "Slow down": whether I've asked the prof to slow down in this class. Only I can read my
+// flag; staff only ever get the count (design-docs/09 §5).
+export async function getMySlowDown(sessionId) {
+  const { data, error } = await supabase
+    .from('slow_down_flags')
+    .select('session_id')
+    .eq('session_id', sessionId)
+    .maybeSingle()
+  if (error) throw mapError(error)
+  return data !== null
+}
+
+// Raise (on) or clear my flag. Raising it twice is harmless: the second insert is ignored.
+export async function setSlowDown(sessionId, studentId, on) {
+  const { error } = on
+    ? await supabase
+        .from('slow_down_flags')
+        .insert({ session_id: sessionId, student_id: studentId })
+    : await supabase
+        .from('slow_down_flags')
+        .delete()
+        .eq('session_id', sessionId)
+        .eq('student_id', studentId)
+  if (error && error.code !== '23505') throw mapError(error)
+}

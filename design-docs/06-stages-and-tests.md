@@ -16,7 +16,7 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | 7 | Help flow | Week 10 | Check my work → pass/reply; Ask for help → claim/resolve; **a replied request can be followed up**; Telegram ping (mock in tests) |
 | 8 | Replay & GitHub | Week 11 | Replay steps through all checkpoints; notes/bookmarks; import + export (one commit per checkpoint) |
 | 9 | Error groups & Spotlight | Week 11 | Grouping matches unit-test expectations; Spotlight shows an anonymised excerpt to everyone |
-| 10 | Insights | Week 11 | Report written by the `end-session` function; trouble score + trends; digest sent (mock in tests) |
+| 10 | Insights | Week 11 | Report built in SQL when the class ends; trouble score + trends; digest sent (mock in tests) |
 | 11 | Hardening | Week 11–12 | Validation + error states everywhere; responsive pass 375 → 1440 px; load test 40 students passes **inside the Realtime free-tier cap** |
 | 12 | Demo ready | Week 12 | Fresh clone → README steps → `db:reset` → all E2E green → deployed URL works (incl. the `/join/:code` deep link) → keep-alive scheduled → video recorded |
 
@@ -398,16 +398,16 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-GH-05 | Repo name taken (422) | E2E | UI asks for another name |
 | T-GH-06 | **Token never persisted in our schema** | DB | No GitHub token in any row of any `public` table after an export |
 
-### INS — Insights · `report-builder.test.js`, `insights.spec.js`
+### INS — Insights · `rls/session_report.test.js`, `digest-function.test.js`, `views/ReportView.test.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-INS-01 | `reachedDone` and `dropOff` from fixture histories | Unit | Match hand-computed values |
-| T-INS-02 | Trouble score formula | Unit | Matches expected ranking |
-| T-INS-03 | Recurring trouble across 2 seeded past sessions | Unit | Step flagged |
-| T-INS-04 | Report written when the session ends | E2E | Page polls, then shows funnel + top errors |
+| T-INS-01 | `reachedDone` and `dropOff` from a class run through the RPCs | DB | Match hand-computed values |
+| T-INS-02 | Trouble score formula | DB | Matches expected ranking |
+| T-INS-03 | Recurring trouble across 2 past sessions | DB | Checkpoint listed by `lesson_trends`, matched by title |
+| T-INS-04 | Report written when the session ends | DB | No row while live; a row as soon as `end_session` returns |
 | T-INS-05 | Report has no per-student data | DB | No `student_id` anywhere in the row |
-| T-INS-06 | Digest to TAs and absent students | E2E | `test_outbox`: TA summary + messages only to linked, absent students |
+| T-INS-06 | Digest to staff and absent students | Unit | `test_outbox`: TA summary + messages only to linked, absent students |
 | T-INS-07 | Student reads a report | RLS | Zero rows |
 | T-INS-08 | **Trends stay inside one prof's courses** | DB | With two profs teaching a same-titled lesson, each prof's `lesson_trends` includes only their own sessions |
 

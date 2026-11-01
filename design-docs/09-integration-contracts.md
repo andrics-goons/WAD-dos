@@ -19,7 +19,6 @@ shared/
 ├── diff-summary.js      ← Ray Yien
 ├── spotlight.js         ← Evan (excerpt + anonymise)
 ├── build-error.js       ← Dylan (strips the code frame before normalising)
-├── report-builder.js    ← Andric
 └── join-code.js         ← Ying Qi
 ```
 
@@ -281,7 +280,7 @@ This is the section the architecture change affects most. Previously three of th
 | A student cannot forge their tile state | There is **no** `state` column. `session_tiles` derives it in SQL from `done_seq`, `error`, `last_seen_at` and the session's `checkpoint_seq` | T-STAT-09 |
 | Notes are private to the author (admins excepted) | `notes` policies keyed on `user_id = auth.uid()` | T-PRIV-05 |
 | **Admins read, but write only accounts** | One `admin reads all` `select` policy per table; no admin policy for any other command; admin writes only through the admin functions | T-ADM-* |
-| Reports contain counts only | `session_reports` built by the `end-session` function from aggregates; no `student_id` anywhere in the row | T-INS-05 |
+| Reports contain counts only | `session_reports` built by `build_session_report` (SQL, on end) from aggregates; no `student_id` anywhere in the row | T-INS-05 |
 | No keystroke logging | Client writes `student_status` only on change + a 30 s heartbeat | Code review |
 | **A build error's code frame never leaves the browser** | `parseBuildError()` in `shared/build-error.js` keeps only `{ name, message, file, line }` and drops every code-frame line *before* `normalizeError()` runs. Truncating to `ERROR_MESSAGE_MAX` is not sufficient — 300 chars of a code frame is still code | T-PRIV-09 |
 | Terminal output is never transmitted | `pnpm install` / dev-server output renders locally only; nothing writes it to Postgres | Code review |
@@ -391,8 +390,9 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `fn('spotlight')` | Evan | Teach view | `{ sessionId, errorKey, helpRequestId? } → { excerpt, fix, errorPreview }` |
 | `fn('analyze-help')` | Evan | `analyze_help_request` trigger (not the client) | `{ requestId } → { saved: 'ok' \| 'failed' } \| { skipped }` — writes `help_requests.analysis` |
 | `fn('summarize-help')` | Evan | Teach view (`dashboard.api` `getHelpSummary`) | `{ sessionId } → { headline, groups: [{ key, stepOrder, stepTitle, category, count, title, explanation, teachingTip }], analysedCount, pendingCount, source: 'llm' \| 'rules' \| 'none', model, generatedAt }`; `FORBIDDEN` unless session staff |
-| `fn('digest')` | Andric (content) / Karin (send) | Report view (Evan) | `{ sessionId, audience: ['tas','absent'] } → { sent, failed }` |
-| `buildReport` | Andric | `end-session` function, seed | `(rows) => sessionReport` |
+| `fn('digest')` | Andric (content) / Karin (send) | Report view (Evan) | `{ sessionId } → { sent, failed, staff, absent }`; `FORBIDDEN` unless the course prof, `CONFLICT` while live, once sent, or with nobody linked |
+| `rpc('lesson_trends')` | Andric | Report view | `(p_lesson_id) → [{ title, sessions, of_sessions, avg_drop_off }]`, only the caller's own courses |
+| `getReport` | Andric | Report view | `(sessionId) → { session: { id, status, startedAt, endedAt, lessonId, lessonTitle, courseLabel }, report \| null, help: { total, leftOpen, medianWaitMinutes }, isProf }` |
 
 ---
 
@@ -420,7 +420,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Dashboard | `summary-done`, `slow-down-count`, `error-group-<index>`, `btn-spotlight-<index>`, `spotlight-panel`, `help-summary`, `help-summary-headline`, `help-summary-group-<index>`, `btn-refresh-help-summary` |
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |
 | Replay | `timeline-checkpoint-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
-| Reports | `report-funnel`, `report-top-errors`, `btn-send-digest` |
+| Reports | `report-funnel`, `report-top-errors`, `btn-send-digest`, `digest-sent` |
 | Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login`, `btn-github-login`, `link-register`, `link-login` |
 | Profile | `input-profile-name`, `btn-save-name`, `input-current-password`, `input-new-password`, `btn-change-password`, `btn-logout`, `btn-connect-github`, `btn-disconnect-github`, `github-username` |
 | Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `input-user-search` |

@@ -66,7 +66,6 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   ├── tile-state.js            ← Evan — classify(), must agree with Andric's session_tiles SQL
 │   ├── diff-summary.js          ← Ray Yien
 │   ├── spotlight.js             ← Evan — excerpt + anonymise
-│   ├── report-builder.js        ← Andric
 │   └── join-code.js             ← Ying Qi
 │
 ├── src/                         ← the Vue app
@@ -122,8 +121,7 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   │   ├── github-import/       ← Ray Yien
 │   │   ├── github-export/       ← Ray Yien — one commit per checkpoint
 │   │   ├── spotlight/           ← Evan — anonymised excerpt
-│   │   ├── end-session/         ← Andric — builds the report (invoked by DB webhook)
-│   │   ├── digest/              ← Andric content, Karin send
+│   │   ├── digest/              ← Andric — after-class Telegram digest (the report itself is built in SQL)
 │   │   ├── hint/                ← Karin (COULD)
 │   └── seed.sql                 ← demo data (07-seed-and-demo.md); applied by `supabase db reset`
 │

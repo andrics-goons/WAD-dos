@@ -741,13 +741,15 @@ T-PRIV-05 passes by construction — a note belonging to someone else is not a 4
 | `session_id` | `uuid` PK → `sessions` on delete cascade | One per ended session |
 | `course_id`, `lesson_id` | `uuid` | For cross-term trends |
 | `attendance` | `jsonb` | `{ joined, enrolled }` |
-| `checkpoints` | `jsonb` | Per-checkpoint funnel — see [05](./05-core-logic.md#10-insights-report): `[{ seq, title, reachedDone, dropOff, errorStudents, medianMinutesToDone, catchUps, helpRequests, trouble }]` (the shape `seed.sql` writes and `buildReport` must produce) |
+| `checkpoints` | `jsonb` | Per-checkpoint funnel — see [05](./05-core-logic.md#10-insights-report): `[{ seq, title, reachedDone, dropOff, errorStudents, medianMinutesToDone, catchUps, helpRequests, trouble }]` (the shape `seed.sql` writes and `build_session_report` produces). `catchUps` is always 0: catching up is download-and-replace, with nothing recorded |
 | `top_errors` | `jsonb` | Top 5, counts only: `[{ key, students, seq }]` |
 | `slow_down_peak` | `int` | Max simultaneous "Slow down" |
 | `generated_at` | `timestamptz default now()` | |
 | `digest` | `jsonb` | `{ sentAt, recipients }` — counts only |
 
-Written by the `end-session` Edge Function (triggered by a Database Webhook when `sessions.status` becomes `ended`). The report page polls until the row exists.
+Written in SQL, the moment the class ends: an `after update of status` trigger on `sessions` (`report_on_end`, only when `live` → `ended`) calls `build_session_report(sid)`, which counts from `student_status`, `status_history`, `checkpoints`, `help_requests` and `slow_down_events` and upserts the row (keeping `digest`). `build_session_report` is `security definer` with execute revoked from every client role, so nobody can write a report by hand. If building fails, the trigger raises a warning and the class still ends. The only other write is the `digest` Edge Function setting `digest` with the service role.
+
+`lesson_trends(p_lesson_id)` (`security definer`, staff of the lesson's course) returns `(title, sessions, of_sessions, avg_drop_off)`: checkpoints among the top 3 by trouble in at least two of the **caller's own** classes of this lesson (or a same-titled lesson in a same-code course). See [05 §10](./05-core-logic.md#10-insights-report).
 
 `session_id → sessions` on delete cascade; `course_id → courses` and `lesson_id → lessons` for trends. `attendance` is required; `checkpoints` and `top_errors` default to `[]`, `slow_down_peak` to 0. Index `(course_id, lesson_id)` for trends.
 
@@ -771,7 +773,7 @@ The policy checks the **session**, not the row's `course_id`, so it can never di
 | `delta` | `smallint not null check (delta in (1, -1))` |
 | `at` | `timestamptz not null default now()` |
 
-**No `student_id`.** Its only policy is `admin reads all`: even anonymous timestamps, next to the live dashboard, could hint at who tapped. Staff and the `end-session` function get the number from `session_slow_down_peak(sid)` — a `security definer` running sum, the peak for staff and admins, `null` for anyone else.
+**No `student_id`.** Its only policy is `admin reads all`: even anonymous timestamps, next to the live dashboard, could hint at who tapped. Staff and `build_session_report` get the number from `session_slow_down_peak(sid)` — a `security definer` running sum, the peak for staff and admins, `null` for anyone else.
 
 ## test_outbox (local + test only)
 

@@ -2,9 +2,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useStatusStore } from '@/stores/status'
-import { getMyStatus, saveStatus } from '@/api/workspace.api'
+import { getMySlowDown, getMyStatus, saveStatus, setSlowDown } from '@/api/workspace.api'
 
-vi.mock('@/api/workspace.api', () => ({ getMyStatus: vi.fn(), saveStatus: vi.fn() }))
+vi.mock('@/api/workspace.api', () => ({
+  getMyStatus: vi.fn(),
+  saveStatus: vi.fn(),
+  getMySlowDown: vi.fn(),
+  setSlowDown: vi.fn(),
+}))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ user: { id: 'u1' } }) }))
 const session = vi.hoisted(() => ({ isLive: true }))
 vi.mock('@/stores/session', () => ({ useSessionStore: () => session }))
@@ -20,6 +25,8 @@ beforeEach(() => {
   visibility = 'visible'
   vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility)
   getMyStatus.mockResolvedValue(null)
+  getMySlowDown.mockResolvedValue(false)
+  setSlowDown.mockResolvedValue()
   saveStatus.mockResolvedValue()
 })
 afterEach(() => {
@@ -142,5 +149,33 @@ describe('status store', () => {
     status.stop()
     await vi.advanceTimersByTimeAsync(90_000)
     expect(saveStatus).toHaveBeenCalledOnce()
+  })
+})
+
+describe('Slow down', () => {
+  it('a refresh shows whether I had already asked', async () => {
+    getMySlowDown.mockResolvedValue(true)
+    const status = useStatusStore()
+    await status.start('s1')
+    expect(status.slowDown).toBe(true)
+  })
+
+  it('raises my flag, then takes it back', async () => {
+    const status = useStatusStore()
+    await status.start('s1')
+    await status.toggleSlowDown()
+    expect(status.slowDown).toBe(true)
+    expect(setSlowDown).toHaveBeenLastCalledWith('s1', 'u1', true)
+    await status.toggleSlowDown()
+    expect(status.slowDown).toBe(false)
+    expect(setSlowDown).toHaveBeenLastCalledWith('s1', 'u1', false)
+  })
+
+  it('puts the button back if the database refuses, and says why', async () => {
+    setSlowDown.mockRejectedValue(new Error('This class has ended'))
+    const status = useStatusStore()
+    await status.start('s1')
+    await expect(status.toggleSlowDown()).rejects.toThrow('This class has ended')
+    expect(status.slowDown).toBe(false)
   })
 })

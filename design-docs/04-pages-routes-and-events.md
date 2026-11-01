@@ -175,7 +175,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 | RPC | `join_session(p_join_code)` | Finds the live session, decides my role, returns `{ session_id, role }` | Enrolled / staff |
 | Query | `from('sessions').select('*, lessons(title, files_hash, entry_file, dev_command)')` + latest checkpoint | Session bootstrap (`checkpoint_seq` is on the session row) | Member |
 | Query | `from('sessions').update({ settings })` | Prof policy; a trigger broadcasts `session:settings` | Prof |
-| RPC | `end_session(p_session_id)` | Sets `ended`, broadcasts `session:ended`; a Database Webhook fires `end-session` to build the report | Prof |
+| RPC | `end_session(p_session_id)` | Sets `ended`, broadcasts `session:ended`; a trigger builds the report in the same transaction | Prof |
 | RPC | `announce(p_session_id, p_text)` | Writes `sessions.announcement` and broadcasts `session:announce` to everyone; `p_text = null` clears it. Stored, not just broadcast, so late joiners see it | Prof |
 | Query | `from('sessions').select().eq('course_id', id).order('started_at', { ascending: false })` | Past + live sessions | Staff / enrolled |
 | RPC | `save_checkpoint(p_session_id, p_files, p_title)` | **Any time** while live. Allocates `seq`, stores the optional title, moves `sessions.checkpoint_seq` (every Done student goes back to in progress), broadcasts `checkpoint:new` | Prof |
@@ -203,7 +203,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 | — | `workspaceStore.loadLatestCheckpoint()` | **Catch-up, no RPC:** after the student confirms (and optionally downloads a .zip), loads the latest checkpoint through the file cache, replaces the editor and WebContainer files, and autosaves them. Disabled when there's no checkpoint, `allowCatchUp` is off, or the class has ended | Enrolled |
 | Query | `from('snapshots').select().eq('reason','before_catchup')` | My attempts — RLS makes "mine" automatic | Enrolled |
 | Query | `getMyStatus(sessionId)` / `saveStatus(sessionId, studentId, { doneSeq, error })` — `from('student_status').upsert(…)` | Status on change (throttled to 2 s) + 30 s heartbeat while the tab is visible; driven by `stores/status.js`. No `state` field exists to send | Enrolled |
-| Query | `from('slow_down_flags').insert({ session_id, student_id })` / `.delete()` | "Slow down" on / off. Anonymous: staff can only read `slow_down_count` | Enrolled, live session |
+| Query | `getMySlowDown(sid)`: my own `slow_down_flags` row → boolean; `setSlowDown(sid, me, on)`: `insert({ session_id, student_id })` / `.delete()` (a duplicate insert is ignored) | "Slow down" on / off, loaded with my status so it survives a reload. Anonymous: staff can only read `slow_down_count` | Enrolled, live session |
 
 ### Help — `help.api.js` (Karin)
 
@@ -241,9 +241,9 @@ Call these: `listUsers()` and `setRole(userId, role)`. The list of users lives i
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
-| Query | `from('session_reports').select().eq('session_id', id).maybeSingle()` | Null while the `end-session` function is still building — the page polls | Staff |
+| Query | `getReport(id)`: the session (lesson title, course label), `session_reports.select().eq('session_id', id).maybeSingle()`, the class's `help_requests` (for `helpStats`: total, left open, median wait) and `rpc('is_course_prof')` | `report` is null only while the class is still live; `NOT_FOUND` if the session isn't yours to see | Staff |
 | RPC | `lesson_trends(p_lesson_id)` | Checkpoints that trip students across sessions/terms (matched by title) — **only across the calling prof's own courses**, never another prof's | Staff |
-| Function | `digest` → `{ sessionId, audience: ['tas','absent'] }` | Builds the message from the report, sends via Telegram | Prof |
+| Function | `sendDigest(id)`: `functions.invoke('digest', { sessionId })` → `{ sent, failed, staff, absent }` | Telegrams the summary to the course's staff and "start here" to absent students; once per class | Prof |
 
 ### Hints (COULD) — Karin
 
@@ -315,8 +315,8 @@ announce  rpc('announce', { p_session_id, p_text })
 end_session  rpc('end_session', { p_session_id })
   1. is_course_prof; CONFLICT if already ended
   2. update status='ended', ended_at=now(); realtime.send('session:ended')
-  3. A Database Webhook on that update invokes `end-session`, which writes
-     session_reports (async; the report page polls until the row appears)
+  3. The report_on_end trigger on that update runs build_session_report, which
+     writes session_reports in the same transaction
 ```
 
 ---

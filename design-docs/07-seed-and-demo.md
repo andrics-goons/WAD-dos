@@ -127,7 +127,7 @@ The live session's `idleAfterSec` is **3600**, not 180, so the tiles stay un-idl
 
 `tests/unit/rls/seed.test.js` checks it all (T-SEED-02/03 plus the privacy rules on the seeded data). It skips itself when the database hasn't been seeded.
 
-> **Still to do — `pnpm seed:generate`.** The plan was to generate the reports with the real `buildReport`. It doesn't exist yet, so the reports are written out by hand. Once it lands, a small Node script should check the seed against it.
+> **Still to do — `pnpm seed:generate`.** The plan was to generate the reports with the real builder. It now exists (`build_session_report`, in SQL), but the seeded reports are still written out by hand. A small Node script should check the seed against it.
 
 ---
 

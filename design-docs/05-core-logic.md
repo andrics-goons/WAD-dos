@@ -22,7 +22,7 @@ This is the "how it actually works" document: the parts that make CodeAlong a Ti
 | 7 | Catch-up (download, then replace) | Ray Yien · Dylan (mount) | 2 | browser | `tests/unit/stores/workspace.test.js`, `downloadProject.test.js`, E2E `catch-up.spec.js` |
 | 8 | Help queue + Telegram ping | Karin | 2 | RPC + function | E2E `help.spec.js` |
 | 9 | Spotlight anonymisation | Evan | 2 | function + `shared/` | `tests/unit/spotlight.test.js` |
-| 10 | Insights report + trends | Andric | 2–3 | function + `shared/` | `tests/unit/report-builder.test.js` |
+| 10 | Insights report + trends + digest | Andric | 2–3 | SQL trigger + function | `tests/unit/rls/session_report.test.js`, `tests/unit/digest-function.test.js` |
 | 11 | Replay + GitHub import/export | Ray Yien | 2 | function | `tests/unit/github-export.test.js`, E2E `replay.spec.js` |
 | 12 | Telegram bot integration | Karin | 2 | function | `tests/unit/telegram.test.js` |
 | 13 | Stretch: auto checkpoint checks, AI hints, VS Code reporter | Dylan · Karin | 3 | — | — |
@@ -562,7 +562,9 @@ Spotlight projects **one** example of a common mistake next to the fix. It is an
 
 ## 10. Insights Report
 
-Built by the `end-session` Edge Function, invoked by a Database Webhook when `sessions.status` becomes `ended`. It reads `status_history`, checkpoints and help requests with the service role, calls `shared/report-builder.js`, and writes one `session_reports` row. The report page polls until the row appears.
+Built in SQL by `build_session_report(sid)`, which a trigger on `sessions` runs in the same transaction that ends the class (`live` → `ended`). It reads `student_status`, `status_history`, checkpoints, help requests and `slow_down_events` and upserts one `session_reports` row, so the row exists by the time the prof lands on the report page: no polling, no Edge Function, no webhook. If the build fails it only raises a warning: ending the class never fails because of the report.
+
+The report page adds two things the row doesn't hold: help-request numbers (total, left open, median wait to the first staff reply or to being passed/resolved), computed client-side in `reports.api` from the class's `help_requests`, and `lesson_trends`.
 
 All figures are counts — no per-student detail is written, which is what makes T-INS-05 pass by construction.
 
@@ -574,10 +576,11 @@ For each checkpoint *k* (with `t_k` = when the prof saved it):
 | `dropOff` | `reachedDone(k-1) − reachedDone(k)` |
 | `errorStudents` | Distinct students with any `error` state while checkpoint *k* was the latest |
 | `medianMinutesToDone` | Median of (their Done on *k*) − `t_k` |
-| `catchUps`, `helpRequests` | Counts while checkpoint *k* was the latest (help requests carry `checkpoint_seq`) |
+| `helpRequests` | Help requests asked while checkpoint *k* was the latest (they carry `checkpoint_seq`) |
+| `catchUps` | Always 0: catch-up is download-and-replace (§7) and records nothing |
 
 **Trouble score** (shown with its formula, so profs can trust it):
-`trouble_k = 0.4 × errorStudents/joined + 0.3 × dropOff/joined + 0.2 × catchUps/joined + 0.1 × helpRequests/joined`
+`trouble_k = (0.4 × errorStudents + 0.3 × dropOff + 0.1 × helpRequests) / joined`, rounded to 3 places (the old `0.2 × catchUps` term went with the catch-up record)
 
 The report highlights the top 3 checkpoints, the top 5 error groups and the peak "Slow down" count. Error groups come from `status_history.error_key` (the live `student_status` row keeps only the latest error); the peak comes from `session_slow_down_peak()` over `slow_down_events`.
 
@@ -586,8 +589,9 @@ The report highlights the top 3 checkpoints, the top 5 error groups and the peak
 **Courses are per prof, so trends are too.** Two profs who both teach IS216 never see each other's sessions in their trends — the function filters on `courses.owner_id = auth.uid()` before matching anything. (Admins can still read every report row directly; they just don't get a cross-prof trends view.)
 
 **Digest** (`functions.invoke('digest')`, content by Andric, sending by Karin):
-- **To TAs:** attendance, top 3 trouble checkpoints, top errors, open help requests left.
-- **To absent students** (enrolled, no `student_status` row for the session, Telegram linked): "You missed *Week 6 · Mini Cart*. Replay: <link>. Most classmates got stuck at checkpoint 4 — start there."
+Prof only, once per class (the function sets `session_reports.digest = { sentAt, recipients }` and refuses a second send with `CONFLICT`; if every send fails nothing is recorded, so it can be retried). Only people who linked Telegram are reached; with nobody linked it answers `CONFLICT`. Messages are `formatStaffDigest` / `formatAbsentDigest` in `shared/telegram.js`.
+- **To the course's staff (prof + TAs):** attendance, top 3 trouble checkpoints, top errors, open help requests left, link to the report.
+- **To absent students** (enrolled, no `student_status` row for the session, Telegram linked): "You missed *Week 6 · Mini Cart*. Most classmates got stuck at Checkpoint 4 · Emit add-to-cart — start there. Replay: <link>"
 
 ---
 

@@ -1,6 +1,8 @@
 // Pure Telegram helpers shared by the Edge Functions (Deno) and the unit tests (Vitest).
 // No DOM, no Deno, no direct network: anything that talks to Telegram takes an injected `send`.
 
+import { checkpointLabel } from './checkpoint-label.js'
+
 export const LINK_CODE_TTL_MS = 10 * 60 * 1000
 
 const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;' }
@@ -54,6 +56,53 @@ export function formatInPersonPing({
   ]
   if (message) lines.push(`"${escapeHtml(message)}"`)
   if (link) lines.push(`<a href="${escapeHtml(link)}">Open request</a>`)
+  return lines.join('\n')
+}
+
+// The 3 checkpoints with the highest trouble score (design-docs/05 §10), most troublesome first
+export function troubleCheckpoints(report, count = 3) {
+  return [...(report.checkpoints ?? [])]
+    .filter((c) => c.trouble > 0)
+    .sort((a, b) => b.trouble - a.trouble || a.seq - b.seq)
+    .slice(0, count)
+}
+
+// The after-class digest for the course's staff (design-docs/05 §10): attendance, where the
+// class struggled, the top errors and any help requests nobody finished. Counts only.
+export function formatStaffDigest({ courseLabel, lessonTitle, report, openHelp, link }) {
+  const where = [courseLabel, lessonTitle].filter(Boolean).map(escapeHtml).join(' · ')
+  const { joined, enrolled } = report.attendance
+  const lines = [`📊 Class report — ${where}`, `Attended: ${joined} of ${enrolled}`]
+
+  const trouble = troubleCheckpoints(report)
+  if (trouble.length) {
+    lines.push('', '<b>Where students struggled</b>')
+    for (const c of trouble) {
+      lines.push(
+        `• ${escapeHtml(checkpointLabel(c.seq, c.title))}: ${c.errorStudents} with errors, ${c.dropOff} dropped off`,
+      )
+    }
+  }
+  const errors = (report.top_errors ?? []).slice(0, 3)
+  if (errors.length) {
+    lines.push('', '<b>Top errors</b>')
+    for (const e of errors) lines.push(`• ${escapeHtml(e.key)} (${e.students})`)
+  }
+  if (openHelp > 0) lines.push('', `${openHelp} help request${openHelp === 1 ? '' : 's'} left open`)
+  if (link) lines.push('', `<a href="${escapeHtml(link)}">Open the report</a>`)
+  return lines.join('\n')
+}
+
+// For enrolled students who didn't join: what they missed and where to start in the replay
+export function formatAbsentDigest({ lessonTitle, report, link }) {
+  const [worst] = troubleCheckpoints(report, 1)
+  const lines = [`You missed <b>${escapeHtml(lessonTitle)}</b>.`]
+  if (worst) {
+    lines.push(
+      `Most classmates got stuck at ${escapeHtml(checkpointLabel(worst.seq, worst.title))} — start there.`,
+    )
+  }
+  if (link) lines.push(`<a href="${escapeHtml(link)}">Watch the replay</a>`)
   return lines.join('\n')
 }
 
