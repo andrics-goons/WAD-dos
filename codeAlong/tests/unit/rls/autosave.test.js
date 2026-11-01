@@ -3,6 +3,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { anonClient, userClient, service, cleanup } from './_helpers.js'
 import { mapError } from '@/api/mapError'
+import { contentHash, planAutosave } from '../../../shared/sync-files.js'
 
 const codeOf = (error) => mapError(error)?.code
 const file = (path, content) => ({ path, language: 'js', content })
@@ -122,6 +123,24 @@ describe('autosave_patch', () => {
     expect(codeOf((await save({ client: anonClient() }, [file('x.js', 'x')])).error)).toBe(
       'UNAUTHENTICATED',
     )
+  })
+
+  it('T-CATCH-03: after loading a checkpoint my autosave holds its code, so a refresh keeps it', async () => {
+    const checkpointFiles = [file('index.js', 'the prof'), file('src/cart.js', 'cart')]
+    const { data: checkpoint } = await prof.client.rpc('save_checkpoint', {
+      p_session_id: session.id,
+      p_files: checkpointFiles,
+    })
+    // what loadLatestCheckpoint's autosave sends: the checkpoint's files over the ones I had
+    const [mine] = await autosaveRows()
+    const synced = {}
+    for (const f of mine.files) synced[f.path] = await contentHash(f.content)
+    const { upsert, remove } = await planAutosave(checkpointFiles, synced)
+    expect((await save(stu, upsert, remove)).error).toBeNull()
+
+    const [after] = await autosaveRows()
+    expect(after.files).toEqual(checkpointFiles)
+    expect(after.files_hash).toBe(checkpoint.files_hash)
   })
 
   it('an ended class no longer accepts autosaves', async () => {

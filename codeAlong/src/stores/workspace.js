@@ -145,6 +145,46 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         return { packageChanged }
     }
 
+    // The file tree's New file / Rename / Delete (T-SBX-16): the editor's files change, autosave
+    // sends the change like an edit, and the running project follows. Like syncEdit, a failure
+    // to update the running project is logged, not thrown.
+    async function inContainer(change) {
+        try {
+            await change(await getWebContainer())
+        } catch (e) {
+            console.error("Couldn't update the workspace:", e)
+        }
+    }
+
+    async function createFile(path) {
+        files.value.push({ path, content: '' })
+        selectedFile.value = path
+        saver?.autosave(files.value)
+        await inContainer(wc => writeToContainer(wc, path, ''))
+    }
+
+    async function renameFile(from, to) {
+        const file = files.value.find(f => f.path === from)
+        if (!file) return
+        file.path = to
+        if (selectedFile.value === from) selectedFile.value = to
+        saver?.autosave(files.value)
+        await inContainer(async wc => {
+            await writeToContainer(wc, to, file.content)
+            await wc.fs.rm(from, { force: true })
+        })
+    }
+
+    async function deleteFile(path) {
+        files.value = files.value.filter(f => f.path !== path)
+        if (selectedFile.value === path) {
+            const entry = useSessionStore().session?.lesson.entry_file
+            selectedFile.value = filePaths.value.includes(entry) ? entry : (filePaths.value[0] ?? '')
+        }
+        saver?.autosave(files.value)
+        await inContainer(wc => wc.fs.rm(path, { force: true }))
+    }
+
     // When leaving the workspace: saves anything still waiting, stops autosaving, leaves the channel
     async function close() {
         const leaving = saver
@@ -156,5 +196,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return {
         files, filePaths, selectedFile, selectedCode, saveStatus, filesVersion,
         load, loadForTeaching, close, loadLatestCheckpoint, reportError,
+        createFile, renameFile, deleteFile,
     }
 })

@@ -36,7 +36,7 @@ describe('loadFiles', () => {
     expect(fetchHash).not.toHaveBeenCalled()
   })
 
-  it('downloads again when the hash has changed', async () => {
+  it('T-SBX-15: downloads again when the hash has changed', async () => {
     await loadFiles('lesson', 'l1', 'h1')
     fetchFiles.mockResolvedValue({ files: V2, files_hash: 'h2' })
     expect(await loadFiles('lesson', 'l1', 'h2')).toEqual(V2)
@@ -64,7 +64,7 @@ describe('loadFiles', () => {
     expect(store.size).toBe(0)
   })
 
-  it('a cleared cache just means downloading again', async () => {
+  it('T-SBX-15: a cleared cache just means downloading again', async () => {
     await loadFiles('checkpoint', 'c1', 'h1')
     store.clear() // the browser evicted IndexedDB
     expect(await loadFiles('checkpoint', 'c1', 'h1')).toEqual(V1)

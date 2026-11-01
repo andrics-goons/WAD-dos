@@ -386,7 +386,7 @@ Unchanged — components never knew where the data came from, which is why this 
 
 | Component | Props | Emits | Notes |
 |---|---|---|---|
-| `FileTree` | `files`, `activePath` | `select`, `create`, `rename`, `delete` | New. Rail at lg+, offcanvas at xs; folders collapsible; `SYNC_IGNORE` paths hidden entirely |
+| `FileTree` | `filePaths`, `selectedFile` (v-model), `editable` | `update:selectedFile`, `create(path)`, `rename(from, to)`, `delete(path)` | Folders collapsible; `SYNC_IGNORE` paths hidden entirely. Browse-only unless `editable`; it only asks — the parent changes the files and confirms a delete. Names autosave can't store are refused in the tree |
 | `CodeEditor` | `modelValue`, `language`, `errorLine`, `readOnly` | `update:modelValue`, `save` (Ctrl/⌘+S) | CodeMirror 6 wrapper; gutter marker on `errorLine`; `vue` mode for SFCs |
 | `FileTabs` | `openPaths`, `activePath` | `select`, `close` | Open-file tabs, driven by `FileTree` selection |
 | `PreviewFrame` | `previewUrl`, `runKey` | `console`, `runtime-error`, `network`, `ready` | `<iframe>` pointed at the WebContainer dev server — [05 §1](./05-core-logic.md#1-client-side-runtime-webcontainer) |
@@ -407,6 +407,7 @@ Unchanged — components never knew where the data came from, which is why this 
 | `SideBySideView` | `studentFiles`, `checkpointFiles` | — | Uses Ray Yien's `DiffView` |
 | `DiffView` | `before`, `after`, `mode: 'split' \| 'unified'` | — | Unified forced on xs |
 | `CheckpointTimeline` | `checkpoints`, `activeSeq`, `bookmarks` | `select` | Keyboard ← → navigation |
+| `ReplayPreview` | `files` | — | Runs one checkpoint read-only in the shared WebContainer (its own `replay/` folder), only after **Run preview**. Moving to another step rewrites the files; a changed `package.json` reinstalls |
 
 ---
 

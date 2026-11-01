@@ -131,7 +131,7 @@ describe("loading the prof's latest checkpoint", () => {
         return store
     }
 
-    it("replaces my files with the checkpoint's, in the editor and the running project", async () => {
+    it("T-CATCH-04: replaces my files with the checkpoint's, in the editor and the running project", async () => {
         const store = await loaded([...MINE, { path: "notes.md", language: "md", content: "x" }])
         const version = store.filesVersion
         await store.loadLatestCheckpoint()
@@ -149,7 +149,7 @@ describe("loading the prof's latest checkpoint", () => {
         expect(saver.flush).toHaveBeenCalled()
     })
 
-    it("keeps the open file if the checkpoint has it, otherwise opens the entry file", async () => {
+    it("T-CATCH-04: keeps the open file if the checkpoint has it, otherwise opens the entry file", async () => {
         const store = await loaded([...MINE, { path: "src/App.vue", language: "vue", content: "mine" }])
         store.selectedFile = "src/App.vue"
         await store.loadLatestCheckpoint()
@@ -161,12 +161,66 @@ describe("loading the prof's latest checkpoint", () => {
         expect(other.selectedFile).toBe("index.html")
     })
 
-    it("says when package.json changed, so the student knows to run pnpm install", async () => {
+    it("T-CATCH-10: says when package.json changed, so the student knows to run pnpm install", async () => {
         const pkg = (deps) => ({ path: "package.json", language: "json", content: deps })
         const store = await loaded([...MINE, pkg("{}")])
         CHECKPOINT.push(pkg('{"axios":"1"}'))
         expect(await store.loadLatestCheckpoint()).toEqual({ packageChanged: true })
         CHECKPOINT.pop()
         expect(await (await loaded(MINE)).loadLatestCheckpoint()).toEqual({ packageChanged: false })
+    })
+})
+
+describe("the file tree's New file, Rename and Delete", () => {
+    const FILES = [
+        { path: "index.html", language: "html", content: "<p>mine</p>" },
+        { path: "src/main.js", language: "js", content: "start()" },
+    ]
+    let container, store
+
+    beforeEach(async () => {
+        container = { fs: { rm: vi.fn(), mkdir: vi.fn(), writeFile: vi.fn() } }
+        getWebContainer.mockResolvedValue(container)
+        liveSession.session = { lesson: { entry_file: "index.html" } }
+        loadFiles.mockImplementation(async () => structuredClone(FILES))
+        findMyAutosave.mockResolvedValue({ id: "snap1" })
+        store = useWorkspaceStore()
+        await store.load("s1")
+    })
+
+    it("T-SBX-16: a new file opens empty, goes into the running project and the next autosave", async () => {
+        await store.createFile("src/components/Cart.vue")
+        expect(store.selectedFile).toBe("src/components/Cart.vue")
+        expect(store.selectedCode).toBe("")
+        expect(container.fs.mkdir).toHaveBeenCalledWith("src/components", { recursive: true })
+        expect(container.fs.writeFile).toHaveBeenCalledWith("src/components/Cart.vue", "")
+        expect(saver.autosave.mock.lastCall[0].map(f => f.path)).toContain("src/components/Cart.vue")
+    })
+
+    it("T-SBX-16: a rename keeps the code and stays open under its new name", async () => {
+        store.selectedFile = "src/main.js"
+        await store.renameFile("src/main.js", "src/start.js")
+        expect(store.filePaths).toEqual(["index.html", "src/start.js"])
+        expect(store.selectedFile).toBe("src/start.js")
+        expect(container.fs.writeFile).toHaveBeenCalledWith("src/start.js", "start()")
+        expect(container.fs.rm).toHaveBeenCalledWith("src/main.js", { force: true })
+        expect(saver.autosave).toHaveBeenLastCalledWith(store.files)
+    })
+
+    it("T-SBX-16: a delete removes it everywhere, and the entry file opens if it was open", async () => {
+        store.selectedFile = "src/main.js"
+        await store.deleteFile("src/main.js")
+        expect(store.filePaths).toEqual(["index.html"])
+        expect(store.selectedFile).toBe("index.html")
+        expect(container.fs.rm).toHaveBeenCalledWith("src/main.js", { force: true })
+        expect(saver.autosave.mock.lastCall[0].map(f => f.path)).toEqual(["index.html"])
+    })
+
+    it("logs a running project that couldn't be updated, but keeps the change", async () => {
+        const log = vi.spyOn(console, "error").mockImplementation(() => {})
+        container.fs.writeFile.mockRejectedValue(new Error("busy"))
+        await store.createFile("notes.md")
+        expect(store.filePaths).toContain("notes.md")
+        expect(log).toHaveBeenCalled()
     })
 })

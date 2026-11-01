@@ -11,9 +11,13 @@
         saveStatus: { type: String, default: null },
         filesVersion: { type: Number, default: 0 }, // goes up when every file is replaced (a checkpoint load)
         switchable: { type: Boolean, default: false }, // show the preview button at every size, e.g. the teach view
+        editable: { type: Boolean, default: false }, // the file tree's New file / Rename / Delete
     })
 
-    const emit = defineEmits(["update:selectedFile", "update:selectedCode", "show-preview"])
+    const emit = defineEmits([
+        "update:selectedFile", "update:selectedCode", "show-preview",
+        "create-file", "rename-file", "delete-file",
+    ])
 
     // below md (phones) the file tree starts collapsed, so the editor gets the width
     const collapsed = ref(window.matchMedia("(max-width: 767.98px)").matches)
@@ -62,7 +66,11 @@
                 <FileTree
                     :file-paths="filePaths"
                     :selected-file="selectedFile"
+                    :editable="editable"
                     @update:selected-file="emit('update:selectedFile', $event)"
+                    @create="emit('create-file', $event)"
+                    @rename="(from, to) => emit('rename-file', from, to)"
+                    @delete="emit('delete-file', $event)"
                 />
 
             </div>
