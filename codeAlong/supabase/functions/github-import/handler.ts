@@ -1,7 +1,8 @@
 // github-import: a prof pastes a public repo link and gets its starter files back
 // (design-docs/05 §11). The browser then saves the lesson, as for an upload.
-//   { repoUrl } -> { files, entryFile, source }
-// Uses the server's GITHUB_TOKEN, which never reaches the browser.
+//   { repoUrl, providerToken } -> { files, entryFile, source }
+// providerToken is the prof's own GitHub token from Supabase Auth, as for github-export: the
+// prof signs in to GitHub to import, and GitHub counts the requests against their account.
 import { buildLessonFiles, LIMITS } from '../../../shared/lesson-files.js'
 import { importCandidates, parseRepoUrl } from '../../../shared/github.js'
 import { corsHeaders, fail, json } from '../_shared/cors.ts'
@@ -9,7 +10,7 @@ import { GithubError, type Github } from '../_shared/github.ts'
 
 export interface ImportDeps {
   callerRole(req: Request): Promise<string | null> // profiles.role of the caller; null if logged out
-  github: Github
+  makeGithub(token: string): Github
 }
 
 // 'src/App.vue' -> 'src/App.vue', with each folder/file name made safe for a URL
@@ -23,6 +24,10 @@ export async function handleImport(req: Request, deps: ImportDeps): Promise<Resp
   if (role !== 'prof') return fail(403, 'FORBIDDEN', 'Only profs can import lessons')
 
   const body = await req.json().catch(() => null)
+  if (!body?.providerToken) {
+    return fail(401, 'UNAUTHENTICATED', 'Connect your GitHub account first')
+  }
+  const github = deps.makeGithub(body.providerToken)
   const target = parseRepoUrl(body?.repoUrl ?? '')
   if (!target) {
     return fail(400, 'BAD_REQUEST', 'Paste a GitHub link like https://github.com/owner/repo')
@@ -31,8 +36,8 @@ export async function handleImport(req: Request, deps: ImportDeps): Promise<Resp
   const base = `/repos/${owner}/${repo}`
 
   try {
-    const ref = target.ref ?? (await deps.github.json('GET', base)).default_branch
-    const { tree } = await deps.github.json(
+    const ref = target.ref ?? (await github.json('GET', base)).default_branch
+    const { tree } = await github.json(
       'GET',
       `${base}/git/trees/${encodeURIComponent(ref)}?recursive=1`,
     )
@@ -57,7 +62,7 @@ export async function handleImport(req: Request, deps: ImportDeps): Promise<Resp
     const entries = await Promise.all(
       wanted.map(async (f) => ({
         path: f.path,
-        content: await deps.github.text(
+        content: await github.text(
           `${base}/contents/${encodePath(f.repoPath)}?ref=${encodeURIComponent(ref)}`,
         ),
       })),
@@ -79,7 +84,14 @@ export async function handleImport(req: Request, deps: ImportDeps): Promise<Resp
         "Couldn't find that repository, branch or folder. Is it public?",
       )
     }
-    // GitHub's rate limit (5,000 requests an hour with GITHUB_TOKEN, 60 without)
+    if (err instanceof GithubError && err.status === 401) {
+      return fail(
+        401,
+        'UNAUTHENTICATED',
+        'Your GitHub connection has expired — connect GitHub again',
+      )
+    }
+    // GitHub's rate limit (5,000 requests an hour per prof)
     if (err instanceof GithubError && [403, 429].includes(err.status)) {
       return fail(429, 'RATE_LIMITED', 'GitHub is limiting requests right now — try again later')
     }

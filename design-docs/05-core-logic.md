@@ -599,7 +599,7 @@ The replay view queries `checkpoints` in `seq` order. For each, the client shows
 
 Search is `rpc('search')`: a ranked full-text query over checkpoint titles and the caller's own notes, using the GIN index on `notes.body`. Because it is a parameterised function, regex characters in the query are literal — no escaping to remember (T-REP-06).
 
-### GitHub import (server token) — `github-import`
+### GitHub import (the prof's own GitHub) — `github-import`
 
 ```
 1. Parse https://github.com/<owner>/<repo>[/tree/<ref>/<dir>]
@@ -611,7 +611,9 @@ Search is `rpc('search')`: a ranked full-text query over checkpoint titles and t
 6. Return files → the browser inserts the lesson
 ```
 
-≈ 2 + n requests per import. Only a prof may import. `GITHUB_TOKEN` is a function secret and never reaches the browser; without it GitHub allows only 60 requests an hour, and the function answers `RATE_LIMITED`.
+≈ 2 + n requests per import. Only a prof may import, and **they sign in to their own GitHub to do it**: the browser sends the prof's GitHub token from Supabase Auth (`session.provider_token`, the same as export below) with `{ repoUrl }`, and the function uses it for this one call and never stores it. There is no server `GITHUB_TOKEN`. GitHub counts the requests against the prof's account (5,000 an hour), so profs never share a rate limit.
+
+No token on the session (not connected, or logged in with a password since) → `UNAUTHENTICATED`, and the import tab shows **Connect GitHub**. That calls `connectGitHub(returnTo)`: `linkIdentity` if GitHub isn't linked yet, or `signInWithOAuth` if it is (Supabase refuses to link a GitHub that's already linked; signing in through it lands on the same account and refreshes the token). It comes back to New lesson with `?source=github`, which opens the import tab. GitHub rejecting the token (401) → `UNAUTHENTICATED` too. Private repos still aren't read: the token only has `public_repo`.
 
 ### GitHub export (the student's own GitHub identity) — one commit per checkpoint
 

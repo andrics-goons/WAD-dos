@@ -9,6 +9,9 @@ vi.mock('@/api/github.api', () => ({
   importFromGithub: vi.fn(),
   exportToGithub: vi.fn(),
 }))
+const auth = vi.hoisted(() => ({ connectGitHub: vi.fn() }))
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => auth }))
+vi.mock('vue-router', () => ({ useRoute: () => ({ path: '/courses/c1/lessons/new' }) }))
 import { importFromGithub } from '@/api/github.api'
 import GithubImportTab from '@/components/lesson/GithubImportTab.vue'
 
@@ -50,9 +53,20 @@ describe('GithubImportTab', () => {
     expect(wrapper.emitted('imported')).toBeUndefined()
   })
 
+  it('asks the prof to connect GitHub, and comes back to this tab', async () => {
+    importFromGithub.mockRejectedValue(
+      new AppError('UNAUTHENTICATED', 'Connect your GitHub account first'),
+    )
+    const wrapper = mountTab()
+    await importLink(wrapper, 'https://github.com/prof/mini-cart')
+    expect(wrapper.find('.ca-field-error').text()).toBe('Connect your GitHub account first')
+    await wrapper.find('[data-testid="btn-connect-github"]').trigger('click')
+    expect(auth.connectGitHub).toHaveBeenCalledWith('/courses/c1/lessons/new?source=github')
+  })
+
   it('keeps Import disabled until a link is typed', async () => {
     const wrapper = mountTab()
-    expect(wrapper.find('button').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('button').attributes('disabled')).toBeDefined() // Import
     await wrapper.find('input').setValue('https://github.com/prof/mini-cart')
     expect(wrapper.find('button').attributes('disabled')).toBeUndefined()
   })

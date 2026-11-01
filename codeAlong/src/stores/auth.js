@@ -53,7 +53,7 @@ export const useAuthStore = defineStore('auth', () => {
   // Both leave for GitHub and come back to the app, so there's nothing to update here afterwards.
   const github = ref(null) // { username, canDisconnect }, or null when not linked
   const signInWithGitHub = (returnTo) => authApi.signInWithGitHub(returnTo)
-  const connectGitHub = () => authApi.connectGitHub()
+  const connectGitHub = (returnTo) => authApi.connectGitHub(returnTo)
   async function loadGitHub() {
     github.value = await authApi.getGitHubLink()
   }
