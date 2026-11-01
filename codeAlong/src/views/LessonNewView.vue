@@ -9,6 +9,7 @@ import GithubImportTab from '@/components/lesson/GithubImportTab.vue'
 import { useLessonsStore } from '@/stores/lessons'
 import { useToastStore } from '@/stores/toast'
 import { buildLessonFiles, isIgnored, languageForPath } from '../../shared/lesson-files.js'
+import { addErrorReporting } from '../../shared/lesson-template.js'
 
 const props = defineProps({ id: { type: String, required: true } }) // the course id
 const router = useRouter()
@@ -24,6 +25,7 @@ const entryFile = ref(null)
 const skipped = ref([]) // files the converter rejected one by one (e.g. unsafe path)
 const ignoredCount = ref(0) // files dropped before reading: node_modules, images, lockfiles...
 const errors = ref([])
+const addedReporting = ref([]) // files changed so students' errors reach the dashboard
 const githubSource = ref(null) // { type: 'github', repo, ref, dir } from the last import
 
 // lesson details
@@ -54,13 +56,17 @@ const canContinue = computed(
 )
 const kb = (s) => (new TextEncoder().encode(s).length / 1000).toFixed(1) + ' KB'
 
+// check the files, add CodeAlong's error reporting, then check again so the limits count it
 function load(entries, options) {
-  const result = buildLessonFiles(entries, options)
+  const built = buildLessonFiles(entries, options)
+  const ready = built.errors.length ? { ...built, changed: [] } : addErrorReporting(built.files)
+  const result = ready.errors.length ? built : buildLessonFiles(ready.files)
   files.value = result.files
   entryFile.value = result.entryFile
-  skipped.value = result.skipped
+  skipped.value = built.skipped
   ignoredCount.value = 0
-  errors.value = result.errors
+  errors.value = ready.errors.length ? ready.errors : result.errors
+  addedReporting.value = ready.changed
 }
 
 // github-import has already checked the files; from here they're handled like an upload
@@ -357,9 +363,14 @@ async function onFolderPicked(event) {
           </table>
         </div>
         <div
-          v-if="ignoredCount || skipped.length"
+          v-if="ignoredCount || skipped.length || addedReporting.length"
           class="px-3 py-2 border-top small text-body-secondary"
         >
+          <div v-if="addedReporting.length" class="mb-2">
+            <i class="bi bi-bug me-1" />
+            <strong>Added error reporting</strong> so students' errors reach your dashboard:
+            <span class="ca-mono">{{ addedReporting.join(', ') }}</span>
+          </div>
           <div v-if="ignoredCount">
             <i class="bi bi-funnel me-1" />
             <strong>{{ ignoredCount.toLocaleString() }} files left out</strong>

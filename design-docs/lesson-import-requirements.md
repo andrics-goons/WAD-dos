@@ -2,6 +2,8 @@
 
 **For:** whoever builds the `github-import` function and the upload tab (see [05 §GitHub import](./05-core-logic.md#github-import-server-token--github-import)).
 
+**Status:** built in `codeAlong/shared/lesson-template.js` (`addErrorReporting`). The New lesson page runs it on both the folder upload and the GitHub tab's files, before the final `buildLessonFiles()`, and lists the files it changed on the review stage. Tests: T-LES-08, T-LES-09.
+
 A normal Vite project from GitHub won't report errors to CodeAlong as is. Before a lesson is inserted into `public.lessons`, the import has to add or change these files:
 
 | # | File | Change | Why |
@@ -231,3 +233,5 @@ Run these checks on the final `files` list. They're cheap, and failing them mean
 ## Suggestion: keep one copy of the template text
 
 Right now the probe and plugin text exist in two places: `miniCartSeed.js` and `seed.sql`. The import would make three. Consider moving the text into one shared module (e.g. `codeAlong/shared/lesson-template.js` exporting `CA_PROBE_JS`, `CA_PROBE_IMPORT` and `CA_ERRORS_PLUGIN`), so the import, the Mini Cart seed and any future lesson all stay in sync.
+
+**Done for the import:** `shared/lesson-template.js` exports those three. The seeds still keep their own copies, and `tests/unit/lesson-template.test.js` fails if `miniCartSeed.js` drifts from them.

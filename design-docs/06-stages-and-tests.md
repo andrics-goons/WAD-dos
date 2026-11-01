@@ -204,6 +204,8 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-LES-05 | Unsafe path / > 20 files / > 200 KB | DB | `files_valid()` / `octet_length` constraint rejects the insert |
 | T-LES-06 | Delete a lesson that was taught | DB | Trigger raises `CONFLICT` → UI offers Archive |
 | T-LES-07 | What an enrolled student can read | RLS | A **draft** lesson: zero rows. A **ready** lesson: visible, with its starter `files` (RLS can't hide one column; starter files aren't secret — see [03](./03-data-model.md#policies-1)) |
+| T-LES-08 | Upload or import a plain Vite project | Unit | The probe, its import, the `ca-errors` plugin and the Vite 8 pins are added ([lesson import](./lesson-import-requirements.md)); Mini Cart comes through unchanged; the review stage lists the changed files |
+| T-LES-09 | Upload a project that can't be set up (no top-level `package.json`, no `dev` script, `.ts` entry, function-style or `.mjs` config) | Unit | Refused with the reason; Next stays disabled |
 | T-TODO-* | ~~TODO parser~~ | — | Removed with lesson steps |
 
 ### SESS — Live session engine · `live-session.spec.js`
