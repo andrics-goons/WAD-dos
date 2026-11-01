@@ -38,3 +38,68 @@ describe("EditorPanel save status", () => {
         expect(statusOf(mountPanel(null)).text()).toBe("")
     })
 })
+
+describe("EditorPanel terminals", () => {
+    const addButton = (wrapper) => wrapper.find(".terminal-pane .pane-header button")
+    const rows = (wrapper) => wrapper.findAll(".terminal-item")
+    const names = (wrapper) => rows(wrapper).map((row) => row.text())
+    const shells = (wrapper) => wrapper.findAll("terminal-panel-stub")
+    const shown = (wrapper) => shells(wrapper).filter((shell) => shell.element.style.display !== "none")
+    const closeRow = (wrapper, index) => rows(wrapper)[index].find(".terminal-close").trigger("click")
+
+    it("T-SBX-24: starts with one terminal that can't be closed", () => {
+        const wrapper = mountPanel("saved")
+        expect(names(wrapper)).toEqual(["Terminal 1"])
+        expect(wrapper.find(".terminal-close").exists()).toBe(false)
+    })
+
+    it("T-SBX-24: + opens and shows a new terminal, and is disabled at 3", async () => {
+        const wrapper = mountPanel("saved")
+        await addButton(wrapper).trigger("click")
+        expect(names(wrapper).map((name) => name.trim())).toEqual(["Terminal 1", "Terminal 2"])
+        expect(shown(wrapper)).toHaveLength(1)
+        expect(rows(wrapper)[1].classes()).toContain("active")
+
+        await addButton(wrapper).trigger("click")
+        expect(shells(wrapper)).toHaveLength(3)
+        expect(addButton(wrapper).attributes("disabled")).toBeDefined()
+    })
+
+    it("T-SBX-24: switching keeps every terminal mounted, so a server keeps running", async () => {
+        const wrapper = mountPanel("saved")
+        await addButton(wrapper).trigger("click")
+        const [first, second] = shells(wrapper)
+
+        await rows(wrapper)[0].trigger("click")
+        expect(shells(wrapper)).toHaveLength(2)
+        expect(first.element.style.display).not.toBe("none")
+        expect(second.element.style.display).toBe("none")
+    })
+
+    it("T-SBX-24: closing the terminal on screen shows the first one", async () => {
+        const wrapper = mountPanel("saved")
+        await addButton(wrapper).trigger("click")
+        await addButton(wrapper).trigger("click")
+        await closeRow(wrapper, 2)
+        expect(names(wrapper)).toEqual(["Terminal 1", "Terminal 2"])
+        expect(rows(wrapper)[0].classes()).toContain("active")
+    })
+
+    it("T-SBX-24: closing another terminal leaves the one on screen alone", async () => {
+        const wrapper = mountPanel("saved")
+        await addButton(wrapper).trigger("click")
+        await closeRow(wrapper, 0)
+        expect(names(wrapper)).toEqual(["Terminal 2"])
+        expect(rows(wrapper)[0].classes()).toContain("active")
+    })
+
+    it("T-SBX-24: a new terminal takes the lowest free number, in list order", async () => {
+        const wrapper = mountPanel("saved")
+        await addButton(wrapper).trigger("click")
+        await addButton(wrapper).trigger("click")
+        await closeRow(wrapper, 1)
+        expect(names(wrapper)).toEqual(["Terminal 1", "Terminal 3"])
+        await addButton(wrapper).trigger("click")
+        expect(names(wrapper)).toEqual(["Terminal 1", "Terminal 2", "Terminal 3"])
+    })
+})

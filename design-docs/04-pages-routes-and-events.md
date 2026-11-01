@@ -94,6 +94,7 @@ xs (375 px) ──────────────────────�
 |---|---|
 | The file tree is a **rail at lg+, an offcanvas drawer at xs** | A tree, an editor and a preview cannot coexist at 375 px. T-RESP-01 checks the drawer; T-RESP-05 still requires no horizontal page scroll anywhere |
 | The terminal is **read-only output, and never leaves the browser** | It carries `pnpm install` and dev-server text, which can contain source lines. Nothing writes it to Postgres — see the privacy contract in [09](./09-integration-contracts.md#5-privacy-contract-our-unique-feature--every-pr-is-checked-against-this) |
+| **Up to 3 terminals**, listed to the right of the one on screen | A backend and a frontend each hold a terminal while running, plus a spare for one-off commands. They share the one WebContainer, so the same files and ports. + adds one, the × on a row closes it and kills what's running there, and the last one can't be closed. Below md the list shows only the numbers |
 | Boot and install have **explicit visible states** | "Starting your project…" → "Installing dependencies…" (streamed) → ready. A 20-second silent pause reads as broken, and this is the first thing a student sees on joining |
 | Open files are tabs; the tree is the source of truth | `FileTabs` keeps its role, now driven by tree selection rather than a flat file list |
 | Unsupported browser is a **message, not a blank pane** | Feature-detect `crossOriginIsolated`; Safari shows "The workspace needs Chrome or Edge" |
@@ -390,7 +391,7 @@ Unchanged — components never knew where the data came from, which is why this 
 | `CodeEditor` | `modelValue`, `language`, `errorLine`, `readOnly` | `update:modelValue`, `save` (Ctrl/⌘+S) | CodeMirror 6 wrapper; gutter marker on `errorLine`; `vue` mode for SFCs |
 | `FileTabs` | `openPaths`, `activePath` | `select`, `close` | Open-file tabs, driven by `FileTree` selection |
 | `PreviewFrame` | `previewUrl`, `runKey` | `console`, `runtime-error`, `network`, `ready` | `<iframe>` pointed at the WebContainer dev server — [05 §1](./05-core-logic.md#1-client-side-runtime-webcontainer) |
-| `TerminalPanel` | `lines`, `busy` | — | New. Streams `pnpm install` / dev-server output. **Output stays local** |
+| `TerminalPanel` | `lines`, `busy` | — | New. Streams `pnpm install` / dev-server output. One per open terminal, each with its own shell; `EditorPanel` holds the list. **Output stays local** |
 | `BootState` | `phase`, `progress` | `retry` | New. booting → installing → starting → ready, or a failure with the terminal tail |
 | `ConsolePanel` | `entries` | `clear` | Filters: All · Errors · Network |
 | `DoneButton` | `seq`, `disabled`, `passedByTa` | `done`, `undo` | "I've caught up to the latest checkpoint"; resets when a new one arrives |
