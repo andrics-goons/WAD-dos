@@ -253,7 +253,9 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <div class="flex-grow-1 overflow-auto p-3">
+      <!-- position-relative keeps the hidden form labels (visually-hidden is absolute) inside
+           this scroll box; without it they stretch the page and add a second scrollbar -->
+      <div class="flex-grow-1 overflow-auto position-relative p-3">
         <!-- Below xl: switch between dashboard and editor -->
         <div class="ca-surface nav nav-pills nav-fill gap-1 p-1 mb-3 d-xl-none">
           <button
