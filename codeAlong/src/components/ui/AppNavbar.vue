@@ -61,16 +61,19 @@ async function signOut() {
 
       <!-- phones: drops down under the bar when ☰ is tapped · tablets and up: always in a row -->
       <div class="ca-navbar__links" :class="{ 'is-open': menuOpen }">
-        <RouterLink
-          v-for="l in links"
-          :key="l.testid"
-          :to="l.to"
-          class="ca-navlink"
-          active-class="is-active"
-          :data-testid="l.testid"
-        >
-          <i class="bi" :class="l.icon" />{{ l.label }}
-        </RouterLink>
+        <!-- Home, Courses and Replays all need a login, so they only show once you're logged in -->
+        <template v-if="auth.isAuthenticated">
+          <RouterLink
+            v-for="l in links"
+            :key="l.testid"
+            :to="l.to"
+            class="ca-navlink"
+            active-class="is-active"
+            :data-testid="l.testid"
+          >
+            <i class="bi" :class="l.icon" />{{ l.label }}
+          </RouterLink>
+        </template>
 
         <RouterLink :to="{ name: 'join' }" class="ca-btn ca-btn--primary ca-btn--sm">
           <i class="bi bi-box-arrow-in-right" />Join a class
@@ -91,7 +94,9 @@ async function signOut() {
             </button>
           </div>
         </div>
-        <RouterLink v-else :to="{ name: 'login' }" class="ca-navlink">Log in</RouterLink>
+        <RouterLink v-else :to="{ name: 'login' }" class="ca-btn ca-btn--secondary ca-btn--sm">
+          Log in
+        </RouterLink>
       </div>
     </nav>
   </header>

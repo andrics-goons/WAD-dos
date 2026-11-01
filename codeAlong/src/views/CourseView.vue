@@ -8,8 +8,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import LessonLibrary from '@/components/lesson/LessonLibrary.vue'
 
-// One course: who's in it, its lessons and its classes. The owner also gets the enrol
-// link to share. The Lessons tab is Ray Yien's LessonLibrary.
+// One course: who's in it, its lessons and its classes. The owner also gets the enrol link to share.
 const props = defineProps({ id: { type: String, required: true } })
 
 const store = useCourseStore()
@@ -105,6 +104,14 @@ async function removeStudent() {
 
 <template>
   <div class="ca-page">
+    <RouterLink
+      v-if="!loading && !loadError"
+      :to="{ name: 'courses' }"
+      class="ca-btn ca-btn--ghost ca-btn--sm mb-2"
+    >
+      <i class="bi bi-arrow-left" />My courses
+    </RouterLink>
+
     <!-- Loading -->
     <div v-if="loading" class="d-flex justify-content-center py-5">
       <span class="spinner-border text-primary">

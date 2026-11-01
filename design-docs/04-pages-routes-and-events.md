@@ -32,7 +32,7 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 
 | Path | View | Owner | Who | Layout: xs (375–575 px) → lg/xl (≥ 992 px) |
 |---|---|---|---|---|
-| `/` | `LandingView` | Ying Qi | Public (logged-in users go to `/home`) | Hero + 3 feature cards stacked → hero left, cards in a row; "Join a class" CTA always visible |
+| `/` | `LandingView` | Ying Qi | Public (logged-in users go to `/home`) | Hero + 3 feature cards + "How it works" (4 steps) + footer, stacked → hero left, cards and steps in a row; "Join a class" CTA always visible. The navbar shows only "Join a class" and "Log in" until you log in |
 | `/home` | `HomeView` | Ying Qi | Logged in | Where you land after logging in. "Live now" (live classes across your courses, with Open class / Help queue / Join by your role in that course) and your first 3 courses, stacked → 7 + 5 cols. Students and TAs get a "Join with a code" button |
 | `/login`, `/register` | `LoginView`, `RegisterView` | Ying Qi | Public | Full-width card → centred card max 420 px |
 | `/courses` | `CoursesView` | Ying Qi | Logged in | Course cards 1 col → 3 cols; prof sees "New course"; student sees **"Enrol in a course"**, which opens `/enrol` |

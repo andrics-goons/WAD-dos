@@ -4,7 +4,8 @@ import { TileState } from '@shared/constants.js'
 import { useAuthStore } from '@/stores/auth'
 import StatusPill from '@/components/ui/StatusPill.vue'
 
-// The home page: a headline, a fake preview of the prof's dashboard, and three feature cards.
+// The public home page: a headline, a fake preview of the prof's dashboard, three feature cards,
+// how it works in 4 steps, and a footer. Logged-in users go to /home instead.
 const auth = useAuthStore()
 
 // On phones, the bottom "Join a class" bar only appears once the main button scrolls away.
@@ -51,6 +52,16 @@ const features = [
     body: '"Check my work" and "Ask for help" land in one queue with the code side by side. Need to walk over? You get a Telegram ping with the seat.',
   },
 ]
+
+const steps = [
+  { title: 'The prof starts a class', body: 'Pick a lesson and get a 6-character join code.' },
+  { title: 'Students join with the code', body: 'Type it in, or scan the QR on the screen.' },
+  { title: 'Everyone codes along', body: 'Students code in their browser as the prof codes.' },
+  {
+    title: 'Students keep up',
+    body: 'Mark Done, load the latest checkpoint, or ask for help.',
+  },
+]
 </script>
 
 <template>
@@ -63,9 +74,7 @@ const features = [
           <div class="ca-eyebrow mb-2">Live coding classes · IS216</div>
           <h1 class="display-5 fw-semibold mb-3">Code along live.<br />Nobody gets left behind.</h1>
           <p class="fs-5 text-body-secondary mb-4">
-            The prof codes live and saves checkpoints as they go. Students follow in their browser
-            and click Done when they've caught up, so the prof sees who is keeping up, and anyone
-            who falls behind can load the latest checkpoint in one click.
+            Follow the prof's code live. Fall behind? Load the latest checkpoint in one click.
           </p>
 
           <div class="d-flex flex-wrap gap-2 mb-3">
@@ -98,9 +107,7 @@ const features = [
 
         <!-- fake dashboard preview (not real data) -->
         <div class="col-12 col-lg-6">
-          <div
-            class="ca-card shadow-lg"
-          >
+          <div class="ca-card shadow-lg">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
               <span class="ca-pill ca-pill--sm ca-state--error">
                 <i class="bi bi-broadcast" />Live
@@ -156,6 +163,22 @@ const features = [
         </p>
       </div>
     </section>
+
+    <!-- How it works: 4 steps, one row on desktop, 2×2 on tablets, stacked on phones -->
+    <section class="ca-page pt-0">
+      <h2 class="mb-3">How it works</h2>
+      <div class="row g-3">
+        <div v-for="(s, i) in steps" :key="s.title" class="col-12 col-sm-6 col-lg-3">
+          <div class="ca-card h-100">
+            <span class="badge text-bg-primary rounded-pill mb-2">Step {{ i + 1 }}</span>
+            <h3 class="mb-1">{{ s.title }}</h3>
+            <p class="text-body-secondary mb-0">{{ s.body }}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="border-top py-4 text-center small text-body-secondary">© CodeAlong</footer>
 
     <!-- phones only: a "Join a class" bar that appears once the main button scrolls away -->
     <Transition name="ca-fade">
