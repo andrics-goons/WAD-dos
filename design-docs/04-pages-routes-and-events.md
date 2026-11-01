@@ -171,7 +171,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
-| RPC | `start_session(p_lesson_id)` | Validates `ready` + prof, allocates a unique join code, inserts; client renders the QR from `APP_URL/join/<code>` | Prof |
+| RPC | `start_session(p_lesson_id)` | Validates `ready` + prof; returns the lesson's live class if it has one, otherwise allocates a unique join code and inserts; client renders the QR from `APP_URL/join/<code>` | Prof |
 | RPC | `join_session(p_join_code)` | Finds the live session, decides my role, returns `{ session_id, role }` | Enrolled / staff |
 | Query | `from('sessions').select('*, lessons(title, files_hash, entry_file, dev_command)')` + latest checkpoint | Session bootstrap (`checkpoint_seq` is on the session row) | Member |
 | Query | `from('sessions').update({ settings })` | Prof policy; a trigger broadcasts `session:settings` | Prof |
@@ -268,9 +268,10 @@ Call these: `listUsers()` and `setRole(userId, role)`. The list of users lives i
 start_session  rpc('start_session', { p_lesson_id })
   1. Load lesson; NOT_FOUND if missing; CONFLICT unless status='ready'
   2. FORBIDDEN unless is_course_prof(lesson.course_id)
-  3. Generate join code; retry on the partial unique clash (max 5)
-  4. insert sessions { status: 'live' }
-  5. return session   → client renders QR for `${APP_URL}/join/${code}`
+  3. If this lesson already has a live class, return it (Start class again never splits the students)
+  4. Generate join code; retry on the partial unique clash (max 5)
+  5. insert sessions { status: 'live' }
+  6. return session   → client renders QR for `${APP_URL}/join/${code}`
 
 join_session  rpc('join_session', { p_join_code })
   1. select ... where join_code = upper($1) and status = 'live'

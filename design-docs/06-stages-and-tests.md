@@ -228,6 +228,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-SESS-16 | Prof clears the announcement | E2E | Banner disappears for everyone |
 | T-SESS-17 | Student or TA calls `announce` | RLS | `FORBIDDEN` |
 | T-SESS-18 | Announcement over 200 chars | DB | Check constraint rejects it |
+| T-SESS-19 | **Start a lesson that is already live** | DB | Returns the same class and join code, even on a double-click; a new class only once it has ended |
 
 ### SBX — Workspace, runtime & cache · `workspace.spec.js`, `build-error.test.js`, `files-cache.test.js`
 
