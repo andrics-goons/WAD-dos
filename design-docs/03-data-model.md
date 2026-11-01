@@ -840,6 +840,8 @@ All admin guards use `is distinct from` / `is_admin()`, never `<> 'admin'`: for 
 
 **Policy sweep.** `admin_policy_sweep()` returns one row per `public` table: RLS on, the number of `admin reads all` select policies, and the number of admin policies for any other command. T-ADM-09 asserts every table is `true / 1 / 0`, so a new table that forgets its admin policy (or adds an admin write) fails the suite. It reads the catalog, so it is granted to `service_role` only.
 
+**Independent RLS sweep** (Ying Qi, `…_schema_sweeps.sql`, tested in `tests/unit/rls/schema.test.js`). `tables_without_rls()` returns every `public` table with RLS off; T-PRIV-06 asserts it is empty. `view_security_sweep()` returns one row per `public` view and whether it has `security_invoker = true`; T-PRIV-07 asserts every row is `true`. Both are service role only.
+
 **Admin actions are not logged.** Postgres can't trigger on `select`, and role changes aren't recorded either — keep the number of admin accounts to the minimum the demo needs.
 
 ---
