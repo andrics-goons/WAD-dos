@@ -238,16 +238,16 @@ Answers to #3 go in the README either way — the measurement is the decision re
 |---|---|:---:|
 | **IndexedDB file cache keyed by `files_hash`** **(moved)** — built by Andric | `src/cache/files.js`, `src/api/files.api.js` | ✅ |
 | **Delta autosave** (5 s debounce, changed files only) + `autosave_patch` RPC **(moved)** — wired into the workspace by Andric | `src/cache/autosave.js` | ✅ |
-| **`catch_up` RPC, my attempts, restore attempt** **(moved)** | `src/api/workspace.api.js` | ⬜ |
-| **`FileTree`** (create/rename/delete; `SYNC_IGNORE` hidden; read-only mode for replay) **(moved)** | `components/workspace/FileTree.vue` | ⬜ |
+| **Catch-up** **(moved)** — no RPC since the redesign (05 §7): warn, download a .zip, then load the checkpoint and autosave it | `components/workspace/CatchUpModal.vue`, `utils/downloadProject.js`, `loadLatestCheckpoint()` in `stores/workspace.js` | ✅ |
+| **`FileTree`** (create/rename/delete with `editable`; `SYNC_IGNORE` hidden; browse-only by default) **(moved)** — wired into the student workspace (`createFile` / `renameFile` / `deleteFile` in `stores/workspace.js`, delete asks first) | `components/workspace/FileTree.vue` | ✅ |
 | Diff utility + `DiffView` (split/unified) | `shared/diff-summary.js`, `components/replay/DiffView.vue` | ✅ |
-| "What you missed" panel (embedded in Dylan's workspace) | `components/replay/WhatYouMissed.vue` | ⬜ |
+| ~~"What you missed" panel~~ — dropped with the catch-up redesign (05 §7) | — | — |
 | Lesson library (search, list) in course page — built by Ying Qi | `components/lesson/LessonLibrary.vue` | ✅ |
 | `github-import` function + import tab in New lesson | `supabase/functions/github-import/`, `components/lesson/GithubImportTab.vue` | ✅ |
 | `github-export` function (Git Data API, one commit per checkpoint) + GitHub identity link — the link is Andric's "Connect GitHub" on the profile page | `supabase/functions/github-export/`, `connectGitHub()` in `auth.api.js` | ✅ |
 | Replay + notes data access; `search()` RPC | `src/api/replays.api.js`, `notes.api.js` | ✅ |
-| Replay list + viewer, timeline, notes drawer, export dialog — all done except the read-only preview | `views/ReplayListView.vue`, `views/ReplayView.vue`, `components/replay/*` | ⬜ |
-| Tests | T-REP-* · T-GH-* · T-CATCH-01–08 · T-SBX-11, 13–16, 18–23 · T-LOAD-04 | ⬜ |
+| Replay list + viewer, timeline, notes drawer, export dialog, read-only preview | `views/ReplayListView.vue`, `views/ReplayView.vue`, `components/replay/*` | ✅ |
+| Tests — unit and DB done; left: the E2E ones (T-REP-03, T-GH-01/05, T-CATCH-01/02/05–08, T-SBX-11/16, waiting on the Playwright setup) and T-LOAD-04 | T-REP-* · T-GH-* · T-CATCH-01–08 · T-SBX-11, 13–16, 18–23 · T-LOAD-04 | ⬜ |
 
 **Boundary:** owns every version of a file after it leaves the editor — cached, synced, snapshotted, diffed, replayed, exported. Hands Dylan files to mount; takes edits back through `autosave()`.
 **Contract change to flag at the design lock:** export no longer holds the GitHub token server-side for 10 minutes — Supabase Auth holds it on the session and it reaches the browser. We still never persist it, and T-GH-06 asserts that. See [05](./05-core-logic.md#11-replay--github-import--export).

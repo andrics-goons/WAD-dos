@@ -1,4 +1,4 @@
-// Unit tests for shared/diff-summary.js (T-CATCH-04, T-CATCH-05 in design-docs/06)
+// Unit tests for shared/diff-summary.js, used by the replay and the TA's side-by-side
 import { describe, it, expect } from 'vitest'
 import { diffSummary, CONTEXT_LINES } from '../../shared/diff-summary.js'
 
@@ -14,7 +14,7 @@ const withLines = (lines, changes) =>
   lines.map((line, i) => (i + 1 in changes ? changes[i + 1] : line))
 
 describe('diffSummary', () => {
-  describe('"What you missed" after loading a checkpoint', () => {
+  describe('one checkpoint against the next', () => {
     // The Mini Cart step 4 mistake: `items` where the checkpoint has `props.items`
     const checkpoint = withLines(numbered(30), { 22: '    <ItemCard :items="props.items" />' })
     const attempt = withLines(checkpoint, { 22: '    <ItemCard :items="items" />' })
@@ -23,7 +23,7 @@ describe('diffSummary', () => {
       [f('src/App.vue', text(checkpoint), 'vue')],
     ).files
 
-    it('T-CATCH-04: points the first difference at the typo line', () => {
+    it('points the first difference at the typo line', () => {
       expect(file.path).toBe('src/App.vue')
       expect(file.status).toBe('modified')
       expect(file.firstDiffLine).toBe(22)
@@ -66,8 +66,8 @@ describe('diffSummary', () => {
     })
   })
 
-  // Formatting differences shouldn't show up as "things you missed"
-  describe('T-CATCH-05: whitespace-only changes are ignored', () => {
+  // Formatting differences shouldn't show up as changes
+  describe('whitespace-only changes are ignored', () => {
     it('ignores indentation and trailing spaces', () => {
       const before = '<template>\n  <div>{{ total }}</div>\n</template>\n'
       const after = '<template>\n    <div>{{ total }}</div>   \n</template>\n'

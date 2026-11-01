@@ -6,6 +6,7 @@
   import CatchUpModal from "@/components/workspace/CatchUpModal.vue"
   import AnnouncementBanner from "@/components/session/AnnouncementBanner.vue"
   import EmptyState from "@/components/ui/EmptyState.vue"
+  import ConfirmModal from "@/components/ui/ConfirmModal.vue"
   import { getWebContainer } from "@/runtime/webcontainer";
   import { startWorkspace } from "@/runtime/workspace";
   import { useWorkspaceStore } from "@/stores/workspace.js"
@@ -57,6 +58,13 @@
     } finally {
       catchingUp.value = false
     }
+  }
+
+  // The file tree's Delete asks first: the path waiting to be confirmed, or ''
+  const deleting = ref("")
+  function deleteFile() {
+    workspaceStore.deleteFile(deleting.value)
+    deleting.value = ""
   }
 
   // A heads-up when the prof saves a new checkpoint while I'm here. Not on opening the page:
@@ -143,6 +151,17 @@
       @confirm="catchUp"
     />
 
+    <ConfirmModal
+      :open="!!deleting"
+      :title="`Delete ${deleting}?`"
+      confirm-label="Delete"
+      variant="danger"
+      @update:open="deleting = ''"
+      @confirm="deleteFile"
+    >
+      It's removed from your project and from your saved code.
+    </ConfirmModal>
+
     <EmptyState v-if="!isolated" icon="bi-exclamation-triangle" title="The workspace can't start">
       {{ bootError }} Try reloading the page.
     </EmptyState>
@@ -164,7 +183,11 @@
             v-model:selected-code="workspaceStore.selectedCode"
             :save-status="workspaceStore.saveStatus"
             :files-version="workspaceStore.filesVersion"
+            :editable="loaded && sessionStore.isLive"
             @show-preview="showPreview = true"
+            @create-file="workspaceStore.createFile"
+            @rename-file="workspaceStore.renameFile"
+            @delete-file="deleting = $event"
           />
         </div>
 

@@ -380,7 +380,7 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `container.mount(files)` / `boot()` | Dylan | Evan (teach preview), Ray Yien (replay preview) | The one WebContainer runtime; nobody builds a second |
 | `loadFiles(kind, id, hash)` | Ray Yien | Dylan (workspace boot) | `→ files` — IndexedDB first, Supabase only on a hash miss. `kind` is `'lesson'`, `'checkpoint'` or `'snapshot'` (snapshots are never cached). `hash` is optional: without it, the hash is checked first. For the student's own autosave, `findMyAutosave(sessionId)` in `files.api.js` gives `{ id, files_hash, updated_at }` |
 | `autosave(tree)` | Ray Yien | Dylan (editor changes) | Debounced 5 s; sends only changed files |
-| `catchUp(sessionId, files)` | Ray Yien | Dylan (Load checkpoint) | `→ { checkpoint, attemptSnapshotId, depsChanged }` — Dylan reinstalls when `depsChanged` |
+| `workspaceStore.loadLatestCheckpoint()` | Ray Yien | Dylan (Load checkpoint) | `→ { packageChanged }` — no RPC (05 §7); when `packageChanged` the toast tells the student to run `pnpm install` |
 | `groupErrors` | Evan | Evan (client summary) | `(tiles, { min, presentCount }) => errorGroups[]` |
 | `classify` | Evan | Evan (dashboard re-derive) — must agree with Andric's `session_tiles` | `({ doneSeq, error, lastSeenAt, checkpointSeq, now, idleAfterMs }) => TileState` |
 | `checkpointLabel` | Andric | Workspace, help screens, report, Telegram ping | `(seq, title?) => 'Checkpoint 3 · Added ItemCard' \| 'Checkpoint 3' \| 'Starter code'` |

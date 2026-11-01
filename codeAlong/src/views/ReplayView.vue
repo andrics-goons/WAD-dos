@@ -10,6 +10,7 @@ import CheckpointTimeline from '@/components/replay/CheckpointTimeline.vue'
 import DiffView from '@/components/replay/DiffView.vue'
 import NotesPanel from '@/components/replay/NotesPanel.vue'
 import ExportDialog from '@/components/replay/ExportDialog.vue'
+import ReplayPreview from '@/components/replay/ReplayPreview.vue'
 
 // One class, step by step: pick a checkpoint and see what changed since the one before it,
 // with my notes and bookmarks beside it. Owner: Ray Yien. design-docs/04, 05 §11.
@@ -237,6 +238,9 @@ const repoSlug = (title) =>
             :before-label="previous ? `Checkpoint ${previous.seq}` : 'Starter code'"
             :after-label="`Checkpoint ${active.seq}`"
           />
+
+          <h2 class="fs-6 mt-4 mb-2">Preview</h2>
+          <ReplayPreview :files="after" />
         </section>
 
         <aside class="col-12 col-lg-3">
