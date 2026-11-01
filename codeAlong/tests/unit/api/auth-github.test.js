@@ -41,6 +41,19 @@ describe('GitHub sign-in and linking', () => {
     })
   })
 
+  it('already linked: "Connect GitHub" signs in through it again for a fresh token', async () => {
+    auth.getUserIdentities.mockResolvedValue(identities(EMAIL, GITHUB))
+    await authApi.connectGitHub('/courses/c1/lessons/new?source=github')
+    expect(auth.linkIdentity).not.toHaveBeenCalled()
+    expect(auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'github',
+      options: {
+        scopes: 'public_repo',
+        redirectTo: `${window.location.origin}/courses/c1/lessons/new?source=github`,
+      },
+    })
+  })
+
   it('no GitHub identity means not connected', async () => {
     expect(await authApi.getGitHubLink()).toBeNull()
   })

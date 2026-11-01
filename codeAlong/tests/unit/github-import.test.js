@@ -28,10 +28,13 @@ function fakeGithub(files, { missing = false } = {}) {
 }
 
 const URL_ = 'https://fn.test/github-import'
-const request = (body) => new Request(URL_, { method: 'POST', body: JSON.stringify(body) })
+const TOKEN = 'gho_prof' // the prof's own GitHub token
+const request = (body) =>
+  new Request(URL_, { method: 'POST', body: JSON.stringify({ providerToken: TOKEN, ...body }) })
 const preflight = () => new Request(URL_, { method: 'OPTIONS' })
 const asProf = { callerRole: async () => 'prof' }
-const run = (body, github, deps = asProf) => handleImport(request(body), { ...deps, github })
+const run = (body, github, deps = asProf) =>
+  handleImport(request(body), { ...deps, makeGithub: () => github })
 
 describe('parseRepoUrl', () => {
   it.each([
@@ -155,8 +158,27 @@ describe('github-import', () => {
     expect(github.json).not.toHaveBeenCalled()
   })
 
+  it("reads the repo with the prof's own GitHub token, and asks for one when it's missing", async () => {
+    const makeGithub = vi.fn(() => fakeGithub({ 'index.html': 'x' }))
+    const url = 'https://github.com/prof/mini-cart'
+    await handleImport(request({ repoUrl: url }), { ...asProf, makeGithub })
+    expect(makeGithub).toHaveBeenCalledWith(TOKEN)
+
+    const res = await run({ repoUrl: url, providerToken: undefined }, fakeGithub({}))
+    expect(res.status).toBe(401)
+    expect((await res.json()).message).toBe('Connect your GitHub account first')
+  })
+
+  it('says to connect GitHub again when GitHub rejects the token', async () => {
+    const github = fakeGithub({})
+    github.json.mockRejectedValue(new GithubError(401, 'Bad credentials'))
+    const res = await run({ repoUrl: 'https://github.com/prof/mini-cart' }, github)
+    expect(res.status).toBe(401)
+    expect((await res.json()).code).toBe('UNAUTHENTICATED')
+  })
+
   it('answers the browser CORS preflight', async () => {
-    const res = await handleImport(preflight(), { ...asProf, github: fakeGithub({}) })
+    const res = await handleImport(preflight(), { ...asProf, makeGithub: () => fakeGithub({}) })
     expect(res.headers.get('access-control-allow-origin')).toBe('*')
   })
 })

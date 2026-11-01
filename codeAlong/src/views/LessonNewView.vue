@@ -4,7 +4,7 @@
 // upload + parsing happen in the browser, create lesson saves through lessons.api.js
 // saving needs the lessons table and a real course id in the url
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import GithubImportTab from '@/components/lesson/GithubImportTab.vue'
 import { useLessonsStore } from '@/stores/lessons'
 import { useToastStore } from '@/stores/toast'
@@ -12,11 +12,13 @@ import { buildLessonFiles, isIgnored, languageForPath } from '../../shared/lesso
 
 const props = defineProps({ id: { type: String, required: true } }) // the course id
 const router = useRouter()
+const route = useRoute()
 const lessons = useLessonsStore()
 const toast = useToastStore()
 
 const stage = ref(1)
-const source = ref('upload')
+// ?source=github: back from connecting GitHub in the import tab
+const source = ref(route.query.source === 'github' ? 'github' : 'upload')
 const stages = ['Source', 'Review files']
 
 const files = ref([])

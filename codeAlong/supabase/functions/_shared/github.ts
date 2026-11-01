@@ -1,5 +1,5 @@
 // GitHub REST client for github-import and github-export.
-//   live: real API calls, with the server's token (import) or the user's own (export)
+//   live: real API calls, with the user's own GitHub token (import and export)
 //   mock (EXTERNAL_APIS=mock): no network. Each call is recorded in test_outbox, never with a
 //   token, and answered with a small made-up repo or fake ids, so tests never touch GitHub.
 

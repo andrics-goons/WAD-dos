@@ -1,6 +1,6 @@
 # Lesson import: what a project needs before it goes into Supabase
 
-**For:** whoever builds the `github-import` function and the upload tab (see [05 §GitHub import](./05-core-logic.md#github-import-server-token--github-import)).
+**For:** whoever builds the `github-import` function and the upload tab (see [05 §GitHub import](./05-core-logic.md#github-import-the-profs-own-github--github-import)).
 
 A normal Vite project from GitHub won't report errors to CodeAlong as is. Before a lesson is inserted into `public.lessons`, the import has to add or change these files:
 

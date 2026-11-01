@@ -129,14 +129,19 @@ export async function getGitHubLink() {
 }
 
 /**
- * "Connect GitHub" on the profile page: links a GitHub account to the one I'm logged in with,
- * with the repo access that exporting a replay needs (design-docs/05 §11).
+ * "Connect GitHub" (profile page, GitHub import, replay export): gets a GitHub token on my
+ * session, with the repo access that exporting a replay needs (design-docs/05 §11).
+ * Not linked yet: links GitHub to the account I'm logged in with. Already linked (the token
+ * goes when I log in with a password, or expires): signs in through it again, which lands on
+ * this same account, since Supabase refuses to link a GitHub that's already linked.
  */
 export async function connectGitHub(returnTo = '/profile') {
-  const { error } = await supabase.auth.linkIdentity({
-    provider: 'github',
-    options: { scopes: 'public_repo', redirectTo: backTo(returnTo) },
-  })
+  const options = { scopes: 'public_repo', redirectTo: backTo(returnTo) }
+  const { data, error: idError } = await supabase.auth.getUserIdentities()
+  if (idError) throw mapError(idError)
+  const { error } = data.identities.some((i) => i.provider === 'github')
+    ? await supabase.auth.signInWithOAuth({ provider: 'github', options })
+    : await supabase.auth.linkIdentity({ provider: 'github', options })
   if (error) throw mapError(error)
 }
 

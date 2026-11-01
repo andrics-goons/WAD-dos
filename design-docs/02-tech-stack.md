@@ -164,7 +164,7 @@ Pinia store ──▶ src/api/*.api.js ──▶ supabase-js  ──▶  PostgRE
                                      │
                                      ▼
                             Edge Function (Deno)
-                              secrets: TELEGRAM_BOT_TOKEN, GITHUB_TOKEN, …
+                              secrets: TELEGRAM_BOT_TOKEN, LLM_API_KEY, …
                               service role key (never leaves the function)
                                      │
                                      ▼
@@ -306,7 +306,6 @@ APP_URL=https://<app>.vercel.app          # QR codes, Telegram links, replay lin
 TELEGRAM_BOT_TOKEN=<from @BotFather>
 TELEGRAM_BOT_USERNAME=CodeAlongBot
 TELEGRAM_WEBHOOK_SECRET=<long random>     # verified on every webhook request
-GITHUB_TOKEN=<fine-grained, public-repo read>
 LLM_API_KEY=                              # optional (KIV); hints fall back to rules when empty
 EXTERNAL_APIS=live                        # live | mock  (local + tests use mock)
 ```
