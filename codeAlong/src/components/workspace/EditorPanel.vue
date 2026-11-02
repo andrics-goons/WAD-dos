@@ -23,6 +23,25 @@
     const collapsed = ref(window.matchMedia("(max-width: 767.98px)").matches)
     const terminalOpen = ref(true)
 
+    // each terminal is its own shell using browser memory, so there's a limit
+    const MAX_TERMINALS = 3
+    const terminals = ref([1]) // the numbers of the open terminals, in list order
+    const activeTerminal = ref(1)
+    const atTerminalLimit = computed(() => terminals.value.length >= MAX_TERMINALS)
+
+    function addTerminal() {
+        // takes the lowest free number, so closing Terminal 2 leaves a gap the next one fills
+        let number = 1
+        while (terminals.value.includes(number)) number++
+        terminals.value = [...terminals.value, number].sort((a, b) => a - b)
+        activeTerminal.value = number
+    }
+
+    function closeTerminal(number) {
+        terminals.value = terminals.value.filter((n) => n !== number)
+        if (activeTerminal.value === number) activeTerminal.value = terminals.value[0]
+    }
+
     // used as filebadge next to filename in codeeditor
     const fileType = computed(() => props.selectedFile.split(".").pop().toUpperCase())
 
@@ -138,9 +157,45 @@
             <div v-show="terminalOpen" class="pane terminal-pane">
                 <div class="pane-header">
                     <span>Terminal</span>
+                    <button
+                        class="toggle-btn ms-auto"
+                        type="button"
+                        :disabled="atTerminalLimit"
+                        :title="atTerminalLimit ? `${MAX_TERMINALS} terminals is the maximum` : 'New terminal'"
+                        @click="addTerminal"
+                    >
+                        <i class="bi bi-plus-lg" />
+                    </button>
                 </div>
-                <div class="pane-body terminal-body">
-                    <TerminalPanel />
+                <div class="pane-body terminal-area">
+                    <div class="terminal-body">
+                        <!-- v-show here too, so switching terminals doesn't kill a running server -->
+                        <TerminalPanel
+                            v-for="number in terminals"
+                            v-show="number === activeTerminal"
+                            :key="number"
+                        />
+                    </div>
+                    <div class="terminal-list">
+                        <div
+                            v-for="number in terminals"
+                            :key="number"
+                            class="terminal-item"
+                            :class="{ active: number === activeTerminal }"
+                            @click="activeTerminal = number"
+                        >
+                            <span><span class="d-none d-md-inline">Terminal </span>{{ number }}</span>
+                            <button
+                                v-if="terminals.length > 1"
+                                class="toggle-btn terminal-close"
+                                type="button"
+                                title="Close terminal"
+                                @click.stop="closeTerminal(number)"
+                            >
+                                <i class="bi bi-x-lg" />
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -213,7 +268,54 @@
     }
     /* the FitAddon sizes xterm to this box, so clip the sub-pixel leftovers instead of showing scrollbars */
     .terminal-body {
+        flex: 1;
+        min-width: 0;
         overflow: hidden;
+    }
+    .terminal-area {
+        display: flex;
+    }
+    .terminal-list {
+        flex-shrink: 0;
+        padding: 6px 0;
+        overflow-y: auto;
+        border-left: 1px solid #181a1f;
+    }
+    /* below md the list is just the numbers, so the terminal keeps the width */
+    @media (min-width: 768px) {
+        .terminal-list {
+            width: 130px;
+        }
+    }
+    .terminal-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        padding: 3px 10px;
+        white-space: nowrap;
+        cursor: pointer;
+        user-select: none;
+    }
+    .terminal-item:hover {
+        background: #2c313a;
+    }
+    .terminal-item.active {
+        background: #3e4451;
+        color: #d7dae0;
+    }
+    /* close shows on the row you're pointing at; touch screens can't point, so it always shows there */
+    .terminal-close {
+        visibility: hidden;
+        font-size: 11px;
+    }
+    .terminal-item:hover .terminal-close {
+        visibility: visible;
+    }
+    @media (hover: none) {
+        .terminal-close {
+            visibility: visible;
+        }
     }
     .toggle-btn {
         display: flex;
@@ -226,6 +328,11 @@
     .toggle-btn:hover,
     .toggle-btn.active {
         color: #fff;
+    }
+    .toggle-btn:disabled {
+        color: inherit;
+        opacity: 0.4;
+        cursor: not-allowed;
     }
     .file-badge {
         font-size: 10px;

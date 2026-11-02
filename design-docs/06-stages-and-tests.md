@@ -254,6 +254,8 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-SBX-21 | **A failed save retries the same delta** | Unit | Synced hashes are not advanced on failure; the next tick resends |
 | T-SBX-22 | Flush on tab close | E2E | `visibilitychange` writes immediately, losing none of the 5 s window |
 | T-SBX-23 | Deleted file is removed server-side | E2E | Path appears in `p_delete`; gone from the autosave row |
+| T-SBX-24 | **Multiple terminals** | Unit | Starts with one; + adds up to 3, using the lowest free number; switching keeps every terminal mounted; closing the one on screen shows the first; the last can't be closed |
+| T-SBX-25 | A hidden terminal isn't refitted | Unit | A zero-width resize doesn't call `fit()`, so a server running in another terminal keeps its width |
 | T-SBX-12 | Done disabled while the last run has an error | E2E | Button disabled with reason (runtime **or** build) |
 | T-SBX-13 | **`SYNC_IGNORE` respected** | DB | After an install, no saved row contains a `node_modules/`, `dist/` or `.vite/` path |
 | T-SBX-14 | **Cache hit costs no network** | Unit | Matching `files_hash` → `loadFiles` returns from IndexedDB with zero fetches |
@@ -496,7 +498,7 @@ Admins read everything and write only accounts. Most of these are negative tests
 | PLAT | 21 | 2 |
 | LESSON + TODO | 14 | 4 |
 | SESS | 18 | 3 |
-| SBX | 23 | 3 |
+| SBX | 25 | 3 |
 | STAT | 12 | 5 |
 | DASH | 7 | 5 |
 | ERRG | 9 | 9 |
@@ -511,7 +513,7 @@ Admins read everything and write only accounts. Most of these are negative tests
 | RESP | 6 | 11 |
 | VALID | 8 | 11 |
 | LOAD + SEED + SMOKE | 9 | 11–12 |
-| **Total** | **204** | |
+| **Total** | **206** | |
 
 Up from 137 in the Mongo design: 15 came from authorization moving into the database (RLS negative tests — the cheapest in the suite, a sign-in and an `expect(data).toEqual([])`), and 17 more from the WebContainer runtime (boot, install, build errors, the file cache, delta autosave, and the two privacy tests that keep code frames and terminal output out of the dashboard), plus 12 for help follow-ups and class announcements, and 16 for sign-up roles, per-prof courses and the admin role.
 

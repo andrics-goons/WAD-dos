@@ -27,7 +27,10 @@
         term = created.term
         fitAddon = created.fitAddon
         // covers window resizes and the panel being dragged/toggled, not just window.onresize
-        resizeObserver = new ResizeObserver(() => fitAddon.fit())
+        // a hidden terminal has no size, and fitting it then would squash a running server's output
+        resizeObserver = new ResizeObserver(([entry]) => {
+            if (entry.contentRect.width) fitAddon.fit()
+        })
         resizeObserver.observe(terminalEl.value)
         try {
             webcontainer = await getWebContainer()
