@@ -11,6 +11,7 @@ vi.mock('@/lib/supabase', async () => {
 import { supabase } from '@/lib/supabase'
 import * as coursesApi from '@/api/courses.api'
 import { getClassSummary } from '@/api/dashboard.api'
+import { groupErrors } from '@shared/error-normalizer.js'
 import { createUser, service, cleanup } from '../rls/_helpers.js'
 
 const FILES = [{ path: 'index.html', language: 'html', content: '' }]
@@ -103,8 +104,20 @@ beforeAll(async () => {
     key: 'ReferenceError: itmes is not defined',
     shapeKey: 'ReferenceError: <id> is not defined',
   }
+  // the same mistake spelled right, so it has a different key but the same shape
+  const sameShape = {
+    ...error,
+    message: 'items is not defined',
+    key: 'ReferenceError: items is not defined',
+  }
   const { error: statusError } = await service.from('student_status').insert([
-    { session_id: session.id, student_id: students[0].id, done_seq: 2, last_seen_at: now },
+    {
+      session_id: session.id,
+      student_id: students[0].id,
+      done_seq: 2,
+      error: sameShape,
+      last_seen_at: now,
+    },
     { session_id: session.id, student_id: students[1].id, done_seq: 2, error, last_seen_at: now },
     { session_id: session.id, student_id: students[2].id, done_seq: 1, last_seen_at: now },
     { session_id: session.id, student_id: students[3].id, done_seq: null, last_seen_at: now },
@@ -144,15 +157,25 @@ describe('getClassSummary', () => {
 
   it("gives the class's errors in the shape groupErrors takes", async () => {
     const { errors } = await getClassSummary(session.id)
-    expect(errors).toEqual([
-      {
-        studentId: students[1].id,
-        errorKey: 'ReferenceError: itmes is not defined',
-        errorShapeKey: null,
-        errorSource: 'runtime',
-        errorPreview: 'itmes is not defined',
-        lastSeenAt: expect.any(String),
-      },
+    expect(errors).toContainEqual({
+      studentId: students[1].id,
+      errorKey: 'ReferenceError: itmes is not defined',
+      errorShapeKey: 'ReferenceError: <id> is not defined',
+      errorSource: 'runtime',
+      errorPreview: 'itmes is not defined',
+      lastSeenAt: expect.any(String),
+    })
+    expect(errors).toHaveLength(2)
+  })
+
+  it('T-ERRG-05: two students with typos of the same mistake make one group of 2', async () => {
+    const { errors, total } = await getClassSummary(session.id)
+    const groups = groupErrors(errors, { presentCount: total })
+    expect(groups).toHaveLength(1)
+    expect(groups[0].count).toBe(2)
+    expect(groups[0].variants.map((v) => v.key).sort()).toEqual([
+      'ReferenceError: items is not defined',
+      'ReferenceError: itmes is not defined',
     ])
   })
 

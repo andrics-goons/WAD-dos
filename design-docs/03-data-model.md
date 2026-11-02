@@ -480,7 +480,7 @@ There is **no "behind" state**: a new checkpoint resets everyone, so a student i
 
 `security_invoker = true` makes the view run with the caller's rights, so the RLS policies above still apply — **without it a view would leak every session's rows.** A student querying it sees only their own tile.
 
-The help/notes/reports migration appends one more column, `passed_seqs int[]`: the checkpoints this student's `check` requests were **passed** on (each request's `checkpoint_seq`), e.g. `{1,3}`. (`create or replace view` can only add columns at the end, so it comes after `state`.)
+The help/notes/reports migration appends one more column, `passed_seqs int[]`: the checkpoints this student's `check` requests were **passed** on (each request's `checkpoint_seq`), e.g. `{1,3}`. (`create or replace view` can only add columns at the end, so it comes after `state`.) The shape-key migration then appends `error_shape_key text` (`error->>'shapeKey'`, the error with the student's own names blanked out), which the dashboard groups Common errors on, so typos of one mistake share a group.
 
 ```sql
 create view public.session_summary with (security_invoker = true) as
