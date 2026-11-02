@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { AppError, mapError } from './mapError'
 
-// Prof dashboard calls for the Teach view (design-docs/04, "Dashboard & Spotlight").
+// Prof dashboard calls for the Teach view (design-docs/04, "Dashboard").
 
 /**
  * The summary card: what students clicked, as numbers only.

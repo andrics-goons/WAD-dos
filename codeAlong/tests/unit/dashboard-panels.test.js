@@ -27,10 +27,9 @@ describe('ErrorGroupList', () => {
     expect(wrapper.text()).toContain("Won't compile")
   })
 
-  it('passes the group up when spotlight is clicked', async () => {
+  it('has no Spotlight button', () => {
     const wrapper = mount(ErrorGroupList, { props: { groups: [group] } })
-    await wrapper.find('[data-testid="btn-spotlight-0"]').trigger('click')
-    expect(wrapper.emitted('spotlight')[0]).toEqual([group])
+    expect(wrapper.find('button').exists()).toBe(false)
   })
 
   it('shows an empty state when there are no groups', () => {
