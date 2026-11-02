@@ -17,7 +17,7 @@
 | Auth | **Supabase Auth** (email + password) | Issues the JWT that authorises Postgres, Realtime and Functions alike | IS113 (auth concepts) |
 | Authorization | **Row Level Security** policies | The rule lives next to the data, so no handler can forget it | New — credited |
 | Realtime | **Supabase Realtime** (Broadcast · Postgres Changes · Presence) | Checkpoint fan-out, live tiles, help queue, attendance | New — credited |
-| Server-side logic | **Supabase Edge Functions** (Deno + TypeScript) | The only place our API secrets exist; also the trusted path for Spotlight and reports | New — credited |
+| Server-side logic | **Supabase Edge Functions** (Deno + TypeScript) | The only place our API secrets exist; also the trusted path for the help analysis and the digest | New — credited |
 | Validation | **zod** (client) + Postgres `check` constraints | Per-field form messages, with a constraint behind each one | New — credited |
 | Diffing | **diff** (jsdiff) | Line diffs for the TA's side-by-side and the replay | New — credited |
 | QR codes | **qrcode** | Join-code QR on the projector | New — credited |
@@ -65,8 +65,6 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   ├── error-normalizer.js      ← Evan
 │   ├── tile-state.js            ← Evan — classify(), must agree with Andric's session_tiles SQL
 │   ├── diff-summary.js          ← Ray Yien
-│   ├── spotlight.js             ← Evan — excerpt + anonymise
-│   ├── report-builder.js        ← Andric
 │   └── join-code.js             ← Ying Qi
 │
 ├── src/                         ← the Vue app
@@ -121,9 +119,7 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   │   ├── telegram-notify/     ← Karin — in-person ping (called by a pg_net trigger)
 │   │   ├── github-import/       ← Ray Yien
 │   │   ├── github-export/       ← Ray Yien — one commit per checkpoint
-│   │   ├── spotlight/           ← Evan — anonymised excerpt
-│   │   ├── end-session/         ← Andric — builds the report (invoked by DB webhook)
-│   │   ├── digest/              ← Andric content, Karin send
+│   │   ├── digest/              ← Andric — after-class Telegram digest (the report itself is built in SQL)
 │   │   ├── hint/                ← Karin (COULD)
 │   └── seed.sql                 ← demo data (07-seed-and-demo.md); applied by `supabase db reset`
 │
@@ -236,7 +232,7 @@ Useful for the "explain how you used JS/Vue/CSS" part of the video.
 | Vue reactivity (`ref`, `reactive`) | Workspace file buffers, dashboard tiles |
 | `computed` | Class summary counts, error groups, progress %, changed-line counts in the replay diff |
 | `watch` | Autosave debounce on editor changes; re-run preview when files change |
-| Components, props, emits | `ClassChoices` (props: summary); `ErrorGroupList` (props: groups) → emits `spotlight`; `CodeEditor` emits `update:modelValue`, `save` |
+| Components, props, emits | `ClassChoices` (props: summary); `ErrorGroupList` (props: groups); `CodeEditor` emits `update:modelValue`, `save` |
 | `v-for`, `v-if`, `v-model`, `:class` | Class summary card, checkpoint list, error groups, state colours |
 | Lifecycle hooks | `onMounted` subscribes to the session channel; `onBeforeUnmount` unsubscribes and clears timers |
 | Vue Router + guards | Role-guarded routes (`meta.roles`), `/join/:code` deep link from QR |

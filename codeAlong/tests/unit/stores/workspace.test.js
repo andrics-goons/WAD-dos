@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { createPinia, setActivePinia } from "pinia"
 import { useWorkspaceStore } from "@/stores/workspace.js"
+import { useStatusStore } from "@/stores/status"
 import { getWebContainer } from "@/runtime/webcontainer"
 import { findMyAutosave } from "@/api/files.api"
 import { loadFiles } from "@/cache/files.js"
@@ -159,6 +160,13 @@ describe("loading the prof's latest checkpoint", () => {
         other.selectedFile = "notes.md"
         await other.loadLatestCheckpoint()
         expect(other.selectedFile).toBe("index.html")
+    })
+
+    it("records a catch-up for the prof's report", async () => {
+        const store = await loaded(MINE)
+        const record = vi.spyOn(useStatusStore(), "recordCatchUp").mockResolvedValue()
+        await store.loadLatestCheckpoint()
+        expect(record).toHaveBeenCalledOnce()
     })
 
     it("T-CATCH-10: says when package.json changed, so the student knows to run pnpm install", async () => {

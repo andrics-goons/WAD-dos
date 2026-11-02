@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { AppError, mapError } from './mapError'
 
-// Prof dashboard calls for the Teach view (design-docs/04, "Dashboard & Spotlight").
+// Prof dashboard calls for the Teach view (design-docs/04, "Dashboard").
 
 /**
  * The summary card: what students clicked, as numbers only.
@@ -18,7 +18,7 @@ export async function getClassSummary(sessionId) {
     supabase
       .from('session_tiles')
       .select(
-        'student_id, checkpoint_seq, done_seq, error_source, error_key, error_preview, last_seen_at',
+        'student_id, checkpoint_seq, done_seq, error_source, error_key, error_shape_key, error_preview, last_seen_at',
       )
       .eq('session_id', sessionId),
     supabase
@@ -46,8 +46,8 @@ export async function getClassSummary(sessionId) {
       .map((t) => ({
         studentId: t.student_id,
         errorKey: t.error_key,
-        // session_tiles has no shape key yet, so typo variants stay separate groups
-        errorShapeKey: null,
+        // the names blanked out, so typos of the same mistake group together
+        errorShapeKey: t.error_shape_key,
         errorSource: t.error_source,
         errorPreview: t.error_preview,
         lastSeenAt: t.last_seen_at,

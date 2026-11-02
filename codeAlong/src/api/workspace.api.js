@@ -21,7 +21,7 @@ export async function autosavePatch(sessionId, upsert, remove) {
 export async function getMyStatus(sessionId) {
   const { data, error } = await supabase
     .from('student_status')
-    .select('done_seq, error')
+    .select('done_seq, error, catch_ups')
     .eq('session_id', sessionId)
     .maybeSingle() // RLS shows a student only their own row
   if (error) throw mapError(error)
@@ -39,4 +39,41 @@ export async function saveStatus(sessionId, studentId, { doneSeq, error }) {
       { onConflict: 'session_id,student_id' },
     )
   if (dbError) throw mapError(dbError)
+}
+
+// How many times I've loaded the prof's latest checkpoint in this class. Going up logs a
+// catch-up for the report (design-docs/05 §10), counted per checkpoint and never by name.
+export async function saveCatchUps(sessionId, studentId, catchUps) {
+  const { error } = await supabase
+    .from('student_status')
+    .update({ catch_ups: catchUps })
+    .eq('session_id', sessionId)
+    .eq('student_id', studentId)
+  if (error) throw mapError(error)
+}
+
+// "Slow down": whether I've asked the prof to slow down in this class. Only I can read my
+// flag; staff only ever get the count (design-docs/09 §5).
+export async function getMySlowDown(sessionId) {
+  const { data, error } = await supabase
+    .from('slow_down_flags')
+    .select('session_id')
+    .eq('session_id', sessionId)
+    .maybeSingle()
+  if (error) throw mapError(error)
+  return data !== null
+}
+
+// Raise (on) or clear my flag. Raising it twice is harmless: the second insert is ignored.
+export async function setSlowDown(sessionId, studentId, on) {
+  const { error } = on
+    ? await supabase
+        .from('slow_down_flags')
+        .insert({ session_id: sessionId, student_id: studentId })
+    : await supabase
+        .from('slow_down_flags')
+        .delete()
+        .eq('session_id', sessionId)
+        .eq('student_id', studentId)
+  if (error && error.code !== '23505') throw mapError(error)
 }

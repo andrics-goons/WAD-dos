@@ -10,12 +10,14 @@
         done: { type: Boolean, default: false },      // I've clicked Done on that checkpoint
         disabled: { type: Boolean, default: false },  // still loading, or the class has ended
         canLoadCheckpoint: { type: Boolean, default: false }, // there is one, and the prof allows catching up
+        slowDown: { type: Boolean, default: false },  // I've asked the prof to slow down
         sessionId: { type: [String, Number], default: null },
         files: { type: Array, default: () => [] },
     })
 
     // done: I'm caught up to the checkpoint · undo: back to In progress · load-checkpoint: catch up
-    const emit = defineEmits(["done", "undo", "load-checkpoint"])
+    // slow-down: ask the prof to slow down, or take it back (anonymous: they only see a count)
+    const emit = defineEmits(["done", "undo", "load-checkpoint", "slow-down"])
 </script>
 
 <template>
@@ -58,6 +60,20 @@
             </div>
 
             <div class="divider d-none d-lg-block" />
+
+            <button
+                type="button"
+                class="ca-btn"
+                :class="slowDown ? 'ca-btn--primary' : 'ca-btn--secondary'"
+                :disabled="disabled"
+                :title="slowDown ? 'You asked the prof to slow down. Click to take it back' : 'Ask the prof to slow down (anonymous)'"
+                data-testid="btn-slow-down"
+                @click="emit('slow-down')"
+            >
+                <i class="bi bi-speedometer2" />
+                <span class="d-none d-lg-inline">{{ slowDown ? "Asked to slow down" : "Slow down" }}</span>
+                <span class="visually-hidden d-lg-none">{{ slowDown ? "Asked to slow down" : "Slow down" }}</span>
+            </button>
 
             <button
                 type="button"

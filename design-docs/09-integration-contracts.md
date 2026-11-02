@@ -17,9 +17,7 @@ shared/
 ├── error-normalizer.js  ← Evan
 ├── tile-state.js        ← Evan (classify(), must agree with Andric's SQL view)
 ├── diff-summary.js      ← Ray Yien
-├── spotlight.js         ← Evan (excerpt + anonymise)
 ├── build-error.js       ← Dylan (strips the code frame before normalising)
-├── report-builder.js    ← Andric
 └── join-code.js         ← Ying Qi
 ```
 
@@ -283,7 +281,7 @@ This is the section the architecture change affects most. Previously three of th
 | A student cannot forge their tile state | There is **no** `state` column. `session_tiles` derives it in SQL from `done_seq`, `error`, `last_seen_at` and the session's `checkpoint_seq` | T-STAT-09 |
 | Notes are private to the author (admins excepted) | `notes` policies keyed on `user_id = auth.uid()` | T-PRIV-05 |
 | **Admins read, but write only accounts** | One `admin reads all` `select` policy per table; no admin policy for any other command; admin writes only through the admin functions | T-ADM-* |
-| Reports contain counts only | `session_reports` built by the `end-session` function from aggregates; no `student_id` anywhere in the row | T-INS-05 |
+| Reports contain counts only | `session_reports` built by `build_session_report` (SQL, on end) from aggregates; no `student_id` anywhere in the row | T-INS-05 |
 | No keystroke logging | Client writes `student_status` only on change + a 30 s heartbeat | Code review |
 | **A build error's code frame never leaves the browser** | `parseBuildError()` in `shared/build-error.js` keeps only `{ name, message, file, line }` and drops every code-frame line *before* `normalizeError()` runs. Truncating to `ERROR_MESSAGE_MAX` is not sufficient — 300 chars of a code frame is still code | T-PRIV-09 |
 | Terminal output is never transmitted | `pnpm install` / dev-server output renders locally only; nothing writes it to Postgres | Code review |
@@ -375,7 +373,7 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `rpc('claim_help_request')` | Karin | Help queue | `(p_request_id uuid) → request row` (raises `CONFLICT\|…` if taken) |
 | `rpc('transition_help_request')` | Karin | Help review | `(p_request_id uuid, p_to text, p_reply text) → request row` — a reply is **appended to `thread`**, never overwritten |
 | `rpc('follow_up_help_request')` | Karin | Student help panel | `(p_request_id uuid, p_message text, p_files jsonb) → request row` — `replied → open`, fresh snapshot, max `MAX_FOLLOW_UPS` |
-| `view session_tiles` | Andric | Evan (dashboard) | `(session_id, student_id, name, checkpoint_seq, done_seq, error_source, error_key, error_preview, checks, last_seen_at, state, passed_seqs)` — `state` is `done` / `in_progress` / `error` / `idle` (no `behind`). `error_source` is `'runtime'` or `'build'`, so the dashboard can label a group "won't compile" vs "throws". `passed_seqs` is `int[]` of checkpoints whose `check` was passed |
+| `view session_tiles` | Andric | Evan (dashboard) | `(session_id, student_id, name, checkpoint_seq, done_seq, error_source, error_key, error_preview, checks, last_seen_at, state, passed_seqs, error_shape_key)` — `state` is `done` / `in_progress` / `error` / `idle` (no `behind`). `error_source` is `'runtime'` or `'build'`, so the dashboard can label a group "won't compile" vs "throws". `passed_seqs` is `int[]` of checkpoints whose `check` was passed. `error_shape_key` is `normalizeError`'s `shapeKey`, which Common errors groups on |
 | `view session_summary` | Andric | Evan (class summary card) | `(session_id, total, done, in_progress, error, idle, slow_down_count)` — `slow_down_count` is `null` for anyone but staff and admins |
 | `normalizeError` | Evan | Dylan (before writing status) | `({ name, message }) => { key, shapeKey }` |
 | `parseBuildError` | Dylan | Dylan (dev-server output) | `(stdout: string) => { name, message, file, line } \| null` — **drops the code frame**; run before `normalizeError` |
@@ -390,11 +388,11 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `<DiffView>` | Ray Yien | Dylan, Karin | props `before`, `after`, `mode` |
 | `fn('github-import')` | Ray Yien | Lesson new view | `{ repoUrl, providerToken } → { files, entryFile, source }` — `providerToken` is the prof's GitHub token from Supabase Auth, never stored |
 | `fn('github-export')` | Ray Yien | Replay view | `{ sessionId, repoName, private, providerToken } → { repoUrl }` — `providerToken` is the user's GitHub token from Supabase Auth, never stored |
-| `fn('spotlight')` | Evan | Teach view | `{ sessionId, errorKey, helpRequestId? } → { excerpt, fix, errorPreview }` |
 | `fn('analyze-help')` | Evan | `analyze_help_request` trigger (not the client) | `{ requestId } → { saved: 'ok' \| 'failed' } \| { skipped }` — writes `help_requests.analysis` |
 | `fn('summarize-help')` | Evan | Teach view (`dashboard.api` `getHelpSummary`) | `{ sessionId } → { headline, groups: [{ key, stepOrder, stepTitle, category, count, title, explanation, teachingTip }], analysedCount, pendingCount, source: 'llm' \| 'rules' \| 'none', model, generatedAt }`; `FORBIDDEN` unless session staff |
-| `fn('digest')` | Andric (content) / Karin (send) | Report view (Evan) | `{ sessionId, audience: ['tas','absent'] } → { sent, failed }` |
-| `buildReport` | Andric | `end-session` function, seed | `(rows) => sessionReport` |
+| `fn('digest')` | Andric (content) / Karin (send) | Report view (Evan) | `{ sessionId } → { sent, failed, staff, absent }`; `FORBIDDEN` unless the course prof, `CONFLICT` while live, once sent, or with nobody linked |
+| `rpc('lesson_trends')` | Andric | — (not shown on the report page since it was trimmed) | `(p_lesson_id) → [{ title, sessions, of_sessions, avg_drop_off }]`, only the caller's own courses |
+| `getReport` | Andric | Report view | `(sessionId) → { session: { id, status, startedAt, endedAt, lessonId, lessonTitle, courseLabel }, report \| null, help: { total, leftOpen, medianWaitMinutes }, isProf }` |
 
 ---
 
@@ -419,10 +417,10 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Lessons | `lesson-row-<slug>`, `lesson-start-<slug>`, `btn-connect-github` (import tab, when GitHub isn't connected) |
 | Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `input-checkpoint-title`, `btn-save-checkpoint`, `btn-end-session`, `input-announce`, `btn-announce` (an empty box clears the announcement), `announcement-banner` |
 | Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `btn-download-project`, `workspace-checkpoint`, `tab-code`, `tab-preview`, `tab-console` |
-| Dashboard | `summary-done`, `slow-down-count`, `error-group-<index>`, `btn-spotlight-<index>`, `spotlight-panel`, `help-summary`, `help-summary-headline`, `help-summary-group-<index>`, `btn-refresh-help-summary` |
+| Dashboard | `summary-done`, `slow-down-count`, `error-group-<index>`, `help-summary`, `help-summary-headline`, `help-summary-group-<index>`, `btn-refresh-help-summary` |
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |
 | Replay | `timeline-checkpoint-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
-| Reports | `report-funnel`, `report-top-errors`, `btn-send-digest` |
+| Reports | `report-funnel`, `report-most-loaded`, `report-top-errors`, `btn-send-digest`, `digest-sent` |
 | Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login`, `btn-github-login`, `btn-role-student`, `btn-role-educator` (`/welcome`), `link-register`, `link-login` |
 | Profile | `input-profile-name`, `btn-save-name`, `input-current-password`, `input-new-password`, `btn-change-password`, `btn-logout`, `btn-connect-github`, `btn-disconnect-github`, `btn-delete-account`, `input-confirm-delete`, `ta-courses`, `github-username` |
 | Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `input-user-search` |
@@ -478,7 +476,7 @@ Full list in [02-tech-stack.md](./02-tech-stack.md#environment-variables).
 - [ ] Check my work → pass/reply; Ask for help → Telegram ping → resolve
 - [ ] A replied request can be followed up (same request, original queue place, fresh code), up to 3 times
 - [ ] Prof announcement reaches every student, and a late joiner still sees it
-- [ ] Error groups merge the same mistake; Spotlight is anonymised
+- [ ] Error groups merge the same mistake
 - [ ] Ending a session shows the replay link; replay, notes, search work
 - [ ] GitHub export creates one commit per checkpoint
 - [ ] Insights report + digest correct (counts only)

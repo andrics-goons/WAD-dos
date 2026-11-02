@@ -2,9 +2,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useStatusStore } from '@/stores/status'
-import { getMyStatus, saveStatus } from '@/api/workspace.api'
+import {
+  getMySlowDown,
+  getMyStatus,
+  saveCatchUps,
+  saveStatus,
+  setSlowDown,
+} from '@/api/workspace.api'
 
-vi.mock('@/api/workspace.api', () => ({ getMyStatus: vi.fn(), saveStatus: vi.fn() }))
+vi.mock('@/api/workspace.api', () => ({
+  getMyStatus: vi.fn(),
+  saveStatus: vi.fn(),
+  getMySlowDown: vi.fn(),
+  setSlowDown: vi.fn(),
+  saveCatchUps: vi.fn(),
+}))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ user: { id: 'u1' } }) }))
 const session = vi.hoisted(() => ({ isLive: true }))
 vi.mock('@/stores/session', () => ({ useSessionStore: () => session }))
@@ -20,6 +32,9 @@ beforeEach(() => {
   visibility = 'visible'
   vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility)
   getMyStatus.mockResolvedValue(null)
+  getMySlowDown.mockResolvedValue(false)
+  setSlowDown.mockResolvedValue()
+  saveCatchUps.mockResolvedValue()
   saveStatus.mockResolvedValue()
 })
 afterEach(() => {
@@ -142,5 +157,116 @@ describe('status store', () => {
     status.stop()
     await vi.advanceTimersByTimeAsync(90_000)
     expect(saveStatus).toHaveBeenCalledOnce()
+  })
+})
+
+describe('Slow down', () => {
+  it('a refresh shows whether I had already asked', async () => {
+    getMySlowDown.mockResolvedValue(true)
+    const status = useStatusStore()
+    await status.start('s1')
+    expect(status.slowDown).toBe(true)
+  })
+
+  it('raises my flag, then takes it back', async () => {
+    const status = useStatusStore()
+    await status.start('s1')
+    await status.toggleSlowDown()
+    expect(status.slowDown).toBe(true)
+    expect(setSlowDown).toHaveBeenLastCalledWith('s1', 'u1', true)
+    await status.toggleSlowDown()
+    expect(status.slowDown).toBe(false)
+    expect(setSlowDown).toHaveBeenLastCalledWith('s1', 'u1', false)
+  })
+
+  it('clicking Done takes my flag back: I have caught up', async () => {
+    const status = useStatusStore()
+    await status.start('s1')
+    await status.toggleSlowDown()
+    status.markDone(2)
+    await vi.waitFor(() => expect(status.slowDown).toBe(false))
+    expect(setSlowDown).toHaveBeenLastCalledWith('s1', 'u1', false)
+  })
+
+  it('Done without a flag raised sends nothing about Slow down', async () => {
+    const status = useStatusStore()
+    await status.start('s1')
+    status.markDone(2)
+    expect(setSlowDown).not.toHaveBeenCalled()
+  })
+
+  it('Done still counts if taking the flag back fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const status = useStatusStore()
+    await status.start('s1')
+    await status.toggleSlowDown()
+    setSlowDown.mockRejectedValue(new Error('offline'))
+    status.markDone(2)
+    await vi.waitFor(() => expect(status.slowDown).toBe(true)) // put back, as the button shows
+    expect(status.doneSeq).toBe(2)
+  })
+
+  it('asking to slow down after Done puts me back to In progress', async () => {
+    const status = useStatusStore()
+    await status.start('s1')
+    status.markDone(2)
+    await status.toggleSlowDown()
+    expect(status.slowDown).toBe(true)
+    expect(status.doneSeq).toBeNull()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(lastSaved()).toEqual({ doneSeq: null, error: null })
+  })
+
+  it('taking the flag back leaves Done alone', async () => {
+    const status = useStatusStore()
+    await status.start('s1')
+    await status.toggleSlowDown()
+    status.markDone(2) // also takes the flag back
+    await vi.waitFor(() => expect(status.slowDown).toBe(false))
+    expect(status.doneSeq).toBe(2)
+  })
+
+  it('stays Done if asking to slow down is refused', async () => {
+    const status = useStatusStore()
+    await status.start('s1')
+    status.markDone(2)
+    setSlowDown.mockRejectedValue(new Error('This class has ended'))
+    await expect(status.toggleSlowDown()).rejects.toThrow()
+    expect(status.doneSeq).toBe(2)
+  })
+
+  it('puts the button back if the database refuses, and says why', async () => {
+    setSlowDown.mockRejectedValue(new Error('This class has ended'))
+    const status = useStatusStore()
+    await status.start('s1')
+    await expect(status.toggleSlowDown()).rejects.toThrow('This class has ended')
+    expect(status.slowDown).toBe(false)
+  })
+})
+
+describe('catch-ups', () => {
+  it('loading the checkpoint adds one to my count, carrying on from a refresh', async () => {
+    getMyStatus.mockResolvedValue({ done_seq: null, error: null, catch_ups: 2 })
+    const status = useStatusStore()
+    await status.start('s1')
+    await status.recordCatchUp()
+    expect(saveCatchUps).toHaveBeenCalledExactlyOnceWith('s1', 'u1', 3)
+  })
+
+  it('sends nothing once the class has ended', async () => {
+    const status = useStatusStore()
+    await status.start('s1')
+    session.isLive = false
+    await status.recordCatchUp()
+    expect(saveCatchUps).not.toHaveBeenCalled()
+  })
+
+  it('a failed save is logged, not thrown at the student', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    saveCatchUps.mockRejectedValue(new Error('offline'))
+    const status = useStatusStore()
+    await status.start('s1')
+    await expect(status.recordCatchUp()).resolves.toBeUndefined()
+    expect(log).toHaveBeenCalled()
   })
 })

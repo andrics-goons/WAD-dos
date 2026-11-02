@@ -41,6 +41,15 @@
   function downloadMine() {
     downloadProject(workspaceStore.files, sessionStore.session?.lesson.title ?? "project")
   }
+  // "Slow down": anonymous, so the prof only sees how many asked
+  async function toggleSlowDown() {
+    try {
+      await statusStore.toggleSlowDown()
+    } catch (e) {
+      toast.show(e.message, "danger", { title: "Couldn't update Slow down" })
+    }
+  }
+
   async function catchUp() {
     catchingUp.value = true
     try {
@@ -135,6 +144,8 @@
       :session-id="id"
       :files="workspaceStore.files"
       :can-load-checkpoint="canLoadCheckpoint"
+      :slow-down="statusStore.slowDown"
+      @slow-down="toggleSlowDown"
       @load-checkpoint="catchUpOpen = true"
       @done="statusStore.markDone(sessionStore.checkpointSeq)"
       @undo="statusStore.markInProgress()"

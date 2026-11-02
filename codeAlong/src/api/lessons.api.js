@@ -54,7 +54,8 @@ export function toLessonPatch(changes) {
 
 // lessons
 
-// make a draft lesson
+// make a lesson, hidden from students until the prof switches it on in the editor, so code
+// uploaded by mistake (or not ready yet) never reaches them
 export async function createLesson(
   courseId,
   { title, week, description, files, entryFile, source },

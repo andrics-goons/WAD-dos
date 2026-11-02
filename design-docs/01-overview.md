@@ -35,7 +35,7 @@ Why existing tools aren't enough: chat tools (Slack/Telegram) move messages but 
 |---|---|
 | **Student** | Enrol in courses, join a live session by code/QR, code along in the browser workspace, tap Done, tap "Slow down" (anonymous), load the latest checkpoint, send code to the TA ("Check my work" / "Ask for help"), view replays, write notes/bookmarks, export a replay to GitHub |
 | **TA** | Everything a student can do in courses they're staff of **+** view the class dashboard, work the help queue (claim, pass, reply), get Telegram pings for in-person help, receive after-class digests |
-| **Prof** | Everything a TA can do **+** create/edit/delete courses and lessons, import starter code (upload or GitHub), edit the lesson plan, start/end live sessions, save checkpoints, Spotlight a common error, view insights reports, send Telegram digests |
+| **Prof** | Everything a TA can do **+** create/edit/delete courses and lessons, import starter code (upload or GitHub), edit the lesson plan, start/end live sessions, save checkpoints, view insights reports, send Telegram digests |
 
 > Course-level access is decided by **membership** (staff or enrolled student of that course), not only by account type. A TA account can only see dashboards for courses where they are listed as staff. See [03-data-model.md](./03-data-model.md#authorization-matrix).
 
@@ -110,7 +110,7 @@ The Q&A slides grade on three tiers: **Tier 1** get data → show data (~B+), **
 | F1 | **Run a live coding session** — start a session, students join by code/QR, every checkpoint reaches every laptop instantly; the prof can **post a short announcement** to the whole class | 2 | Real-time fan-out, reconnection, room authorization; merges session + checkpoint + membership data | Ying Qi |
 | F2 | **Code along and catch up** — edit files in the browser, see the live preview and console, have errors caught automatically, tap Done, load the prof's checkpoint without losing my attempt | 2–3 | Sandboxed execution + error capture + snapshot preservation; automatic checkpoint checks are the stretch | Dylan |
 | F3 | **Get help quickly** — send my code to the TA ("Check my work" / "Ask for help"); TA reviews side-by-side with the checkpoint, passes or replies, or gets pinged on Telegram to come over; if the reply doesn't fix it, **follow up on the same request** without losing my place | 2 | Queue workflow + side-by-side comparison + Telegram Bot API | Karin |
-| F4 | **See the room and teach to it** — save checkpoints as you teach, watch one tile per student (Done on the latest checkpoint or still in progress), see grouped common errors, Spotlight one anonymised example | **3** | Status classification, error normalisation + grouping algorithm | Evan |
+| F4 | **See the room and teach to it** — save checkpoints as you teach, watch one tile per student (Done on the latest checkpoint or still in progress), see grouped common errors | **3** | Status classification, error normalisation + grouping algorithm | Evan |
 | F5 | **Review the lesson afterwards** — checkpoint-by-checkpoint replay with diffs, notes, bookmarks, search, import starter code from GitHub and export my replay with one commit per checkpoint | 2 | GitHub REST (Git Data API) + diffing + search across lessons | Ray Yien |
 | F6 | **Learn where students get lost** — after-class insights (drop-off per checkpoint, top errors, recurring trouble checkpoints across terms) sent as a Telegram digest | 2–3 | Aggregation across statuses, help requests and past terms | Andric |
 
@@ -128,7 +128,8 @@ Priorities follow the latest proposal (self-marking + automatic error detection 
 |---|---|
 | **Week 9 pitch (must work live)** | Sessions + join by code, checkpoint broadcast, student editor + preview + console, basic dashboard tiles, load checkpoint |
 | **MUST (baseline for submission)** | Accounts/courses/roles; lesson CRUD; live checkpoints saved any time; student workspace with error detection + Done; class dashboard with filters + anonymous "Slow down" count; catch-up (download my project, then load the latest checkpoint); Check my work / Ask for help + TA queue + Telegram ping; replay with notes/bookmarks |
-| **SHOULD** | Error groups + Spotlight; GitHub import + export; search across lessons; insights report + Telegram digest |
+| **SHOULD** | Error groups; GitHub import + export; search across lessons; insights report + Telegram digest |
+| **WON'T** | Spotlight (projecting one anonymised example of a common error to the class) — dropped to keep the scope realistic |
 | **COULD** | Automatic checks generated from checkpoints; AI one-line hints (hints only, cached, rule-based fallback); VS Code one-line reporter; `.vue` single-file-component lessons |
 
 **Rule:** no COULD work starts until every MUST item passes the full end-to-end demo in [07-seed-and-demo.md](./07-seed-and-demo.md).

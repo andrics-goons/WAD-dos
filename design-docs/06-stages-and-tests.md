@@ -15,8 +15,8 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | 6 | Catch-up | Week 10 | Load checkpoint warns first, offers a .zip download, then replaces the code with the checkpoint |
 | 7 | Help flow | Week 10 | Check my work → pass/reply; Ask for help → claim/resolve; **a replied request can be followed up**; Telegram ping (mock in tests) |
 | 8 | Replay & GitHub | Week 11 | Replay steps through all checkpoints; notes/bookmarks; import + export (one commit per checkpoint) |
-| 9 | Error groups & Spotlight | Week 11 | Grouping matches unit-test expectations; Spotlight shows an anonymised excerpt to everyone |
-| 10 | Insights | Week 11 | Report written by the `end-session` function; trouble score + trends; digest sent (mock in tests) |
+| 9 | Error groups | Week 11 | Grouping matches unit-test expectations (Spotlight dropped) |
+| 10 | Insights | Week 11 | Report built in SQL when the class ends; trouble score + trends; digest sent (mock in tests) |
 | 11 | Hardening | Week 11–12 | Validation + error states everywhere; responsive pass 375 → 1440 px; load test 40 students passes **inside the Realtime free-tier cap** |
 | 12 | Demo ready | Week 12 | Fresh clone → README steps → `db:reset` → all E2E green → deployed URL works (incl. the `/join/:code` deep link) → keep-alive scheduled → video recorded |
 
@@ -32,7 +32,7 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | 6 | The student is warned and can download before anything is replaced; a `package.json` change tells them to run `pnpm install` |
 | 7 | Claim is a single conditional update (zero rows = conflict); the Telegram webhook cannot fail the student's request; replies append to `thread`, never overwrite |
 | 8 | No GitHub token in any row we own; import limited to safe file types and size |
-| 9 | Spotlight only uses help-request snapshots; names and comments removed |
+| 9 | ~~Spotlight only uses help-request snapshots~~ (Spotlight dropped) |
 | 10 | Report contains counts only, no `student_id` |
 | 11 | Every page usable at 375 px; every interactive element has a `data-testid` |
 
@@ -43,7 +43,7 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | Layer | Tool | Scope | Why it matters for the rubric |
 |---|---|---|---|
 | **E2E** (main) | Playwright, Chromium | Every main user journey, with **multiple browser contexts in one test** (prof + TA + students) | "Tests cover the app's main user journeys" |
-| Unit | Vitest | Pure logic in `shared/`: classifier, normaliser, checkpoint labels, diff summary, build-error parser, report builder, spotlight excerpt; plus the IndexedDB cache and delta-autosave logic | Shows understanding of testing concepts; fast feedback |
+| Unit | Vitest | Pure logic in `shared/`: classifier, normaliser, checkpoint labels, diff summary, build-error parser, report builder; plus the IndexedDB cache and delta-autosave logic | Shows understanding of testing concepts; fast feedback |
 | **RLS** (new) | Vitest + `supabase-js` | Authorization as data: sign in as the wrong user, assert **zero rows** | Authorization is now the database's job, so it needs its own tests |
 | Load | `scripts/simulate-class.js` | 40 Realtime clients in one session | Proves the live dashboard holds up in a real class, and that we fit the free tier |
 
@@ -199,7 +199,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-LES-01 | Upload starter files → draft lesson | E2E | Lesson created as a draft with its files; opens in the editor |
+| T-LES-01 | Upload starter files → new lesson | E2E | Lesson created hidden from students (`draft`) with its files; opens in the editor, where the "Visible to students" switch shows it (`ready`) |
 | T-LES-02 | Edit a starter file and the lesson details | E2E | Saved; persists after reload |
 | T-LES-03 | ~~Reorder steps~~ | — | Removed with lesson steps |
 | T-LES-04 | ~~Delete step~~ | — | Removed with lesson steps |
@@ -294,7 +294,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-DASH-06 | TA (staff) can view dashboard; student cannot | RLS | TA gets tile rows; a student gets zero rows from `session_tiles` |
 | T-DASH-07 | ~~Tiles show icon + label~~ | — | Removed: no per-student tiles |
 
-### ERRG — Error groups & Spotlight · `error-normalizer.test.js`, `spotlight.test.js`, `spotlight.spec.js`
+### ERRG — Error groups · `error-normalizer.test.js`, `group-errors.test.js`, `api/dashboard.api.test.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
@@ -303,10 +303,10 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-ERRG-03 | `items` vs `itmes is not defined` | Unit | Different `key`, same `shapeKey` |
 | T-ERRG-04 | Group threshold (≥ 2 or ≥ 10%) | Unit | Singletons excluded |
 | T-ERRG-05 | Same typo by 2 students | E2E | One group "×2" on the dashboard |
-| T-ERRG-06 | Spotlight with an eligible help snapshot | E2E | All students see excerpt + fix |
-| T-ERRG-07 | Excerpt anonymised | Unit | No student names, no comments, ≤ 30 lines |
-| T-ERRG-08 | Spotlight with no help snapshot | E2E | Error + fix only, with explanation to prof |
-| T-ERRG-09 | **Student invokes the `spotlight` function** | DB | `FORBIDDEN` — the function checks `is_course_prof` before using the service role |
+| T-ERRG-06 | ~~Spotlight with an eligible help snapshot~~ | — | Dropped: the team chose not to build Spotlight; Common errors shows the groups only |
+| T-ERRG-07 | ~~Excerpt anonymised~~ | — | Dropped: the team chose not to build Spotlight; Common errors shows the groups only |
+| T-ERRG-08 | ~~Spotlight with no help snapshot~~ | — | Dropped: the team chose not to build Spotlight; Common errors shows the groups only |
+| T-ERRG-09 | ~~Student invokes the `spotlight` function~~ | — | Dropped: the team chose not to build Spotlight; Common errors shows the groups only |
 
 ### AIH — Help request analysis · `analyze-help.test.js`
 
@@ -405,17 +405,19 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-GH-06 | **Token never persisted in our schema** | DB | No GitHub token in any row of any `public` table after an export |
 | T-GH-07 | Export to a private repo | Unit | "Connect GitHub" asks for the `repo` scope; GitHub refusing a private repo (403/404) → `FORBIDDEN` "reconnect GitHub", not "try again" |
 
-### INS — Insights · `report-builder.test.js`, `insights.spec.js`
+### INS — Insights · `rls/session_report.test.js`, `digest-function.test.js`, `views/ReportView.test.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-INS-01 | `reachedDone` and `dropOff` from fixture histories | Unit | Match hand-computed values |
-| T-INS-02 | Trouble score formula | Unit | Matches expected ranking |
-| T-INS-03 | Recurring trouble across 2 seeded past sessions | Unit | Step flagged |
-| T-INS-04 | Report written when the session ends | E2E | Page polls, then shows funnel + top errors |
+| T-INS-01 | `reachedDone` and `dropOff` from a class run through the RPCs | DB | Match hand-computed values |
+| T-INS-02 | Trouble score formula | DB | Matches expected ranking |
+| T-INS-03 | Recurring trouble across 2 past sessions | DB | Checkpoint listed by `lesson_trends`, matched by title |
+| T-INS-04 | Report written when the session ends | DB | No row while live; a row as soon as `end_session` returns |
 | T-INS-05 | Report has no per-student data | DB | No `student_id` anywhere in the row |
-| T-INS-06 | Digest to TAs and absent students | E2E | `test_outbox`: TA summary + messages only to linked, absent students |
+| T-INS-06 | Digest to staff and absent students | Unit | `test_outbox`: TA summary + messages only to linked, absent students |
 | T-INS-07 | Student reads a report | RLS | Zero rows |
+| T-INS-10 | Where in the lesson help and slow-downs peaked | DB + Unit | Each checkpoint has its own `slowDownPeak` (flags still up from earlier count); the page names the top two: "Highest during Checkpoint 2, followed by Checkpoint 4", and the same for help requests ("Most during …") |
+| T-INS-09 | Catch-ups counted per checkpoint | DB | Each "Load latest checkpoint" logs a `catch_up` row at the class's checkpoint; the report's `catchUps` counts the students (once each); `trouble` is unchanged by them |
 | T-INS-08 | **Trends stay inside one prof's courses** | DB | With two profs teaching a same-titled lesson, each prof's `lesson_trends` includes only their own sessions |
 
 ### PRIV — Privacy by design · `privacy.spec.js`, `tests/unit/rls/*`

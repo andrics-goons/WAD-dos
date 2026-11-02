@@ -270,9 +270,9 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | Auth data access | `src/api/auth.api.js` | ✅ |
 | Courses data access (create, list, enrol, add TA, people) + courses store | `src/api/courses.api.js`, `src/stores/courses.js`, `tests/unit/api/courses.api.test.js` | ✅ |
 | **Enrol page** — typed code and `/enrol/:code` link, auto-submit **(new)**, `returnTo` through login/register | `views/EnrolView.vue` | ✅ |
-| Report builder + `end-session` function + trends RPC (the page is Evan's) | `shared/report-builder.js`, `supabase/functions/end-session/` | ⬜ |
+| Report builder (SQL trigger on end) + trends RPC + digest function + report data access | `…_session_report.sql`, `supabase/functions/digest/`, `src/api/reports.api.js`, `src/stores/report.js` | ✅ |
 | Seed data (Dylan's Mini Cart project; past + live sessions, reports) | `supabase/seed.sql`, `tests/unit/rls/seed.test.js` | ✅ |
-| `seed:generate` — check the seed against the real `buildReport` once it exists | `scripts/seed-generate.js` | ⬜ |
+| `seed:generate` — check the seed against the real `build_session_report` | `scripts/seed-generate.js` | ⬜ |
 | **`test_outbox` table** — Karin's mocked Telegram/GitHub functions write here; tests read it **(new)** | `…_test_outbox.sql`, `readOutbox()` in `tests/unit/rls/_helpers.js` | ✅ |
 | Keep-alive cron so the free-tier project can't pause before Week 18 | GitHub Actions cron | ⬜ |
 | **Sign-up role choice**: trigger allow-list (`prof`, else `student`) + `register({ role })` **(new)** | `…_profiles.sql`, `src/api/auth.api.js` | ✅ |

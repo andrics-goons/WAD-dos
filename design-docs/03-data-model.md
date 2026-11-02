@@ -319,7 +319,7 @@ Migration: `supabase/migrations/20261018153107_sessions.sql`.
 | `status` | `text not null default 'live' check (status in ('live','ended'))` | |
 | `checkpoint_seq` | `int not null default 0 check (checkpoint_seq >= 0)` | The latest checkpoint's `seq`, 0 before the first. `save_checkpoint` moves it; every tile compares the student's `done_seq` with it |
 | `settings` | `jsonb not null default '{"allowCatchUp":true,"hintsEnabled":false,"idleAfterSec":180}' check (session_settings_valid(settings))` | Prof toggles during class. **All three keys are required on every update**, and `idleAfterSec` must be a number from 30 to 3600 — the view casts it, so one bad value would break every tile |
-| `spotlight` | `jsonb check (≤ 20 000 bytes)` | Anonymised excerpt, or null |
+| `spotlight` | `jsonb check (≤ 20 000 bytes)` | Unused: Spotlight was dropped ([05 §9](./05-core-logic.md)). Always null |
 | `announcement` | `jsonb check (announcement is null or char_length(announcement->>'text') between 1 and 200)` | `{ text, at }` — the prof's current class announcement, or null. Stored so late joiners and reconnecting students see it, not just whoever was subscribed at the moment it was sent. Written only by `rpc('announce')`, so the broadcast always accompanies the write |
 | `started_at` | `timestamptz not null default now()` | |
 | `ended_at` | `timestamptz` | |
@@ -380,7 +380,7 @@ All `security definer`, for the same reason as the course helpers.
 | `done_seq` | `int check (done_seq >= 0)` | The checkpoint the student clicked **Done** on (0 = the starter code, before any checkpoint); null until they do. They count as done only while it equals `sessions.checkpoint_seq`, so a new checkpoint resets everyone to in progress without a write |
 | `error` | `jsonb check (null, or an object whose message ≤ 300)` | `{ source: 'runtime' \| 'build', name, message, file, line, key, shapeKey, at }`. Send SQL `null` to clear it. **Build errors have their code frame stripped before they get here** — see [05 §1](./05-core-logic.md#1-client-side-runtime-webcontainer) |
 | `checks` | `jsonb` | `{ passed, total }` — only when automatic checks exist (COULD) |
-| `catch_ups` | `int not null default 0` | Times the student loaded a checkpoint. **Unused for now**: catch-up is client-only (05 §7), so nothing increments it |
+| `catch_ups` | `int not null default 0` | Times the student loaded the latest checkpoint. The workspace adds 1 after each "Load latest checkpoint"; the status trigger then logs a `catch_up` row in `status_history`, which the report counts per checkpoint |
 | `last_seen_at` | `timestamptz not null default now()` | Heartbeat or any event. The `touch_last_seen` trigger sets it to the server's `now()` on every insert or update the student makes to their own row, so a wrong clock on a lab PC can't make them idle (or never idle). Writes by the service role or the seed keep the time they set |
 | `joined_at` | `timestamptz not null default now()` | Attendance for digests |
 
@@ -421,7 +421,7 @@ Append-only; replaces the capped `stateHistory[]` array. Written only by trigger
 | `id` | `bigint generated always as identity` PK |
 | `session_id` | `uuid not null → sessions` on delete cascade |
 | `student_id` | `uuid not null → profiles` |
-| `state` | `text not null check (state in ('error','in_progress','done'))` — never `idle`, see below |
+| `state` | `text not null check (state in ('error','in_progress','done','catch_up'))` — never `idle`, see below. `catch_up` (the record-catch-ups migration) is logged when `student_status.catch_ups` goes up, i.e. the student loaded the latest checkpoint; it isn't a status, so the trigger skips it when deciding whether a status changed |
 | `checkpoint_seq` | `int not null` — the session's latest checkpoint at that moment |
 | `error_key` | `text` — the error's `key` when `state = 'error'`, else null. Added by the help/notes/reports migration so the report can count its top errors after class: `student_status` keeps only the latest error |
 | `at` | `timestamptz not null default now()` |
@@ -480,7 +480,7 @@ There is **no "behind" state**: a new checkpoint resets everyone, so a student i
 
 `security_invoker = true` makes the view run with the caller's rights, so the RLS policies above still apply — **without it a view would leak every session's rows.** A student querying it sees only their own tile.
 
-The help/notes/reports migration appends one more column, `passed_seqs int[]`: the checkpoints this student's `check` requests were **passed** on (each request's `checkpoint_seq`), e.g. `{1,3}`. (`create or replace view` can only add columns at the end, so it comes after `state`.)
+The help/notes/reports migration appends one more column, `passed_seqs int[]`: the checkpoints this student's `check` requests were **passed** on (each request's `checkpoint_seq`), e.g. `{1,3}`. (`create or replace view` can only add columns at the end, so it comes after `state`.) The shape-key migration then appends `error_shape_key text` (`error->>'shapeKey'`, the error with the student's own names blanked out), which the dashboard groups Common errors on, so typos of one mistake share a group.
 
 ```sql
 create view public.session_summary with (security_invoker = true) as
@@ -744,13 +744,15 @@ T-PRIV-05 passes by construction — a note belonging to someone else is not a 4
 | `session_id` | `uuid` PK → `sessions` on delete cascade | One per ended session |
 | `course_id`, `lesson_id` | `uuid` | For cross-term trends |
 | `attendance` | `jsonb` | `{ joined, enrolled }` |
-| `checkpoints` | `jsonb` | Per-checkpoint funnel — see [05](./05-core-logic.md#10-insights-report): `[{ seq, title, reachedDone, dropOff, errorStudents, medianMinutesToDone, catchUps, helpRequests, trouble }]` (the shape `seed.sql` writes and `buildReport` must produce) |
+| `checkpoints` | `jsonb` | Per-checkpoint funnel — see [05](./05-core-logic.md#10-insights-report): `[{ seq, title, reachedDone, dropOff, errorStudents, medianMinutesToDone, catchUps, slowDownPeak, helpRequests, trouble }]` (the shape `seed.sql` writes and `build_session_report` produces). `catchUps` is always 0: catching up is download-and-replace, with nothing recorded | `slowDownPeak` (the record-catch-ups migration) is the most students asking to slow down at once while that checkpoint was the latest.
 | `top_errors` | `jsonb` | Top 5, counts only: `[{ key, students, seq }]` |
 | `slow_down_peak` | `int` | Max simultaneous "Slow down" |
 | `generated_at` | `timestamptz default now()` | |
 | `digest` | `jsonb` | `{ sentAt, recipients }` — counts only |
 
-Written by the `end-session` Edge Function (triggered by a Database Webhook when `sessions.status` becomes `ended`). The report page polls until the row exists.
+Written in SQL, the moment the class ends: an `after update of status` trigger on `sessions` (`report_on_end`, only when `live` → `ended`) calls `build_session_report(sid)`, which counts from `student_status`, `status_history`, `checkpoints`, `help_requests` and `slow_down_events` and upserts the row (keeping `digest`). `build_session_report` is `security definer` with execute revoked from every client role, so nobody can write a report by hand. If building fails, the trigger raises a warning and the class still ends. The only other write is the `digest` Edge Function setting `digest` with the service role.
+
+`lesson_trends(p_lesson_id)` (`security definer`, staff of the lesson's course) returns `(title, sessions, of_sessions, avg_drop_off)`: checkpoints among the top 3 by trouble in at least two of the **caller's own** classes of this lesson (or a same-titled lesson in a same-code course). See [05 §10](./05-core-logic.md#10-insights-report).
 
 `session_id → sessions` on delete cascade; `course_id → courses` and `lesson_id → lessons` for trends. `attendance` is required; `checkpoints` and `top_errors` default to `[]`, `slow_down_peak` to 0. Index `(course_id, lesson_id)` for trends.
 
@@ -774,7 +776,7 @@ The policy checks the **session**, not the row's `course_id`, so it can never di
 | `delta` | `smallint not null check (delta in (1, -1))` |
 | `at` | `timestamptz not null default now()` |
 
-**No `student_id`.** Its only policy is `admin reads all`: even anonymous timestamps, next to the live dashboard, could hint at who tapped. Staff and the `end-session` function get the number from `session_slow_down_peak(sid)` — a `security definer` running sum, the peak for staff and admins, `null` for anyone else.
+**No `student_id`.** Its only policy is `admin reads all`: even anonymous timestamps, next to the live dashboard, could hint at who tapped. Staff and `build_session_report` get the number from `session_slow_down_peak(sid)` — a `security definer` running sum, the peak for staff and admins, `null` for anyone else.
 
 ## test_outbox (local + test only)
 
@@ -874,7 +876,7 @@ The contract, enforced by RLS policies and `security definer` RPCs. **Admin** is
 | **Create / edit / archive** course | ❌ | ❌ | ✅ (own courses only) | ❌ |
 | Add TA to course | ❌ | ❌ | ✅ (owner) | ❌ |
 | **Create / edit / delete** lesson, import from GitHub | ❌ | ❌ | ✅ | ❌ |
-| Start / end a live session, save checkpoints, Spotlight | ❌ | ❌ | ✅ | ❌ |
+| Start / end a live session, save checkpoints | ❌ | ❌ | ✅ | ❌ |
 | Post / clear a class announcement | ❌ | ❌ | ✅ | ❌ |
 | Join a live session | ✅ | ✅ (as staff) | ✅ | — |
 | Report own status, tap Done, toggle "Slow down", autosave, catch up | ✅ | — | — | — |

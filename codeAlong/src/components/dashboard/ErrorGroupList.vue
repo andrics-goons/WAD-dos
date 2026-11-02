@@ -2,7 +2,6 @@
 import EmptyState from '@/components/ui/EmptyState.vue'
 
 defineProps({ groups: { type: Array, required: true } })
-defineEmits(['spotlight'])
 </script>
 
 <template>
@@ -15,7 +14,7 @@ defineEmits(['spotlight'])
       <li
         v-for="(g, i) in groups"
         :key="g.shapeKey"
-        class="list-group-item d-flex align-items-center gap-2"
+        class="list-group-item d-flex align-items-start gap-2"
         :data-testid="`error-group-${i}`"
       >
         <span class="ca-pill ca-state--error">{{ g.count }}</span>
@@ -29,14 +28,6 @@ defineEmits(['spotlight'])
             {{ g.source === 'build' ? "Won't compile" : 'Throws at runtime' }}
           </div>
         </div>
-        <button
-          type="button"
-          class="ca-btn ca-btn--sm"
-          :data-testid="`btn-spotlight-${i}`"
-          @click="$emit('spotlight', g)"
-        >
-          <i class="bi bi-stars" />Spotlight
-        </button>
       </li>
     </ul>
     <EmptyState v-else icon="bi-emoji-smile" title="No errors right now" compact />
