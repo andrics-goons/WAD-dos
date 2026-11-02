@@ -196,7 +196,7 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | TA queue page + review page (side-by-side via Ray Yien's `DiffView`) | `views/HelpQueueView.vue`, `views/HelpReviewView.vue`, `components/help/*` | ⬜ |
 | Queue subscription (Postgres Changes on `help_requests`) | `src/api/help.api.js` | ⬜ |
 | **Class announcements: `announce` RPC, banner, input box** (Evan embeds the input in the teach view) **(moved)** | `components/session/AnnouncementBanner.vue`, `AnnounceInput.vue` | ⬜ |
-| **Join page** — 6-box code input, `/join/:code` pre-fill, auto-submit **(moved)** | `views/JoinView.vue` | ⬜ |
+| **Join page** — 6-box code input, `/join/:code` pre-fill, auto-submit **(moved)** | `views/JoinView.vue` | ✅ |
 | **Checkpoint toast** — a `toast.show()` from the workspace page when the prof saves a checkpoint (no new component); the connection pill was dropped **(moved)** | `views/WorkspaceView.vue` | ⬜ |
 | `digest` send path used by Andric's report | `supabase/functions/digest/` | ⬜ |
 | **Playwright config + the localStorage session fixture** (prof, TA and N students logged in) **(moved)** | `playwright.config.js`, `e2e/fixtures.js`, `e2e/global-setup.js` | ✅ |
