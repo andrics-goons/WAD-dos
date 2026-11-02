@@ -240,7 +240,8 @@ That deletes the interception layer, the `mock_api` column's reason for existing
 Owner: **Ying Qi**. Four RPCs, all `security definer`, because each one decides something the client must not.
 
 ```sql
--- start_session: only a prof of this course, only a ready lesson, unique live code
+-- start_session: only a prof of this course, only a ready lesson, unique live code.
+-- Shown as first written; it now also locks the lesson and returns its live class if it has one.
 create function public.start_session(p_lesson_id uuid) returns public.sessions
 language plpgsql security definer set search_path = '' as $$
 declare l public.lessons; s public.sessions; code text; tries int := 0;
@@ -301,7 +302,7 @@ The workspace keeps `{ doneSeq, lastError }` (`stores/status.js`) and upserts it
 
 - **Opening the workspace** writes the row at once, which is the attendance record (`joined_at`). A refresh reads the row back first, so a Done stays done.
 - **"My status"** in the workspace header is about the prof's **latest checkpoint**: *Done* sets `done_seq` to its number ("I've caught up to it"), *In progress* clears it. Before any checkpoint, Done means "I've got the starter code running" (`done_seq = 0`). When the prof saves a new checkpoint the toggle reads *In progress* again — nothing is written; the database just compares `done_seq` with the new `checkpoint_seq`.
-- **Errors** go through `setError({ source, name, message, file, line })`, which adds `key` / `shapeKey` with `normalizeError()` and cuts the message to `ERROR_MESSAGE_MAX`; `clearError()` after a clean run. Nothing calls them yet: the lesson's `ca-probe.js` is still a placeholder, and build errors still need `parseBuildError()`.
+- **Errors** go through `setError({ source, name, message, file, line })`, which adds `key` / `shapeKey` with `normalizeError()` and cuts the message to `ERROR_MESSAGE_MAX`; `clearError()` after a clean run. `reportError` in `stores/workspace.js` calls them with what the terminal's error reader (`shared/error-reader.js`) finds: build errors through `parseBuildError()`, runtime errors from the lesson's `ca-probe.js` through `parseRuntimeError()`. Every uploaded or imported lesson gets the probe (`shared/lesson-template.js`).
 - **After the class ends** the store stops writing (the table would refuse anyway).
 
 ### Derived in SQL (Andric)
@@ -603,7 +604,7 @@ The replay view queries `checkpoints` in `seq` order. For each, the client shows
 
 Search is `rpc('search')`: a ranked full-text query over checkpoint titles and the caller's own notes, using the GIN index on `notes.body`. Because it is a parameterised function, regex characters in the query are literal — no escaping to remember (T-REP-06).
 
-### GitHub import (server token) — `github-import`
+### GitHub import (the prof's own GitHub) — `github-import`
 
 ```
 1. Parse https://github.com/<owner>/<repo>[/tree/<ref>/<dir>]
@@ -615,14 +616,16 @@ Search is `rpc('search')`: a ranked full-text query over checkpoint titles and t
 6. Return files → the browser inserts the lesson
 ```
 
-≈ 2 + n requests per import. Only a prof may import. `GITHUB_TOKEN` is a function secret and never reaches the browser; without it GitHub allows only 60 requests an hour, and the function answers `RATE_LIMITED`.
+≈ 2 + n requests per import. Only a prof may import, and **they sign in to their own GitHub to do it**: the browser sends the prof's GitHub token from Supabase Auth (`session.provider_token`, the same as export below) with `{ repoUrl }`, and the function uses it for this one call and never stores it. There is no server `GITHUB_TOKEN`. GitHub counts the requests against the prof's account (5,000 an hour), so profs never share a rate limit.
+
+No token on the session (not connected, or logged in with a password since) → `UNAUTHENTICATED`, and the import tab shows **Connect GitHub**. That calls `connectGitHub(returnTo)`: `linkIdentity` if GitHub isn't linked yet, or `signInWithOAuth` if it is (Supabase refuses to link a GitHub that's already linked; signing in through it lands on the same account and refreshes the token). It comes back to New lesson with `?source=github`, which opens the import tab. GitHub rejecting the token (401) → `UNAUTHENTICATED` too. The token has the `repo` scope (export needs it for private repos), so a private repo the prof can open imports too; one GitHub can't find or the prof can't open → `NOT_FOUND`. The function returns the repo's files as they are: the browser adds the error reporter (`buildLessonFiles(entries, { probe: true })`, see [lesson-import-requirements](./lesson-import-requirements.md)) for imports and uploads alike, and New lesson lists what it added.
 
 ### GitHub export (the student's own GitHub identity) — one commit per checkpoint
 
 The old design hand-rolled OAuth and held the token in server memory for 10 minutes. Edge Functions are stateless per invocation, so that no longer works — instead we use **Supabase Auth's GitHub provider**:
 
 ```
-1. Client: auth.linkIdentity({ provider: 'github', scopes: 'public_repo' })
+1. Client: auth.linkIdentity({ provider: 'github', scopes: 'repo' })
 2. Supabase completes the OAuth dance and puts provider_token on the session
 3. Client: functions.invoke('github-export', { sessionId, repoName, private })
            with the provider token in the body

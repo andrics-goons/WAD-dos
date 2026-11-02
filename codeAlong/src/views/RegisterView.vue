@@ -120,10 +120,10 @@ async function register() {
             </button>
           </form>
 
-          <!-- GitHub sends no role, so this always makes a student account -->
+          <!-- GitHub sends no role: a new account picks student or educator on the next page -->
           <GitHubSignInButton>
             <p class="ca-field-hint mt-2 mb-0">
-              Signing up with GitHub makes a student account. Educators, use the form above.
+              New to CodeAlong? You'll choose student or educator after connecting GitHub.
             </p>
           </GitHubSignInButton>
 

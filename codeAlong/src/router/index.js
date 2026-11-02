@@ -112,6 +112,13 @@ const routes = [
     meta: { auth: true, title: 'Replay' },
   },
   {
+    // right after "Continue with GitHub" makes a new account: student or educator?
+    path: '/welcome',
+    name: 'choose-role',
+    component: () => import('@/views/ChooseRoleView.vue'),
+    meta: { auth: true, title: 'Welcome' },
+  },
+  {
     path: '/profile',
     name: 'profile',
     component: () => import('@/views/ProfileView.vue'),
@@ -213,6 +220,12 @@ router.beforeEach(async (to) => {
   if (to.meta.auth && !auth.isAuthenticated) {
     return { name: 'login', query: { returnTo: to.fullPath } }
   }
+
+  // a new GitHub account picks its role before anything else, then carries on where it was going
+  if (auth.needsRole && to.name !== 'choose-role') {
+    return { name: 'choose-role', query: { returnTo: to.fullPath } }
+  }
+  if (!auth.needsRole && to.name === 'choose-role') return { name: 'home' }
 
   if (to.meta.roles && auth.role !== 'admin' && !to.meta.roles.includes(auth.role)) {
     useToastStore().show("You don't have access to that page", 'warning')

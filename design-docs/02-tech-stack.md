@@ -162,7 +162,7 @@ Pinia store ──▶ src/api/*.api.js ──▶ supabase-js  ──▶  PostgRE
                                      │
                                      ▼
                             Edge Function (Deno)
-                              secrets: TELEGRAM_BOT_TOKEN, GITHUB_TOKEN, …
+                              secrets: TELEGRAM_BOT_TOKEN, LLM_API_KEY, …
                               service role key (never leaves the function)
                                      │
                                      ▼
@@ -304,7 +304,6 @@ APP_URL=https://<app>.vercel.app          # QR codes, Telegram links, replay lin
 TELEGRAM_BOT_TOKEN=<from @BotFather>
 TELEGRAM_BOT_USERNAME=CodeAlongBot
 TELEGRAM_WEBHOOK_SECRET=<long random>     # verified on every webhook request
-GITHUB_TOKEN=<fine-grained, public-repo read>
 LLM_API_KEY=                              # optional (KIV); hints fall back to rules when empty
 EXTERNAL_APIS=live                        # live | mock  (local + tests use mock)
 ```
@@ -327,7 +326,7 @@ The GitHub OAuth app's ID and secret are **not** function secrets: Supabase Auth
 | `pnpm db:push` | `supabase db push` — applies new migrations to the linked cloud project |
 | `pnpm fn:deploy` | `supabase functions deploy` — all Edge Functions |
 | `pnpm test:unit` | Vitest (`shared/` logic + RLS negative tests) |
-| `pnpm test:e2e` | Starts the local stack with `EXTERNAL_APIS=mock`, builds, runs Playwright |
+| `pnpm test:e2e` | Needs Docker and `supabase start` already running (it says so if not). Sets the Vault pair, starts the dev server and the Edge Functions with `EXTERNAL_APIS=mock` (`e2e/functions.env`), then runs Playwright |
 | `pnpm simulate --session ABC234 --students 40` | Load test / fills the dashboard for demos. **Against the local stack unless you mean to spend egress** |
 
 ---

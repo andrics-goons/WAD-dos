@@ -21,8 +21,8 @@ async function callerRole(req: Request) {
   return profile?.role ?? null
 }
 
-const github = isMockMode(env)
-  ? mockGithub(admin, env)
-  : liveGithub(fetch, env('GITHUB_TOKEN') ?? '')
+// the prof's own GitHub token, sent with each import (never stored)
+const makeGithub = (token: string) =>
+  isMockMode(env) ? mockGithub(admin, env) : liveGithub(fetch, token)
 
-Deno.serve((req) => handleImport(req, { callerRole, github }))
+Deno.serve((req) => handleImport(req, { callerRole, makeGithub }))

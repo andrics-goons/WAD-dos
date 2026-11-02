@@ -1,15 +1,24 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useCoursesStore } from '@/stores/courses'
 import { useRouter } from 'vue-router'
 import { useToastStore } from '@/stores/toast'
 import { Role, RoleLabel } from '@shared/constants'
 import TelegramLinkCard from '@/components/help/TelegramLinkCard.vue'
 import GitHubLinkCard from '@/components/auth/GitHubLinkCard.vue'
+import DeleteAccountCard from '@/components/auth/DeleteAccountCard.vue'
+import TaCoursesCard from '@/components/auth/TaCoursesCard.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
 const toast = useToastStore()
+const courses = useCoursesStore()
+
+// Courses I'm a TA in. Anyone can be one (a prof too, in another prof's course), so this
+// comes from the courses, not my account role.
+const taCourses = computed(() => courses.courses.filter((c) => c.myRole === Role.TA))
+onMounted(() => courses.load().catch((error) => toast.show(error.message, 'danger')))
 
 const isSubmitting = ref(false)
 
@@ -91,7 +100,9 @@ async function savePassword() {
         <div class="ca-card h-100">
           <h2 class="h3">Account</h2>
           <p class="mb-1">
-            Role: <strong>{{ RoleLabel[auth.role] ?? auth.role }}</strong>
+            <!-- a TA account is a student who helps in some courses: those are listed below -->
+            Role:
+            <strong>{{ RoleLabel[auth.role === Role.TA ? Role.STUDENT : auth.role] }}</strong>
           </p>
           <!-- the update policy locks role, so explain who can change it (04: error states) -->
           <p class="text-body-secondary small mb-4">
@@ -187,6 +198,14 @@ async function savePassword() {
       <!-- only staff are messaged, so only staff see this -->
       <div v-if="[Role.PROF, Role.TA].includes(auth.role)" class="col-12 col-lg-6">
         <TelegramLinkCard />
+      </div>
+
+      <div v-if="taCourses.length" class="col-12 col-lg-6">
+        <TaCoursesCard :courses="taCourses" />
+      </div>
+
+      <div class="col-12 col-lg-6">
+        <DeleteAccountCard />
       </div>
     </div>
   </div>

@@ -20,7 +20,7 @@ ADMIN
 Users    /admin/users
 ```
 
-**Routes stay per course.** `/courses/:id` is the home of one prof's course: its **Lessons** tab holds the reusable plans, and its **Sessions** tab lists every live class the prof has started in that course, live and past. Nothing in the app lists courses globally — a prof sees only their own, a student only those they enrolled in.
+**Routes stay per course.** `/courses/:id` is the home of one prof's course: its **Lessons** tab holds the reusable plans, and each lesson has a dropdown listing every class started from it, live and past. Nothing in the app lists courses globally — a prof sees only their own, a student only those they enrolled in.
 
 Routes are unchanged by the move to Supabase — the URLs are a UI contract, not a backend one.
 
@@ -32,11 +32,11 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 
 | Path | View | Owner | Who | Layout: xs (375–575 px) → lg/xl (≥ 992 px) |
 |---|---|---|---|---|
-| `/` | `LandingView` | Ying Qi | Public (logged-in users go to `/home`) | Hero + 3 feature cards stacked → hero left, cards in a row; "Join a class" CTA always visible |
+| `/` | `LandingView` | Ying Qi | Public (logged-in users go to `/home`) | Hero + 3 feature cards + "How it works" (4 steps) + footer, stacked → hero left, cards and steps in a row; "Join a class" CTA always visible. The navbar shows only "Join a class" and "Log in" until you log in |
 | `/home` | `HomeView` | Ying Qi | Logged in | Where you land after logging in. "Live now" (live classes across your courses, with Open class / Help queue / Join by your role in that course) and your first 3 courses, stacked → 7 + 5 cols. Students and TAs get a "Join with a code" button |
 | `/login`, `/register` | `LoginView`, `RegisterView` | Ying Qi | Public | Full-width card → centred card max 420 px |
 | `/courses` | `CoursesView` | Ying Qi | Logged in | Course cards 1 col → 3 cols; prof sees "New course"; student sees **"Enrol in a course"**, which opens `/enrol` |
-| `/courses/:id` | `CourseView` | Ying Qi (shell) + Ray Yien (lesson library) | Staff / enrolled | Tabs (Lessons · Sessions · People) → same tabs, lessons as a table with search. **The owner sees a "Share enrolment" card**: the enrol code, a **Copy link** button for `<APP_URL>/enrol/<code>`, and its QR |
+| `/courses/:id` | `CourseView` | Ying Qi (shell) + Ray Yien (lesson library) | Staff / enrolled | Tabs (Lessons · People) → same tabs. Lessons has a search box; each lesson has a dropdown of its classes, open by default when one is live. **The owner sees a "Share enrolment" card**: the enrol code, a **Copy link** button for `<APP_URL>/enrol/<code>`, and its QR |
 | `/enrol`, `/enrol/:code` | `EnrolView` | Andric | Students and TAs (redirects to login with `returnTo`) | Same 6-box code input as the join page; `/enrol/:code` pre-fills from the link or QR and auto-submits. Success → that course's page. **Joins a course once per term — not the same as `/join`, which joins one live class** |
 | `/courses/:id/lessons/new` | `LessonNewView` | Evan (upload) + Ray Yien (GitHub import tab) | Prof | Stepper: 1 Source → 2 Review files. No plan to review: the prof saves checkpoints during class |
 | `/lessons/:id/edit` | `LessonEditView` | Evan | Prof | The starter files (file tree + editor) at every size, with Details, status, Save and Delete / Archive in the header |
@@ -48,6 +48,7 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 | `/replays` | `ReplayListView` | Ray Yien | Logged in | List grouped by course, search box on top |
 | `/replays/:sessionId` | `ReplayView` | Ray Yien | Staff / enrolled | Timeline as horizontal scroller, code below, preview behind a tab → timeline left, code + preview right, notes drawer |
 | `/sessions/:id/report` | `ReportView` | Evan (page) · Andric (report data) | Staff | Cards stacked; funnel chart scrolls horizontally → 2-col grid: funnel per checkpoint, top errors, recurring trouble checkpoints, digest panel |
+| `/welcome` | `ChooseRoleView` | Andric | A new GitHub account (`role_chosen = false`); the router sends them here from any page, with `returnTo` | Two big buttons, side by side from `sm` |
 | `/profile` | `ProfileView` | Ying Qi (profile) + Karin (Telegram link card) | Logged in | Single column |
 | `*` | `NotFoundView` | Ying Qi | Public | Friendly 404 with links back |
 | `/admin/users` | `AdminUsersView` | Andric | Admin | Searchable user list → name, email, role dropdown, joined. Changing a role asks for confirmation. One Bootstrap list: each user stacks on xs and is a single row from lg. The admin's own role is locked |
@@ -94,6 +95,7 @@ xs (375 px) ──────────────────────�
 |---|---|
 | The file tree is a **rail at lg+, an offcanvas drawer at xs** | A tree, an editor and a preview cannot coexist at 375 px. T-RESP-01 checks the drawer; T-RESP-05 still requires no horizontal page scroll anywhere |
 | The terminal is **read-only output, and never leaves the browser** | It carries `pnpm install` and dev-server text, which can contain source lines. Nothing writes it to Postgres — see the privacy contract in [09](./09-integration-contracts.md#5-privacy-contract-our-unique-feature--every-pr-is-checked-against-this) |
+| **Up to 3 terminals**, listed to the right of the one on screen | A backend and a frontend each hold a terminal while running, plus a spare for one-off commands. They share the one WebContainer, so the same files and ports. + adds one, the × on a row closes it and kills what's running there, and the last one can't be closed. Below md the list shows only the numbers |
 | Boot and install have **explicit visible states** | "Starting your project…" → "Installing dependencies…" (streamed) → ready. A 20-second silent pause reads as broken, and this is the first thing a student sees on joining |
 | Open files are tabs; the tree is the source of truth | `FileTabs` keeps its role, now driven by tree selection rather than a flat file list |
 | Unsupported browser is a **message, not a blank pane** | Feature-detect `crossOriginIsolated`; Safari shows "The workspace needs Chrome or Edge" |
@@ -132,8 +134,10 @@ Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoade
 | Auth | `auth.signInWithPassword(…)` | Session stored by `supabase-js`; platform rate-limits | Any |
 | Auth | `auth.signOut()` | Clears the local session | Any |
 | Query | `auth.getUser()` + `from('profiles').select().eq('id', uid).single()` | Current user on app load | Any |
-| Auth | `auth.signInWithOAuth({ provider: 'github', options: { redirectTo } })` — `signInWithGitHub(returnTo)` | **"Continue with GitHub"** on login and register. Leaves for GitHub and comes back to `returnTo` signed in; a first sign-in creates the account. GitHub sends no role, so the trigger makes it a **student** (named after the GitHub display name, else the username). Educators register by email | Any |
-| Auth | `auth.linkIdentity({ provider: 'github', options: { scopes: 'public_repo', redirectTo: '/profile' } })` — `connectGitHub()` | **"Connect GitHub"** on the profile page: links GitHub to the account I'm logged in with, with the repo access a replay export needs (05 §11). Needs manual linking on | Any |
+| Auth | `auth.signInWithOAuth({ provider: 'github', options: { redirectTo } })` — `signInWithGitHub(returnTo)` | **"Continue with GitHub"** on login and register. Leaves for GitHub and comes back to `returnTo` signed in; a first sign-in creates the account, named after the GitHub display name, else the username. GitHub sends no role, so the new account goes to `/welcome` first to pick one | Any |
+| RPC | `choose_role(p_role)` — `chooseRole(role)` | `/welcome`: one click on **I'm a student** / **I'm an educator** sets the role, once (`CONFLICT` after that, or once in any course) | New GitHub account |
+| RPC | `delete_my_account()` — `deleteAccount()` | Profile → **Delete account** (type DELETE to confirm): deletes the account and everything that would block it — a prof's courses with every lesson, class, replay and report in them — then signs out on this browser | Logged in |
+| Auth | `auth.linkIdentity({ provider: 'github', options: { scopes: 'repo', redirectTo: '/profile' } })` — `connectGitHub()` | **"Connect GitHub"** on the profile page: links GitHub to the account I'm logged in with, with the repo access a replay export needs (05 §11). Needs manual linking on | Any |
 | Auth | `auth.getUserIdentities()` / `auth.unlinkIdentity(github)` — `getGitHubLink()`, `disconnectGitHub()` | Shows "Connected as @username"; Disconnect is refused while GitHub is the only way to log in | Any |
 | Query | `from('profiles').update({ name })` — `updateProfile({ name })` | Own row only (policy forbids changing `role`); 2–60 characters | Any |
 | Auth | `signInWithPassword` with the current password, then `auth.updateUser({ password })` — `changePassword({ currentPassword, newPassword })` | The current password is checked first ("Your current password is wrong"); the new one must be ≥ 6 characters and different | Any |
@@ -162,7 +166,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 |---|---|---|---|
 | Query | `from('lessons').select().eq('course_id', id).ilike('title', …)` | Lesson library search | Staff / enrolled |
 | Query | `from('lessons').insert(…)` — `createLesson(courseId, details)` | Create a draft from uploaded files | Prof |
-| Function | `github-import` → `{ repoUrl }` | Fetches files with the server token → returns files; client then inserts | Prof (Ray Yien) |
+| Function | `github-import` → `{ repoUrl, providerToken }` | Fetches files with the prof's own GitHub token → returns files; client then inserts. No token → `UNAUTHENTICATED` and the tab offers **Connect GitHub** | Prof (Ray Yien) |
 | Query | `from('lessons').select('*, sessions(count)')` — `getLesson(id)` | Lesson with its files and whether it has been taught. Staff see every lesson; **enrolled students see non-draft lessons only**, including their starter `files` | Staff / enrolled |
 | Query | `from('lessons').update(…)` | Title/description/week/files/entry_file/dev_command/status | Prof |
 | Query | `from('lessons').delete().eq('id', id)` | Deletes the lesson. A trigger raises `CONFLICT` if the lesson was ever taught → UI offers Archive | Prof |
@@ -171,7 +175,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
-| RPC | `start_session(p_lesson_id)` | Validates `ready` + prof, allocates a unique join code, inserts; client renders the QR from `APP_URL/join/<code>` | Prof |
+| RPC | `start_session(p_lesson_id)` | Validates `ready` + prof; returns the lesson's live class if it has one, otherwise allocates a unique join code and inserts; client renders the QR from `APP_URL/join/<code>` | Prof |
 | RPC | `join_session(p_join_code)` | Finds the live session, decides my role, returns `{ session_id, role }` | Enrolled / staff |
 | Query | `from('sessions').select('*, lessons(title, files_hash, entry_file, dev_command)')` + latest checkpoint | Session bootstrap (`checkpoint_seq` is on the session row) | Member |
 | Query | `from('sessions').update({ settings })` | Prof policy; a trigger broadcasts `session:settings` | Prof |
@@ -224,7 +228,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 | Query | `from('checkpoints').select('id, seq, title, files_hash, created_at').order('seq')` | Replay source; per-checkpoint diff stats computed client-side with `diffSummary` | Member |
 | Query | `from('notes').select/insert/update/delete` | Own notes only. `user_id` defaults to the login, so don't send it | Author |
 | RPC | `search(p_q, p_course_id)` | Full-text over checkpoint titles and my own notes, ranked; input is parameterised so regex characters are literal | Any |
-| Auth | `auth.linkIdentity({ provider: 'github', scopes: 'public_repo' })` | Replaces the hand-rolled OAuth dance; Supabase holds the `provider_token` on the session | Any |
+| Auth | `auth.linkIdentity({ provider: 'github', scopes: 'repo' })` | Replaces the hand-rolled OAuth dance; Supabase holds the `provider_token` on the session | Any |
 | Function | `github-export` → `{ sessionId, repoName, private }` | Creates the repo and one commit per checkpoint via the Git Data API | Member with a fresh GitHub identity |
 
 ### Admin — `admin.api.js` (Andric)
@@ -268,9 +272,10 @@ Call these: `listUsers()` and `setRole(userId, role)`. The list of users lives i
 start_session  rpc('start_session', { p_lesson_id })
   1. Load lesson; NOT_FOUND if missing; CONFLICT unless status='ready'
   2. FORBIDDEN unless is_course_prof(lesson.course_id)
-  3. Generate join code; retry on the partial unique clash (max 5)
-  4. insert sessions { status: 'live' }
-  5. return session   → client renders QR for `${APP_URL}/join/${code}`
+  3. If this lesson already has a live class, return it (Start class again never splits the students)
+  4. Generate join code; retry on the partial unique clash (max 5)
+  5. insert sessions { status: 'live' }
+  6. return session   → client renders QR for `${APP_URL}/join/${code}`
 
 join_session  rpc('join_session', { p_join_code })
   1. select ... where join_code = upper($1) and status = 'live'
@@ -390,7 +395,7 @@ Unchanged — components never knew where the data came from, which is why this 
 | `CodeEditor` | `modelValue`, `language`, `errorLine`, `readOnly` | `update:modelValue`, `save` (Ctrl/⌘+S) | CodeMirror 6 wrapper; gutter marker on `errorLine`; `vue` mode for SFCs |
 | `FileTabs` | `openPaths`, `activePath` | `select`, `close` | Open-file tabs, driven by `FileTree` selection |
 | `PreviewFrame` | `previewUrl`, `runKey` | `console`, `runtime-error`, `network`, `ready` | `<iframe>` pointed at the WebContainer dev server — [05 §1](./05-core-logic.md#1-client-side-runtime-webcontainer) |
-| `TerminalPanel` | `lines`, `busy` | — | New. Streams `pnpm install` / dev-server output. **Output stays local** |
+| `TerminalPanel` | `lines`, `busy` | — | New. Streams `pnpm install` / dev-server output. One per open terminal, each with its own shell; `EditorPanel` holds the list. **Output stays local** |
 | `BootState` | `phase`, `progress` | `retry` | New. booting → installing → starting → ready, or a failure with the terminal tail |
 | `ConsolePanel` | `entries` | `clear` | Filters: All · Errors · Network |
 | `DoneButton` | `seq`, `disabled`, `passedByTa` | `done`, `undo` | "I've caught up to the latest checkpoint"; resets when a new one arrives |

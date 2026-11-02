@@ -9,6 +9,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => user.value !== null)
   const role = computed(() => user.value?.role ?? null)
+  // a GitHub sign-up that hasn't picked student or educator yet: the router sends them to pick
+  const needsRole = computed(() => user.value?.roleChosen === false)
 
   // First call (from the router guard) loads who's logged in, and starts listening for
   // auth changes so a logout in another tab clears this one too.
@@ -39,9 +41,21 @@ export const useAuthStore = defineStore('auth', () => {
     clear()
   }
 
+  // Profile page: delete the account for good
+  async function deleteAccount() {
+    await authApi.deleteAccount()
+    clear()
+  }
+
   // Profile page: rename. The role can't be changed here — only an admin can.
   async function updateName(name) {
     user.value = { ...user.value, ...(await authApi.updateProfile({ name })) } // keeps hasPassword
+  }
+
+  // After a GitHub sign-up: student or educator, once
+  async function chooseRole(choice) {
+    await authApi.chooseRole(choice)
+    user.value = await authApi.getCurrentUser()
   }
 
   // Profile page: needs the current password as well as the new one
@@ -53,7 +67,7 @@ export const useAuthStore = defineStore('auth', () => {
   // Both leave for GitHub and come back to the app, so there's nothing to update here afterwards.
   const github = ref(null) // { username, canDisconnect }, or null when not linked
   const signInWithGitHub = (returnTo) => authApi.signInWithGitHub(returnTo)
-  const connectGitHub = () => authApi.connectGitHub()
+  const connectGitHub = (returnTo) => authApi.connectGitHub(returnTo)
   async function loadGitHub() {
     github.value = await authApi.getGitHubLink()
   }
@@ -99,10 +113,13 @@ export const useAuthStore = defineStore('auth', () => {
     loaded,
     isAuthenticated,
     role,
+    needsRole,
     ensureLoaded,
+    chooseRole,
     register,
     login,
     logout,
+    deleteAccount,
     updateName,
     changePassword,
     github,

@@ -89,7 +89,7 @@ it('every public table has RLS enabled', async () => {
 | Responsive | Two Playwright projects: `desktop-chrome` (1280×800) and `mobile-chrome` (375×667, `isMobile`, `hasTouch`). Specs tagged `@responsive` run on both |
 | Docker dependency | `supabase start` needs Docker. The README documents it, and `pnpm test:e2e` fails with a clear message if the daemon is not running |
 
-### Fixture sketch — `tests/e2e/fixtures.js`
+### Fixture sketch — `e2e/fixtures.js`
 
 ```js
 import { test as base, expect } from '@playwright/test'
@@ -128,7 +128,7 @@ export { expect }
 
 > The one fiddly part of this rewrite: the Supabase session lives in `localStorage` under a project-scoped key, not in a cookie, so `addInitScript` replaces `context.request.post('/api/auth/login')`. **Owner: Karin**, and worth getting right in Week 8 — every E2E spec depends on it.
 
-### Example journey — `tests/e2e/live-session.spec.js`
+### Example journey — `e2e/live-session.spec.js`
 
 Unchanged from the Mongo design, which is the point: the tests describe behaviour, not plumbing.
 
@@ -192,6 +192,8 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-19 | **A prof sees their course immediately after creating it** | RLS | `create_course` returns it, and a `select` on `courses` as that prof finds it (regression guard for the no-insert-policy design) |
 | T-PLAT-20 | **Staff/student separation** | DB | A TA can enrol in a course they don't staff; enrolling in one they staff → `CONFLICT`; adding an enrolled student as TA → `CONFLICT` |
 | T-PLAT-21 | **Profile updates still work alongside "read coursemates"** | RLS | A student renaming themselves succeeds and promoting themselves fails with `42501` — never `42P17` (regression guard for the recursion fix) |
+| T-PLAT-22 | **A new GitHub account picks its role once** | RLS + Unit | `/welcome` → `choose_role('prof')` makes a prof; a second call, an email account, or an enrolled student who reset `role_chosen` → `CONFLICT`; `admin` → `VALIDATION_FAILED` |
+| T-PLAT-23 | **Delete my account** | RLS + Unit | Only after typing DELETE; a student's rows go and the classes stay; a prof's courses and classes go, another prof's stay; logged out → `FORBIDDEN` |
 
 ### LESSON — Lessons · `lessons.spec.js`, `lesson-edit-view.test.js`
 
@@ -204,6 +206,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-LES-05 | Unsafe path / > 20 files / > 200 KB | DB | `files_valid()` / `octet_length` constraint rejects the insert |
 | T-LES-06 | Delete a lesson that was taught | DB | Trigger raises `CONFLICT` → UI offers Archive |
 | T-LES-07 | What an enrolled student can read | RLS | A **draft** lesson: zero rows. A **ready** lesson: visible, with its starter `files` (RLS can't hide one column; starter files aren't secret — see [03](./03-data-model.md#policies-1)) |
+| T-LES-08 | An uploaded or imported project gets the error reporter (`addProbe`, [lesson-import-requirements](./lesson-import-requirements.md)) | Unit | `src/ca-probe.js` added, imported first by the entry script, `ca-errors` in `vite.config.js`, Vite 8 pins; running it twice changes nothing; a project it can't patch is rejected with a message |
 | T-TODO-* | ~~TODO parser~~ | — | Removed with lesson steps |
 
 ### SESS — Live session engine · `live-session.spec.js`
@@ -228,6 +231,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-SESS-16 | Prof clears the announcement | E2E | Banner disappears for everyone |
 | T-SESS-17 | Student or TA calls `announce` | RLS | `FORBIDDEN` |
 | T-SESS-18 | Announcement over 200 chars | DB | Check constraint rejects it |
+| T-SESS-19 | **Start a lesson that is already live** | DB | Returns the same class and join code, even on a double-click; a new class only once it has ended |
 
 ### SBX — Workspace, runtime & cache · `workspace.spec.js`, `build-error.test.js`, `files-cache.test.js`
 
@@ -252,6 +256,8 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-SBX-21 | **A failed save retries the same delta** | Unit | Synced hashes are not advanced on failure; the next tick resends |
 | T-SBX-22 | Flush on tab close | E2E | `visibilitychange` writes immediately, losing none of the 5 s window |
 | T-SBX-23 | Deleted file is removed server-side | E2E | Path appears in `p_delete`; gone from the autosave row |
+| T-SBX-24 | **Multiple terminals** | Unit | Starts with one; + adds up to 3, using the lowest free number; switching keeps every terminal mounted; closing the one on screen shows the first; the last can't be closed |
+| T-SBX-25 | A hidden terminal isn't refitted | Unit | A zero-width resize doesn't call `fit()`, so a server running in another terminal keeps its width |
 | T-SBX-12 | Done disabled while the last run has an error | E2E | Button disabled with reason (runtime **or** build) |
 | T-SBX-13 | **`SYNC_IGNORE` respected** | DB | After an install, no saved row contains a `node_modules/`, `dist/` or `.vite/` path |
 | T-SBX-14 | **Cache hit costs no network** | Unit | Matching `files_hash` → `loadFiles` returns from IndexedDB with zero fetches |
@@ -397,6 +403,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-GH-04 | Commit messages `checkpointLabel(seq, title)`: `Checkpoint k · <title>`, or `Checkpoint k` without a title | Unit | Match |
 | T-GH-05 | Repo name taken (422) | E2E | UI asks for another name |
 | T-GH-06 | **Token never persisted in our schema** | DB | No GitHub token in any row of any `public` table after an export |
+| T-GH-07 | Export to a private repo | Unit | "Connect GitHub" asks for the `repo` scope; GitHub refusing a private repo (403/404) → `FORBIDDEN` "reconnect GitHub", not "try again" |
 
 ### INS — Insights · `rls/session_report.test.js`, `digest-function.test.js`, `views/ReportView.test.js`
 
@@ -494,7 +501,7 @@ Admins read everything and write only accounts. Most of these are negative tests
 | PLAT | 21 | 2 |
 | LESSON + TODO | 14 | 4 |
 | SESS | 18 | 3 |
-| SBX | 23 | 3 |
+| SBX | 25 | 3 |
 | STAT | 12 | 5 |
 | DASH | 7 | 5 |
 | ERRG | 9 | 9 |
@@ -509,7 +516,7 @@ Admins read everything and write only accounts. Most of these are negative tests
 | RESP | 6 | 11 |
 | VALID | 8 | 11 |
 | LOAD + SEED + SMOKE | 9 | 11–12 |
-| **Total** | **204** | |
+| **Total** | **206** | |
 
 Up from 137 in the Mongo design: 15 came from authorization moving into the database (RLS negative tests — the cheapest in the suite, a sign-in and an `expect(data).toEqual([])`), and 17 more from the WebContainer runtime (boot, install, build errors, the file cache, delta autosave, and the two privacy tests that keep code frames and terminal output out of the dashboard), plus 12 for help follow-ups and class announcements, and 16 for sign-up roles, per-prof courses and the admin role.
 

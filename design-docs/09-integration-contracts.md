@@ -120,6 +120,8 @@ create trigger on_auth_user_created
   after insert on auth.users for each row execute function public.handle_new_user();
 ```
 
+- **"Continue with GitHub" sends no role.** The trigger (as rewritten in `…_choose_role.sql`) makes the new account a student with `profiles.role_chosen = false` when `raw_app_meta_data->>'provider'` is `github` (set by Supabase Auth; users can't edit app metadata). The router sends any account with `role_chosen = false` to `/welcome` before anything else, where one click calls `rpc('choose_role', { p_role: 'student' | 'prof' })` and carries on to `returnTo`. `choose_role` works once: `CONFLICT` once chosen, or if the account is in any course (as student or staff), so resetting the flag on your own row can't turn an enrolled student into a prof.
+
 ### Who am I, in the client
 
 ```js
@@ -385,7 +387,7 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `checkpointLabel` | Andric | Workspace, help screens, report, Telegram ping | `(seq, title?) => 'Checkpoint 3 · Added ItemCard' \| 'Checkpoint 3' \| 'Starter code'` |
 | `diffSummary` | Ray Yien | Dylan, Karin | `(beforeFiles, afterFiles) => { files: [{ path, added, removed, firstDiffLine, hunks }] }` |
 | `<DiffView>` | Ray Yien | Dylan, Karin | props `before`, `after`, `mode` |
-| `fn('github-import')` | Ray Yien | Lesson new view | `{ repoUrl } → { files, entryFile, source }` |
+| `fn('github-import')` | Ray Yien | Lesson new view | `{ repoUrl, providerToken } → { files, entryFile, source }` — `providerToken` is the prof's GitHub token from Supabase Auth, never stored |
 | `fn('github-export')` | Ray Yien | Replay view | `{ sessionId, repoName, private, providerToken } → { repoUrl }` — `providerToken` is the user's GitHub token from Supabase Auth, never stored |
 | `fn('spotlight')` | Evan | Teach view | `{ sessionId, errorKey, helpRequestId? } → { excerpt, fix, errorPreview }` |
 | `fn('analyze-help')` | Evan | `analyze_help_request` trigger (not the client) | `{ requestId } → { saved: 'ok' \| 'failed' } \| { skipped }` — writes `help_requests.analysis` |
@@ -414,15 +416,15 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 |---|---|
 | Navigation | `nav-home`, `nav-courses`, `nav-replays`, `nav-profile` |
 | Courses | `course-card-<code>`, `btn-new-course`, `btn-enrol-course`, `input-enrol-code`, `btn-enrol`, `enrol-link`, `btn-copy-enrol-link`, `enrol-qr` |
-| Lessons | `lesson-row-<slug>`, `lesson-start-<slug>` |
-| Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `input-checkpoint-title`, `btn-save-checkpoint`, `btn-end-session`, `input-announce`, `btn-announce`, `btn-clear-announce`, `announcement-banner` |
+| Lessons | `lesson-row-<slug>`, `lesson-start-<slug>`, `btn-connect-github` (import tab, when GitHub isn't connected) |
+| Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `input-checkpoint-title`, `btn-save-checkpoint`, `btn-end-session`, `input-announce`, `btn-announce` (an empty box clears the announcement), `announcement-banner` |
 | Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `btn-download-project`, `workspace-checkpoint`, `tab-code`, `tab-preview`, `tab-console` |
 | Dashboard | `summary-done`, `slow-down-count`, `error-group-<index>`, `btn-spotlight-<index>`, `spotlight-panel`, `help-summary`, `help-summary-headline`, `help-summary-group-<index>`, `btn-refresh-help-summary` |
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |
 | Replay | `timeline-checkpoint-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
 | Reports | `report-funnel`, `report-top-errors`, `btn-send-digest`, `digest-sent` |
-| Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login`, `btn-github-login`, `link-register`, `link-login` |
-| Profile | `input-profile-name`, `btn-save-name`, `input-current-password`, `input-new-password`, `btn-change-password`, `btn-logout`, `btn-connect-github`, `btn-disconnect-github`, `github-username` |
+| Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login`, `btn-github-login`, `btn-role-student`, `btn-role-educator` (`/welcome`), `link-register`, `link-login` |
+| Profile | `input-profile-name`, `btn-save-name`, `input-current-password`, `input-new-password`, `btn-change-password`, `btn-logout`, `btn-connect-github`, `btn-disconnect-github`, `btn-delete-account`, `input-confirm-delete`, `ta-courses`, `github-username` |
 | Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `input-user-search` |
 
 ---
@@ -434,8 +436,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Vercel (build) | `VITE_SUPABASE_URL` | Public by design |
 | Vercel (build) | `VITE_SUPABASE_ANON_KEY` | **Public — baked into the bundle. RLS is the only thing protecting the data.** |
 | Supabase secrets | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` | `supabase secrets set` — never in Vercel |
-| Supabase secrets | `GITHUB_TOKEN` | Server-side imports |
-| Supabase Auth → GitHub provider | OAuth app client ID + secret (`supabase/.env` locally, the dashboard in the cloud — 02, "GitHub sign-in") | "Continue with GitHub", "Connect GitHub", and the token a replay export uses |
+| Supabase Auth → GitHub provider | OAuth app client ID + secret (`supabase/.env` locally, the dashboard in the cloud — 02, "GitHub sign-in") | "Continue with GitHub", "Connect GitHub", and the token that lesson import and replay export use |
 | Supabase secrets | `LLM_API_KEY` | Groq key, shared by hints and `analyze-help`. Optional: hints fall back to the rule table, and help analysis stores `failed`, when empty |
 | Supabase secrets | `LLM_MODEL` | Optional; default `openai/gpt-oss-20b` |
 | Supabase secrets | `APP_URL` | Used in QR codes, Telegram links, replay links |

@@ -64,7 +64,7 @@ export async function getSession(id) {
   }
 }
 
-/** All classes in a course, newest first — for the course page's Sessions tab. */
+/** All classes in a course, newest first — for the course page's Lessons tab. */
 export async function listSessions(courseId) {
   const { data, error } = await supabase
     .from('sessions')

@@ -26,7 +26,6 @@ onMounted(async () => {
   }
 })
 
-const firstName = computed(() => auth.user.name?.split(' ')[0])
 const isProf = computed(() => auth.role === 'prof')
 const recentCourses = computed(() => courses.courses.slice(0, 3))
 
@@ -46,7 +45,7 @@ function classLink(s) {
     <div class="ca-page-header">
       <div>
         <div class="ca-eyebrow">{{ RoleLabel[auth.role] }}</div>
-        <h1>Hi, {{ firstName }}</h1>
+        <h1>Hi, {{ auth.user.name }}</h1>
       </div>
       <RouterLink v-if="!isProf" :to="{ name: 'join' }" class="ca-btn ca-btn--primary">
         <i class="bi bi-box-arrow-in-right" />Join with a code

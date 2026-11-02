@@ -142,6 +142,35 @@ describe('start_session', () => {
     const anon = await anonClient().rpc('start_session', { p_lesson_id: lesson.id })
     expect(codeOf(anon.error)).toBe('UNAUTHENTICATED')
   })
+
+  it('T-SESS-19: starting a lesson that is already live returns that class', async () => {
+    const own = await createLesson()
+    const first = (await startAs(prof, own)).data
+    const again = (await startAs(prof, own)).data
+    expect(again.id).toBe(first.id)
+    expect(again.join_code).toBe(first.join_code)
+  })
+
+  it('T-SESS-19: a double-click still makes one class', async () => {
+    const own = await createLesson()
+    const started = await Promise.all(Array.from({ length: 5 }, () => startAs(prof, own)))
+    expect(new Set(started.map((r) => r.data.id)).size).toBe(1)
+  })
+
+  it('T-SESS-19: once the class has ended, starting the lesson makes a new one', async () => {
+    const own = await createLesson()
+    const first = (await startAs(prof, own)).data
+    await prof.client.rpc('end_session', { p_session_id: first.id })
+    const next = (await startAs(prof, own)).data
+    expect(next.id).not.toBe(first.id)
+    expect(next.status).toBe('live')
+  })
+
+  it('T-SESS-19: another lesson gets its own class', async () => {
+    const a = (await startAs(prof, await createLesson())).data
+    const b = (await startAs(prof, await createLesson())).data
+    expect(b.id).not.toBe(a.id)
+  })
 })
 
 describe('join_session', () => {
@@ -212,7 +241,8 @@ describe('join codes are unique among live classes', () => {
   })
 
   it('every new class gets a code no live class is using', async () => {
-    const started = await Promise.all(Array.from({ length: 10 }, () => startAs(prof)))
+    const lessons = await Promise.all(Array.from({ length: 10 }, () => createLesson()))
+    const started = await Promise.all(lessons.map((l) => startAs(prof, l)))
     const codes = started.map((r) => r.data.join_code)
     expect(new Set(codes).size).toBe(codes.length)
   })
@@ -221,7 +251,7 @@ describe('join codes are unique among live classes', () => {
 describe('save_checkpoint', () => {
   let session
   beforeAll(async () => {
-    session = (await startAs(prof)).data
+    session = (await startAs(prof, await createLesson())).data
   })
 
   it('the prof saves a checkpoint any time: numbered 1, titled, and the class moves on to it', async () => {
@@ -283,7 +313,7 @@ describe('save_checkpoint', () => {
 
 describe('settings', () => {
   it('T-SESS-12: changing a setting is broadcast to the class', async () => {
-    const session = (await startAs(prof)).data
+    const session = (await startAs(prof, await createLesson())).data
     const channel = await listen(stu.client, session.id, 'session:settings')
     await prof.client
       .from('sessions')
@@ -300,7 +330,7 @@ describe('settings', () => {
 describe('end_session', () => {
   let session
   beforeAll(async () => {
-    session = (await startAs(prof)).data
+    session = (await startAs(prof, await createLesson())).data
   })
 
   it('a student or TA cannot end the class', async () => {

@@ -4,6 +4,7 @@
 // Reads with the caller's own JWT, so RLS decides what comes back: only session staff can see
 // a session's help requests, and anyone else is refused before anything is read. No student
 // name, id or code goes into the prompt, only the part 1 diagnoses.
+import { corsHeaders, json } from '../_shared/cors.ts'
 import { deliver, isMockMode, type EnvReader, type OutboxClient } from '../_shared/outbox.ts'
 import type { Llm } from '../_shared/groq.ts'
 import { DEFAULT_MODEL } from '../analyze-help/handler.ts'
@@ -38,15 +39,14 @@ export type SummaryResponse = ClassSummary & {
   generatedAt: string
 }
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
-
 // Errors use the same { code, message } shape as mapError, so the api module can pass them on
 const refuse = (status: number, code: string, message: string) => json({ code, message }, status)
 
 export async function handleSummarize(req: Request, deps: SummarizeDeps): Promise<Response> {
   const { env, db, outbox, llm } = deps
   const now = deps.now ?? Date.now
+  // the browser checks CORS first (the deployed gateway doesn't answer it for us, unlike local)
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return refuse(405, 'BAD_REQUEST', 'Use POST')
 
   const body = await req.json().catch(() => null)

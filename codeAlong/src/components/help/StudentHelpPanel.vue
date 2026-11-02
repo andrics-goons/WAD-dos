@@ -125,6 +125,12 @@ async function sendHelp() {
           ><i class="bi me-1" :class="STATUS[r.status].icon" />{{ STATUS[r.status].label }}</span
         >
       </div>
+      <p
+        v-if="r.in_person && r.status === 'open' && !r.telegram_notified_at"
+        class="small text-body-secondary"
+      >
+        TA notified in app only
+      </p>
       <HelpThread :request="r" />
       <FollowUpForm
         v-if="r.status === 'replied'"

@@ -59,6 +59,15 @@ export async function handleExport(req: Request, deps: ExportDeps): Promise<Resp
         'You already have a GitHub repository with that name — choose another',
       )
     }
+    // the token can't create repos: connected before CodeAlong asked for the `repo` scope, which
+    // private repos need (public_repo only allows public ones)
+    if (err instanceof GithubError && [403, 404].includes(err.status)) {
+      return fail(
+        403,
+        'FORBIDDEN',
+        "GitHub didn't let CodeAlong create the repository — reconnect GitHub and allow repository access",
+      )
+    }
     return githubFailed(err)
   }
 

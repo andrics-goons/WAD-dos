@@ -6,7 +6,10 @@ import { createPinia } from 'pinia'
 import { AppError } from '@/api/mapError'
 
 vi.mock('@/api/github.api', () => ({ importFromGithub: vi.fn(), exportToGithub: vi.fn() }))
+vi.mock('@/api/auth.api', () => ({ connectGitHub: vi.fn(async () => {}) }))
+vi.mock('vue-router', () => ({ useRoute: () => ({ fullPath: '/replays/s1' }) }))
 import { exportToGithub } from '@/api/github.api'
+import { connectGitHub } from '@/api/auth.api'
 import ExportDialog from '@/components/replay/ExportDialog.vue'
 
 // the modal is teleported to <body>, so look there
@@ -79,14 +82,26 @@ describe('ExportDialog', () => {
     expect(wrapper.emitted('update:open')).toBeUndefined()
   })
 
-  it('sends me to my profile when GitHub is not connected', async () => {
-    exportToGithub.mockRejectedValue(
-      new AppError('UNAUTHENTICATED', 'Connect your GitHub account first'),
-    )
+  it.each([
+    [
+      'not signed in to GitHub',
+      new AppError('UNAUTHENTICATED', 'Sign in to GitHub again to continue'),
+    ],
+    [
+      'T-GH-07: not allowed to create a private repo',
+      new AppError(
+        'FORBIDDEN',
+        "GitHub didn't let CodeAlong create the repository — reconnect GitHub",
+      ),
+    ],
+  ])('%s: says why and reconnects GitHub, coming back to this replay', async (_label, err) => {
+    exportToGithub.mockRejectedValue(err)
     await openDialog()
     await clickExport()
-    expect(document.body.textContent).toContain(
-      'Connect your GitHub account first, on your profile',
-    )
+    expect(document.body.textContent).toContain(err.message)
+
+    inBody('[data-testid="btn-connect-github"]').click()
+    await flushPromises()
+    expect(connectGitHub).toHaveBeenCalledWith('/replays/s1')
   })
 })

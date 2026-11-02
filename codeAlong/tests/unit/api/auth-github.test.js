@@ -33,11 +33,24 @@ describe('GitHub sign-in and linking', () => {
     })
   })
 
-  it('"Connect GitHub" asks for public repo access and comes back to the profile', async () => {
+  it('T-GH-07: "Connect GitHub" asks for repo access (private repos too) and comes back to the profile', async () => {
     await authApi.connectGitHub()
     expect(auth.linkIdentity).toHaveBeenCalledWith({
       provider: 'github',
-      options: { scopes: 'public_repo', redirectTo: `${window.location.origin}/profile` },
+      options: { scopes: 'repo', redirectTo: `${window.location.origin}/profile` },
+    })
+  })
+
+  it('already linked: "Connect GitHub" signs in through it again for a fresh token', async () => {
+    auth.getUserIdentities.mockResolvedValue(identities(EMAIL, GITHUB))
+    await authApi.connectGitHub('/courses/c1/lessons/new?source=github')
+    expect(auth.linkIdentity).not.toHaveBeenCalled()
+    expect(auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'github',
+      options: {
+        scopes: 'repo',
+        redirectTo: `${window.location.origin}/courses/c1/lessons/new?source=github`,
+      },
     })
   })
 

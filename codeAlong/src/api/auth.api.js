@@ -22,6 +22,16 @@ export async function logout() {
   if (error) throw mapError(error)
 }
 
+/**
+ * Delete my account for good. A prof's courses go with it, with every class in them.
+ * Then forget the session on this browser: the account behind it no longer exists.
+ */
+export async function deleteAccount() {
+  const { error } = await supabase.rpc('delete_my_account')
+  if (error) throw mapError(error)
+  await supabase.auth.signOut({ scope: 'local' })
+}
+
 export async function getCurrentUser() {
   const {
     data: { user },
@@ -29,12 +39,27 @@ export async function getCurrentUser() {
   if (!user) return null
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, name, role')
+    .select('id, name, role, role_chosen')
     .eq('id', user.id)
     .single()
   if (error) throw mapError(error)
-  // hasPassword: false for an account made with "Continue with GitHub", which has no password to change
-  return { ...data, hasPassword: user.app_metadata.providers?.includes('email') ?? false }
+  const { role_chosen: roleChosen, ...profile } = data
+  return {
+    ...profile,
+    // false right after a "Continue with GitHub" sign-up, until they pick student or educator
+    roleChosen,
+    // false for an account made with "Continue with GitHub", which has no password to change
+    hasPassword: user.app_metadata.providers?.includes('email') ?? false,
+  }
+}
+
+/**
+ * Right after a GitHub sign-up: be a student or an educator ('student' | 'prof'). Once only,
+ * before joining any course; CONFLICT after that.
+ */
+export async function chooseRole(role) {
+  const { error } = await supabase.rpc('choose_role', { p_role: role })
+  if (error) throw mapError(error)
 }
 
 /**
@@ -129,14 +154,20 @@ export async function getGitHubLink() {
 }
 
 /**
- * "Connect GitHub" on the profile page: links a GitHub account to the one I'm logged in with,
- * with the repo access that exporting a replay needs (design-docs/05 §11).
+ * "Connect GitHub" (profile page, GitHub import, replay export): gets a GitHub token on my
+ * session, with the repo access that exporting a replay needs (design-docs/05 §11).
+ * Not linked yet: links GitHub to the account I'm logged in with. Already linked (the token
+ * goes when I log in with a password, or expires): signs in through it again, which lands on
+ * this same account, since Supabase refuses to link a GitHub that's already linked.
  */
 export async function connectGitHub(returnTo = '/profile') {
-  const { error } = await supabase.auth.linkIdentity({
-    provider: 'github',
-    options: { scopes: 'public_repo', redirectTo: backTo(returnTo) },
-  })
+  // `repo`, not `public_repo`: exporting to a private repository needs it
+  const options = { scopes: 'repo', redirectTo: backTo(returnTo) }
+  const { data, error: idError } = await supabase.auth.getUserIdentities()
+  if (idError) throw mapError(idError)
+  const { error } = data.identities.some((i) => i.provider === 'github')
+    ? await supabase.auth.signInWithOAuth({ provider: 'github', options })
+    : await supabase.auth.linkIdentity({ provider: 'github', options })
   if (error) throw mapError(error)
 }
 

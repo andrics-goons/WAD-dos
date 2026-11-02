@@ -2,6 +2,7 @@
 // with a fake GitHub (no network) and the mock-mode client that writes test_outbox.
 import { describe, it, expect, vi } from 'vitest'
 import { parseRepoUrl, importCandidates } from '../../shared/github.js'
+import { buildLessonFiles } from '../../shared/lesson-files.js'
 import { handleImport } from '../../supabase/functions/github-import/handler.ts'
 import { GithubError, liveGithub, mockGithub } from '../../supabase/functions/_shared/github.ts'
 
@@ -28,10 +29,13 @@ function fakeGithub(files, { missing = false } = {}) {
 }
 
 const URL_ = 'https://fn.test/github-import'
-const request = (body) => new Request(URL_, { method: 'POST', body: JSON.stringify(body) })
+const TOKEN = 'gho_prof' // the prof's own GitHub token
+const request = (body) =>
+  new Request(URL_, { method: 'POST', body: JSON.stringify({ providerToken: TOKEN, ...body }) })
 const preflight = () => new Request(URL_, { method: 'OPTIONS' })
 const asProf = { callerRole: async () => 'prof' }
-const run = (body, github, deps = asProf) => handleImport(request(body), { ...deps, github })
+const run = (body, github, deps = asProf) =>
+  handleImport(request(body), { ...deps, makeGithub: () => github })
 
 describe('parseRepoUrl', () => {
   it.each([
@@ -155,8 +159,27 @@ describe('github-import', () => {
     expect(github.json).not.toHaveBeenCalled()
   })
 
+  it("reads the repo with the prof's own GitHub token, and asks for one when it's missing", async () => {
+    const makeGithub = vi.fn(() => fakeGithub({ 'index.html': 'x' }))
+    const url = 'https://github.com/prof/mini-cart'
+    await handleImport(request({ repoUrl: url }), { ...asProf, makeGithub })
+    expect(makeGithub).toHaveBeenCalledWith(TOKEN)
+
+    const res = await run({ repoUrl: url, providerToken: undefined }, fakeGithub({}))
+    expect(res.status).toBe(401)
+    expect((await res.json()).message).toBe('Connect your GitHub account first')
+  })
+
+  it('says to connect GitHub again when GitHub rejects the token', async () => {
+    const github = fakeGithub({})
+    github.json.mockRejectedValue(new GithubError(401, 'Bad credentials'))
+    const res = await run({ repoUrl: 'https://github.com/prof/mini-cart' }, github)
+    expect(res.status).toBe(401)
+    expect((await res.json()).code).toBe('UNAUTHENTICATED')
+  })
+
   it('answers the browser CORS preflight', async () => {
-    const res = await handleImport(preflight(), { ...asProf, github: fakeGithub({}) })
+    const res = await handleImport(preflight(), { ...asProf, makeGithub: () => fakeGithub({}) })
     expect(res.headers.get('access-control-allow-origin')).toBe('*')
   })
 })
@@ -193,8 +216,10 @@ describe('mock GitHub (EXTERNAL_APIS=mock)', () => {
     const github = mockGithub({ from: () => ({ insert }) }, () => undefined)
     const res = await run({ repoUrl: 'https://github.com/prof/mini-cart' }, github)
     const body = await res.json()
-    expect(body.files.map((f) => f.path)).toEqual(['index.html', 'src/main.js'])
-    expect(insert).toHaveBeenCalledTimes(4) // repo, tree, and the two files
+    expect(body.files.map((f) => f.path)).toEqual(['index.html', 'package.json', 'src/main.js'])
+    expect(insert).toHaveBeenCalledTimes(5) // repo, tree, and the three files
+    // complete enough for New lesson to add the error reporter
+    expect(buildLessonFiles(body.files, { probe: true }).errors).toEqual([])
     expect(insert.mock.calls.every(([row]) => row.channel === 'github')).toBe(true)
   })
 })
