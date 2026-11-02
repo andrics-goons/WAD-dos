@@ -21,7 +21,7 @@ const lesson = ref(null)
 const loading = ref(true)
 const loadError = ref('')
 
-// title, week, description and status, as the prof has them now
+// title, week and description, as the prof has them now
 const details = ref({})
 
 // only the lesson fields that changed, so save sends nothing else
@@ -41,8 +41,27 @@ const detailsOf = (l) => ({
   title: l.title,
   week: l.week ?? null,
   description: l.description || null,
-  status: l.status,
 })
+
+// visible = ready: students can see it and the prof can start a class. Hidden = draft.
+// The switch saves the moment it's flipped, on its own, so it never counts as an unsaved edit
+// for the Save button. Archiving is its own button, so it isn't one of the choices here
+const visible = computed(() => lesson.value?.status === LessonStatus.READY)
+const savingVisibility = ref(false)
+async function setVisible(input) {
+  const status = input.checked ? LessonStatus.READY : LessonStatus.DRAFT
+  savingVisibility.value = true
+  try {
+    await lessons.update(props.id, { status })
+    lesson.value = { ...lesson.value, status }
+    toast.show(input.checked ? 'Students can see this lesson' : 'Hidden from students', 'success')
+  } catch (err) {
+    input.checked = visible.value // put the switch back
+    toast.show(err.message, 'danger', { title: "Couldn't change who can see the lesson" })
+  } finally {
+    savingVisibility.value = false
+  }
+}
 
 // once taught, the class history refers to this lesson, so it's archived rather than deleted
 const taught = computed(() => !!lesson.value?.taught)
@@ -178,12 +197,17 @@ async function archiveLesson() {
           <h1>Edit lesson</h1>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
-          <label class="visually-hidden" for="lesson-status">Lesson status</label>
-          <select id="lesson-status" v-model="details.status" class="ca-input w-auto">
-            <option value="draft">Draft</option>
-            <option value="ready">Ready to teach</option>
-            <option value="archived">Archived</option>
-          </select>
+          <div class="form-check form-switch mb-0 me-2">
+            <input
+              id="lesson-visible"
+              :checked="visible"
+              :disabled="savingVisibility"
+              class="form-check-input"
+              type="checkbox"
+              @change="setVisible($event.target)"
+            />
+            <label class="form-check-label small" for="lesson-visible">Visible to students</label>
+          </div>
           <button type="button" class="ca-btn ca-btn--sm" @click="startDetails">
             <i class="bi bi-pencil" />Details
           </button>

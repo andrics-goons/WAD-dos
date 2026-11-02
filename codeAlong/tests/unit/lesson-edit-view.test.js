@@ -136,24 +136,60 @@ describe('LessonEditView', () => {
     expect(saveButton().attributes('disabled')).toBeDefined()
   })
 
-  it('saves a status change', async () => {
+  it('shows or hides the lesson the moment the switch is flipped, without Save', async () => {
     await open()
-    await wrapper.find('#lesson-status').setValue('ready')
-    await clickText('Save')
+    const visible = wrapper.find('#lesson-visible')
+    expect(visible.element.checked).toBe(false) // a draft is hidden
+
+    await visible.setValue(true)
+    await flushPromises()
     expect(api.updateLesson).toHaveBeenCalledWith('les-1', { status: 'ready' })
+    expect(useToastStore(pinia).messages.at(-1).text).toBe('Students can see this lesson')
+    // it's saved already, so Save has nothing to do
+    expect(saveButton().attributes('disabled')).toBeDefined()
+
+    await visible.setValue(false)
+    await flushPromises()
+    expect(api.updateLesson).toHaveBeenLastCalledWith('les-1', { status: 'draft' })
+    expect(useToastStore(pinia).messages.at(-1).text).toBe('Hidden from students')
+  })
+
+  it("Save never sends the visibility: it's the switch's job", async () => {
+    await open()
+    wrapper.findComponent(CodeEditor).vm.$emit('update:selectedCode', '<p>new</p>\n')
+    await flushPromises()
+    await clickText('Save')
+    expect(api.updateLesson).toHaveBeenCalledWith('les-1', { files: expect.any(Array) })
+  })
+
+  it('puts the switch back when the change is refused', async () => {
+    api.updateLesson.mockRejectedValue(
+      new AppError('FORBIDDEN', 'Only the course prof can do that'),
+    )
+    await open()
+    await wrapper.find('#lesson-visible').setValue(true)
+    await flushPromises()
+    expect(wrapper.find('#lesson-visible').element.checked).toBe(false)
+    expect(useToastStore(pinia).messages.at(-1)).toMatchObject({ variant: 'danger' })
+  })
+
+  it('has no Draft / Ready / Archived dropdown: archiving is its own button', async () => {
+    await open()
+    expect(wrapper.find('select').exists()).toBe(false)
   })
 
   it('shows the error when saving fails', async () => {
     api.updateLesson.mockRejectedValue(new AppError('VALIDATION_FAILED', 'Too many files'))
     await open()
-    await wrapper.find('#lesson-status').setValue('ready')
+    wrapper.findComponent(CodeEditor).vm.$emit('update:selectedCode', '<p>new</p>\n')
+    await flushPromises()
     await clickText('Save')
     expect(useToastStore(pinia).messages.at(-1)).toMatchObject({
       variant: 'danger',
       text: expect.stringContaining('Too many files'),
     })
     // the unsaved change is kept so nothing is lost
-    expect(wrapper.find('#lesson-status').element.value).toBe('ready')
+    expect(saveButton().attributes('disabled')).toBeUndefined()
   })
 
   it('deletes the lesson and goes back to the course', async () => {

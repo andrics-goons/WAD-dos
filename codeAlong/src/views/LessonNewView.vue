@@ -73,6 +73,19 @@ const probeAction = (path) => probeChanges.value.find((c) => c.path === path)?.a
 function onImported(result) {
   load(result.files)
   githubSource.value = result.source
+  // the folder inside the repo if one was picked, else the repo's own name
+  suggestTitle((result.source?.dir || result.source?.repo || '').split('/').filter(Boolean).pop())
+}
+
+// fill the title from the folder or repo name, e.g. "mini-cart" -> "Mini cart", unless the
+// prof has typed their own. Picking another folder replaces a title we filled in
+let suggested = ''
+function suggestTitle(name) {
+  if (!name || (title.value.trim() && title.value !== suggested)) return
+  const words = name.replace(/[-_]+/g, ' ').trim()
+  suggested = (words.charAt(0).toUpperCase() + words.slice(1)).slice(0, 100)
+  title.value = suggested
+  titleError.value = ''
 }
 
 // check the title before leaving the first stage
@@ -97,7 +110,7 @@ async function create() {
       // an import keeps where it came from (repo, branch, folder) — design-docs/03 lessons.source
       source: source.value === 'github' ? githubSource.value : { type: 'upload' },
     })
-    toast.show('Lesson created as a draft', 'success')
+    toast.show('Lesson created. Students can see it', 'success')
     router.push({ name: 'lesson-edit', params: { id: lesson.id } })
   } catch (err) {
     toast.show(err.message, 'danger', { title: "Couldn't create the lesson" })
@@ -169,6 +182,7 @@ async function onFolderPicked(event) {
 
     load(entries, { stripRoot: true })
     ignoredCount.value = picked.length - wanted.length
+    suggestTitle(picked[0].webkitRelativePath.split('/')[0]) // the picked folder's name
   } catch (err) {
     errors.value = [`Couldn't read that folder: ${err.message}`]
   } finally {

@@ -54,7 +54,7 @@ export function toLessonPatch(changes) {
 
 // lessons
 
-// make a draft lesson
+// make a lesson, visible to students straight away (the prof can hide it in the editor)
 export async function createLesson(
   courseId,
   { title, week, description, files, entryFile, source },
@@ -73,7 +73,7 @@ export async function createLesson(
       files,
       entry_file: entryFile,
       source: source ?? { type: 'upload' },
-      status: 'draft',
+      status: 'ready',
       created_by: user?.id,
     })
     .select(LESSON_DETAIL)
