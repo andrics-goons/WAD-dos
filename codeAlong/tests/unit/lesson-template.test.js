@@ -1,0 +1,137 @@
+import { describe, it, expect } from 'vitest'
+import { addProbe, CA_PROBE_JS, VITE8_PINS } from '../../shared/lesson-template.js'
+import { buildLessonFiles } from '../../shared/lesson-files.js'
+import { miniCartSeed } from '@/stores/seed/miniCartSeed.js'
+
+const f = (path, content, language = path.split('.').pop()) => ({ path, language, content })
+const content = (files, path) => files.find((x) => x.path === path)?.content
+
+const INDEX = f(
+  'index.html',
+  '<div id="app"></div>\n<script type="module" src="/src/main.js"></script>',
+)
+const MAIN = f(
+  'src/main.js',
+  "import { createApp } from 'vue'\nimport App from './App.vue'\n\ncreateApp(App).mount('#app')\n",
+)
+const APP = f('src/App.vue', '<template><p>hi</p></template>')
+const PKG = (extra = {}) =>
+  f(
+    'package.json',
+    JSON.stringify({ scripts: { dev: 'vite' }, devDependencies: { vite: '^7.0.0' }, ...extra }),
+  )
+const CONFIG = f(
+  'vite.config.js',
+  "import { defineConfig } from 'vite'\nimport vue from '@vitejs/plugin-vue'\n\nexport default defineConfig({\n  plugins: [vue()],\n})\n",
+)
+
+describe('T-LES-08: addProbe', () => {
+  it('adds ca-probe.js, imports it first, and adds the plugin to vite.config.js', () => {
+    const r = addProbe([INDEX, MAIN, APP, PKG(), CONFIG])
+    expect(r.error).toBeNull()
+    expect(content(r.files, 'src/ca-probe.js')).toBe(CA_PROBE_JS)
+    expect(
+      content(r.files, 'src/main.js')
+        .split('\n')
+        .find((l) => !l.startsWith('//')),
+    ).toBe("import './ca-probe.js'")
+    const config = content(r.files, 'vite.config.js')
+    expect(config).toContain("server.hot.on('ca:error'")
+    expect(config).toContain("'ca-error '")
+    expect(config).toContain('plugins: [caErrors(), vue()]')
+    expect(r.changes).toEqual([
+      { path: 'src/ca-probe.js', action: 'added' },
+      { path: 'src/main.js', action: 'updated' },
+      { path: 'vite.config.js', action: 'updated' },
+    ])
+  })
+
+  it('changes nothing the second time', () => {
+    const once = addProbe([INDEX, MAIN, APP, PKG(), CONFIG])
+    const twice = addProbe(once.files)
+    expect(twice.changes).toEqual([])
+    expect(twice.files).toEqual(once.files)
+  })
+
+  it('leaves the Mini Cart seed alone (its probe matches the template)', () => {
+    const r = addProbe(miniCartSeed.files)
+    expect(r.error).toBeNull()
+    expect(r.changes).toEqual([])
+  })
+
+  it('moves an import that is not first to the top, without doubling it', () => {
+    const main = f('src/main.js', "import { createApp } from 'vue'\nimport './ca-probe.js'\n")
+    const r = addProbe([INDEX, main, PKG(), CONFIG])
+    const lines = content(r.files, 'src/main.js').split('\n')
+    expect(lines.filter((l) => l.includes('ca-probe')).length).toBe(1)
+    expect(lines.find((l) => !l.startsWith('//'))).toBe("import './ca-probe.js'")
+  })
+
+  it('creates vite.config.js when there is none, keeping vue() for .vue files', () => {
+    const r = addProbe([INDEX, MAIN, APP, PKG()])
+    expect(content(r.files, 'vite.config.js')).toContain('plugins: [vue(), caErrors()]')
+    expect(r.changes).toContainEqual({ path: 'vite.config.js', action: 'added' })
+  })
+
+  it('adds a plugins key when the config has none', () => {
+    const config = f(
+      'vite.config.js',
+      "import { defineConfig } from 'vite'\n\nexport default defineConfig({\n  base: './',\n})\n",
+    )
+    const r = addProbe([INDEX, MAIN, PKG(), config])
+    expect(content(r.files, 'vite.config.js')).toMatch(
+      /defineConfig\(\{\n {2}plugins: \[caErrors\(\)\],/,
+    )
+  })
+
+  it('pins the Rolldown binding on Vite 8 only', () => {
+    const v8 = addProbe([INDEX, MAIN, CONFIG, PKG({ devDependencies: { vite: '^8.1.5' } })])
+    expect(JSON.parse(content(v8.files, 'package.json')).devDependencies).toMatchObject(VITE8_PINS)
+    const v7 = addProbe([INDEX, MAIN, CONFIG, PKG()])
+    expect(v7.changes.map((c) => c.path)).not.toContain('package.json')
+  })
+
+  it.each([
+    ['no index.html', [MAIN, PKG()], /index\.html/],
+    [
+      'a TypeScript entry',
+      [f('index.html', '<script type="module" src="/src/main.ts"></script>'), PKG()],
+      /TypeScript/,
+    ],
+    ['no package.json', [INDEX, MAIN], /package\.json/],
+    ['no dev script', [INDEX, MAIN, f('package.json', '{}')], /"dev" script/],
+    [
+      'a config written as a function',
+      [INDEX, MAIN, PKG(), f('vite.config.js', 'export default defineConfig(({ mode }) => ({}))')],
+      /vite\.config\.js/,
+    ],
+    [
+      'vite.config.mjs',
+      [INDEX, MAIN, PKG(), f('vite.config.mjs', 'export default {}', 'js')],
+      /Rename/,
+    ],
+  ])('rejects %s with a message', (_label, files, message) => {
+    expect(addProbe(files).error).toMatch(message)
+  })
+})
+
+describe('buildLessonFiles with probe', () => {
+  it('adds the probe before checking the limits and reports what changed', () => {
+    const entries = [INDEX, MAIN, PKG(), CONFIG].map(({ path, content }) => ({ path, content }))
+    const r = buildLessonFiles(entries, { probe: true })
+    expect(r.errors).toEqual([])
+    expect(r.files.map((x) => x.path)).toContain('src/ca-probe.js')
+    expect(r.probeChanges.length).toBe(3)
+  })
+
+  it('turns a project it cannot patch into an error', () => {
+    const r = buildLessonFiles([{ path: 'src/main.js', content: '' }], { probe: true })
+    expect(r.errors[0]).toMatch(/index\.html/)
+  })
+
+  it('leaves the files alone without the option', () => {
+    const r = buildLessonFiles([{ path: 'src/main.js', content: '' }])
+    expect(r.errors).toEqual([])
+    expect(r.probeChanges).toEqual([])
+  })
+})

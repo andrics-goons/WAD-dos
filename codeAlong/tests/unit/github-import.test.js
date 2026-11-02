@@ -2,6 +2,7 @@
 // with a fake GitHub (no network) and the mock-mode client that writes test_outbox.
 import { describe, it, expect, vi } from 'vitest'
 import { parseRepoUrl, importCandidates } from '../../shared/github.js'
+import { buildLessonFiles } from '../../shared/lesson-files.js'
 import { handleImport } from '../../supabase/functions/github-import/handler.ts'
 import { GithubError, liveGithub, mockGithub } from '../../supabase/functions/_shared/github.ts'
 
@@ -215,8 +216,10 @@ describe('mock GitHub (EXTERNAL_APIS=mock)', () => {
     const github = mockGithub({ from: () => ({ insert }) }, () => undefined)
     const res = await run({ repoUrl: 'https://github.com/prof/mini-cart' }, github)
     const body = await res.json()
-    expect(body.files.map((f) => f.path)).toEqual(['index.html', 'src/main.js'])
-    expect(insert).toHaveBeenCalledTimes(4) // repo, tree, and the two files
+    expect(body.files.map((f) => f.path)).toEqual(['index.html', 'package.json', 'src/main.js'])
+    expect(insert).toHaveBeenCalledTimes(5) // repo, tree, and the three files
+    // complete enough for New lesson to add the error reporter
+    expect(buildLessonFiles(body.files, { probe: true }).errors).toEqual([])
     expect(insert.mock.calls.every(([row]) => row.channel === 'github')).toBe(true)
   })
 })
