@@ -26,6 +26,7 @@ const entryFile = ref(null)
 const skipped = ref([]) // files the converter rejected one by one (e.g. unsafe path)
 const ignoredCount = ref(0) // files dropped before reading: node_modules, images, lockfiles...
 const errors = ref([])
+const probeChanges = ref([]) // files CodeAlong added or changed so students' errors reach the prof
 const githubSource = ref(null) // { type: 'github', repo, ref, dir } from the last import
 
 // lesson details
@@ -56,14 +57,17 @@ const canContinue = computed(
 )
 const kb = (s) => (new TextEncoder().encode(s).length / 1000).toFixed(1) + ' KB'
 
+// uploads and imports both come through here, so both get the error reporter (ca-probe.js)
 function load(entries, options) {
-  const result = buildLessonFiles(entries, options)
+  const result = buildLessonFiles(entries, { ...options, probe: true })
   files.value = result.files
   entryFile.value = result.entryFile
   skipped.value = result.skipped
   ignoredCount.value = 0
   errors.value = result.errors
+  probeChanges.value = result.probeChanges
 }
+const probeAction = (path) => probeChanges.value.find((c) => c.path === path)?.action
 
 // github-import has already checked the files; from here they're handled like an upload
 function onImported(result) {
@@ -298,6 +302,21 @@ async function onFolderPicked(event) {
           <i class="bi bi-check-circle-fill flex-shrink-0" />
           <span>Found {{ files.length }} files. Click Next to review them.</span>
         </div>
+        <div
+          v-if="probeChanges.length && !errors.length && !busy"
+          class="alert alert-info d-flex align-items-start gap-2 small mt-2 mb-0"
+        >
+          <i class="bi bi-bug-fill flex-shrink-0" />
+          <span>
+            CodeAlong added its error reporter, so errors in students' running apps show up on your
+            dashboard:
+            <template v-for="(c, i) in probeChanges" :key="c.path"
+              >{{ i ? ', ' : ' ' }}<span class="ca-mono">{{ c.path }}</span> ({{
+                c.action
+              }})</template
+            >.
+          </span>
+        </div>
 
         <hr class="my-4" />
 
@@ -347,7 +366,12 @@ async function onFolderPicked(event) {
             </thead>
             <tbody>
               <tr v-for="f in files" :key="f.path">
-                <td class="ca-mono small ps-3">{{ f.path }}</td>
+                <td class="ca-mono small ps-3">
+                  {{ f.path }}
+                  <span v-if="probeAction(f.path)" class="badge text-bg-info fw-normal ms-1"
+                    >{{ probeAction(f.path) }} by CodeAlong</span
+                  >
+                </td>
                 <td>
                   <span class="badge rounded-pill border bg-body-tertiary text-body fw-normal">{{
                     f.language

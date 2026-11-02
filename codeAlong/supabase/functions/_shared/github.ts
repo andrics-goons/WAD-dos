@@ -41,10 +41,19 @@ export function liveGithub(fetchFn: typeof fetch, token: string): Github {
   }
 }
 
-// The repo every mock import returns: a tiny lesson with two TODO steps
+// The repo every mock import returns: a tiny Vite lesson with two TODO steps, complete enough
+// for New lesson to add the error reporter to it
 const MOCK_REPO = [
-  { path: 'index.html', content: '<!-- TODO 1: Add a heading -->\n<div id="app"></div>\n' },
+  {
+    path: 'index.html',
+    content:
+      '<!-- TODO 1: Add a heading -->\n<div id="app"></div>\n<script type="module" src="/src/main.js"></script>\n',
+  },
   { path: 'src/main.js', content: '// TODO 2: Show the item list\n' },
+  {
+    path: 'package.json',
+    content: '{ "scripts": { "dev": "vite" }, "devDependencies": { "vite": "^7.0.0" } }\n',
+  },
 ]
 
 export function mockGithub(outbox: OutboxClient, env: EnvReader): Github {

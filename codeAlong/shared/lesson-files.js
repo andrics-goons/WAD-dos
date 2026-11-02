@@ -9,6 +9,8 @@
 // TODO: LIMITS / SYNC_IGNORE below mirror Limits in design-docs/09-integration-contracts.md.
 // Import them from shared/constants.js once that file exists.
 
+import { addProbe } from './lesson-template.js'
+
 export const LIMITS = Object.freeze({
   MAX_FILES: 40,
   MAX_BYTES: 200_000,
@@ -59,23 +61,30 @@ export function isIgnored(path) {
 }
 
 function normalisePath(raw, stripRoot) {
-  let p = raw.replace(/\\/g, '/').replace(/^(\.\/)+/, '').replace(/^\/+/, '')
+  let p = raw
+    .replace(/\\/g, '/')
+    .replace(/^(\.\/)+/, '')
+    .replace(/^\/+/, '')
   // <input webkitdirectory> prefixes every path with the picked folder's name.
   if (stripRoot) p = p.split('/').slice(1).join('/')
   return p
 }
 
 // jsonb::text adds a space after every ':' and ',', so leave a little headroom per file.
-const byteLength = (files) => new TextEncoder().encode(JSON.stringify(files)).length + files.length * 8
+const byteLength = (files) =>
+  new TextEncoder().encode(JSON.stringify(files)).length + files.length * 8
 
 /**
  * @param {{ path: string, content: string }[]} entries
- * @param {{ stripRoot?: boolean }} [options]  stripRoot: drop the first path segment (folder pickers)
- * @returns {{ files, entryFile, skipped: { path: string, reason: string }[], errors: string[] }}
+ * @param {{ stripRoot?: boolean, probe?: boolean }} [options]
+ *   stripRoot: drop the first path segment (folder pickers)
+ *   probe: add CodeAlong's error reporter (shared/lesson-template.js) before the limits are checked
+ * @returns {{ files, entryFile, skipped: { path: string, reason: string }[], errors: string[],
+ *   probeChanges: { path: string, action: 'added' | 'updated' }[] }}
  *   `errors` is non-empty when the result would be rejected by the database; do not save then.
  */
-export function buildLessonFiles(entries, { stripRoot = false } = {}) {
-  const files = []
+export function buildLessonFiles(entries, { stripRoot = false, probe = false } = {}) {
+  let files = []
   const skipped = []
   const seen = new Set()
 
@@ -104,9 +113,17 @@ export function buildLessonFiles(entries, { stripRoot = false } = {}) {
     files.push({ path, language, content: entry.content })
   }
 
+  const errors = []
+  let probeChanges = []
+  if (probe && files.length) {
+    const result = addProbe(files)
+    if (result.error) errors.push(result.error)
+    files = result.files
+    probeChanges = result.changes
+  }
+
   files.sort((a, b) => a.path.localeCompare(b.path))
 
-  const errors = []
   if (!files.length) errors.push('No supported source files were found.')
   if (files.length > LIMITS.MAX_FILES) {
     errors.push(`Too many files: ${files.length} (limit ${LIMITS.MAX_FILES}).`)
@@ -121,5 +138,5 @@ export function buildLessonFiles(entries, { stripRoot = false } = {}) {
     files[0]?.path ??
     null
 
-  return { files, entryFile, skipped, errors }
+  return { files, entryFile, skipped, errors, probeChanges }
 }

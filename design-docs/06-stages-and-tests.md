@@ -206,6 +206,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-LES-05 | Unsafe path / > 20 files / > 200 KB | DB | `files_valid()` / `octet_length` constraint rejects the insert |
 | T-LES-06 | Delete a lesson that was taught | DB | Trigger raises `CONFLICT` → UI offers Archive |
 | T-LES-07 | What an enrolled student can read | RLS | A **draft** lesson: zero rows. A **ready** lesson: visible, with its starter `files` (RLS can't hide one column; starter files aren't secret — see [03](./03-data-model.md#policies-1)) |
+| T-LES-08 | An uploaded or imported project gets the error reporter (`addProbe`, [lesson-import-requirements](./lesson-import-requirements.md)) | Unit | `src/ca-probe.js` added, imported first by the entry script, `ca-errors` in `vite.config.js`, Vite 8 pins; running it twice changes nothing; a project it can't patch is rejected with a message |
 | T-TODO-* | ~~TODO parser~~ | — | Removed with lesson steps |
 
 ### SESS — Live session engine · `live-session.spec.js`

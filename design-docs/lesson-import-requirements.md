@@ -2,6 +2,8 @@
 
 **For:** whoever builds the `github-import` function and the upload tab (see [05 §GitHub import](./05-core-logic.md#github-import-the-profs-own-github--github-import)).
 
+**Built:** `addProbe()` in `codeAlong/shared/lesson-template.js` makes all four changes below and holds the one copy of the template text (`CA_PROBE_JS`, `CA_PROBE_IMPORT`, `CA_ERRORS_PLUGIN`, `VITE8_PINS`). New lesson runs it for uploads and GitHub imports alike through `buildLessonFiles(entries, { probe: true })`, before the limits are checked, and lists the files it added or changed. Tests: `tests/unit/lesson-template.test.js` (T-LES-08), which also checks the Mini Cart seed still matches the template.
+
 A normal Vite project from GitHub won't report errors to CodeAlong as is. Before a lesson is inserted into `public.lessons`, the import has to add or change these files:
 
 | # | File | Change | Why |

@@ -62,7 +62,8 @@ async function connect() {
     <p v-if="error" class="ca-field-error">{{ error }}</p>
     <p v-else class="ca-field-hint">
       The whole repository, or one folder of it (…/tree/main/week6). Public repositories only. Read
-      with your own GitHub account.
+      with your own GitHub account. CodeAlong adds its error reporter (src/ca-probe.js) so students'
+      errors reach you.
     </p>
     <button
       v-if="needsGithub"

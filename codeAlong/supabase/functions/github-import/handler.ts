@@ -1,5 +1,6 @@
 // github-import: a prof pastes a public repo link and gets its starter files back
-// (design-docs/05 §11). The browser then saves the lesson, as for an upload.
+// (design-docs/05 §11). The browser then adds the error reporter (buildLessonFiles with
+// `probe`) and saves the lesson, as for an upload.
 //   { repoUrl, providerToken } -> { files, entryFile, source }
 // providerToken is the prof's own GitHub token from Supabase Auth, as for github-export: the
 // prof signs in to GitHub to import, and GitHub counts the requests against their account.
