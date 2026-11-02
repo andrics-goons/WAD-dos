@@ -100,6 +100,18 @@ describe('github-export', () => {
     expect((await res.json()).code).toBe('CONFLICT')
   })
 
+  it.each([403, 404])(
+    'T-GH-07: GitHub refusing to create the repo (%i, e.g. private without the repo scope) asks to reconnect, not retry',
+    async (status) => {
+      const res = await setup({ github: fakeGithub({ createFails: status }) }).run()
+      expect(res.status).toBe(403)
+      expect(await res.json()).toMatchObject({
+        code: 'FORBIDDEN',
+        message: expect.stringMatching(/reconnect GitHub/),
+      })
+    },
+  )
+
   it('asks the user to connect GitHub when there is no token, or it has expired', async () => {
     const { run, deps } = setup()
     expect((await run({ ...BODY, providerToken: undefined })).status).toBe(401)

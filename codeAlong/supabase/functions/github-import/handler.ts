@@ -1,4 +1,4 @@
-// github-import: a prof pastes a public repo link and gets its starter files back
+// github-import: a prof pastes a repo link and gets its starter files back
 // (design-docs/05 §11). The browser then adds the error reporter (buildLessonFiles with
 // `probe`) and saves the lesson, as for an upload.
 //   { repoUrl, providerToken } -> { files, entryFile, source }
@@ -82,7 +82,7 @@ export async function handleImport(req: Request, deps: ImportDeps): Promise<Resp
       return fail(
         404,
         'NOT_FOUND',
-        "Couldn't find that repository, branch or folder. Is it public?",
+        "Couldn't find that repository, branch or folder. Check the link, and that your GitHub account can open it.",
       )
     }
     if (err instanceof GithubError && err.status === 401) {

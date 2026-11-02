@@ -1,9 +1,12 @@
 <script setup>
 // "Export to GitHub" on the replay: a new repo on my own GitHub, one commit per checkpoint
-// (design-docs/05 §11). Needs GitHub connected on the profile page first.
+// (design-docs/05 §11). Needs a GitHub sign-in; if there isn't one (never connected, or Supabase
+// dropped GitHub's token when it refreshed the session) it offers to reconnect and come back here.
 //   <ExportDialog v-model:open="show" :session-id="id" default-name="week-6-mini-cart" @exported="url = $event" />
 import { ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { isValidRepoName } from '@shared/github.js'
+import { useAuthStore } from '@/stores/auth'
 import { useGithubStore } from '@/stores/github'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 
@@ -16,13 +19,27 @@ const props = defineProps({
 const emit = defineEmits(['update:open', 'exported'])
 
 const github = useGithubStore()
+const auth = useAuthStore()
+const route = useRoute()
 
 const name = ref('')
 const isPrivate = ref(false)
 const nameError = ref('') // something to fix in the name, e.g. it's taken
 const error = ref('') // anything else
-const needsGithub = ref(false) // not connected, or the connection expired
+const needsGithub = ref(false) // not connected, expired, or not allowed to create repos
 const busy = ref(false)
+
+// leaves for GitHub and comes back to this replay
+async function reconnect() {
+  busy.value = true
+  try {
+    await auth.connectGitHub(route.fullPath)
+  } catch (err) {
+    error.value = err.message
+    needsGithub.value = false
+    busy.value = false
+  }
+}
 
 // start fresh every time it opens
 watch(
@@ -54,8 +71,10 @@ async function exportRepo() {
     emit('update:open', false)
   } catch (err) {
     if (err.code === 'CONFLICT' || err.code === 'BAD_REQUEST') nameError.value = err.message
-    else if (err.code === 'UNAUTHENTICATED') needsGithub.value = true
-    else error.value = err.message
+    else if (err.code === 'UNAUTHENTICATED' || err.code === 'FORBIDDEN') {
+      needsGithub.value = true
+      error.value = err.message
+    } else error.value = err.message
   } finally {
     busy.value = false
   }
@@ -89,10 +108,16 @@ async function exportRepo() {
         <label class="form-check-label" for="export-private">Private repository</label>
       </div>
     </form>
-    <p v-if="needsGithub" class="ca-field-error mt-2">
-      Connect your GitHub account first, on
-      <RouterLink :to="{ name: 'profile' }">your profile</RouterLink>.
-    </p>
-    <p v-else-if="error" class="ca-field-error mt-2">{{ error }}</p>
+    <p v-if="error" class="ca-field-error mt-2">{{ error }}</p>
+    <button
+      v-if="needsGithub"
+      type="button"
+      class="ca-btn ca-btn--secondary mt-2"
+      :disabled="busy"
+      data-testid="btn-connect-github"
+      @click="reconnect"
+    >
+      <i class="bi bi-github" />Reconnect GitHub
+    </button>
   </ConfirmModal>
 </template>

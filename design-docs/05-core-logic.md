@@ -614,14 +614,14 @@ Search is `rpc('search')`: a ranked full-text query over checkpoint titles and t
 
 ≈ 2 + n requests per import. Only a prof may import, and **they sign in to their own GitHub to do it**: the browser sends the prof's GitHub token from Supabase Auth (`session.provider_token`, the same as export below) with `{ repoUrl }`, and the function uses it for this one call and never stores it. There is no server `GITHUB_TOKEN`. GitHub counts the requests against the prof's account (5,000 an hour), so profs never share a rate limit.
 
-No token on the session (not connected, or logged in with a password since) → `UNAUTHENTICATED`, and the import tab shows **Connect GitHub**. That calls `connectGitHub(returnTo)`: `linkIdentity` if GitHub isn't linked yet, or `signInWithOAuth` if it is (Supabase refuses to link a GitHub that's already linked; signing in through it lands on the same account and refreshes the token). It comes back to New lesson with `?source=github`, which opens the import tab. GitHub rejecting the token (401) → `UNAUTHENTICATED` too. Private repos still aren't read: the token only has `public_repo`. The function returns the repo's files as they are: the browser adds the error reporter (`buildLessonFiles(entries, { probe: true })`, see [lesson-import-requirements](./lesson-import-requirements.md)) for imports and uploads alike, and New lesson lists what it added.
+No token on the session (not connected, or logged in with a password since) → `UNAUTHENTICATED`, and the import tab shows **Connect GitHub**. That calls `connectGitHub(returnTo)`: `linkIdentity` if GitHub isn't linked yet, or `signInWithOAuth` if it is (Supabase refuses to link a GitHub that's already linked; signing in through it lands on the same account and refreshes the token). It comes back to New lesson with `?source=github`, which opens the import tab. GitHub rejecting the token (401) → `UNAUTHENTICATED` too. The token has the `repo` scope (export needs it for private repos), so a private repo the prof can open imports too; one GitHub can't find or the prof can't open → `NOT_FOUND`. The function returns the repo's files as they are: the browser adds the error reporter (`buildLessonFiles(entries, { probe: true })`, see [lesson-import-requirements](./lesson-import-requirements.md)) for imports and uploads alike, and New lesson lists what it added.
 
 ### GitHub export (the student's own GitHub identity) — one commit per checkpoint
 
 The old design hand-rolled OAuth and held the token in server memory for 10 minutes. Edge Functions are stateless per invocation, so that no longer works — instead we use **Supabase Auth's GitHub provider**:
 
 ```
-1. Client: auth.linkIdentity({ provider: 'github', scopes: 'public_repo' })
+1. Client: auth.linkIdentity({ provider: 'github', scopes: 'repo' })
 2. Supabase completes the OAuth dance and puts provider_token on the session
 3. Client: functions.invoke('github-export', { sessionId, repoName, private })
            with the provider token in the body

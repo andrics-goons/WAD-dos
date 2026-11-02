@@ -1,5 +1,5 @@
 <script setup>
-// The "Import from GitHub" tab of New lesson: paste a public repo link, get its starter files.
+// The "Import from GitHub" tab of New lesson: paste a repo link, get its starter files.
 // The prof's own GitHub reads the repo, so they connect GitHub first; it comes back to this tab.
 // Emits `imported` with { files, entryFile, source }, which the page handles like an upload.
 import { ref } from 'vue'
@@ -44,7 +44,7 @@ async function connect() {
 
 <template>
   <form class="ca-field" @submit.prevent="importRepo">
-    <label class="ca-label" for="repo">Public GitHub repository</label>
+    <label class="ca-label" for="repo">GitHub repository</label>
     <div class="d-flex flex-column flex-sm-row gap-2">
       <input
         id="repo"
@@ -61,9 +61,9 @@ async function connect() {
     </div>
     <p v-if="error" class="ca-field-error">{{ error }}</p>
     <p v-else class="ca-field-hint">
-      The whole repository, or one folder of it (…/tree/main/week6). Public repositories only. Read
-      with your own GitHub account. CodeAlong adds its error reporter (src/ca-probe.js) so students'
-      errors reach you.
+      The whole repository, or one folder of it (…/tree/main/week6). Read with your own GitHub
+      account, so private repositories you can open work too. CodeAlong adds its error reporter
+      (src/ca-probe.js) so students' errors reach you.
     </p>
     <button
       v-if="needsGithub"
