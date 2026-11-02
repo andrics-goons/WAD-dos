@@ -403,6 +403,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-GH-04 | Commit messages `checkpointLabel(seq, title)`: `Checkpoint k · <title>`, or `Checkpoint k` without a title | Unit | Match |
 | T-GH-05 | Repo name taken (422) | E2E | UI asks for another name |
 | T-GH-06 | **Token never persisted in our schema** | DB | No GitHub token in any row of any `public` table after an export |
+| T-GH-07 | Export to a private repo | Unit | "Connect GitHub" asks for the `repo` scope; GitHub refusing a private repo (403/404) → `FORBIDDEN` "reconnect GitHub", not "try again" |
 
 ### INS — Insights · `report-builder.test.js`, `insights.spec.js`
 

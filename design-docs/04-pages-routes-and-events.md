@@ -137,7 +137,7 @@ Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoade
 | Auth | `auth.signInWithOAuth({ provider: 'github', options: { redirectTo } })` — `signInWithGitHub(returnTo)` | **"Continue with GitHub"** on login and register. Leaves for GitHub and comes back to `returnTo` signed in; a first sign-in creates the account, named after the GitHub display name, else the username. GitHub sends no role, so the new account goes to `/welcome` first to pick one | Any |
 | RPC | `choose_role(p_role)` — `chooseRole(role)` | `/welcome`: one click on **I'm a student** / **I'm an educator** sets the role, once (`CONFLICT` after that, or once in any course) | New GitHub account |
 | RPC | `delete_my_account()` — `deleteAccount()` | Profile → **Delete account** (type DELETE to confirm): deletes the account and everything that would block it — a prof's courses with every lesson, class, replay and report in them — then signs out on this browser | Logged in |
-| Auth | `auth.linkIdentity({ provider: 'github', options: { scopes: 'public_repo', redirectTo: '/profile' } })` — `connectGitHub()` | **"Connect GitHub"** on the profile page: links GitHub to the account I'm logged in with, with the repo access a replay export needs (05 §11). Needs manual linking on | Any |
+| Auth | `auth.linkIdentity({ provider: 'github', options: { scopes: 'repo', redirectTo: '/profile' } })` — `connectGitHub()` | **"Connect GitHub"** on the profile page: links GitHub to the account I'm logged in with, with the repo access a replay export needs (05 §11). Needs manual linking on | Any |
 | Auth | `auth.getUserIdentities()` / `auth.unlinkIdentity(github)` — `getGitHubLink()`, `disconnectGitHub()` | Shows "Connected as @username"; Disconnect is refused while GitHub is the only way to log in | Any |
 | Query | `from('profiles').update({ name })` — `updateProfile({ name })` | Own row only (policy forbids changing `role`); 2–60 characters | Any |
 | Auth | `signInWithPassword` with the current password, then `auth.updateUser({ password })` — `changePassword({ currentPassword, newPassword })` | The current password is checked first ("Your current password is wrong"); the new one must be ≥ 6 characters and different | Any |
@@ -228,7 +228,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 | Query | `from('checkpoints').select('id, seq, title, files_hash, created_at').order('seq')` | Replay source; per-checkpoint diff stats computed client-side with `diffSummary` | Member |
 | Query | `from('notes').select/insert/update/delete` | Own notes only. `user_id` defaults to the login, so don't send it | Author |
 | RPC | `search(p_q, p_course_id)` | Full-text over checkpoint titles and my own notes, ranked; input is parameterised so regex characters are literal | Any |
-| Auth | `auth.linkIdentity({ provider: 'github', scopes: 'public_repo' })` | Replaces the hand-rolled OAuth dance; Supabase holds the `provider_token` on the session | Any |
+| Auth | `auth.linkIdentity({ provider: 'github', scopes: 'repo' })` | Replaces the hand-rolled OAuth dance; Supabase holds the `provider_token` on the session | Any |
 | Function | `github-export` → `{ sessionId, repoName, private }` | Creates the repo and one commit per checkpoint via the Git Data API | Member with a fresh GitHub identity |
 
 ### Admin — `admin.api.js` (Andric)

@@ -161,7 +161,8 @@ export async function getGitHubLink() {
  * this same account, since Supabase refuses to link a GitHub that's already linked.
  */
 export async function connectGitHub(returnTo = '/profile') {
-  const options = { scopes: 'public_repo', redirectTo: backTo(returnTo) }
+  // `repo`, not `public_repo`: exporting to a private repository needs it
+  const options = { scopes: 'repo', redirectTo: backTo(returnTo) }
   const { data, error: idError } = await supabase.auth.getUserIdentities()
   if (idError) throw mapError(idError)
   const { error } = data.identities.some((i) => i.provider === 'github')
