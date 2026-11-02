@@ -6,6 +6,7 @@ import { useToastStore } from '@/stores/toast'
 import { Role, RoleLabel } from '@shared/constants'
 import TelegramLinkCard from '@/components/help/TelegramLinkCard.vue'
 import GitHubLinkCard from '@/components/auth/GitHubLinkCard.vue'
+import DeleteAccountCard from '@/components/auth/DeleteAccountCard.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -187,6 +188,10 @@ async function savePassword() {
       <!-- only staff are messaged, so only staff see this -->
       <div v-if="[Role.PROF, Role.TA].includes(auth.role)" class="col-12 col-lg-6">
         <TelegramLinkCard />
+      </div>
+
+      <div class="col-12 col-lg-6">
+        <DeleteAccountCard />
       </div>
     </div>
   </div>

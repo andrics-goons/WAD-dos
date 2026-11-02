@@ -193,6 +193,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-20 | **Staff/student separation** | DB | A TA can enrol in a course they don't staff; enrolling in one they staff → `CONFLICT`; adding an enrolled student as TA → `CONFLICT` |
 | T-PLAT-21 | **Profile updates still work alongside "read coursemates"** | RLS | A student renaming themselves succeeds and promoting themselves fails with `42501` — never `42P17` (regression guard for the recursion fix) |
 | T-PLAT-22 | **A new GitHub account picks its role once** | RLS + Unit | `/welcome` → `choose_role('prof')` makes a prof; a second call, an email account, or an enrolled student who reset `role_chosen` → `CONFLICT`; `admin` → `VALIDATION_FAILED` |
+| T-PLAT-23 | **Delete my account** | RLS + Unit | Only after typing DELETE; a student's rows go and the classes stay; a prof's courses and classes go, another prof's stay; logged out → `FORBIDDEN` |
 
 ### LESSON — Lessons · `lessons.spec.js`, `lesson-edit-view.test.js`
 

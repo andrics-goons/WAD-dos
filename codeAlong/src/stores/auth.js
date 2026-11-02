@@ -41,6 +41,12 @@ export const useAuthStore = defineStore('auth', () => {
     clear()
   }
 
+  // Profile page: delete the account for good
+  async function deleteAccount() {
+    await authApi.deleteAccount()
+    clear()
+  }
+
   // Profile page: rename. The role can't be changed here — only an admin can.
   async function updateName(name) {
     user.value = { ...user.value, ...(await authApi.updateProfile({ name })) } // keeps hasPassword
@@ -113,6 +119,7 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     login,
     logout,
+    deleteAccount,
     updateName,
     changePassword,
     github,

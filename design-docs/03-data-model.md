@@ -132,6 +132,8 @@ One row per account, created by the `on_auth_user_created` trigger in [09](./09-
 
 Email lives in `auth.users` — we never duplicate it.
 
+**Deleting an account.** `profiles`, enrolments, staff roles and notes cascade from `auth.users`, but courses, lessons, sessions, checkpoints and a student's class rows (`student_status`, `status_history`, `snapshots`, `slow_down_flags`, `help_requests`) don't, so a class's history never disappears by accident. `delete_my_account()` (`security definer`, `authenticated` only) is the one place that clears them on purpose for the caller: a prof's courses and everything in them, then the student rows, then `auth.users`.
+
 ```sql
 alter table public.profiles enable row level security;
 
