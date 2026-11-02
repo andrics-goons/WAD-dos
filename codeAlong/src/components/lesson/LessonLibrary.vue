@@ -121,7 +121,7 @@ async function startClass(lesson) {
         <div class="d-flex flex-wrap align-items-center gap-2">
           <button
             type="button"
-            class="ca-btn ca-btn--secondary ca-btn--sm"
+            class="ca-btn ca-btn--secondary ca-btn--sm lesson-toggle"
             @click="opened[l.id] = !opened[l.id]"
           >
             <i class="bi" :class="opened[l.id] ? 'bi-chevron-up' : 'bi-chevron-down'" />
@@ -221,3 +221,10 @@ async function startClass(lesson) {
     </ul>
   </section>
 </template>
+
+<style scoped>
+/* same width whatever the count, so the lesson titles line up */
+.lesson-toggle {
+  min-width: 7.5rem;
+}
+</style>
