@@ -121,6 +121,8 @@ create trigger on_auth_user_created
   after insert on auth.users for each row execute function public.handle_new_user();
 ```
 
+- **"Continue with GitHub" sends no role.** The trigger (as rewritten in `…_choose_role.sql`) makes the new account a student with `profiles.role_chosen = false` when `raw_app_meta_data->>'provider'` is `github` (set by Supabase Auth; users can't edit app metadata). The router sends any account with `role_chosen = false` to `/welcome` before anything else, where one click calls `rpc('choose_role', { p_role: 'student' | 'prof' })` and carries on to `returnTo`. `choose_role` works once: `CONFLICT` once chosen, or if the account is in any course (as student or staff), so resetting the flag on your own row can't turn an enrolled student into a prof.
+
 ### Who am I, in the client
 
 ```js
@@ -421,7 +423,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |
 | Replay | `timeline-checkpoint-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
 | Reports | `report-funnel`, `report-top-errors`, `btn-send-digest` |
-| Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login`, `btn-github-login`, `link-register`, `link-login` |
+| Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login`, `btn-github-login`, `btn-role-student`, `btn-role-educator` (`/welcome`), `link-register`, `link-login` |
 | Profile | `input-profile-name`, `btn-save-name`, `input-current-password`, `input-new-password`, `btn-change-password`, `btn-logout`, `btn-connect-github`, `btn-disconnect-github`, `github-username` |
 | Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `input-user-search` |
 
