@@ -82,7 +82,8 @@ async function signOut() {
         <div v-if="auth.isAuthenticated" class="dropdown">
           <button type="button" class="ca-btn ca-btn--ghost" @click="userMenuOpen = !userMenuOpen">
             <span class="ca-avatar">{{ auth.user.name?.[0] ?? '?' }}</span>
-            <span class="text-truncate text-body">{{ auth.user.name }}</span>
+            <!-- tablets: the initial only, the links take up the row -->
+            <span class="text-body text-wrap d-md-none d-lg-inline">{{ auth.user.name }}</span>
             <i class="bi bi-chevron-down small" />
           </button>
           <div class="dropdown-menu dropdown-menu-end" :class="{ show: userMenuOpen }">
