@@ -572,7 +572,7 @@ For each checkpoint *k* (with `t_k` = when the prof saved it):
 | `catchUps` | Times students loaded the latest checkpoint while *k* was the latest: `catch_up` rows in `status_history`, logged when the workspace adds 1 to `student_status.catch_ups` after "Load latest checkpoint" |
 
 **Trouble score** (shown with its formula, so profs can trust it):
-`trouble_k = (0.4 × errorStudents + 0.3 × dropOff + 0.2 × catchUps + 0.1 × helpRequests) / joined`, rounded to 3 places
+`trouble_k = (0.4 × errorStudents + 0.3 × dropOff + 0.1 × helpRequests) / joined`, rounded to 3 places. Catch-ups are counted per checkpoint (`catchUps`, shown on the report page) but are not part of the score, so the digest and `lesson_trends` rank checkpoints as they were built to
 
 The report highlights the top 3 checkpoints, the top 5 error groups and the peak "Slow down" count, plus each checkpoint's own peak (`slowDownPeak`: the most asking at once while it was the latest, counting flags still up from before it), so the page can say where in the lesson it peaked. Error groups come from `status_history.error_key` (the live `student_status` row keeps only the latest error); the peak comes from `session_slow_down_peak()` over `slow_down_events`.
 

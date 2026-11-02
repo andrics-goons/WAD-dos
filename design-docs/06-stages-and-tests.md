@@ -199,7 +199,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-LES-01 | Upload starter files → new lesson | E2E | Lesson created visible to students (`ready`) with its files; opens in the editor, where the "Visible to students" switch can hide it (`draft`) |
+| T-LES-01 | Upload starter files → new lesson | E2E | Lesson created hidden from students (`draft`) with its files; opens in the editor, where the "Visible to students" switch shows it (`ready`) |
 | T-LES-02 | Edit a starter file and the lesson details | E2E | Saved; persists after reload |
 | T-LES-03 | ~~Reorder steps~~ | — | Removed with lesson steps |
 | T-LES-04 | ~~Delete step~~ | — | Removed with lesson steps |
@@ -417,7 +417,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-INS-06 | Digest to staff and absent students | Unit | `test_outbox`: TA summary + messages only to linked, absent students |
 | T-INS-07 | Student reads a report | RLS | Zero rows |
 | T-INS-10 | Where in the lesson help and slow-downs peaked | DB + Unit | Each checkpoint has its own `slowDownPeak` (flags still up from earlier count); the page names the top two: "Highest during Checkpoint 2, followed by Checkpoint 4", and the same for help requests ("Most during …") |
-| T-INS-09 | Catch-ups counted per checkpoint | DB | Each "Load latest checkpoint" logs a `catch_up` row at the class's checkpoint; the report's `catchUps` counts them and they add `0.2 × catchUps / joined` to `trouble` |
+| T-INS-09 | Catch-ups counted per checkpoint | DB | Each "Load latest checkpoint" logs a `catch_up` row at the class's checkpoint; the report's `catchUps` counts the students (once each); `trouble` is unchanged by them |
 | T-INS-08 | **Trends stay inside one prof's courses** | DB | With two profs teaching a same-titled lesson, each prof's `lesson_trends` includes only their own sessions |
 
 ### PRIV — Privacy by design · `privacy.spec.js`, `tests/unit/rls/*`

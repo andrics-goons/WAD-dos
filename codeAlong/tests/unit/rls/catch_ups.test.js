@@ -112,13 +112,13 @@ describe('catch-ups', () => {
     expect((await history(ben)).filter((h) => h.state === 'in_progress')).toHaveLength(1)
   })
 
-  it('T-INS-09: the report counts the students per checkpoint, and they raise the trouble score', () => {
+  it('T-INS-09: the report counts the students per checkpoint, without touching the trouble score', () => {
     const [one, two] = report.checkpoints
     expect(one).toMatchObject({ seq: 1, catchUps: 1 })
     expect(two).toMatchObject({ seq: 2, catchUps: 1 }) // Ben loaded it twice: one student
-    // nobody had errors, dropped off or asked for help: trouble is 0.2 × catch-ups / 2 joined
-    expect(one.trouble).toBe(0.1)
-    expect(two.trouble).toBe(0.1)
+    // nobody had errors, dropped off or asked for help, and catch-ups aren't part of the score
+    expect(one.trouble).toBe(0)
+    expect(two.trouble).toBe(0)
   })
 
   it('T-INS-10: each checkpoint has its own slow-down peak', () => {
