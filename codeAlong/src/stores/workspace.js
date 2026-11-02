@@ -142,6 +142,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         // my autosave becomes the checkpoint too, so a refresh doesn't bring the old code back
         saver?.autosave(files.value)
         await saver?.flush()
+        // a catch-up for the prof's report: which checkpoint the class lost me at
+        await useStatusStore().recordCatchUp()
         return { packageChanged }
     }
 

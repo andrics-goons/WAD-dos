@@ -1,10 +1,10 @@
 <script setup>
 // After-class insights (design-docs/04, 05 §10). The database builds the report the moment the
-// prof ends the class; this page reads it, adds the help-request numbers and the trouble spots
-// that recur across the prof's past classes, and lets the prof send the Telegram digest.
+// prof ends the class; this page reads it, adds the help-request numbers, and lets the prof send
+// the Telegram digest.
 import { computed, onMounted, ref } from 'vue'
 import { checkpointLabel } from '@shared/checkpoint-label.js'
-import { troubleCheckpoints } from '@shared/telegram.js'
+import { formatStaffDigest } from '@shared/telegram.js'
 import { useReportStore } from '@/stores/report'
 import { useToastStore } from '@/stores/toast'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -17,12 +17,10 @@ const toast = useToastStore()
 const loading = ref(true)
 const loadError = ref('') // 'not-found' or a message
 const page = ref(null) // { session, report, help, isProf }
-const trends = ref([])
 
 onMounted(async () => {
   try {
     page.value = await store.get(props.id)
-    if (page.value.report) trends.value = await store.trends(page.value.session.lessonId)
   } catch (error) {
     loadError.value = error.code === 'NOT_FOUND' ? 'not-found' : error.message
   } finally {
@@ -35,42 +33,73 @@ const report = computed(() => page.value?.report)
 const joined = computed(() => report.value?.attendance.joined ?? 0)
 const pct = (n) => (joined.value ? Math.round((n / joined.value) * 100) : 0)
 const when = (iso) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
-const minutes = (m) => (m === null || m === undefined ? '—' : `${m} min`)
 
+// The two checkpoints with the most of something (catch-ups, help requests, slow-down peak),
+// most first; a tie goes to the earlier one. Only checkpoints where it happened at all
+const topTwo = (field) =>
+  report.value.checkpoints
+    .filter((c) => c[field] > 0)
+    .toSorted((a, b) => b[field] - a[field] || a.seq - b.seq)
+    .slice(0, 2)
+    .map((c) => checkpointLabel(c.seq, c.title))
+
+// "Checkpoint 2 · Emit add-to-cart, followed by Checkpoint 4 · Fetch items"
+const firstThen = ([first, next]) => first && first + (next ? `, followed by ${next}` : '')
+
+// each card's second line says where in the lesson it happened
 const stats = computed(() => {
   const r = report.value
   const help = page.value.help
-  const last = r.checkpoints.at(-1)
+  const helpAt = firstThen(topTwo('helpRequests'))
+  const slowAt = firstThen(topTwo('slowDownPeak'))
   return [
     {
       label: 'Attended',
       value: `${r.attendance.joined} of ${r.attendance.enrolled}`,
       icon: 'bi-people',
     },
-    { label: 'Done on the last checkpoint', value: last ? last.reachedDone : '—', icon: 'bi-flag' },
     {
       label: 'Help requests',
       value: help.leftOpen ? `${help.total} (${help.leftOpen} left open)` : help.total,
+      note: helpAt && `Most during ${helpAt}`,
       icon: 'bi-question-circle',
     },
-    { label: 'Median wait for a TA', value: minutes(help.medianWaitMinutes), icon: 'bi-clock' },
-    { label: 'Asked to slow down', value: `${r.slow_down_peak} at once`, icon: 'bi-speedometer2' },
+    {
+      label: 'Asked to slow down',
+      value: `${r.slow_down_peak} at once`,
+      note: slowAt && `Highest during ${slowAt}`,
+      icon: 'bi-speedometer2',
+    },
   ]
 })
 
-// what the staff message will say, in plain words
-const digestPreview = computed(() => {
-  const r = report.value
-  const [worst] = troubleCheckpoints(r, 1)
-  const [topError] = r.top_errors
-  return [
-    `${session.value.lessonTitle}: ${r.attendance.joined} of ${r.attendance.enrolled} attended.`,
-    worst && `Most trouble at ${checkpointLabel(worst.seq, worst.title)}.`,
-    topError && `Top error: ${topError.key} (${topError.students}).`,
-  ]
-    .filter(Boolean)
-    .join(' ')
-})
+// the two checkpoints the most students needed the prof's code for
+const hardest = computed(() => topTwo('catchUps'))
+
+// The staff message exactly as the digest function sends it (same shared formatter, same report),
+// so the preview can't drift from what goes out. It's Telegram HTML: shown as plain lines here,
+// with the <b> headings in bold
+const unescape = (text) =>
+  text
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+const digestLines = computed(() =>
+  formatStaffDigest({
+    courseLabel: session.value.courseLabel,
+    lessonTitle: session.value.lessonTitle,
+    report: report.value,
+    openHelp: page.value.help.leftOpen,
+    link: `${location.origin}/sessions/${props.id}/report`,
+  })
+    .split('\n')
+    .map((line) => ({
+      bold: /^<b>.*<\/b>$/.test(line),
+      text: unescape(line.replace(/<[^>]+>/g, '')),
+    })),
+)
 
 const sending = ref(false)
 async function sendDigest() {
@@ -148,14 +177,17 @@ async function sendDigest() {
       </div>
 
       <template v-else>
-        <!-- Headline numbers: 2 per row at xs, all in one row from xl -->
+        <!-- Headline numbers: stacked at xs, all three in one row from sm -->
         <div class="row g-3 mb-3">
-          <div v-for="s in stats" :key="s.label" class="col-6 col-lg-4 col-xl">
+          <div v-for="s in stats" :key="s.label" class="col-12 col-sm-4">
             <div class="ca-card h-100">
               <div class="ca-eyebrow d-flex align-items-center gap-1">
                 <i class="bi" :class="s.icon" />{{ s.label }}
               </div>
               <div class="mt-1 fs-4 fw-bold">{{ s.value }}</div>
+              <div v-if="s.note" class="small text-body-secondary">
+                {{ s.note }}
+              </div>
             </div>
           </div>
         </div>
@@ -163,12 +195,12 @@ async function sendDigest() {
         <div class="row g-3">
           <!-- Funnel -->
           <div class="col-12 col-lg-7">
-            <div class="ca-surface h-100" data-testid="report-funnel">
+            <div class="ca-surface" data-testid="report-funnel">
               <div
                 class="d-flex flex-wrap align-items-baseline justify-content-between column-gap-3 row-gap-1 px-3 py-2 border-bottom"
               >
-                <span class="fw-semibold">Where students dropped off</span>
-                <span class="ca-eyebrow">clicked Done on each checkpoint</span>
+                <span class="fw-semibold">Where students needed the prof's code</span>
+                <span class="ca-eyebrow">loaded the checkpoint</span>
               </div>
               <p v-if="!report.checkpoints.length" class="px-3 py-3 mb-0 text-body-secondary">
                 No checkpoints were saved in this class.
@@ -185,30 +217,36 @@ async function sendDigest() {
                     <!-- the bar width is data, so it's the one inline style here -->
                     <span class="col">
                       <span class="progress">
-                        <span class="progress-bar" :style="{ width: pct(c.reachedDone) + '%' }" />
+                        <span class="progress-bar" :style="{ width: pct(c.catchUps) + '%' }" />
                       </span>
                     </span>
                     <span class="col-auto small text-end text-nowrap"
-                      >{{ c.reachedDone }} ({{ pct(c.reachedDone) }}%)</span
+                      >{{ c.catchUps }} ({{ pct(c.catchUps) }}%)</span
                     >
-                  </div>
-                  <div
-                    v-if="c.errorStudents || c.dropOff || c.helpRequests"
-                    class="small text-body-secondary"
-                  >
-                    <span v-if="c.errorStudents">{{ c.errorStudents }} hit an error · </span>
-                    <span v-if="c.dropOff">{{ c.dropOff }} dropped off · </span>
-                    <span v-if="c.helpRequests">{{ c.helpRequests }} asked for help · </span>
-                    median {{ minutes(c.medianMinutesToDone) }} to Done
                   </div>
                 </li>
               </ol>
+              <!-- the takeaway: where the lesson lost the most students -->
+              <p
+                v-if="report.checkpoints.length"
+                class="small px-3 py-2 mb-0 border-top"
+                data-testid="report-most-loaded"
+              >
+                <template v-if="hardest.length">
+                  <i class="bi bi-exclamation-circle text-danger me-1" />
+                  <strong>{{ hardest[0] }}</strong> emerged as the most challenging checkpoint for
+                  students<template v-if="hardest[1]"
+                    >, followed by <strong>{{ hardest[1] }}</strong></template
+                  >.
+                </template>
+                <template v-else>Nobody needed to load a checkpoint.</template>
+              </p>
             </div>
           </div>
 
-          <!-- Top errors -->
-          <div class="col-12 col-lg-5">
-            <div class="ca-surface h-100" data-testid="report-top-errors">
+          <!-- Top errors, then the digest under it -->
+          <div class="col-12 col-lg-5 d-flex flex-column gap-3">
+            <div class="ca-surface" data-testid="report-top-errors">
               <div
                 class="d-flex flex-wrap align-items-baseline justify-content-between column-gap-3 row-gap-1 px-3 py-2 border-bottom"
               >
@@ -231,49 +269,9 @@ async function sendDigest() {
                 </li>
               </ul>
             </div>
-          </div>
 
-          <!-- Recurring trouble spots -->
-          <div class="col-12 col-lg-7">
-            <div class="ca-surface h-100">
-              <div
-                class="d-flex flex-wrap align-items-baseline justify-content-between column-gap-3 row-gap-1 px-3 py-2 border-bottom"
-              >
-                <span class="fw-semibold">Recurring trouble spots</span>
-                <span class="ca-eyebrow">across your past classes</span>
-              </div>
-              <p v-if="!trends.length" class="px-3 py-3 mb-0 text-body-secondary">
-                Nothing yet. A checkpoint shows here once it's among the hardest in two or more of
-                your classes of this lesson.
-              </p>
-              <div v-else class="table-responsive">
-                <table class="table table-sm align-middle mb-0">
-                  <thead>
-                    <tr>
-                      <th scope="col" class="ca-eyebrow text-body-secondary ps-3">Checkpoint</th>
-                      <th scope="col" class="ca-eyebrow text-body-secondary">Seen in</th>
-                      <th scope="col" class="ca-eyebrow text-body-secondary text-end pe-3">
-                        Avg. drop-off
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="t in trends" :key="t.title">
-                      <td class="ps-3">{{ t.title }}</td>
-                      <td class="small text-body-secondary">
-                        {{ t.sessions }} of {{ t.ofSessions }} classes
-                      </td>
-                      <td class="text-end fw-semibold pe-3">{{ t.avgDropOff }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <!-- Digest -->
-          <div class="col-12 col-lg-5">
-            <div class="ca-surface h-100">
+            <!-- Digest -->
+            <div class="ca-surface">
               <div
                 class="d-flex flex-wrap align-items-baseline justify-content-between column-gap-3 row-gap-1 px-3 py-2 border-bottom"
               >
@@ -283,7 +281,14 @@ async function sendDigest() {
                 <blockquote
                   class="small mb-3 p-3 rounded bg-body-secondary border-start border-4 border-primary"
                 >
-                  “{{ digestPreview }}”
+                  <!-- a blank line in the message is a gap here -->
+                  <div
+                    v-for="(line, i) in digestLines"
+                    :key="i"
+                    :class="{ 'fw-semibold': line.bold }"
+                  >
+                    {{ line.text || '&nbsp;' }}
+                  </div>
                 </blockquote>
                 <p class="small text-body-secondary">
                   Goes to the course's staff, and tells students who missed the class where to start

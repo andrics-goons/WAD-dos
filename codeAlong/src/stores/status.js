@@ -2,7 +2,13 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { Limits } from '@shared/constants.js'
 import { normalizeError } from '@shared/error-normalizer.js'
-import { getMySlowDown, getMyStatus, saveStatus, setSlowDown } from '@/api/workspace.api'
+import {
+  getMySlowDown,
+  getMyStatus,
+  saveCatchUps,
+  saveStatus,
+  setSlowDown,
+} from '@/api/workspace.api'
 import { useAuthStore } from '@/stores/auth'
 import { useSessionStore } from '@/stores/session'
 
@@ -15,6 +21,7 @@ export const useStatusStore = defineStore('status', () => {
   const doneSeq = ref(null) // the checkpoint I clicked Done on (0 = the starter code), or null
   const error = ref(null)
   const slowDown = ref(false) // I've asked the prof to slow down (they only see how many)
+  const catchUps = ref(0) // times I've loaded the prof's latest checkpoint
 
   let sessionId = null
   let studentId = null
@@ -31,6 +38,7 @@ export const useStatusStore = defineStore('status', () => {
     studentId = useAuthStore().user.id
     doneSeq.value = mine?.done_seq ?? null
     error.value = mine?.error ?? null
+    catchUps.value = mine?.catch_ups ?? 0
     slowDown.value = flagged
     await write()
     heartbeat = setInterval(
@@ -76,14 +84,31 @@ export const useStatusStore = defineStore('status', () => {
     }, wait)
   }
 
-  // "Done" on the prof's latest checkpoint, and undoing it ("In progress" again)
+  // "Done" on the prof's latest checkpoint, and undoing it ("In progress" again).
+  // Done also takes back my "Slow down": I've caught up, and a flag I forgot about would keep
+  // the prof's count high. I can raise it again any time
   function markDone(seq) {
     doneSeq.value = seq
     changed()
+    if (slowDown.value) {
+      toggleSlowDown().catch((e) => console.error("Couldn't take back Slow down:", e))
+    }
   }
   function markInProgress() {
     doneSeq.value = null
     changed()
+  }
+
+  // I loaded the prof's latest checkpoint: the report counts it as a catch-up at that checkpoint.
+  // Logged, not thrown: my code has already been replaced, which is what the student cares about
+  async function recordCatchUp() {
+    if (!sessionId || !useSessionStore().isLive) return
+    catchUps.value++
+    try {
+      await saveCatchUps(sessionId, studentId, catchUps.value)
+    } catch (e) {
+      console.error("Couldn't record the catch-up:", e)
+    }
   }
 
   // From the preview or the dev server: { source: 'runtime' | 'build', name, message, file, line }.
@@ -122,6 +147,8 @@ export const useStatusStore = defineStore('status', () => {
       slowDown.value = !on
       throw e
     }
+    // asking to slow down means I'm not caught up after all, so I'm In progress again
+    if (on && doneSeq.value !== null) markInProgress()
   }
 
   return {
@@ -135,5 +162,6 @@ export const useStatusStore = defineStore('status', () => {
     setError,
     clearError,
     toggleSlowDown,
+    recordCatchUp,
   }
 })
