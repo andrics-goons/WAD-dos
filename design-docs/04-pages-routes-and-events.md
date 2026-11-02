@@ -20,7 +20,7 @@ ADMIN
 Users    /admin/users
 ```
 
-**Routes stay per course.** `/courses/:id` is the home of one prof's course: its **Lessons** tab holds the reusable plans, and its **Sessions** tab lists every live class the prof has started in that course, live and past. Nothing in the app lists courses globally — a prof sees only their own, a student only those they enrolled in.
+**Routes stay per course.** `/courses/:id` is the home of one prof's course: its **Lessons** tab holds the reusable plans, and each lesson has a dropdown listing every class started from it, live and past. Nothing in the app lists courses globally — a prof sees only their own, a student only those they enrolled in.
 
 Routes are unchanged by the move to Supabase — the URLs are a UI contract, not a backend one.
 
@@ -36,7 +36,7 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 | `/home` | `HomeView` | Ying Qi | Logged in | Where you land after logging in. "Live now" (live classes across your courses, with Open class / Help queue / Join by your role in that course) and your first 3 courses, stacked → 7 + 5 cols. Students and TAs get a "Join with a code" button |
 | `/login`, `/register` | `LoginView`, `RegisterView` | Ying Qi | Public | Full-width card → centred card max 420 px |
 | `/courses` | `CoursesView` | Ying Qi | Logged in | Course cards 1 col → 3 cols; prof sees "New course"; student sees **"Enrol in a course"**, which opens `/enrol` |
-| `/courses/:id` | `CourseView` | Ying Qi (shell) + Ray Yien (lesson library) | Staff / enrolled | Tabs (Lessons · Sessions · People) → same tabs, lessons as a table with search. **The owner sees a "Share enrolment" card**: the enrol code, a **Copy link** button for `<APP_URL>/enrol/<code>`, and its QR |
+| `/courses/:id` | `CourseView` | Ying Qi (shell) + Ray Yien (lesson library) | Staff / enrolled | Tabs (Lessons · People) → same tabs. Lessons has a search box; each lesson has a dropdown of its classes, open by default when one is live. **The owner sees a "Share enrolment" card**: the enrol code, a **Copy link** button for `<APP_URL>/enrol/<code>`, and its QR |
 | `/enrol`, `/enrol/:code` | `EnrolView` | Andric | Students and TAs (redirects to login with `returnTo`) | Same 6-box code input as the join page; `/enrol/:code` pre-fills from the link or QR and auto-submits. Success → that course's page. **Joins a course once per term — not the same as `/join`, which joins one live class** |
 | `/courses/:id/lessons/new` | `LessonNewView` | Evan (upload) + Ray Yien (GitHub import tab) | Prof | Stepper: 1 Source → 2 Review files. No plan to review: the prof saves checkpoints during class |
 | `/lessons/:id/edit` | `LessonEditView` | Evan | Prof | The starter files (file tree + editor) at every size, with Details, status, Save and Delete / Archive in the header |

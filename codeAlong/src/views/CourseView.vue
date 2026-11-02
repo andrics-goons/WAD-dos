@@ -8,7 +8,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import LessonLibrary from '@/components/lesson/LessonLibrary.vue'
 
-// One course: who's in it, its lessons and its classes. The owner also gets the enrol link to share.
+// One course: its lessons (each with its classes) and its people. The owner also gets the enrol link.
 const props = defineProps({ id: { type: String, required: true } })
 
 const store = useCourseStore()
@@ -18,25 +18,19 @@ const course = ref(null)
 const loading = ref(true)
 const loadError = ref('') // also covers "not yours": the database hides it, so it reads as not found
 
-const sessions = ref([])
 const staff = ref([])
 const students = ref([])
 
 const tab = ref('lessons')
 const tabs = [
   { key: 'lessons', label: 'Lessons' },
-  { key: 'sessions', label: 'Classes' },
   { key: 'people', label: 'People' },
 ]
-
-const isStaff = computed(() => ['prof', 'ta'].includes(course.value?.myRole))
-const isProf = computed(() => course.value?.myRole === 'prof')
 
 onMounted(async () => {
   try {
     course.value = await store.get(props.id)
-    ;[sessions.value, staff.value, students.value] = await Promise.all([
-      store.sessions(props.id),
+    ;[staff.value, students.value] = await Promise.all([
       store.staff(props.id),
       store.students(props.id),
     ])
@@ -62,9 +56,6 @@ async function copyLink() {
     toast.show("Couldn't copy — select the link and copy it yourself", 'warning')
   }
 }
-
-// Classes
-const when = (iso) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 
 // People (owner): add a TA, remove a student
 const taEmail = ref('')
@@ -203,75 +194,8 @@ async function removeStudent() {
         </li>
       </ul>
 
-      <!-- Lessons (Ray Yien's) -->
+      <!-- Lessons and their classes (Ray Yien's) -->
       <LessonLibrary v-if="tab === 'lessons'" :course="course" />
-
-      <!-- Classes: live and past sessions -->
-      <section v-else-if="tab === 'sessions'">
-        <div v-if="!sessions.length" class="ca-surface">
-          <EmptyState icon="bi-broadcast" title="No classes yet" compact>
-            <template v-if="isProf">Start a class from a ready lesson in the Lessons tab.</template>
-          </EmptyState>
-        </div>
-        <ul v-else class="list-group">
-          <li
-            v-for="s in sessions"
-            :key="s.id"
-            class="list-group-item d-flex flex-wrap align-items-center gap-2"
-          >
-            <span v-if="s.status === 'live'" class="ca-pill ca-pill--sm ca-state--error">
-              <i class="bi bi-broadcast" />Live
-            </span>
-            <span v-else class="badge text-bg-light">Ended</span>
-            <span class="fw-semibold">{{ s.lessons.title }}</span>
-            <span class="text-body-secondary small">{{ when(s.started_at) }}</span>
-            <span v-if="isStaff && s.status === 'live'" class="small">
-              Code <span class="ca-mono fw-semibold">{{ s.join_code }}</span>
-            </span>
-
-            <span class="ms-auto d-flex gap-1">
-              <template v-if="s.status === 'live'">
-                <RouterLink
-                  v-if="isProf"
-                  :to="{ name: 'teach', params: { id: s.id } }"
-                  class="ca-btn ca-btn--primary ca-btn--sm"
-                >
-                  Open class
-                </RouterLink>
-                <RouterLink
-                  v-else-if="isStaff"
-                  :to="{ name: 'help-queue', params: { id: s.id } }"
-                  class="ca-btn ca-btn--primary ca-btn--sm"
-                >
-                  Help queue
-                </RouterLink>
-                <RouterLink
-                  v-else
-                  :to="{ name: 'workspace', params: { id: s.id } }"
-                  class="ca-btn ca-btn--primary ca-btn--sm"
-                >
-                  Join
-                </RouterLink>
-              </template>
-              <template v-else>
-                <RouterLink
-                  :to="{ name: 'replay', params: { sessionId: s.id } }"
-                  class="ca-btn ca-btn--secondary ca-btn--sm"
-                >
-                  Replay
-                </RouterLink>
-                <RouterLink
-                  v-if="isStaff"
-                  :to="{ name: 'session-report', params: { id: s.id } }"
-                  class="ca-btn ca-btn--ghost ca-btn--sm"
-                >
-                  Report
-                </RouterLink>
-              </template>
-            </span>
-          </li>
-        </ul>
-      </section>
 
       <!-- People -->
       <section v-else class="row g-3">
