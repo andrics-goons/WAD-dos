@@ -93,6 +93,8 @@ export const test = base.extend({
   prof: ({ browser }, use) => loginAll(browser, ['prof@codealong.test'], ([page]) => use(page)),
   ta: ({ browser }, use) => loginAll(browser, ['ta.ana@codealong.test'], ([page]) => use(page)),
   ta2: ({ browser }, use) => loginAll(browser, ['ta.ben@codealong.test'], ([page]) => use(page)),
+  // Zoe is not enrolled in any course
+  zoe: ({ browser }, use) => loginAll(browser, ['zoe@codealong.test'], ([page]) => use(page)),
   students: ({ browser }, use) =>
     loginAll(browser, ['alex@codealong.test', 'bea@codealong.test', 'chen@codealong.test'], use),
 })
