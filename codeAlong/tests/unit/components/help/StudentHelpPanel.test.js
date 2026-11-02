@@ -90,6 +90,24 @@ describe('StudentHelpPanel', () => {
     })
   })
 
+  it('T-HELP-09: an in-person request nobody was pinged about says the TA was told in the app only', async () => {
+    await render([row({ type: 'help', in_person: true, telegram_notified_at: null })])
+    expect(wrapper.text()).toContain('TA notified in app only')
+  })
+
+  it('T-HELP-09: no such notice once the ping went out, or when the request is not in person', async () => {
+    await render([
+      row({
+        id: 'r1',
+        type: 'help',
+        in_person: true,
+        telegram_notified_at: '2026-11-02T10:00:00Z',
+      }),
+      row({ id: 'r2', type: 'check', in_person: false, telegram_notified_at: null }),
+    ])
+    expect(wrapper.text()).not.toContain('notified in app only')
+  })
+
   it('T-HELP-06: while a Check my work is waiting, I cannot send another', async () => {
     await render([row()])
     expect(buttonWith('Check my work').attributes('disabled')).toBeDefined()
