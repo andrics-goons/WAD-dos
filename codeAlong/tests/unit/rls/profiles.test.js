@@ -69,7 +69,10 @@ describe('profiles RLS: students', () => {
   })
 
   it('a student can edit their own name (control)', async () => {
-    const { error } = await alex.client.from('profiles').update({ name: 'Alex Tan' }).eq('id', alex.id)
+    const { error } = await alex.client
+      .from('profiles')
+      .update({ name: 'Alex Tan' })
+      .eq('id', alex.id)
     expect(error).toBeNull()
     expect((await profileOf(alex.id)).name).toBe('Alex Tan')
   })
@@ -147,7 +150,10 @@ describe('profiles RLS: admins', () => {
   })
 
   it('T-ADM-04: an admin cannot change their own role directly', async () => {
-    const { error } = await admin.client.from('profiles').update({ role: 'student' }).eq('id', admin.id)
+    const { error } = await admin.client
+      .from('profiles')
+      .update({ role: 'student' })
+      .eq('id', admin.id)
     expect(error?.code).toBe('42501')
     expect((await profileOf(admin.id)).role).toBe('admin')
   })
@@ -184,5 +190,57 @@ describe('anonymous visitors', () => {
   it('a logged-out caller sees no profiles', async () => {
     const { data } = await anonClient().from('profiles').select('id')
     expect(data).toEqual([])
+  })
+})
+
+describe('choose_role: a new GitHub account picks student or educator', () => {
+  // A "Continue with GitHub" sign-up starts with role_chosen = false (the trigger reads the
+  // provider). The admin API can't make a GitHub user, so these set the flag as it would be.
+  async function githubSignUp() {
+    const user = await userClient({ name: 'Octo Cat' })
+    await service.from('profiles').update({ role_chosen: false }).eq('id', user.id)
+    return user
+  }
+  const codeOf = async (call) => mapError((await call).error)?.code
+  let course = null
+
+  afterAll(async () => {
+    if (course) await service.from('courses').delete().eq('id', course.id)
+  })
+
+  it('T-PLAT-22: picks educator once, and then it is set', async () => {
+    const octo = await githubSignUp()
+    expect(await codeOf(octo.client.rpc('choose_role', { p_role: 'prof' }))).toBeUndefined()
+    const { data } = await service.from('profiles').select('role, role_chosen').eq('id', octo.id)
+    expect(data[0]).toEqual({ role: 'prof', role_chosen: true })
+    expect(await codeOf(octo.client.rpc('choose_role', { p_role: 'student' }))).toBe('CONFLICT')
+  })
+
+  it('T-PLAT-22: an email sign-up already chose, and admin is not on offer', async () => {
+    const stu = await userClient({ name: 'Form User', role: 'student' })
+    expect(await codeOf(stu.client.rpc('choose_role', { p_role: 'prof' }))).toBe('CONFLICT')
+    const octo = await githubSignUp()
+    expect(await codeOf(octo.client.rpc('choose_role', { p_role: 'admin' }))).toBe(
+      'VALIDATION_FAILED',
+    )
+    // logged out: not even allowed to call it
+    expect(await codeOf(anonClient().rpc('choose_role', { p_role: 'prof' }))).toBe('FORBIDDEN')
+  })
+
+  it('T-PLAT-22: a student in a course who resets the flag still cannot become a prof', async () => {
+    const prof = await userClient({ name: 'Prof', role: 'prof' })
+    ;({ data: course } = await prof.client.rpc('create_course', {
+      p_code: 'IS216',
+      p_title: 'Role test',
+      p_term: 'T1',
+      p_section: 'G1',
+    }))
+    const stu = await userClient({ name: 'Stu', role: 'student' })
+    await stu.client.rpc('enrol_with_code', { p_code: course.enrol_code })
+    // the profiles policy lets them write role_chosen on their own row…
+    await stu.client.from('profiles').update({ role_chosen: false }).eq('id', stu.id)
+    // …but choosing again needs an account in no course
+    expect(await codeOf(stu.client.rpc('choose_role', { p_role: 'prof' }))).toBe('CONFLICT')
+    expect((await profileOf(stu.id)).role).toBe('student')
   })
 })
