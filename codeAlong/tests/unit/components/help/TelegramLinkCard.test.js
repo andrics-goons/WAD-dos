@@ -28,12 +28,12 @@ afterEach(() => wrapper?.unmount())
 
 describe('TelegramLinkCard', () => {
   it('T-TG-01: Link Telegram shows the link to open, and Check shows it linked once the bot has the chat', async () => {
-    telegramApi.issueLinkCode.mockResolvedValue('https://t.me/TeleHelpbot?start=abc123')
+    telegramApi.issueLinkCode.mockResolvedValue('https://t.me/TeleHelp123bot?start=abc123')
     await render({ linked: false })
 
     await buttonWith('Link Telegram').trigger('click')
     await flushPromises()
-    expect(wrapper.get('a').attributes('href')).toBe('https://t.me/TeleHelpbot?start=abc123')
+    expect(wrapper.get('a').attributes('href')).toBe('https://t.me/TeleHelp123bot?start=abc123')
 
     telegramApi.isLinked.mockResolvedValue(true)
     await buttonWith('Check').trigger('click')

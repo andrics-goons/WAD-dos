@@ -22,6 +22,16 @@ export async function logout() {
   if (error) throw mapError(error)
 }
 
+/**
+ * Delete my account for good. A prof's courses go with it, with every class in them.
+ * Then forget the session on this browser: the account behind it no longer exists.
+ */
+export async function deleteAccount() {
+  const { error } = await supabase.rpc('delete_my_account')
+  if (error) throw mapError(error)
+  await supabase.auth.signOut({ scope: 'local' })
+}
+
 export async function getCurrentUser() {
   const {
     data: { user },

@@ -16,7 +16,7 @@ describe('issue_telegram_link_code', () => {
       .select('telegram_link_code, telegram_link_code_expires_at')
       .eq('id', ana.id)
       .single()
-    expect(link).toBe(`https://t.me/TeleHelpbot?start=${profile.telegram_link_code}`)
+    expect(link).toBe(`https://t.me/TeleHelp123bot?start=${profile.telegram_link_code}`)
     const minutesLeft = (Date.parse(profile.telegram_link_code_expires_at) - Date.now()) / 60000
     expect(minutesLeft).toBeGreaterThan(9)
     expect(minutesLeft).toBeLessThanOrEqual(10)
