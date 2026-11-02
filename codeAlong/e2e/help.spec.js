@@ -1,4 +1,4 @@
-import { test, expect, service, joinClass } from './fixtures'
+import { test, expect, service, joinClass, openQueue } from './fixtures'
 
 // The live seeded class (join code CART42) and the TA's page for it.
 const SESSION_ID = '00000000-0000-0000-0004-000000000004'
@@ -17,7 +17,7 @@ async function openHelp(page) {
 
 // Alex asks for help, the TA claims it and replies; Alex's panel is left open on the reply.
 async function askAndGetReply(ta, alex, question, reply) {
-  await ta.goto(QUEUE)
+  await openQueue(ta, QUEUE)
   await joinClass(alex)
   await openHelp(alex)
   await alex.getByRole('button', { name: 'Ask for help' }).click()
@@ -44,7 +44,7 @@ test.describe('help flow', () => {
   }) => {
     const [alex] = students
     // Arrange: the TA already has the queue open
-    await ta.goto(QUEUE)
+    await openQueue(ta, QUEUE)
     await expect(ta.getByText("Nobody's waiting")).toBeVisible()
     await joinClass(alex)
 
@@ -61,7 +61,7 @@ test.describe('help flow', () => {
 
   test('T-HELP-02: claiming opens the side-by-side view', async ({ ta, students }) => {
     const [alex] = students
-    await ta.goto(QUEUE)
+    await openQueue(ta, QUEUE)
     await joinClass(alex)
     await openHelp(alex)
     await alex.getByRole('button', { name: 'Check my work' }).click()
@@ -80,7 +80,7 @@ test.describe('help flow', () => {
 
   test('T-HELP-03: passing a check shows the student a tick', async ({ ta, students }) => {
     const [alex] = students
-    await ta.goto(QUEUE)
+    await openQueue(ta, QUEUE)
     await joinClass(alex)
     await openHelp(alex)
     await alex.getByRole('button', { name: 'Check my work' }).click()
@@ -98,7 +98,7 @@ test.describe('help flow', () => {
 
   test('T-HELP-04: a TA reply reaches the student', async ({ ta, students }) => {
     const [alex] = students
-    await ta.goto(QUEUE)
+    await openQueue(ta, QUEUE)
     await joinClass(alex)
     await openHelp(alex)
     await alex.getByRole('button', { name: 'Ask for help' }).click()
@@ -125,7 +125,7 @@ test.describe('help flow', () => {
     students,
   }) => {
     const [alex] = students
-    await ta.goto(QUEUE)
+    await openQueue(ta, QUEUE)
     await joinClass(alex)
     await openHelp(alex)
     await alex.getByRole('button', { name: 'Check my work' }).click()
@@ -218,9 +218,11 @@ test.describe('help flow', () => {
     await ta2.routeWebSocket(/realtime/, (ws) => {
       const server = ws.connectToServer()
       ws.onMessage((message) => server.send(message))
+      // Playwright passes on whatever has no handler, so swallow what comes back from the server
+      server.onMessage(() => {})
     })
     await ta2.goto(QUEUE)
-    await ta.goto(QUEUE)
+    await openQueue(ta, QUEUE)
     const claimFor = (page) => page.getByTestId(/^help-card-/).getByTestId('btn-claim')
     await expect(claimFor(ta2)).toBeVisible()
     await claimFor(ta).click()

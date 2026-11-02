@@ -54,13 +54,10 @@ async function loginAll(browser, emails, use) {
   await Promise.all(sessions.map((s) => s.context.close()))
 }
 
-/**
- * A student joins the seeded live class (join code CART42) and lands in its workspace.
- * Waits until the realtime socket confirms the class channel, so the test only goes on once
- * the student can receive a broadcast: one sent while it is still connecting would be missed.
- */
-export async function joinClass(page) {
-  const subscribed = new Promise((resolve) => {
+// Resolves once the realtime socket has confirmed the class channel. Call it before the
+// navigation that opens the channel, and await the result afterwards.
+function channelSubscribed(page) {
+  return new Promise((resolve) => {
     page.on('websocket', (ws) => {
       if (!ws.url().includes('realtime')) return
       ws.on('framereceived', ({ payload }) => {
@@ -70,9 +67,25 @@ export async function joinClass(page) {
       })
     })
   })
+}
+
+/**
+ * A student joins the seeded live class (join code CART42) and lands in its workspace.
+ * Goes on only once the class channel is confirmed, so the student can receive a broadcast:
+ * one sent while it is still connecting would be missed.
+ */
+export async function joinClass(page) {
+  const subscribed = channelSubscribed(page)
   await page.goto('/join/CART42')
   await page.getByRole('button', { name: 'Join' }).click()
   await expect(page).toHaveURL(/\/s\/[^/]+\/code/)
+  await subscribed
+}
+
+/** A TA opens the help queue at `path` and waits for the channel, so a request sent next is not missed. */
+export async function openQueue(page, path) {
+  const subscribed = channelSubscribed(page)
+  await page.goto(path)
   await subscribed
 }
 
