@@ -255,7 +255,7 @@ onBeforeUnmount(() => {
 
       <!-- position-relative keeps the hidden form labels (visually-hidden is absolute) inside
            this scroll box; without it they stretch the page and add a second scrollbar -->
-      <div class="flex-grow-1 overflow-auto position-relative p-3">
+      <div class="teach-body flex-grow-1 overflow-auto position-relative p-3">
         <!-- Below xl: switch between dashboard and editor -->
         <div class="ca-surface nav nav-pills nav-fill gap-1 p-1 mb-3 d-xl-none">
           <button
@@ -276,7 +276,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
-        <div class="row g-3">
+        <div class="teach-row row g-3 flex-xl-nowrap">
           <!-- The class summary, then the editor (terminal under it) / preview filling the rest,
                so its bottom lines up with the right-hand column -->
           <div class="col-12 col-xl-8 d-flex flex-column gap-3">
@@ -289,7 +289,7 @@ onBeforeUnmount(() => {
             </div>
 
             <div
-              class="d-flex flex-column flex-grow-1 gap-3"
+              class="teach-editor d-flex flex-column flex-grow-1 gap-3"
               :class="{ 'd-none d-xl-flex': mobileTab !== 'editor' }"
             >
               <EmptyState
@@ -328,7 +328,10 @@ onBeforeUnmount(() => {
           </div>
 
           <!-- Join code + checkpoints + error groups -->
-          <div class="col-12 col-xl-4" :class="{ 'd-none d-xl-block': mobileTab !== 'editor' }">
+          <div
+            class="teach-side col-12 col-xl-4"
+            :class="{ 'd-none d-xl-block': mobileTab !== 'editor' }"
+          >
             <div class="d-flex flex-column gap-3">
               <JoinCodeCard :code="live.session.join_code" />
 
@@ -408,12 +411,33 @@ onBeforeUnmount(() => {
   padding-block: 0;
   font-size: var(--ca-text-sm);
 }
-/* Dylan's panels fill their box, so the box sets the height: it grows to the bottom of
-   the right-hand column, and never gets shorter than this */
+/* Dylan's panels fill their box, so the box sets the height. Stacked below xl it's a fixed
+   tall box; from xl it fills what's left of the screen (below) */
 .editor-box {
   flex: 1 1 auto;
   min-height: 36rem;
   border-radius: var(--ca-radius);
   overflow: hidden;
+}
+/* xl: the page fits the screen. The editor fills the left side down to the bottom, and the
+   right-hand panels scroll on their own, so a long AI summary never stretches the editor */
+@media (min-width: 1200px) {
+  .teach-body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .teach-row {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .teach-editor,
+  .editor-box {
+    min-height: 0;
+  }
+  .teach-side {
+    height: 100%;
+    overflow-y: auto;
+  }
 }
 </style>
