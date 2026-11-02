@@ -319,7 +319,7 @@ Migration: `supabase/migrations/20261018153107_sessions.sql`.
 | `status` | `text not null default 'live' check (status in ('live','ended'))` | |
 | `checkpoint_seq` | `int not null default 0 check (checkpoint_seq >= 0)` | The latest checkpoint's `seq`, 0 before the first. `save_checkpoint` moves it; every tile compares the student's `done_seq` with it |
 | `settings` | `jsonb not null default '{"allowCatchUp":true,"hintsEnabled":false,"idleAfterSec":180}' check (session_settings_valid(settings))` | Prof toggles during class. **All three keys are required on every update**, and `idleAfterSec` must be a number from 30 to 3600 — the view casts it, so one bad value would break every tile |
-| `spotlight` | `jsonb check (≤ 20 000 bytes)` | Anonymised excerpt, or null |
+| `spotlight` | `jsonb check (≤ 20 000 bytes)` | Unused: Spotlight was dropped ([05 §9](./05-core-logic.md)). Always null |
 | `announcement` | `jsonb check (announcement is null or char_length(announcement->>'text') between 1 and 200)` | `{ text, at }` — the prof's current class announcement, or null. Stored so late joiners and reconnecting students see it, not just whoever was subscribed at the moment it was sent. Written only by `rpc('announce')`, so the broadcast always accompanies the write |
 | `started_at` | `timestamptz not null default now()` | |
 | `ended_at` | `timestamptz` | |
@@ -380,7 +380,7 @@ All `security definer`, for the same reason as the course helpers.
 | `done_seq` | `int check (done_seq >= 0)` | The checkpoint the student clicked **Done** on (0 = the starter code, before any checkpoint); null until they do. They count as done only while it equals `sessions.checkpoint_seq`, so a new checkpoint resets everyone to in progress without a write |
 | `error` | `jsonb check (null, or an object whose message ≤ 300)` | `{ source: 'runtime' \| 'build', name, message, file, line, key, shapeKey, at }`. Send SQL `null` to clear it. **Build errors have their code frame stripped before they get here** — see [05 §1](./05-core-logic.md#1-client-side-runtime-webcontainer) |
 | `checks` | `jsonb` | `{ passed, total }` — only when automatic checks exist (COULD) |
-| `catch_ups` | `int not null default 0` | Times the student loaded a checkpoint. **Unused for now**: catch-up is client-only (05 §7), so nothing increments it |
+| `catch_ups` | `int not null default 0` | Times the student loaded the latest checkpoint. The workspace adds 1 after each "Load latest checkpoint"; the status trigger then logs a `catch_up` row in `status_history`, which the report counts per checkpoint |
 | `last_seen_at` | `timestamptz not null default now()` | Heartbeat or any event. The `touch_last_seen` trigger sets it to the server's `now()` on every insert or update the student makes to their own row, so a wrong clock on a lab PC can't make them idle (or never idle). Writes by the service role or the seed keep the time they set |
 | `joined_at` | `timestamptz not null default now()` | Attendance for digests |
 
@@ -421,7 +421,7 @@ Append-only; replaces the capped `stateHistory[]` array. Written only by trigger
 | `id` | `bigint generated always as identity` PK |
 | `session_id` | `uuid not null → sessions` on delete cascade |
 | `student_id` | `uuid not null → profiles` |
-| `state` | `text not null check (state in ('error','in_progress','done'))` — never `idle`, see below |
+| `state` | `text not null check (state in ('error','in_progress','done','catch_up'))` — never `idle`, see below. `catch_up` (the record-catch-ups migration) is logged when `student_status.catch_ups` goes up, i.e. the student loaded the latest checkpoint; it isn't a status, so the trigger skips it when deciding whether a status changed |
 | `checkpoint_seq` | `int not null` — the session's latest checkpoint at that moment |
 | `error_key` | `text` — the error's `key` when `state = 'error'`, else null. Added by the help/notes/reports migration so the report can count its top errors after class: `student_status` keeps only the latest error |
 | `at` | `timestamptz not null default now()` |
@@ -744,7 +744,7 @@ T-PRIV-05 passes by construction — a note belonging to someone else is not a 4
 | `session_id` | `uuid` PK → `sessions` on delete cascade | One per ended session |
 | `course_id`, `lesson_id` | `uuid` | For cross-term trends |
 | `attendance` | `jsonb` | `{ joined, enrolled }` |
-| `checkpoints` | `jsonb` | Per-checkpoint funnel — see [05](./05-core-logic.md#10-insights-report): `[{ seq, title, reachedDone, dropOff, errorStudents, medianMinutesToDone, catchUps, helpRequests, trouble }]` (the shape `seed.sql` writes and `build_session_report` produces). `catchUps` is always 0: catching up is download-and-replace, with nothing recorded |
+| `checkpoints` | `jsonb` | Per-checkpoint funnel — see [05](./05-core-logic.md#10-insights-report): `[{ seq, title, reachedDone, dropOff, errorStudents, medianMinutesToDone, catchUps, slowDownPeak, helpRequests, trouble }]` (the shape `seed.sql` writes and `build_session_report` produces). `catchUps` is always 0: catching up is download-and-replace, with nothing recorded | `slowDownPeak` (the record-catch-ups migration) is the most students asking to slow down at once while that checkpoint was the latest.
 | `top_errors` | `jsonb` | Top 5, counts only: `[{ key, students, seq }]` |
 | `slow_down_peak` | `int` | Max simultaneous "Slow down" |
 | `generated_at` | `timestamptz default now()` | |
@@ -876,7 +876,7 @@ The contract, enforced by RLS policies and `security definer` RPCs. **Admin** is
 | **Create / edit / archive** course | ❌ | ❌ | ✅ (own courses only) | ❌ |
 | Add TA to course | ❌ | ❌ | ✅ (owner) | ❌ |
 | **Create / edit / delete** lesson, import from GitHub | ❌ | ❌ | ✅ | ❌ |
-| Start / end a live session, save checkpoints, Spotlight | ❌ | ❌ | ✅ | ❌ |
+| Start / end a live session, save checkpoints | ❌ | ❌ | ✅ | ❌ |
 | Post / clear a class announcement | ❌ | ❌ | ✅ | ❌ |
 | Join a live session | ✅ | ✅ (as staff) | ✅ | — |
 | Report own status, tap Done, toggle "Slow down", autosave, catch up | ✅ | — | — | — |

@@ -9,7 +9,7 @@ This is the "how it actually works" document: the parts that make CodeAlong a Ti
 | `shared/*.js` | Pure functions — normaliser, classifier, diff, excerpt, report, checkpoint labels | No DOM, no network, no `Deno`; unit-tested with Vitest; imported by both the Vue app and the Edge Functions |
 | `src/` (browser) | Anything the user's own data drives: the **WebContainer runtime**, re-parsing, diffing, error grouping, the IndexedDB cache | Already trusted with that data; a round-trip would add latency and nothing else |
 | Postgres (RPC / view / trigger) | Anything a client must not decide: roles, join codes, `seq`, state transitions, **tile state** | `security definer` and RLS make it unforgeable |
-| Edge Function (Deno) | Anything needing an API secret or elevated rights: Telegram, GitHub, LLM, Spotlight, reports | The only place secrets exist |
+| Edge Function (Deno) | Anything needing an API secret or elevated rights: Telegram, GitHub, LLM, reports | The only place secrets exist |
 
 | # | Logic | Owner | Tier | Home | Tested in |
 |---|---|---|:---:|---|---|
@@ -21,7 +21,7 @@ This is the "how it actually works" document: the parts that make CodeAlong a Ti
 | 6 | Error normalisation + grouping (runtime **and build** errors) | Evan | **3** | `shared/` | `tests/unit/error-normalizer.test.js` |
 | 7 | Catch-up (download, then replace) | Ray Yien · Dylan (mount) | 2 | browser | `tests/unit/stores/workspace.test.js`, `downloadProject.test.js`, E2E `catch-up.spec.js` |
 | 8 | Help queue + Telegram ping | Karin | 2 | RPC + function | E2E `help.spec.js` |
-| 9 | Spotlight anonymisation | Evan | 2 | function + `shared/` | `tests/unit/spotlight.test.js` |
+| 9 | ~~Spotlight anonymisation~~ | — | — | Dropped | — |
 | 10 | Insights report + trends + digest | Andric | 2–3 | SQL trigger + function | `tests/unit/rls/session_report.test.js`, `tests/unit/digest-function.test.js` |
 | 11 | Replay + GitHub import/export | Ray Yien | 2 | function | `tests/unit/github-export.test.js`, E2E `replay.spec.js` |
 | 12 | Telegram bot integration | Karin | 2 | function | `tests/unit/telegram.test.js` |
@@ -364,7 +364,7 @@ Lessons used to carry an ordered list of steps, parsed from `// TODO 3:` comment
 
 `shared/error-normalizer.js` runs in the **student's** browser, before the status upsert, so `student_status.error` already carries `key` and `shapeKey`. Grouping runs in the **staff** browser over the tile list. Neither needs a server.
 
-It now normalises **two** kinds of error. Runtime errors arrive from the probe as before. Build errors arrive from the dev server's output and must pass through `parseBuildError()` first, which strips the code frame (§1) — only then does `normalizeError()` see them. Both end up with the same `{ key, shapeKey }` shape, so grouping, Spotlight and the insights funnel need no changes.
+It now normalises **two** kinds of error. Runtime errors arrive from the probe as before. Build errors arrive from the dev server's output and must pass through `parseBuildError()` first, which strips the code frame (§1) — only then does `normalizeError()` see them. Both end up with the same `{ key, shapeKey }` shape, so grouping and the insights funnel need no changes.
 
 Build errors group especially well: when nine students break the same `import`, Vite gives all nine a near-identical message, which is exactly the signal the prof wants. `error.source` (`'runtime'` or `'build'`) is carried through so the dashboard can label a group "won't compile" versus "throws at runtime".
 
@@ -546,18 +546,9 @@ prof opens the Teach view or presses Refresh → dashboard store → dashboard.a
 
 ---
 
-## 9. Spotlight Anonymisation
+## 9. ~~Spotlight Anonymisation~~
 
-Spotlight projects **one** example of a common mistake next to the fix. It is an Edge Function, because it deliberately reads a student's code and must return it stripped of identity — exactly the kind of elevated read RLS should not grant a staff member directly.
-
-1. The prof clicks **Spotlight** on an error group → `functions.invoke('spotlight', { sessionId, errorKey })`.
-2. The function verifies the caller is the course prof, then uses the **service role** to pick the most recent `help_request` snapshot in that group — only code a student chose to send is eligible. No eligible snapshot → the prof sees "Nobody in this group has sent their code yet" and the Spotlight shows the error message + fix only.
-3. Excerpt = the error's file, ±6 lines around the error line (`shared/spotlight.js`).
-4. Anonymise: remove comments, replace the student's name/email (and any other enrolled student's name) with `Student`, cap at 30 lines.
-5. Fix = the same region from the latest checkpoint.
-6. The function writes `sessions.spotlight` and broadcasts `spotlight:show` to everyone; the student whose code it is gets no special marker.
-
-> The excerpt builder is pure (`shared/spotlight.js`) so T-ERRG-07 can assert "no student names, no comments, ≤ 30 lines" without invoking a function.
+**Dropped.** The team chose not to build Spotlight (projecting one anonymised student example of a common error to the whole class). Common errors on the teach view shows the groups only. The `sessions.spotlight` column and the `spotlight:show` / `spotlight:hide` constants are still in the schema and `shared/constants.js`, unused.
 
 ---
 
@@ -578,12 +569,12 @@ For each checkpoint *k* (with `t_k` = when the prof saved it):
 | `errorStudents` | Distinct students with any `error` state while checkpoint *k* was the latest |
 | `medianMinutesToDone` | Median of (their Done on *k*) − `t_k` |
 | `helpRequests` | Help requests asked while checkpoint *k* was the latest (they carry `checkpoint_seq`) |
-| `catchUps` | Always 0: catch-up is download-and-replace (§7) and records nothing |
+| `catchUps` | Times students loaded the latest checkpoint while *k* was the latest: `catch_up` rows in `status_history`, logged when the workspace adds 1 to `student_status.catch_ups` after "Load latest checkpoint" |
 
 **Trouble score** (shown with its formula, so profs can trust it):
-`trouble_k = (0.4 × errorStudents + 0.3 × dropOff + 0.1 × helpRequests) / joined`, rounded to 3 places (the old `0.2 × catchUps` term went with the catch-up record)
+`trouble_k = (0.4 × errorStudents + 0.3 × dropOff + 0.2 × catchUps + 0.1 × helpRequests) / joined`, rounded to 3 places
 
-The report highlights the top 3 checkpoints, the top 5 error groups and the peak "Slow down" count. Error groups come from `status_history.error_key` (the live `student_status` row keeps only the latest error); the peak comes from `session_slow_down_peak()` over `slow_down_events`.
+The report highlights the top 3 checkpoints, the top 5 error groups and the peak "Slow down" count, plus each checkpoint's own peak (`slowDownPeak`: the most asking at once while it was the latest, counting flags still up from before it), so the page can say where in the lesson it peaked. Error groups come from `status_history.error_key` (the live `student_status` row keeps only the latest error); the peak comes from `session_slow_down_peak()` over `slow_down_events`.
 
 **Trends across terms** (`rpc('lesson_trends')`): for every past session of the same lesson (or a lesson with the same title in a course with the same course code) **among the calling prof's own courses**, a checkpoint counts as *recurring trouble* if it was in the top 3 by trouble score in at least two sessions. Checkpoints are matched by normalised **title** (the prof tends to reuse them when teaching the same lesson), falling back to the number. Without lesson steps this is a heuristic: a prof who titles nothing, or saves checkpoints at different points each term, gets weaker trends. This is a SQL aggregate now rather than a JS loop over documents.
 

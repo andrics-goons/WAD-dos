@@ -17,7 +17,6 @@ shared/
 ├── error-normalizer.js  ← Evan
 ├── tile-state.js        ← Evan (classify(), must agree with Andric's SQL view)
 ├── diff-summary.js      ← Ray Yien
-├── spotlight.js         ← Evan (excerpt + anonymise)
 ├── build-error.js       ← Dylan (strips the code frame before normalising)
 └── join-code.js         ← Ying Qi
 ```
@@ -389,11 +388,10 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `<DiffView>` | Ray Yien | Dylan, Karin | props `before`, `after`, `mode` |
 | `fn('github-import')` | Ray Yien | Lesson new view | `{ repoUrl, providerToken } → { files, entryFile, source }` — `providerToken` is the prof's GitHub token from Supabase Auth, never stored |
 | `fn('github-export')` | Ray Yien | Replay view | `{ sessionId, repoName, private, providerToken } → { repoUrl }` — `providerToken` is the user's GitHub token from Supabase Auth, never stored |
-| `fn('spotlight')` | Evan | Teach view | `{ sessionId, errorKey, helpRequestId? } → { excerpt, fix, errorPreview }` |
 | `fn('analyze-help')` | Evan | `analyze_help_request` trigger (not the client) | `{ requestId } → { saved: 'ok' \| 'failed' } \| { skipped }` — writes `help_requests.analysis` |
 | `fn('summarize-help')` | Evan | Teach view (`dashboard.api` `getHelpSummary`) | `{ sessionId } → { headline, groups: [{ key, stepOrder, stepTitle, category, count, title, explanation, teachingTip }], analysedCount, pendingCount, source: 'llm' \| 'rules' \| 'none', model, generatedAt }`; `FORBIDDEN` unless session staff |
 | `fn('digest')` | Andric (content) / Karin (send) | Report view (Evan) | `{ sessionId } → { sent, failed, staff, absent }`; `FORBIDDEN` unless the course prof, `CONFLICT` while live, once sent, or with nobody linked |
-| `rpc('lesson_trends')` | Andric | Report view | `(p_lesson_id) → [{ title, sessions, of_sessions, avg_drop_off }]`, only the caller's own courses |
+| `rpc('lesson_trends')` | Andric | — (not shown on the report page since it was trimmed) | `(p_lesson_id) → [{ title, sessions, of_sessions, avg_drop_off }]`, only the caller's own courses |
 | `getReport` | Andric | Report view | `(sessionId) → { session: { id, status, startedAt, endedAt, lessonId, lessonTitle, courseLabel }, report \| null, help: { total, leftOpen, medianWaitMinutes }, isProf }` |
 
 ---
@@ -419,10 +417,10 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Lessons | `lesson-row-<slug>`, `lesson-start-<slug>`, `btn-connect-github` (import tab, when GitHub isn't connected) |
 | Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `input-checkpoint-title`, `btn-save-checkpoint`, `btn-end-session`, `input-announce`, `btn-announce` (an empty box clears the announcement), `announcement-banner` |
 | Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `btn-download-project`, `workspace-checkpoint`, `tab-code`, `tab-preview`, `tab-console` |
-| Dashboard | `summary-done`, `slow-down-count`, `error-group-<index>`, `btn-spotlight-<index>`, `spotlight-panel`, `help-summary`, `help-summary-headline`, `help-summary-group-<index>`, `btn-refresh-help-summary` |
+| Dashboard | `summary-done`, `slow-down-count`, `error-group-<index>`, `help-summary`, `help-summary-headline`, `help-summary-group-<index>`, `btn-refresh-help-summary` |
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up` |
 | Replay | `timeline-checkpoint-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
-| Reports | `report-funnel`, `report-top-errors`, `btn-send-digest`, `digest-sent` |
+| Reports | `report-funnel`, `report-most-loaded`, `report-top-errors`, `btn-send-digest`, `digest-sent` |
 | Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login`, `btn-github-login`, `btn-role-student`, `btn-role-educator` (`/welcome`), `link-register`, `link-login` |
 | Profile | `input-profile-name`, `btn-save-name`, `input-current-password`, `input-new-password`, `btn-change-password`, `btn-logout`, `btn-connect-github`, `btn-disconnect-github`, `btn-delete-account`, `input-confirm-delete`, `ta-courses`, `github-username` |
 | Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `input-user-search` |
@@ -478,7 +476,7 @@ Full list in [02-tech-stack.md](./02-tech-stack.md#environment-variables).
 - [ ] Check my work → pass/reply; Ask for help → Telegram ping → resolve
 - [ ] A replied request can be followed up (same request, original queue place, fresh code), up to 3 times
 - [ ] Prof announcement reaches every student, and a late joiner still sees it
-- [ ] Error groups merge the same mistake; Spotlight is anonymised
+- [ ] Error groups merge the same mistake
 - [ ] Ending a session shows the replay link; replay, notes, search work
 - [ ] GitHub export creates one commit per checkpoint
 - [ ] Insights report + digest correct (counts only)

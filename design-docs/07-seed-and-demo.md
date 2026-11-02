@@ -69,7 +69,7 @@ Two processes run in the container: Vite on 5173 and the Express endpoint on 300
 | 7 | Save the cart to localStorage and load it on start | `src/App.vue` |
 | 8 | Add Reset and Checkout buttons (POST `/api/checkout`) | `src/App.vue`, `server/api.js` |
 
-TODO 4 (checkpoint 4 in the seed) stays the deliberate trouble spot — `props.items` vs `items` — which is what the seeded past session, the error-grouping demo and the Spotlight demo are all built on.
+TODO 4 (checkpoint 4 in the seed) stays the deliberate trouble spot — `props.items` vs `items` — which is what the seeded past session, and the error-grouping demo are built on.
 
 Two things this changes:
 
@@ -85,7 +85,7 @@ Two things this changes:
 | 8 checkpoints | Saved every 10 minutes, each with the title Prof Lee typed ("Categories load on mount"…). **Each is the real code at that point**: the starter with TODOs 1…*k* solved, so replay shows the project growing | Replay, GitHub export |
 | 11 `student_status` rows + `status_history` | 8 click Done on checkpoint 8; **6 hit `ReferenceError: items is not defined` on checkpoint 4** (`items` instead of `props.items`); **3 never catch up after checkpoint 6** and end in progress. Each checkpoint resets everyone to in progress; history is written exactly as the triggers would have, with real timestamps | Insights funnel, checkpoint 4 as top trouble spot |
 | 18 snapshots | Everyone's autosave, 2 `before_catchup` (Eli, Ivan), 5 `help_request` | Privacy: a TA sees only the 5 sent ones |
-| 5 help requests | 2 passed checks, 2 replied helps on the checkpoint 4 bug, 1 in-person resolved (Gus, seat C14) | Help history in replay; Spotlight source |
+| 5 help requests | 2 passed checks, 2 replied helps on the checkpoint 4 bug, 1 in-person resolved (Gus, seat C14) | Help history in replay |
 | 4 notes/bookmarks | Alex's notes on checkpoints 4 and 7 | Notes + search |
 | 12 `slow_down_events` | Three asking to slow down at once around checkpoint 4, three again near the end | `slow_down_peak` = 3 |
 | `session_reports` row | Literal counts matching the history above, per the [05 §10](./05-core-logic.md#10-insights-report) definitions, per checkpoint: checkpoint 4 trouble 0.236 (top), checkpoint 7 drop-off 3. `seed.test.js` checks them against the history | Report page renders immediately |
@@ -197,7 +197,7 @@ Every member presents the part they built (check your section's rule on who must
 | 15 | Bea → **Check my work** | TA queue shows the card instantly (no code until opened) |
 | 16 | TA claims → side-by-side → **Pass** | Bea gets a tick for that checkpoint |
 | 17 | Chen → **Ask for help** → "Come to my seat" Row C 4 | Telegram message arrives on the TA's phone (Telegram Bot API) |
-| 18 | Prof clicks **Spotlight** on the error group | Anonymised excerpt + fix on every screen |
+| 18 | ~~Prof clicks **Spotlight** on the error group~~ | Dropped with Spotlight: the prof explains the grouped mistake instead |
 | 19 | **Explain:** privacy by design — prof sees status, not code | Slide: what each role can see |
 
 ### 8:45–10:15 · After class (Ray Yien, Andric)

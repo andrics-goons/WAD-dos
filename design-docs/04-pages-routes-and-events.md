@@ -47,7 +47,7 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 | `/help/:requestId` | `HelpReviewView` | Karin | Staff | One request on its own page (the Telegram ping links here), same `HelpReviewPanel` as the queue, with a link back to the queue. Stacked thread + reply, then the diff (stacked on xs, side by side from sm) |
 | `/replays` | `ReplayListView` | Ray Yien | Logged in | List grouped by course, search box on top |
 | `/replays/:sessionId` | `ReplayView` | Ray Yien | Staff / enrolled | Timeline as horizontal scroller, code below, preview behind a tab → timeline left, code + preview right, notes drawer |
-| `/sessions/:id/report` | `ReportView` | Evan (page) · Andric (report data) | Staff | Cards stacked; funnel chart scrolls horizontally → 2-col grid: funnel per checkpoint, top errors, recurring trouble checkpoints, digest panel |
+| `/sessions/:id/report` | `ReportView` | Evan (page) · Andric (report data) | Staff | Cards stacked; 2-col grid: per checkpoint, how many students loaded it (needed the prof's code), with the most challenging one(s) named; top errors and the digest panel beside it. Headline cards: attended, help requests (left open), slow-down peak. Not shown: recurring trouble across classes and the median TA wait (both still in the data) |
 | `/welcome` | `ChooseRoleView` | Andric | A new GitHub account (`role_chosen = false`); the router sends them here from any page, with `returnTo` | Two big buttons, side by side from `sm` |
 | `/profile` | `ProfileView` | Ying Qi (profile) + Karin (Telegram link card) | Logged in | Single column |
 | `*` | `NotFoundView` | Ying Qi | Public | Friendly 404 with links back |
@@ -165,7 +165,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 | Kind | Call | What happens | Who |
 |---|---|---|---|
 | Query | `from('lessons').select().eq('course_id', id).ilike('title', …)` | Lesson library search | Staff / enrolled |
-| Query | `from('lessons').insert(…)` — `createLesson(courseId, details)` | Create a draft from uploaded files | Prof |
+| Query | `from('lessons').insert(…)` — `createLesson(courseId, details)` | Create a lesson from uploaded files, visible to students (`ready`); the editor's "Visible to students" switch hides it (`draft`) | Prof |
 | Function | `github-import` → `{ repoUrl, providerToken }` | Fetches files with the prof's own GitHub token → returns files; client then inserts. No token → `UNAUTHENTICATED` and the tab offers **Connect GitHub** | Prof (Ray Yien) |
 | Query | `from('lessons').select('*, sessions(count)')` — `getLesson(id)` | Lesson with its files and whether it has been taught. Staff see every lesson; **enrolled students see non-draft lessons only**, including their starter `files` | Staff / enrolled |
 | Query | `from('lessons').update(…)` | Title/description/week/files/entry_file/dev_command/status | Prof |
@@ -185,16 +185,14 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 | RPC | `save_checkpoint(p_session_id, p_files, p_title)` | **Any time** while live. Allocates `seq`, stores the optional title, moves `sessions.checkpoint_seq` (every Done student goes back to in progress), broadcasts `checkpoint:new` | Prof |
 | Query | `from('checkpoints').select().eq('session_id', id).order('seq')` | All checkpoints with files | Member |
 
-### Dashboard & Spotlight — `dashboard.api.js` (Evan)
+### Dashboard — `dashboard.api.js` (Evan)
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
 | Query | `from('session_tiles').select().eq('session_id', id)` | Tiles with state derived in SQL — **no code columns exist** | Staff |
 | Query | `from('session_summary').select().eq('session_id', id).single()` | Counts + `slow_down_count` as an aggregate | Staff |
 | Function | `summarize-help` → `{ sessionId }` | "What the class is stuck on": groups the open help requests' LLM analyses by step + category, then the LLM writes a title, explanation and teaching tip per group ([05 §8a](./05-core-logic.md#8a-help-request-analysis)). Runs on dashboard load and Refresh | Staff |
-| Function | `spotlight` → `{ sessionId, errorKey, helpRequestId? }` | Reads an eligible help-request snapshot with elevated rights, builds the anonymised excerpt, broadcasts `spotlight:show` | Prof |
 | Query | `from('lessons').select('id, files_hash')` then `files` only on a cache miss | The `files_hash` check that keeps repeat loads near-zero egress — see [05 §2](./05-core-logic.md#2-files-cache--dependencies) | Member |
-| Query | `from('sessions').update({ spotlight: null })` | Trigger broadcasts `spotlight:hide` | Prof |
 
 > Error groups are **not** a server call. `groupErrors(tiles, …)` runs in the staff browser over the tile list — the same pure function, now client-side.
 
@@ -207,7 +205,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 | — | `workspaceStore.loadLatestCheckpoint()` | **Catch-up, no RPC:** after the student confirms (and optionally downloads a .zip), loads the latest checkpoint through the file cache, replaces the editor and WebContainer files, and autosaves them. Disabled when there's no checkpoint, `allowCatchUp` is off, or the class has ended | Enrolled |
 | Query | `from('snapshots').select().eq('reason','before_catchup')` | My attempts — RLS makes "mine" automatic | Enrolled |
 | Query | `getMyStatus(sessionId)` / `saveStatus(sessionId, studentId, { doneSeq, error })` — `from('student_status').upsert(…)` | Status on change (throttled to 2 s) + 30 s heartbeat while the tab is visible; driven by `stores/status.js`. No `state` field exists to send | Enrolled |
-| Query | `getMySlowDown(sid)`: my own `slow_down_flags` row → boolean; `setSlowDown(sid, me, on)`: `insert({ session_id, student_id })` / `.delete()` (a duplicate insert is ignored) | "Slow down" on / off, loaded with my status so it survives a reload. Anonymous: staff can only read `slow_down_count` | Enrolled, live session |
+| Query | `getMySlowDown(sid)`: my own `slow_down_flags` row → boolean; `setSlowDown(sid, me, on)`: `insert({ session_id, student_id })` / `.delete()` (a duplicate insert is ignored) | "Slow down" on / off, loaded with my status so it survives a reload. Clicking **Done** turns it off too (I've caught up), so forgotten flags don't keep the count high; turning it **on** while Done puts me back to In progress (I'm not caught up after all). Anonymous: staff can only read `slow_down_count` | Enrolled, live session |
 
 ### Help — `help.api.js` (Karin)
 
@@ -341,8 +339,8 @@ Sent only from RPCs and Edge Functions via `realtime.send()`. Clients subscribe;
 | `checkpoint:new` | `{ sessionId, checkpointId, seq, title, filesHash, createdAt }` (`title` may be null) (files fetched on demand by `checkpointId`; `filesHash` lets the cache skip the download) | Ying Qi |
 | `session:settings` | `{ sessionId, allowCatchUp, hintsEnabled }` | Ying Qi |
 | `session:ended` | `{ sessionId, replayUrl }` — `replayUrl` is a path (`/replays/<id>`); the browser adds its own origin | Ying Qi |
-| `spotlight:show` | `{ sessionId, errorPreview, excerpt: { path, startLine, code }, fix: { path, startLine, code } }` | Evan |
-| `spotlight:hide` | `{ sessionId }` | Evan |
+| ~~`spotlight:show`~~ | — | Unused: Spotlight was dropped |
+| ~~`spotlight:hide`~~ | — | Unused: Spotlight was dropped |
 | `session:announce` | `{ sessionId, text, at }` — `text: null` clears | Karin |
 
 ### Postgres Changes (rows you are allowed to see)
@@ -400,7 +398,7 @@ Unchanged — components never knew where the data came from, which is why this 
 | `ConsolePanel` | `entries` | `clear` | Filters: All · Errors · Network |
 | `DoneButton` | `seq`, `disabled`, `passedByTa` | `done`, `undo` | "I've caught up to the latest checkpoint"; resets when a new one arrives |
 | `ClassChoices` | `summary` | — | The teach view's class summary card: Done (n of total, with a bar), Slow down, Asked for help, Check my work, each with its own icon. Numbers only, no names |
-| `ErrorGroupList` | `groups` | `spotlight` | Prof-only Spotlight button per group |
+| `ErrorGroupList` | `groups` | — | One row per common mistake: count, title, its variants, "Won't compile" / "Throws at runtime" |
 | `HelpRequestCard` | `request`, `staffNames`, `myId`, `now`, `selected`, `canAct` | `claim`, `open` | Waiting time counts from the student's latest message (the opening one or a follow-up, so a follow-up isn't instantly "overdue"), ticking with the page's `now`; **Follow-up** badge + "last handled by …"; "Ana is on this" once claimed |
 | `HelpReviewPanel` | `request`, `myId`, `canAct` | — | The TA's view of one request, used by both help pages: thread, Claim → Reply / Pass (checks only) / Resolved in person / Release, and the student's code diffed against the checkpoint the class was on when they asked. Reloads the code when a follow-up attaches a newer snapshot |
 | `HelpStatusPill` | `status` | — | Waiting · Claimed · Passed · Replied · Resolved · Cancelled, icon + text (`help-status`) |
