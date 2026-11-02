@@ -54,9 +54,32 @@ async function loginAll(browser, emails, use) {
   await Promise.all(sessions.map((s) => s.context.close()))
 }
 
+/**
+ * A student joins the seeded live class (join code CART42) and lands in its workspace.
+ * Waits until the realtime socket confirms the class channel, so the test only goes on once
+ * the student can receive a broadcast: one sent while it is still connecting would be missed.
+ */
+export async function joinClass(page) {
+  const subscribed = new Promise((resolve) => {
+    page.on('websocket', (ws) => {
+      if (!ws.url().includes('realtime')) return
+      ws.on('framereceived', ({ payload }) => {
+        if (String(payload).includes('phx_reply') && String(payload).includes('postgres_changes')) {
+          resolve()
+        }
+      })
+    })
+  })
+  await page.goto('/join/CART42')
+  await page.getByRole('button', { name: 'Join' }).click()
+  await expect(page).toHaveURL(/\/s\/[^/]+\/code/)
+  await subscribed
+}
+
 export const test = base.extend({
   prof: ({ browser }, use) => loginAll(browser, ['prof@codealong.test'], ([page]) => use(page)),
   ta: ({ browser }, use) => loginAll(browser, ['ta.ana@codealong.test'], ([page]) => use(page)),
+  ta2: ({ browser }, use) => loginAll(browser, ['ta.ben@codealong.test'], ([page]) => use(page)),
   students: ({ browser }, use) =>
     loginAll(browser, ['alex@codealong.test', 'bea@codealong.test', 'chen@codealong.test'], use),
 })

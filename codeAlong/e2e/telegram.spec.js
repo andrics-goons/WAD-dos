@@ -1,4 +1,4 @@
-import { test, expect, service } from './fixtures'
+import { test, expect, service, joinClass } from './fixtures'
 
 // Needs the Edge Functions served with EXTERNAL_APIS=mock and the Vault pair set
 // (design-docs/03, "In-person ping"), so the ping lands in test_outbox, not on a phone.
@@ -31,22 +31,25 @@ test.afterAll(async () => {
   await service.from('profiles').update({ telegram_chat_id: originalChatId }).eq('id', taId)
 })
 
+// Alex asks for in-person help from seat C14
+async function askInPerson(alex) {
+  await joinClass(alex)
+  await alex.getByTestId('btn-help').click()
+  await alex.getByRole('button', { name: 'Ask for help' }).click()
+  await alex.getByLabel("What's going on?").fill('My cart will not update')
+  await alex.getByLabel('Come to my seat').check()
+  await alex.getByLabel('Seat', { exact: true }).fill('C14')
+  await alex.getByRole('button', { name: 'Send', exact: true }).click()
+}
+
 test.describe('telegram ping', () => {
   test('T-HELP-08: an in-person request pings the staff with name, seat, step and link', async ({
     students,
   }) => {
     const [alex] = students
-    await alex.goto('/join/CART42')
-    await alex.getByRole('button', { name: 'Join' }).click()
-    await expect(alex).toHaveURL(new RegExp(`/s/${SESSION_ID}/code`))
-    await alex.getByTestId('btn-help').click()
 
     // Act
-    await alex.getByRole('button', { name: 'Ask for help' }).click()
-    await alex.getByLabel("What's going on?").fill('My cart will not update')
-    await alex.getByLabel('Come to my seat').check()
-    await alex.getByLabel('Seat', { exact: true }).fill('C14')
-    await alex.getByRole('button', { name: 'Send', exact: true }).click()
+    await askInPerson(alex)
 
     // Assert: the message "sent" to Ana's chat says who, where, which step, and links to the request
     const outbox = () => service.from('test_outbox').select('payload').eq('channel', 'telegram')
@@ -68,5 +71,34 @@ test.describe('telegram ping', () => {
       .single()
     expect(payload.text).toContain(`Checkpoint ${session.checkpoint_seq}`)
     expect(payload.text).toContain(`/help/${request.id}`)
+  })
+
+  test('T-HELP-09: when nobody can be pinged the request still exists and the student is told', async ({
+    students,
+  }) => {
+    const [alex] = students
+    // Arrange: no staff member has linked Telegram, so the ping has nobody to reach
+    await service.from('profiles').update({ telegram_chat_id: null }).eq('id', taId)
+
+    try {
+      // Act
+      await askInPerson(alex)
+
+      // Assert: committed before the ping, so it's there; nothing was sent
+      await expect(alex.getByText('TA notified in app only')).toBeVisible()
+      const { data: requests } = await service
+        .from('help_requests')
+        .select('telegram_notified_at')
+        .eq('session_id', SESSION_ID)
+      expect(requests).toHaveLength(1)
+      expect(requests[0].telegram_notified_at).toBeNull()
+      const { data: outbox } = await service
+        .from('test_outbox')
+        .select('id')
+        .eq('channel', 'telegram')
+      expect(outbox).toHaveLength(0)
+    } finally {
+      await service.from('profiles').update({ telegram_chat_id: CHAT_ID }).eq('id', taId)
+    }
   })
 })

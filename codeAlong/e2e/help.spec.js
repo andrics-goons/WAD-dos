@@ -1,4 +1,4 @@
-import { test, expect, service } from './fixtures'
+import { test, expect, service, joinClass } from './fixtures'
 
 // The live seeded class (join code CART42) and the TA's page for it.
 const SESSION_ID = '00000000-0000-0000-0004-000000000004'
@@ -9,12 +9,6 @@ test.beforeEach(async () => {
   const { error } = await service.from('help_requests').delete().eq('session_id', SESSION_ID)
   expect(error).toBeNull()
 })
-
-async function joinClass(page) {
-  await page.goto('/join/CART42')
-  await page.getByRole('button', { name: 'Join' }).click()
-  await expect(page).toHaveURL(new RegExp(`/s/${SESSION_ID}/code`))
-}
 
 async function openHelp(page) {
   await page.getByTestId('btn-help').click()
@@ -208,5 +202,36 @@ test.describe('help flow', () => {
     const thread = alex.getByTestId('help-thread')
     await expect(thread).toContainText('Is price a number?')
     await expect(thread).toContainText('Then check the quantity')
+  })
+
+  test('T-HELP-05: a second TA who claims the same request is turned away', async ({
+    ta,
+    ta2,
+    students,
+  }) => {
+    const [alex] = students
+    await joinClass(alex)
+    await openHelp(alex)
+    await alex.getByRole('button', { name: 'Check my work' }).click()
+
+    // Arrange: Ben loads the queue but never hears about changes, so his page still offers Claim
+    await ta2.routeWebSocket(/realtime/, (ws) => {
+      const server = ws.connectToServer()
+      ws.onMessage((message) => server.send(message))
+    })
+    await ta2.goto(QUEUE)
+    await ta.goto(QUEUE)
+    const claimFor = (page) => page.getByTestId(/^help-card-/).getByTestId('btn-claim')
+    await expect(claimFor(ta2)).toBeVisible()
+    await claimFor(ta).click()
+    await expect(ta.getByTestId('btn-pass')).toBeVisible()
+
+    // Act: Ben claims the one Ana already has
+    await expect(claimFor(ta2)).toBeVisible()
+    await claimFor(ta2).click()
+
+    // Assert
+    await expect(ta2.getByText('Someone else is already on this one')).toBeVisible()
+    await expect(ta2.getByTestId('btn-pass')).toHaveCount(0)
   })
 })

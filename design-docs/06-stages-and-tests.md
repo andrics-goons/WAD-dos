@@ -89,7 +89,7 @@ it('every public table has RLS enabled', async () => {
 | Responsive | Two Playwright projects: `desktop-chrome` (1280×800) and `mobile-chrome` (375×667, `isMobile`, `hasTouch`). Specs tagged `@responsive` run on both |
 | Docker dependency | `supabase start` needs Docker. The README documents it, and `pnpm test:e2e` fails with a clear message if the daemon is not running |
 
-### Fixture sketch — `tests/e2e/fixtures.js`
+### Fixture sketch — `e2e/fixtures.js`
 
 ```js
 import { test as base, expect } from '@playwright/test'
@@ -128,7 +128,7 @@ export { expect }
 
 > The one fiddly part of this rewrite: the Supabase session lives in `localStorage` under a project-scoped key, not in a cookie, so `addInitScript` replaces `context.request.post('/api/auth/login')`. **Owner: Karin**, and worth getting right in Week 8 — every E2E spec depends on it.
 
-### Example journey — `tests/e2e/live-session.spec.js`
+### Example journey — `e2e/live-session.spec.js`
 
 Unchanged from the Mongo design, which is the point: the tests describe behaviour, not plumbing.
 

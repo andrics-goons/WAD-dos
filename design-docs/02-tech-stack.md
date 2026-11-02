@@ -328,7 +328,7 @@ The GitHub OAuth app's ID and secret are **not** function secrets: Supabase Auth
 | `pnpm db:push` | `supabase db push` — applies new migrations to the linked cloud project |
 | `pnpm fn:deploy` | `supabase functions deploy` — all Edge Functions |
 | `pnpm test:unit` | Vitest (`shared/` logic + RLS negative tests) |
-| `pnpm test:e2e` | Starts the local stack with `EXTERNAL_APIS=mock`, builds, runs Playwright |
+| `pnpm test:e2e` | Needs Docker and `supabase start` already running (it says so if not). Sets the Vault pair, starts the dev server and the Edge Functions with `EXTERNAL_APIS=mock` (`e2e/functions.env`), then runs Playwright |
 | `pnpm simulate --session ABC234 --students 40` | Load test / fills the dashboard for demos. **Against the local stack unless you mean to spend egress** |
 
 ---

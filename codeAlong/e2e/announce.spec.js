@@ -1,4 +1,4 @@
-import { test, expect, service } from './fixtures'
+import { test, expect, service, joinClass } from './fixtures'
 
 const SESSION_ID = '00000000-0000-0000-0004-000000000004'
 const TEACH = `/s/${SESSION_ID}/teach`
@@ -11,12 +11,6 @@ test.beforeEach(async () => {
     .eq('id', SESSION_ID)
   expect(error).toBeNull()
 })
-
-async function joinClass(page) {
-  await page.goto('/join/CART42')
-  await page.getByRole('button', { name: 'Join' }).click()
-  await expect(page).toHaveURL(new RegExp(`/s/${SESSION_ID}/code`))
-}
 
 async function announce(prof, text) {
   await prof.getByTestId('input-announce').fill(text)
