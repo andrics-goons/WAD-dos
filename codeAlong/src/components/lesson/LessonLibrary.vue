@@ -225,6 +225,6 @@ async function startClass(lesson) {
 <style scoped>
 /* same width whatever the count, so the lesson titles line up */
 .lesson-toggle {
-  min-width: 7.5rem;
+  min-width: 6.5rem;
 }
 </style>
