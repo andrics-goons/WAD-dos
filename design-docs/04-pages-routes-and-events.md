@@ -20,7 +20,7 @@ ADMIN
 Users    /admin/users
 ```
 
-**Routes stay per course.** `/courses/:id` is the home of one prof's course: its **Lessons** tab holds the reusable plans, and its **Sessions** tab lists every live class the prof has started in that course, live and past. Nothing in the app lists courses globally — a prof sees only their own, a student only those they enrolled in.
+**Routes stay per course.** `/courses/:id` is the home of one prof's course: its **Lessons** tab holds the reusable plans, and each lesson has a dropdown listing every class started from it, live and past. Nothing in the app lists courses globally — a prof sees only their own, a student only those they enrolled in.
 
 Routes are unchanged by the move to Supabase — the URLs are a UI contract, not a backend one.
 
@@ -32,11 +32,11 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 
 | Path | View | Owner | Who | Layout: xs (375–575 px) → lg/xl (≥ 992 px) |
 |---|---|---|---|---|
-| `/` | `LandingView` | Ying Qi | Public (logged-in users go to `/home`) | Hero + 3 feature cards stacked → hero left, cards in a row; "Join a class" CTA always visible |
+| `/` | `LandingView` | Ying Qi | Public (logged-in users go to `/home`) | Hero + 3 feature cards + "How it works" (4 steps) + footer, stacked → hero left, cards and steps in a row; "Join a class" CTA always visible. The navbar shows only "Join a class" and "Log in" until you log in |
 | `/home` | `HomeView` | Ying Qi | Logged in | Where you land after logging in. "Live now" (live classes across your courses, with Open class / Help queue / Join by your role in that course) and your first 3 courses, stacked → 7 + 5 cols. Students and TAs get a "Join with a code" button |
 | `/login`, `/register` | `LoginView`, `RegisterView` | Ying Qi | Public | Full-width card → centred card max 420 px |
 | `/courses` | `CoursesView` | Ying Qi | Logged in | Course cards 1 col → 3 cols; prof sees "New course"; student sees **"Enrol in a course"**, which opens `/enrol` |
-| `/courses/:id` | `CourseView` | Ying Qi (shell) + Ray Yien (lesson library) | Staff / enrolled | Tabs (Lessons · Sessions · People) → same tabs, lessons as a table with search. **The owner sees a "Share enrolment" card**: the enrol code, a **Copy link** button for `<APP_URL>/enrol/<code>`, and its QR |
+| `/courses/:id` | `CourseView` | Ying Qi (shell) + Ray Yien (lesson library) | Staff / enrolled | Tabs (Lessons · People) → same tabs. Lessons has a search box; each lesson has a dropdown of its classes, open by default when one is live. **The owner sees a "Share enrolment" card**: the enrol code, a **Copy link** button for `<APP_URL>/enrol/<code>`, and its QR |
 | `/enrol`, `/enrol/:code` | `EnrolView` | Andric | Students and TAs (redirects to login with `returnTo`) | Same 6-box code input as the join page; `/enrol/:code` pre-fills from the link or QR and auto-submits. Success → that course's page. **Joins a course once per term — not the same as `/join`, which joins one live class** |
 | `/courses/:id/lessons/new` | `LessonNewView` | Evan (upload) + Ray Yien (GitHub import tab) | Prof | Stepper: 1 Source → 2 Review files. No plan to review: the prof saves checkpoints during class |
 | `/lessons/:id/edit` | `LessonEditView` | Evan | Prof | The starter files (file tree + editor) at every size, with Details, status, Save and Delete / Archive in the header |
@@ -48,6 +48,7 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 | `/replays` | `ReplayListView` | Ray Yien | Logged in | List grouped by course, search box on top |
 | `/replays/:sessionId` | `ReplayView` | Ray Yien | Staff / enrolled | Timeline as horizontal scroller, code below, preview behind a tab → timeline left, code + preview right, notes drawer |
 | `/sessions/:id/report` | `ReportView` | Evan (page) · Andric (report data) | Staff | Cards stacked; funnel chart scrolls horizontally → 2-col grid: funnel per checkpoint, top errors, recurring trouble checkpoints, digest panel |
+| `/welcome` | `ChooseRoleView` | Andric | A new GitHub account (`role_chosen = false`); the router sends them here from any page, with `returnTo` | Two big buttons, side by side from `sm` |
 | `/profile` | `ProfileView` | Ying Qi (profile) + Karin (Telegram link card) | Logged in | Single column |
 | `*` | `NotFoundView` | Ying Qi | Public | Friendly 404 with links back |
 | `/admin/users` | `AdminUsersView` | Andric | Admin | Searchable user list → name, email, role dropdown, joined. Changing a role asks for confirmation. One Bootstrap list: each user stacks on xs and is a single row from lg. The admin's own role is locked |
@@ -133,7 +134,8 @@ Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoade
 | Auth | `auth.signInWithPassword(…)` | Session stored by `supabase-js`; platform rate-limits | Any |
 | Auth | `auth.signOut()` | Clears the local session | Any |
 | Query | `auth.getUser()` + `from('profiles').select().eq('id', uid).single()` | Current user on app load | Any |
-| Auth | `auth.signInWithOAuth({ provider: 'github', options: { redirectTo } })` — `signInWithGitHub(returnTo)` | **"Continue with GitHub"** on login and register. Leaves for GitHub and comes back to `returnTo` signed in; a first sign-in creates the account. GitHub sends no role, so the trigger makes it a **student** (named after the GitHub display name, else the username). Educators register by email | Any |
+| Auth | `auth.signInWithOAuth({ provider: 'github', options: { redirectTo } })` — `signInWithGitHub(returnTo)` | **"Continue with GitHub"** on login and register. Leaves for GitHub and comes back to `returnTo` signed in; a first sign-in creates the account, named after the GitHub display name, else the username. GitHub sends no role, so the new account goes to `/welcome` first to pick one | Any |
+| RPC | `choose_role(p_role)` — `chooseRole(role)` | `/welcome`: one click on **I'm a student** / **I'm an educator** sets the role, once (`CONFLICT` after that, or once in any course) | New GitHub account |
 | Auth | `auth.linkIdentity({ provider: 'github', options: { scopes: 'public_repo', redirectTo: '/profile' } })` — `connectGitHub()` | **"Connect GitHub"** on the profile page: links GitHub to the account I'm logged in with, with the repo access a replay export needs (05 §11). Needs manual linking on | Any |
 | Auth | `auth.getUserIdentities()` / `auth.unlinkIdentity(github)` — `getGitHubLink()`, `disconnectGitHub()` | Shows "Connected as @username"; Disconnect is refused while GitHub is the only way to log in | Any |
 | Query | `from('profiles').update({ name })` — `updateProfile({ name })` | Own row only (policy forbids changing `role`); 2–60 characters | Any |
@@ -172,7 +174,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
-| RPC | `start_session(p_lesson_id)` | Validates `ready` + prof, allocates a unique join code, inserts; client renders the QR from `APP_URL/join/<code>` | Prof |
+| RPC | `start_session(p_lesson_id)` | Validates `ready` + prof; returns the lesson's live class if it has one, otherwise allocates a unique join code and inserts; client renders the QR from `APP_URL/join/<code>` | Prof |
 | RPC | `join_session(p_join_code)` | Finds the live session, decides my role, returns `{ session_id, role }` | Enrolled / staff |
 | Query | `from('sessions').select('*, lessons(title, files_hash, entry_file, dev_command)')` + latest checkpoint | Session bootstrap (`checkpoint_seq` is on the session row) | Member |
 | Query | `from('sessions').update({ settings })` | Prof policy; a trigger broadcasts `session:settings` | Prof |
@@ -269,9 +271,10 @@ Call these: `listUsers()` and `setRole(userId, role)`. The list of users lives i
 start_session  rpc('start_session', { p_lesson_id })
   1. Load lesson; NOT_FOUND if missing; CONFLICT unless status='ready'
   2. FORBIDDEN unless is_course_prof(lesson.course_id)
-  3. Generate join code; retry on the partial unique clash (max 5)
-  4. insert sessions { status: 'live' }
-  5. return session   → client renders QR for `${APP_URL}/join/${code}`
+  3. If this lesson already has a live class, return it (Start class again never splits the students)
+  4. Generate join code; retry on the partial unique clash (max 5)
+  5. insert sessions { status: 'live' }
+  6. return session   → client renders QR for `${APP_URL}/join/${code}`
 
 join_session  rpc('join_session', { p_join_code })
   1. select ... where join_code = upper($1) and status = 'live'

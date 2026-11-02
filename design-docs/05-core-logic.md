@@ -240,7 +240,8 @@ That deletes the interception layer, the `mock_api` column's reason for existing
 Owner: **Ying Qi**. Four RPCs, all `security definer`, because each one decides something the client must not.
 
 ```sql
--- start_session: only a prof of this course, only a ready lesson, unique live code
+-- start_session: only a prof of this course, only a ready lesson, unique live code.
+-- Shown as first written; it now also locks the lesson and returns its live class if it has one.
 create function public.start_session(p_lesson_id uuid) returns public.sessions
 language plpgsql security definer set search_path = '' as $$
 declare l public.lessons; s public.sessions; code text; tries int := 0;

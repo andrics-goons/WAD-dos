@@ -133,6 +133,16 @@ const post = (body) =>
   })
 
 describe('summarize-help handler', () => {
+  it('answers the browser CORS preflight, and every answer carries the CORS headers', async () => {
+    const preflight = new Request('https://fn.test/summarize-help', { method: 'OPTIONS' })
+    const res = await handleSummarize(preflight, deps().deps)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('access-control-allow-origin')).toBe('*')
+
+    const refused = await handleSummarize(post({ sessionId: 's1' }), deps({ staff: false }).deps)
+    expect(refused.headers.get('access-control-allow-origin')).toBe('*')
+  })
+
   it('T-AIH-13 refuses anyone who is not staff of the session, before reading anything', async () => {
     const { deps: d, db, llm } = deps({ staff: false })
     const res = await handleSummarize(post({ sessionId: 's1' }), d)

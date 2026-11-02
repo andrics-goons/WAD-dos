@@ -124,6 +124,7 @@ One row per account, created by the `on_auth_user_created` trigger in [09](./09-
 | `id` | `uuid` PK → `auth.users(id)` on delete cascade | Same id as the auth user |
 | `name` | `text not null check (char_length(name) between 2 and 60)` | Display name |
 | `role` | `text not null default 'student' check (role in ('student','ta','prof','admin'))` | Account type. Set at sign-up to `student` or `prof` (the user's choice — "Educator" in the UI); `ta` comes only from `add_course_staff`; `admin` only from the seed or another admin |
+| `role_chosen` | `boolean not null default true` | `false` only for a "Continue with GitHub" sign-up that hasn't picked student or educator yet (GitHub sends no role); `choose_role` sets it. See [09 §2](./09-integration-contracts.md#2-auth) |
 | `telegram_chat_id` | `text` | Set when the user links the bot |
 | `telegram_link_code` | `text unique` | One-time code |
 | `telegram_link_code_expires_at` | `timestamptz` | 10 minutes after issue |
@@ -158,7 +159,7 @@ create policy "update own profile" on public.profiles for update
 > **Why `role = public.app_role()` and not a subquery.** The profiles migration first wrote this check as `role = (select role from public.profiles where id = auth.uid())`. That worked until "read coursemates" arrived: a policy on `profiles` that queries `profiles` makes Postgres expand `profiles`' read policies inside it, and once one of those contains subqueries of its own, Postgres refuses with **`42P17` "infinite recursion detected in policy"** — on *every* profile update, even a rename. `app_role()` is `security definer`, so it reads the current role without going back through RLS. The courses migration drops and recreates the policy this way. **Rule of thumb: a policy on a table must never query that same table directly — go through a `security definer` helper.**
 
 > **How roles are assigned.**
-> - **At sign-up the user picks Student or Educator.** The sign-up trigger in [09 §2](./09-integration-contracts.md#2-auth) reads that choice from the sign-up metadata through an allow-list: `prof` is accepted, and *anything* else — missing, `ta`, `admin`, junk — becomes `student`. The browser sends that metadata, so the trigger never trusts it beyond the allow-list.
+> - **At sign-up the user picks Student or Educator** — on the form, or, for "Continue with GitHub", on `/welcome` right after (`choose_role`, once, before joining any course). The sign-up trigger in [09 §2](./09-integration-contracts.md#2-auth) reads that choice from the sign-up metadata through an allow-list: `prof` is accepted, and *anything* else — missing, `ta`, `admin`, junk — becomes `student`. The browser sends that metadata, so the trigger never trusts it beyond the allow-list.
 > - **After sign-up the role is locked.** The `with check` clause on the update policy above rejects any change to your own role, so a student cannot later promote themselves and a mis-click on "Educator" cannot be undone by the user — an admin fixes it.
 > - **`ta`** is granted per course by its prof, through `rpc('add_course_staff')`.
 > - **`admin`** is never self-selectable: it comes from `seed.sql`, from one SQL statement run by the project owner on the cloud project, or from another admin via `rpc('admin_set_role')`.

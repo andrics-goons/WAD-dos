@@ -89,7 +89,7 @@ it('every public table has RLS enabled', async () => {
 | Responsive | Two Playwright projects: `desktop-chrome` (1280×800) and `mobile-chrome` (375×667, `isMobile`, `hasTouch`). Specs tagged `@responsive` run on both |
 | Docker dependency | `supabase start` needs Docker. The README documents it, and `pnpm test:e2e` fails with a clear message if the daemon is not running |
 
-### Fixture sketch — `tests/e2e/fixtures.js`
+### Fixture sketch — `e2e/fixtures.js`
 
 ```js
 import { test as base, expect } from '@playwright/test'
@@ -128,7 +128,7 @@ export { expect }
 
 > The one fiddly part of this rewrite: the Supabase session lives in `localStorage` under a project-scoped key, not in a cookie, so `addInitScript` replaces `context.request.post('/api/auth/login')`. **Owner: Karin**, and worth getting right in Week 8 — every E2E spec depends on it.
 
-### Example journey — `tests/e2e/live-session.spec.js`
+### Example journey — `e2e/live-session.spec.js`
 
 Unchanged from the Mongo design, which is the point: the tests describe behaviour, not plumbing.
 
@@ -192,6 +192,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-19 | **A prof sees their course immediately after creating it** | RLS | `create_course` returns it, and a `select` on `courses` as that prof finds it (regression guard for the no-insert-policy design) |
 | T-PLAT-20 | **Staff/student separation** | DB | A TA can enrol in a course they don't staff; enrolling in one they staff → `CONFLICT`; adding an enrolled student as TA → `CONFLICT` |
 | T-PLAT-21 | **Profile updates still work alongside "read coursemates"** | RLS | A student renaming themselves succeeds and promoting themselves fails with `42501` — never `42P17` (regression guard for the recursion fix) |
+| T-PLAT-22 | **A new GitHub account picks its role once** | RLS + Unit | `/welcome` → `choose_role('prof')` makes a prof; a second call, an email account, or an enrolled student who reset `role_chosen` → `CONFLICT`; `admin` → `VALIDATION_FAILED` |
 
 ### LESSON — Lessons · `lessons.spec.js`, `lesson-edit-view.test.js`
 
@@ -228,6 +229,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-SESS-16 | Prof clears the announcement | E2E | Banner disappears for everyone |
 | T-SESS-17 | Student or TA calls `announce` | RLS | `FORBIDDEN` |
 | T-SESS-18 | Announcement over 200 chars | DB | Check constraint rejects it |
+| T-SESS-19 | **Start a lesson that is already live** | DB | Returns the same class and join code, even on a double-click; a new class only once it has ended |
 
 ### SBX — Workspace, runtime & cache · `workspace.spec.js`, `build-error.test.js`, `files-cache.test.js`
 

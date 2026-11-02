@@ -29,12 +29,27 @@ export async function getCurrentUser() {
   if (!user) return null
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, name, role')
+    .select('id, name, role, role_chosen')
     .eq('id', user.id)
     .single()
   if (error) throw mapError(error)
-  // hasPassword: false for an account made with "Continue with GitHub", which has no password to change
-  return { ...data, hasPassword: user.app_metadata.providers?.includes('email') ?? false }
+  const { role_chosen: roleChosen, ...profile } = data
+  return {
+    ...profile,
+    // false right after a "Continue with GitHub" sign-up, until they pick student or educator
+    roleChosen,
+    // false for an account made with "Continue with GitHub", which has no password to change
+    hasPassword: user.app_metadata.providers?.includes('email') ?? false,
+  }
+}
+
+/**
+ * Right after a GitHub sign-up: be a student or an educator ('student' | 'prof'). Once only,
+ * before joining any course; CONFLICT after that.
+ */
+export async function chooseRole(role) {
+  const { error } = await supabase.rpc('choose_role', { p_role: role })
+  if (error) throw mapError(error)
 }
 
 /**
