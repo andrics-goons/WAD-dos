@@ -110,7 +110,7 @@ async function create() {
       // an import keeps where it came from (repo, branch, folder) — design-docs/03 lessons.source
       source: source.value === 'github' ? githubSource.value : { type: 'upload' },
     })
-    toast.show('Lesson created. Students can see it', 'success')
+    toast.show("Lesson created. It's hidden from students until you make it visible", 'success')
     router.push({ name: 'lesson-edit', params: { id: lesson.id } })
   } catch (err) {
     toast.show(err.message, 'danger', { title: "Couldn't create the lesson" })

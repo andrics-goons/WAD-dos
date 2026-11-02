@@ -98,9 +98,9 @@ describe('a prof makes and edits a lesson', () => {
 
   beforeAll(() => as(prof))
 
-  it('T-LES-01: createLesson saves a lesson students can see, with its starter files', async () => {
+  it('T-LES-01: createLesson saves a lesson hidden from students, with its starter files', async () => {
     lesson = await createLesson(course.id, DETAILS)
-    expect(lesson).toMatchObject({ courseId: course.id, status: 'ready', createdBy: prof.id })
+    expect(lesson).toMatchObject({ courseId: course.id, status: 'draft', createdBy: prof.id })
     expect(lesson.source).toEqual({ type: 'upload' })
     expect(lesson.files).toEqual(FILES)
   })

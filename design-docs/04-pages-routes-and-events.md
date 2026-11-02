@@ -165,7 +165,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 | Kind | Call | What happens | Who |
 |---|---|---|---|
 | Query | `from('lessons').select().eq('course_id', id).ilike('title', …)` | Lesson library search | Staff / enrolled |
-| Query | `from('lessons').insert(…)` — `createLesson(courseId, details)` | Create a lesson from uploaded files, visible to students (`ready`); the editor's "Visible to students" switch hides it (`draft`) | Prof |
+| Query | `from('lessons').insert(…)` — `createLesson(courseId, details)` | Create a lesson from uploaded files, hidden from students (`draft`) so nothing uploaded by mistake reaches them; the editor's "Visible to students" switch shows it (`ready`) | Prof |
 | Function | `github-import` → `{ repoUrl, providerToken }` | Fetches files with the prof's own GitHub token → returns files; client then inserts. No token → `UNAUTHENTICATED` and the tab offers **Connect GitHub** | Prof (Ray Yien) |
 | Query | `from('lessons').select('*, sessions(count)')` — `getLesson(id)` | Lesson with its files and whether it has been taught. Staff see every lesson; **enrolled students see non-draft lessons only**, including their starter `files` | Staff / enrolled |
 | Query | `from('lessons').update(…)` | Title/description/week/files/entry_file/dev_command/status | Prof |

@@ -54,7 +54,8 @@ export function toLessonPatch(changes) {
 
 // lessons
 
-// make a lesson, visible to students straight away (the prof can hide it in the editor)
+// make a lesson, hidden from students until the prof switches it on in the editor, so code
+// uploaded by mistake (or not ready yet) never reaches them
 export async function createLesson(
   courseId,
   { title, week, description, files, entryFile, source },
@@ -73,7 +74,7 @@ export async function createLesson(
       files,
       entry_file: entryFile,
       source: source ?? { type: 'upload' },
-      status: 'ready',
+      status: 'draft',
       created_by: user?.id,
     })
     .select(LESSON_DETAIL)
