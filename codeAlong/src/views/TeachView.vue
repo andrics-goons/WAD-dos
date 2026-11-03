@@ -19,6 +19,7 @@ import { useSessionStore } from '@/stores/session'
 import { useTeachStore } from '@/stores/teach'
 import { useToastStore } from '@/stores/toast'
 import ClassChoices from '@/components/dashboard/ClassChoices.vue'
+import StudentsByStatus from '@/components/dashboard/StudentsByStatus.vue'
 import ErrorGroupList from '@/components/dashboard/ErrorGroupList.vue'
 import HelpSummaryPanel from '@/components/dashboard/HelpSummaryPanel.vue'
 import JoinCodeCard from '@/components/session/JoinCodeCard.vue'
@@ -52,6 +53,7 @@ const canSend = computed(() => announcement.value.trim() !== '')
 const announceOpen = ref(false)
 const announceBox = ref(null)
 async function toggleAnnounce() {
+  studentsOpen.value = false
   announceOpen.value = !announceOpen.value
   if (announceOpen.value) {
     await nextTick()
@@ -61,6 +63,18 @@ async function toggleAnnounce() {
 const closeAnnounce = () => (announceOpen.value = false)
 onMounted(() => document.addEventListener('click', closeAnnounce))
 onBeforeUnmount(() => document.removeEventListener('click', closeAnnounce))
+
+// The students panel under the number cards: who is connected, grouped by status. It closes
+// the same way
+const studentsOpen = ref(false)
+function toggleStudents() {
+  announceOpen.value = false
+  studentsOpen.value = !studentsOpen.value
+}
+const closeStudents = () => (studentsOpen.value = false)
+watch(presenting, closeStudents)
+onMounted(() => document.addEventListener('click', closeStudents))
+onBeforeUnmount(() => document.removeEventListener('click', closeStudents))
 
 async function sendAnnouncement() {
   if (!canSend.value) return
@@ -174,6 +188,43 @@ const summaryNow = computed(() => {
     done: (s.students ?? []).filter((t) => t.done && connected.value.has(t.studentId)).length,
     errors: s.errors.filter((e) => connected.value.has(e.studentId)),
   }
+})
+
+// everyone connected, with their state and requests for the Students menu. A student who has
+// only just joined has no status row yet, so they're In progress until it arrives
+// TEMP STUB (remove before committing): /s/<id>/teach?stub=students shows a fake class in dev
+const STUB_STUDENTS = [
+  ['Alex Tan', 'error', true, false],
+  ['Priya Nair', 'in_progress', true, false],
+  ['Bea Koh', 'in_progress', false, true],
+  ['Marcus Lim', 'done', false, true],
+  ['Chen Wei', 'error', false, false],
+  ['Siti Rahman', 'error', false, false],
+  ['Daniel Ong', 'in_progress', false, false],
+  ['Hannah Goh', 'in_progress', false, false],
+  ['Ethan Teo', 'in_progress', false, false],
+  ['Jia Hui Lee', 'idle', false, false],
+  ['Ravi Kumar', 'idle', false, false],
+  ['Zoe Ng', 'done', false, false],
+  ['Wei Ling Tay', 'done', false, false],
+  ['Aaron Chua', 'done', false, false],
+].map(([name, state, help, check], i) => ({ id: `stub-${i}`, name, state, help, check }))
+const stubbed =
+  import.meta.env.DEV && new URLSearchParams(location.search).get('stub') === 'students'
+
+const roster = computed(() => {
+  if (stubbed) return STUB_STUDENTS
+  const rows = new Map((dashboard.classSummary?.students ?? []).map((t) => [t.studentId, t]))
+  return live.present.map((p) => {
+    const t = rows.get(p.userId)
+    return {
+      id: p.userId,
+      name: p.name,
+      state: t?.state ?? 'in_progress',
+      help: !!t?.help,
+      check: !!t?.check,
+    }
+  })
 })
 
 // common errors, from the students who are here
@@ -418,7 +469,7 @@ onBeforeUnmount(() => {
           <!-- The class summary, then the editor (terminal under it) / preview filling the rest,
                so its bottom lines up with the right-hand column -->
           <div
-            class="teach-main col-12 d-flex flex-column gap-3"
+            class="teach-main col-12 d-flex flex-column d-xl-grid gap-3"
             :class="{ 'col-xl-8': !presenting }"
           >
             <!-- what the class clicked: first on phones (the Dashboard tab), on top from xl -->
@@ -431,7 +482,32 @@ onBeforeUnmount(() => {
                 <p v-if="dashboard.classSummaryError" class="small text-danger mt-2 mb-0">
                   Couldn't refresh the numbers: {{ dashboard.classSummaryError.message }}
                 </p>
+                <!-- who's connected, by status: it opens over the editor -->
+                <button
+                  type="button"
+                  class="ca-btn ca-btn--ghost ca-btn--sm ca-btn--block mt-2"
+                  data-testid="btn-open-students"
+                  @click.stop="toggleStudents"
+                >
+                  <i class="bi bi-people" />{{ studentsOpen ? 'Hide' : 'Show' }} students ·
+                  {{ roster.length }}
+                  <i class="bi" :class="studentsOpen ? 'bi-chevron-up' : 'bi-chevron-down'" />
+                </button>
               </div>
+            </div>
+
+            <!-- the students panel. From xl it sits in the editor's place, on top of it, so it
+                 covers the editor exactly; on a phone it's under the cards on the Dashboard tab -->
+            <div
+              v-if="studentsOpen && !presenting"
+              class="ca-surface shadow p-3 students-menu"
+              :class="{ 'd-none d-xl-block': mobileTab !== 'dashboard' }"
+              data-testid="students-menu"
+              @click.stop
+              @keydown.esc="closeStudents"
+            >
+              <div class="ca-eyebrow mb-3">Connected now · {{ roster.length }}</div>
+              <StudentsByStatus :students="roster" />
             </div>
 
             <div
@@ -527,8 +603,10 @@ onBeforeUnmount(() => {
                 </ol>
               </div>
 
-              <HelpSummaryPanel :session-id="id" />
-              <ErrorGroupList :groups="errorGroups" />
+              <!-- what the class is stuck on: the live errors, then the help requests -->
+              <HelpSummaryPanel :session-id="id">
+                <ErrorGroupList :groups="errorGroups" />
+              </HelpSummaryPanel>
             </div>
           </div>
         </div>
@@ -568,6 +646,11 @@ onBeforeUnmount(() => {
 /* the Announce menu: wide enough for a sentence, never wider than a phone */
 .announce-menu {
   width: min(22rem, 90vw);
+}
+/* about two rows of groups; a longer class scrolls inside the students panel */
+.students-menu {
+  max-height: 21rem;
+  overflow-y: auto;
 }
 /* on a phone the button wraps onto its own row, so line the menu up with the whole bar instead
    of the button (which would push it off the left of the screen) */
@@ -618,7 +701,9 @@ onBeforeUnmount(() => {
     visibility 0s 0.3s;
 }
 .teach-main {
-  transition: width 0.3s ease;
+  transition:
+    width 0.3s ease,
+    row-gap 0.3s ease;
 }
 .teach-body {
   transition: padding 0.3s ease;
@@ -677,6 +762,29 @@ onBeforeUnmount(() => {
   .teach-editor,
   .editor-box {
     min-height: 0;
+  }
+  /* the cards on top, the editor filling the rest. The students panel opens in the editor's
+     cell too, on top of it, so it lines up with the editor */
+  .teach-main {
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr); /* the column's width, never the editor's content */
+  }
+  .teach-editor,
+  .students-menu {
+    grid-row: 2;
+    grid-column: 1;
+    min-height: 0;
+  }
+  /* as tall as its list, up to 21rem, and never past the editor's bottom (then it scrolls) */
+  .students-menu {
+    align-self: start;
+    max-height: min(100%, 21rem);
+    z-index: 5;
+    border-radius: var(--ca-radius); /* the editor's corners, so none of it shows behind */
+  }
+  /* Present: the cards fold to nothing, so the gap under them goes too */
+  .presenting .teach-main {
+    row-gap: 0 !important;
   }
   .teach-side {
     height: 100%;

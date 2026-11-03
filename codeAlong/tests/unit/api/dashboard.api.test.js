@@ -157,6 +157,18 @@ describe('getClassSummary', () => {
     expect(list.every((s) => typeof s.studentId === 'string')).toBe(true)
   })
 
+  it("T-DASH-13: gives each student's state and open requests, for the Students menu", async () => {
+    const { students: list } = await getClassSummary(session.id)
+    const of = (i) => list.find((s) => s.studentId === students[i].id)
+    expect(of(0)).toMatchObject({ help: true, check: false }) // open
+    expect(of(1)).toMatchObject({ help: true, check: false, state: 'error' }) // claimed still counts
+    expect(of(2)).toMatchObject({ help: false, check: true, state: 'in_progress' })
+    expect(of(3)).toMatchObject({ help: false, check: false }) // resolved is done with
+    expect(list.every((s) => ['done', 'in_progress', 'error', 'idle'].includes(s.state))).toBe(true)
+    // slow down stays a count: nothing per student says who
+    expect(list.every((s) => !('slowDown' in s))).toBe(true)
+  })
+
   it('T-DASH-04: has no names or student ids in the counts', async () => {
     const { total, done, slowDown, help, check } = await getClassSummary(session.id)
     expect(JSON.stringify({ total, done, slowDown, help, check })).not.toMatch(/Student|-/)

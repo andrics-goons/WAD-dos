@@ -11,8 +11,10 @@ import { AppError, mapError } from './mapError'
  *   help      open or claimed "Ask for help" requests
  *   check     open or claimed "Check my work" requests
  *   errors    students' current errors, in the shape groupErrors() takes, for Common errors
- *   students  [{ studentId, done }] for everyone in the class, so the Teach view can count only
- *             the students who are connected right now (it never shows the ids)
+ *   students  [{ studentId, done, state, help, check }] for everyone in the class: the Teach view
+ *             counts only the students connected right now, and lists them by status in its
+ *             Students menu (state is session_tiles' done / in_progress / error / idle; help and
+ *             check say they have an open or claimed request of that type)
  * Staff only; RLS gives anyone else zero rows, so every count is 0.
  */
 export async function getClassSummary(sessionId) {
@@ -20,7 +22,7 @@ export async function getClassSummary(sessionId) {
     supabase
       .from('session_tiles')
       .select(
-        'student_id, checkpoint_seq, done_seq, error_source, error_key, error_shape_key, error_preview, last_seen_at',
+        'student_id, checkpoint_seq, done_seq, state, error_source, error_key, error_shape_key, error_preview, last_seen_at',
       )
       .eq('session_id', sessionId),
     supabase
@@ -30,17 +32,26 @@ export async function getClassSummary(sessionId) {
       .maybeSingle(),
     supabase
       .from('help_requests')
-      .select('type')
+      .select('type, student_id')
       .eq('session_id', sessionId)
       .in('status', ['open', 'claimed']),
   ])
   for (const r of [tiles, summary, requests]) if (r.error) throw mapError(r.error)
 
   const rows = tiles.data
+  const asked = (type) =>
+    new Set(requests.data.filter((r) => r.type === type).map((r) => r.student_id))
+  const [helpIds, checkIds] = [asked('help'), asked('check')]
   return {
     total: rows.length,
     done: rows.filter((t) => t.done_seq === t.checkpoint_seq).length,
-    students: rows.map((t) => ({ studentId: t.student_id, done: t.done_seq === t.checkpoint_seq })),
+    students: rows.map((t) => ({
+      studentId: t.student_id,
+      done: t.done_seq === t.checkpoint_seq,
+      state: t.state,
+      help: helpIds.has(t.student_id),
+      check: checkIds.has(t.student_id),
+    })),
     slowDown: summary.data?.slow_down_count ?? 0,
     help: requests.data.filter((r) => r.type === 'help').length,
     check: requests.data.filter((r) => r.type === 'check').length,

@@ -89,7 +89,12 @@ function fakeWorkspace() {
   })
 }
 
-const stubs = { EditorPanel: true, PreviewPanel: true, HelpSummaryPanel: true }
+// the help summary is stubbed (it calls an Edge Function), but keeps its slot: Common errors
+const stubs = {
+  EditorPanel: true,
+  PreviewPanel: true,
+  HelpSummaryPanel: { template: '<div><slot /></div>' },
+}
 let wrapper
 let pinia
 async function open(data = session(), { isolated = false } = {}) {
@@ -509,6 +514,103 @@ describe('TeachView', () => {
       live.present = [{ userId: 'a' }, { userId: 'b' }]
       await flushPromises()
       expect(wrapper.find('[data-testid="error-group-0"]').text()).toContain('itmes is not defined')
+    })
+  })
+
+  describe('T-DASH-13: the Students menu lists who is connected, grouped by status', () => {
+    const row = (studentId, state, over = {}) => ({
+      studentId,
+      done: state === 'done',
+      state,
+      help: false,
+      check: false,
+      ...over,
+    })
+    const menu = () => wrapper.find('[data-testid="students-menu"]')
+    const group = (key) => wrapper.find(`[data-testid="students-group-${key}"]`)
+    const names = (key) =>
+      group(key)
+        .findAll('li .text-truncate')
+        .map((n) => n.text())
+
+    beforeEach(() => {
+      api.getClassSummary.mockResolvedValue({
+        total: 6,
+        done: 1,
+        slowDown: 1,
+        help: 1,
+        check: 1,
+        errors: [],
+        students: [
+          row('a', 'error', { help: true }), // asked for help: that group wins over the error
+          row('b', 'in_progress', { check: true }),
+          row('c', 'error'),
+          row('d', 'done'),
+          row('e', 'idle'),
+          row('f', 'done'), // joined earlier and has left
+        ],
+      })
+    })
+
+    it('opens from under the number cards and groups each connected student once, most urgent first', async () => {
+      await open()
+      live.present = ['a', 'b', 'c', 'd', 'e', 'g'].map((id) => ({
+        userId: id,
+        name: `Student ${id.toUpperCase()}`,
+      }))
+      await flushPromises()
+      expect(menu().exists()).toBe(false)
+      await wrapper.find('[data-testid="btn-open-students"]').trigger('click')
+      expect(menu().exists()).toBe(true)
+      expect(menu().text()).toContain('Connected now · 6')
+
+      expect(names('help')).toEqual(['Student A'])
+      expect(names('check')).toEqual(['Student B'])
+      expect(names('error')).toEqual(['Student C'])
+      expect(names('idle')).toEqual(['Student E'])
+      expect(names('done')).toEqual(['Student D']) // F left, so isn't listed
+      expect(names('in_progress')).toEqual(['Student G']) // no status row yet
+      const order = menu()
+        .findAll('section')
+        .map((sec) => sec.attributes('data-testid'))
+      expect(order).toEqual([
+        'students-group-help',
+        'students-group-check',
+        'students-group-error',
+        'students-group-in_progress',
+        'students-group-idle',
+        'students-group-done',
+      ])
+      expect(group('done').find('.ca-avatar').text()).toBe('S')
+    })
+
+    it('never says who asked to slow down, and shows an empty note with nobody here', async () => {
+      await open()
+      await wrapper.find('[data-testid="btn-open-students"]').trigger('click')
+      expect(menu().text()).toContain('No students connected yet')
+      expect(menu().text()).not.toMatch(/slow down/i)
+    })
+
+    it('closes on a click outside, and opening Announce closes it', async () => {
+      await open()
+      await wrapper.find('[data-testid="btn-open-students"]').trigger('click')
+      document.body.click()
+      await flushPromises()
+      expect(menu().exists()).toBe(false)
+      await wrapper.find('[data-testid="btn-open-students"]').trigger('click')
+      await wrapper.find('[data-testid="btn-open-announce"]').trigger('click')
+      expect(menu().exists()).toBe(false)
+    })
+
+    it('Present closes it, and it stays closed when the dashboard comes back', async () => {
+      await open()
+      await wrapper.find('[data-testid="btn-open-students"]').trigger('click')
+      expect(wrapper.find('[data-testid="btn-open-students"]').text()).toContain('Hide students')
+      await wrapper.find('[data-testid="btn-present"]').trigger('click')
+      expect(menu().exists()).toBe(false)
+      await wrapper.find('[data-testid="btn-present"]').trigger('click')
+      expect(menu().exists()).toBe(false)
+      expect(wrapper.find('[data-testid="btn-open-students"]').text()).toContain('Show students')
     })
   })
 

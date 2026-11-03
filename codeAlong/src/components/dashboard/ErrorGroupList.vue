@@ -5,11 +5,9 @@ defineProps({ groups: { type: Array, required: true } })
 </script>
 
 <template>
-  <div class="ca-surface">
-    <div class="d-flex align-items-baseline justify-content-between gap-3 px-3 py-2 border-bottom">
-      <span class="fw-semibold">Common errors</span>
-      <span class="ca-eyebrow">grouped</span>
-    </div>
+  <!-- a section of the "What the class is stuck on" card (HelpSummaryPanel), not a card itself -->
+  <section>
+    <div class="ca-eyebrow px-3 pt-3 pb-2">Common errors</div>
     <ul v-if="groups.length" class="list-group list-group-flush">
       <li
         v-for="(g, i) in groups"
@@ -31,5 +29,5 @@ defineProps({ groups: { type: Array, required: true } })
       </li>
     </ul>
     <EmptyState v-else icon="bi-emoji-smile" title="No errors right now" compact />
-  </div>
+  </section>
 </template>

@@ -38,8 +38,12 @@ window.addEventListener('unhandledrejection', (event) => {
 })
 `
 
+// The path is put in separately: the Supabase CLI reads every file the functions load and takes
+// "import" followed by a quoted path, even inside a string, for a real import. It then fails to
+// start because there's no shared/ca-probe.js
+const PROBE_PATH = "'./ca-probe.js'"
 export const CA_PROBE_IMPORT = `// Reports errors to your CodeAlong workspace. Keep this import first.
-import './ca-probe.js'
+import ${PROBE_PATH}
 
 `
 
