@@ -1,9 +1,9 @@
 <script setup>
-// lesson editor: the starter files the class begins from, plus the lesson's details and status.
+// lesson editor: the starter files the class begins from, plus the lesson's details. Visibility,
+// archiving and deleting are in the lesson's ⋯ menu on the course page.
 // There are no steps: the prof saves checkpoints whenever they like during class.
 // changes stay on the page until save, then go to the db together
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useLessonsStore } from '@/stores/lessons'
 import { useToastStore } from '@/stores/toast'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
@@ -12,7 +12,6 @@ import CodeEditor from '@/components/workspace/CodeEditor.vue'
 import FileTree from '@/components/workspace/FileTree.vue'
 
 const props = defineProps({ id: { type: String, required: true } })
-const router = useRouter()
 const lessons = useLessonsStore()
 const toast = useToastStore()
 
@@ -41,10 +40,6 @@ const detailsOf = (l) => ({
   week: l.week ?? null,
   description: l.description || null,
 })
-
-// once taught, the class history refers to this lesson, so it can't be deleted (archive it
-// from the ⋯ menu on the course page, where visibility is switched too)
-const taught = computed(() => !!lesson.value?.taught)
 
 // files: a working copy the prof edits, saved with everything else
 
@@ -122,33 +117,6 @@ async function save() {
     saving.value = false
   }
 }
-
-// delete (only while it hasn't been taught)
-
-const confirmDelete = ref(false)
-const deleting = ref(false)
-
-const backToCourse = () => router.replace({ name: 'course', params: { id: lesson.value.courseId } })
-
-async function removeLesson() {
-  deleting.value = true
-  try {
-    await lessons.remove(props.id)
-    confirmDelete.value = false
-    toast.show('Lesson deleted', 'success')
-    backToCourse()
-  } catch (err) {
-    confirmDelete.value = false
-    // taught since this page loaded
-    const message =
-      err.code === 'CONFLICT'
-        ? 'It has been taught, so archive it from the course page instead'
-        : err.message
-    toast.show(message, 'danger', { title: "Couldn't delete the lesson" })
-  } finally {
-    deleting.value = false
-  }
-}
 </script>
 
 <template>
@@ -168,14 +136,6 @@ async function removeLesson() {
         <div class="d-flex flex-wrap align-items-center gap-2">
           <button type="button" class="ca-btn ca-btn--sm" @click="startDetails">
             <i class="bi bi-pencil" />Edit Details
-          </button>
-          <button
-            v-if="!taught"
-            type="button"
-            class="ca-btn ca-btn--danger ca-btn--sm"
-            @click="confirmDelete = true"
-          >
-            <i class="bi bi-trash" />Delete lesson
           </button>
           <button
             type="button"
@@ -252,17 +212,6 @@ async function removeLesson() {
           maxlength="500"
         />
       </div>
-    </ConfirmModal>
-
-    <ConfirmModal
-      v-model:open="confirmDelete"
-      title="Delete this lesson?"
-      confirm-label="Delete lesson"
-      variant="danger"
-      :busy="deleting"
-      @confirm="removeLesson"
-    >
-      Its starter files will be removed. This can't be undone.
     </ConfirmModal>
   </div>
 </template>

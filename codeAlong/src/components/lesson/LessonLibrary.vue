@@ -78,8 +78,20 @@ const slug = (text) =>
 
 // the ⋯ menu on each lesson: one open at a time, closed by a click anywhere else
 const menuFor = ref(null) // the lesson id whose menu is open
-const toggleMenu = (lesson) => (menuFor.value = menuFor.value === lesson.id ? null : lesson.id)
-const closeMenu = () => (menuFor.value = null)
+const whyNoDelete = ref(false) // the ? on a taught lesson's greyed-out Delete is open
+function toggleMenu(lesson) {
+  menuFor.value = menuFor.value === lesson.id ? null : lesson.id
+  whyNoDelete.value = false
+}
+function closeMenu() {
+  menuFor.value = null
+  whyNoDelete.value = false
+}
+// a taught lesson can't be deleted: the replays and reports point at it
+const noDeleteReason = (lesson) =>
+  lesson.status === LessonStatus.ARCHIVED
+    ? "It's been taught, so it can't be deleted."
+    : "It's been taught, so it can't be deleted. Archive it instead."
 onMounted(() => document.addEventListener('click', closeMenu))
 onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
 
@@ -131,6 +143,32 @@ async function archive() {
     toast.show(error.message, 'danger', { title: "Couldn't archive the lesson" })
   } finally {
     archiveBusy.value = false
+  }
+}
+
+// Delete: only a lesson no class has run from (the replays and reports point at it otherwise,
+// and the database refuses too); a taught one is archived instead
+const deleting = ref(null) // the lesson waiting for "Delete this lesson?"
+const deleteBusy = ref(false)
+function askDelete(lesson) {
+  closeMenu()
+  deleting.value = lesson
+}
+async function removeLesson() {
+  deleteBusy.value = true
+  try {
+    await lessonsStore.remove(deleting.value.id)
+    lessons.value = lessons.value.filter((l) => l.id !== deleting.value.id)
+    deleting.value = null
+    toast.show('Lesson deleted', 'success')
+  } catch (error) {
+    deleting.value = null
+    // taught since this page loaded
+    const message =
+      error.code === 'CONFLICT' ? 'It has been taught, so archive it instead' : error.message
+    toast.show(message, 'danger', { title: "Couldn't delete the lesson" })
+  } finally {
+    deleteBusy.value = false
   }
 }
 
@@ -300,6 +338,40 @@ async function startClass(lesson) {
                         <i class="bi bi-archive me-2" />Archive
                       </button>
                     </template>
+                    <button
+                      v-if="!classesOf(l).length"
+                      type="button"
+                      class="dropdown-item text-danger"
+                      @click="askDelete(l)"
+                    >
+                      <i class="bi bi-trash me-2" />Delete
+                    </button>
+                    <!-- taught: greyed out, and the ? says why (hover, or click on a phone) -->
+                    <template v-else>
+                      <!-- faded red: it's Delete, just not available; the bare ? keeps the row as
+                           tall as the others -->
+                      <div class="dropdown-item-text d-flex align-items-center">
+                        <span class="text-danger opacity-50">
+                          <i class="bi bi-trash me-2" />Delete
+                        </span>
+                        <button
+                          type="button"
+                          class="border-0 bg-transparent p-0 lh-1 ms-auto text-danger opacity-50"
+                          :title="noDeleteReason(l)"
+                          :data-testid="`lesson-why-no-delete-${slug(l.title)}`"
+                          @click="whyNoDelete = !whyNoDelete"
+                        >
+                          <i class="bi bi-question-circle" />
+                          <span class="visually-hidden">Why can't I delete it?</span>
+                        </button>
+                      </div>
+                      <p
+                        v-if="whyNoDelete"
+                        class="dropdown-item-text small text-body-secondary mb-0"
+                      >
+                        {{ noDeleteReason(l) }}
+                      </p>
+                    </template>
                   </div>
                 </div>
               </span>
@@ -377,6 +449,18 @@ async function startClass(lesson) {
     >
       No new class can start from it. Its past classes, replays and reports stay, and students can
       still open them.
+    </ConfirmModal>
+
+    <ConfirmModal
+      :open="deleting !== null"
+      :title="`Delete ${deleting ? fileName(deleting) : 'this lesson'}?`"
+      confirm-label="Delete lesson"
+      variant="danger"
+      :busy="deleteBusy"
+      @update:open="deleting = null"
+      @confirm="removeLesson"
+    >
+      Its starter files will be removed. This can't be undone.
     </ConfirmModal>
   </section>
 </template>

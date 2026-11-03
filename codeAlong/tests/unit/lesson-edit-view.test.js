@@ -147,11 +147,12 @@ describe('LessonEditView', () => {
     expect(api.updateLesson).toHaveBeenCalledWith('les-1', { files: expect.any(Array) })
   })
 
-  it('has no visibility or archive controls: those are in the ⋯ menu on the course page', async () => {
+  it('has no visibility, archive or delete: those are in the ⋯ menu on the course page', async () => {
     await open()
     expect(wrapper.find('select').exists()).toBe(false)
     expect(wrapper.find('input[type="checkbox"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('Archive')
+    expect(wrapper.text()).not.toContain('Delete')
   })
 
   it('shows the error when saving fails', async () => {
@@ -166,29 +167,6 @@ describe('LessonEditView', () => {
     })
     // the unsaved change is kept so nothing is lost
     expect(saveButton().attributes('disabled')).toBeUndefined()
-  })
-
-  it('deletes the lesson and goes back to the course', async () => {
-    await open()
-    await clickText('Delete lesson')
-    await confirmModal()
-    expect(api.deleteLesson).toHaveBeenCalledWith('les-1')
-    expect(replace).toHaveBeenCalledWith({ name: 'course', params: { id: 'course-1' } })
-  })
-
-  it('T-LES-06: a lesson taught since the page loaded is not deleted, and says where to archive it', async () => {
-    api.deleteLesson.mockRejectedValue(
-      new AppError('CONFLICT', "This lesson has been taught, so it can't be deleted"),
-    )
-    await open()
-    await clickText('Delete lesson')
-    await confirmModal()
-    expect(useToastStore(pinia).messages.at(-1)).toMatchObject({
-      variant: 'danger',
-      text: expect.stringContaining('archive it from the course page'),
-    })
-    expect(api.updateLesson).not.toHaveBeenCalled()
-    expect(replace).not.toHaveBeenCalled()
   })
 
   it('saves edited lesson details', async () => {
@@ -214,12 +192,5 @@ describe('LessonEditView', () => {
     await confirmModal()
     expect(inBody('#lesson-title')).not.toBeNull() // still open
     expect(saveButton().attributes('disabled')).toBeDefined()
-  })
-
-  describe('a lesson that has been taught', () => {
-    it('T-LES-06: has no Delete (archiving is in the ⋯ menu on the course page)', async () => {
-      await open(lesson({ taught: true }))
-      expect(wrapper.findAll('button').some((b) => b.text().trim() === 'Delete lesson')).toBe(false)
-    })
   })
 })

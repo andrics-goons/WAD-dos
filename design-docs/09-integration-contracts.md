@@ -416,7 +416,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 |---|---|
 | Navigation | `nav-home`, `nav-courses`, `nav-replays`, `nav-profile` |
 | Courses | `course-card-<code>`, `btn-new-course`, `btn-enrol-course`, `input-enrol-code`, `btn-enrol`, `enrol-link`, `btn-copy-enrol-link`, `enrol-qr`, `btn-remove-ta` (People: on each TA, owner only) |
-| Lessons | `lesson-row-<slug>`, `lesson-start-<slug>`, `lesson-menu-<slug>` (the ⋯ on each lesson: Edit files, Visibility (a switch), Archive / Unarchive), `lesson-visible-<slug>` (that switch), `btn-connect-github` (import tab, when GitHub isn't connected) |
+| Lessons | `lesson-row-<slug>`, `lesson-start-<slug>`, `lesson-menu-<slug>` (the ⋯ on each lesson: Edit files, Visibility (a switch), Archive / Unarchive, Delete (greyed out with a ? once it's taught)), `lesson-why-no-delete-<slug>` (that ?), `lesson-visible-<slug>` (that switch), `btn-connect-github` (import tab, when GitHub isn't connected) |
 | Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `input-checkpoint-title`, `btn-save-checkpoint`, `btn-end-session`, `input-announce`, `btn-announce` (an empty box clears the announcement), `announcement-banner` |
 | Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `btn-download-project`, `workspace-checkpoint`, `tab-code`, `tab-preview`, `tab-console` |
 | Dashboard | `summary-done`, `slow-down-count`, `error-group-<index>`, `help-summary`, `help-summary-headline`, `help-summary-group-<index>`, `btn-refresh-help-summary` |
