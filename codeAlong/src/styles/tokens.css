@@ -90,6 +90,7 @@
 
   /* Page layout */
   --ca-navbar-height: 3.5rem;
+  --ca-back-bar-height: 3.5rem;
   --ca-content-max: 1320px; /* stops lines getting too wide on big screens */
 
   /* What sits on top of what — same numbers Bootstrap uses */

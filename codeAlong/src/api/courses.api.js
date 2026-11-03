@@ -5,49 +5,57 @@ import { AppError, mapError } from './mapError'
 // ("Courses — courses.api.js"). RLS decides what each caller sees, so none of these
 // filter by user: a prof gets their own courses, a student the ones they enrolled in.
 
-const COURSE =
-  'id, code, title, term, section, owner_id, enrol_code, archived, created_at, updated_at'
+const COURSE = 'id, code, title, term, section, owner_id, enrol_code, created_at, updated_at'
 
 // The course plus the staff list, so we can tell the caller's role without a second query.
 // Every member may read a course's staff list (the "members read staff list" policy).
 const COURSE_WITH_STAFF = `${COURSE}, course_staff(user_id, role)`
 
-async function currentUserId() {
+async function currentUser() {
   const {
     data: { session },
   } = await supabase.auth.getSession()
-  return session?.user.id ?? null
+  return session?.user ?? null
 }
+
+// Archiving is personal, so the ids of the courses I've archived live in my own account
+// (auth user_metadata.archived_courses). Nobody else's list changes, and no table is needed.
+const archivedIds = (user) => user?.user_metadata?.archived_courses ?? []
 
 // 'prof' | 'ta' for staff, 'student' otherwise (RLS only shows a course to its members).
 // Only used to pick what to show — every rule is enforced by RLS and the RPCs.
-function withMyRole(course, userId) {
+function withMyRole(course, user) {
   const { course_staff: staff = [], ...rest } = course
-  const mine = staff.find((s) => s.user_id === userId)
-  return { ...rest, myRole: mine?.role ?? 'student', isOwner: course.owner_id === userId }
+  const mine = staff.find((s) => s.user_id === user?.id)
+  return {
+    ...rest,
+    myRole: mine?.role ?? 'student',
+    isOwner: course.owner_id === user?.id,
+    archived: archivedIds(user).includes(course.id),
+  }
 }
 
-/** My courses, newest first. Archived ones only when asked for. */
+/** My courses, newest first. The ones I've archived only when asked for. */
 export async function listCourses({ includeArchived = false } = {}) {
-  let query = supabase
+  const query = supabase
     .from('courses')
     .select(COURSE_WITH_STAFF)
     .order('created_at', { ascending: false })
-  if (!includeArchived) query = query.eq('archived', false)
 
-  const [{ data, error }, userId] = await Promise.all([query, currentUserId()])
+  const [{ data, error }, user] = await Promise.all([query, currentUser()])
   if (error) throw mapError(error)
-  return data.map((c) => withMyRole(c, userId))
+  const courses = data.map((c) => withMyRole(c, user))
+  return includeArchived ? courses : courses.filter((c) => !c.archived)
 }
 
 /** One course, or NOT_FOUND — which is also what a course you're not in looks like. */
 export async function getCourse(id) {
-  const [{ data, error }, userId] = await Promise.all([
+  const [{ data, error }, user] = await Promise.all([
     supabase.from('courses').select(COURSE_WITH_STAFF).eq('id', id).single(),
-    currentUserId(),
+    currentUser(),
   ])
   if (error) throw mapError(error)
-  return withMyRole(data, userId)
+  return withMyRole(data, user)
 }
 
 /**
@@ -67,7 +75,7 @@ export async function createCourse({ code, title, term, section }) {
 
 /**
  * Students and TAs. Used for both the typed code and the /enrol/:code link.
- * NOT_FOUND for a wrong or archived code; CONFLICT if you're on this course's staff.
+ * NOT_FOUND for a wrong code; CONFLICT if you're on this course's staff.
  * Enrolling twice is harmless.
  */
 export async function enrolWithCode(code) {
@@ -89,16 +97,16 @@ export async function updateCourse(id, changes) {
   return data
 }
 
-/** Owner only. An archived course's enrol code stops working; its history stays. */
+/** Any member. Only moves the course in the caller's own list; nobody else is affected. */
 export async function setArchived(id, archived = true) {
-  const { data, error } = await supabase
-    .from('courses')
-    .update({ archived })
-    .eq('id', id)
-    .select(COURSE)
-    .single()
+  // the latest list from the server, in case it was changed on another device
+  const { data, error: readError } = await supabase.auth.getUser()
+  if (readError) throw mapError(readError)
+  const others = archivedIds(data.user).filter((c) => c !== id)
+  const { error } = await supabase.auth.updateUser({
+    data: { archived_courses: archived ? [...others, id] : others },
+  })
   if (error) throw mapError(error)
-  return data
 }
 
 /** Owner only. CONFLICT once the course has any class history — offer Archive instead. */

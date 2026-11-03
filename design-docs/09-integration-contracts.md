@@ -279,6 +279,7 @@ This is the section the architecture change affects most. Previously three of th
 | The LLM only ever sees code a student sent with a help request | `analyze-help` reads only the request's own `help_request` snapshot; no name or id goes in the prompt | T-AIH-01, T-AIH-02 |
 | "Slow down" is only ever a count **to staff** | The flag is a row in `slow_down_flags`, readable only by its owner (and admins) — not a column of `student_status`, which staff read and receive over Postgres Changes. Staff read `session_summary`, which exposes `slow_down_count` and no ids | T-PRIV-04 |
 | A student cannot forge their tile state | There is **no** `state` column. `session_tiles` derives it in SQL from `done_seq`, `error`, `last_seen_at` and the session's `checkpoint_seq` | T-STAT-09 |
+| Students see classmates' names only while they are online in the same live class | Presence on `session:<id>`, a channel only course members can join. `profiles` and `course_students` stay closed between students | T-PRIV-11, T-PRIV-12 |
 | Notes are private to the author (admins excepted) | `notes` policies keyed on `user_id = auth.uid()` | T-PRIV-05 |
 | **Admins read, but write only accounts** | One `admin reads all` `select` policy per table; no admin policy for any other command; admin writes only through the admin functions | T-ADM-* |
 | Reports contain counts only | `session_reports` built by `build_session_report` (SQL, on end) from aggregates; no `student_id` anywhere in the row | T-INS-05 |

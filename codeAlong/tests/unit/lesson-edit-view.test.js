@@ -12,8 +12,11 @@ const api = vi.hoisted(() => ({
 }))
 vi.mock('@/api/lessons.api', () => api)
 
-const push = vi.hoisted(() => vi.fn())
-vi.mock('vue-router', async (original) => ({ ...(await original()), useRouter: () => ({ push }) }))
+const replace = vi.hoisted(() => vi.fn())
+vi.mock('vue-router', async (original) => ({
+  ...(await original()),
+  useRouter: () => ({ replace }),
+}))
 
 import LessonEditView from '@/views/LessonEditView.vue'
 import FileTree from '@/components/workspace/FileTree.vue'
@@ -197,7 +200,7 @@ describe('LessonEditView', () => {
     await clickText('Delete lesson')
     await confirmModal()
     expect(api.deleteLesson).toHaveBeenCalledWith('les-1')
-    expect(push).toHaveBeenCalledWith({ name: 'course', params: { id: 'course-1' } })
+    expect(replace).toHaveBeenCalledWith({ name: 'course', params: { id: 'course-1' } })
   })
 
   it('T-LES-06: offers to archive a lesson that was already taught', async () => {
@@ -210,12 +213,12 @@ describe('LessonEditView', () => {
     expect(document.body.textContent).toContain('Archive')
     await confirmModal()
     expect(api.updateLesson).toHaveBeenCalledWith('les-1', { status: 'archived' })
-    expect(push).toHaveBeenCalledWith({ name: 'course', params: { id: 'course-1' } })
+    expect(replace).toHaveBeenCalledWith({ name: 'course', params: { id: 'course-1' } })
   })
 
   it('saves edited lesson details', async () => {
     await open()
-    await clickText('Details')
+    await clickText('Edit Details')
     await fill('lesson-title', 'Week 7 · Mini Cart v2')
     await fill('lesson-week', '7')
     await fill('lesson-description', 'Now with checkout')
@@ -231,7 +234,7 @@ describe('LessonEditView', () => {
 
   it('does not accept an empty lesson title', async () => {
     await open()
-    await clickText('Details')
+    await clickText('Edit Details')
     await fill('lesson-title', '  ')
     await confirmModal()
     expect(inBody('#lesson-title')).not.toBeNull() // still open
