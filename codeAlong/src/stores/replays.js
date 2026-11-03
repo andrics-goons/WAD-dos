@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import * as replaysApi from '@/api/replays.api'
 import * as notesApi from '@/api/notes.api'
 import * as checkpointsApi from '@/api/checkpoints.api'
+import * as filesApi from '@/api/files.api'
 import { loadFiles } from '@/cache/files.js'
 
 // The calls the replay pages (/replays, /replays/:sessionId) make. Owner: Ray Yien.
@@ -21,6 +22,12 @@ export const useReplaysStore = defineStore('replays', () => {
   const checkpointFiles = (checkpoint) =>
     loadFiles('checkpoint', checkpoint.id, checkpoint.files_hash)
 
+  // my own code when the class ended (my last autosave), or null if I never joined
+  const myCode = async (sessionId) => {
+    const autosave = await filesApi.findMyAutosave(sessionId)
+    return autosave ? loadFiles('snapshot', autosave.id) : null
+  }
+
   const notes = (sessionId) => notesApi.listNotes(sessionId)
   const addNote = (note) => notesApi.createNote(note)
   const editNote = (id, body) => notesApi.updateNote(id, body)
@@ -33,6 +40,7 @@ export const useReplaysStore = defineStore('replays', () => {
     checkpoints,
     starterFiles,
     checkpointFiles,
+    myCode,
     notes,
     addNote,
     editNote,

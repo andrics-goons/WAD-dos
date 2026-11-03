@@ -164,3 +164,41 @@ describe('export helpers', () => {
     expect(isValidRepoName(name)).toBe(ok)
   })
 })
+
+describe('github-export of my own code', () => {
+  const mine = {
+    lessonTitle: 'Week 6 · Mini Cart',
+    checkpoints: [
+      {
+        files: [file('index.html', '<p>mine</p>')],
+        seq: 1,
+        title: null,
+        message: 'My code at the end of the class',
+      },
+    ],
+  }
+
+  it('T-GH-08: asks for my code, and makes one commit with its own message', async () => {
+    const { github, deps, run } = setup({ data: mine })
+    const loadExport = vi.spyOn(deps, 'loadExport')
+    await run({ ...BODY, mine: true })
+    expect(loadExport.mock.calls[0][2]).toBe(true)
+    const commits = github.calls
+      .filter(([, path]) => path.endsWith('/git/commits'))
+      .map((c) => c[2])
+    expect(commits.map((c) => c.message)).toEqual(['My code at the end of the class'])
+  })
+
+  it('T-GH-08: the README says it is my code, not one commit per checkpoint', () => {
+    expect(exportReadme(mine.lessonTitle, mine.checkpoints)).toContain(
+      'my code at the end of the class',
+    )
+  })
+
+  it('T-GH-08: says so when I have no saved code', async () => {
+    const { run } = setup({ data: { lessonTitle: 'x', checkpoints: [] } })
+    const res = await run({ ...BODY, mine: true })
+    expect(res.status).toBe(400)
+    expect((await res.json()).message).toBe('You have no saved code in this class')
+  })
+})

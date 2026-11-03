@@ -39,12 +39,16 @@ export async function importFromGithub(repoUrl) {
   return invoke(Fn.GITHUB_IMPORT, { repoUrl, providerToken: await githubToken() })
 }
 
-/** Copy a class's checkpoints to a new repo on my GitHub, one commit per checkpoint: { repoUrl } */
-export async function exportToGithub(sessionId, repoName, isPrivate) {
+/**
+ * Copy a class's checkpoints to a new repo on my GitHub, one commit per checkpoint: { repoUrl }.
+ * `mine`: my own final code as a single commit instead.
+ */
+export async function exportToGithub(sessionId, repoName, isPrivate, mine = false) {
   return invoke(Fn.GITHUB_EXPORT, {
     sessionId,
     repoName,
     private: isPrivate,
+    mine,
     providerToken: await githubToken(),
   })
 }
