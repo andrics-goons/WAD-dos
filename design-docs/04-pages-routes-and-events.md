@@ -46,7 +46,7 @@ Each page lists its owner, who can open it, and how its layout responds. All pag
 | `/s/:id/help` | `HelpQueueView` | Karin | Staff | Queue cards 1 col → queue list left, selected request right. "Waiting" (open + claimed, oldest first) above "Handled". Below lg the list and the selected request take turns, with "Back to the queue". State lives in `stores/help.js`, kept live by the class channel |
 | `/help/:requestId` | `HelpReviewView` | Karin | Staff | One request on its own page (the Telegram ping links here), same `HelpReviewPanel` as the queue, with a link back to the queue. Stacked thread + reply, then the diff (stacked on xs, side by side from sm) |
 | `/replays` | `ReplayListView` | Ray Yien | Logged in | List grouped by course, search box on top |
-| `/replays/:sessionId` | `ReplayView` | Ray Yien | Staff / enrolled | Timeline as horizontal scroller, code below, preview behind a tab → timeline left, code + preview right, notes drawer |
+| `/replays/:sessionId` | `ReplayView` | Ray Yien | Staff / enrolled | Timeline as horizontal scroller, code below, preview behind a tab → timeline left, code + preview right, notes drawer. **Download code** saves the open checkpoint as a .zip |
 | `/sessions/:id/report` | `ReportView` | Evan (page) · Andric (report data) | Staff | Cards stacked; 2-col grid: per checkpoint, how many students loaded it (needed the prof's code), with the most challenging one(s) named; top errors and the digest panel beside it. Headline cards: attended, help requests (left open), slow-down peak. Not shown: recurring trouble across classes and the median TA wait (both still in the data) |
 | `/welcome` | `ChooseRoleView` | Andric | A new GitHub account (`role_chosen = false`); the router sends them here from any page, with `returnTo` | Two big buttons, side by side from `sm` |
 | `/profile` | `ProfileView` | Ying Qi (profile) + Karin (Telegram link card) | Logged in | Single column |
@@ -409,7 +409,7 @@ Unchanged — components never knew where the data came from, which is why this 
 | `AnnounceInput` | `current` | `announce`, `clear` | New. In the teach view's session bar; 200-char counter |
 | `SideBySideView` | `studentFiles`, `checkpointFiles` | — | Uses Ray Yien's `DiffView` |
 | `DiffView` | `before`, `after`, `mode: 'split' \| 'unified'` | — | Unified forced on xs |
-| `CheckpointTimeline` | `checkpoints`, `activeSeq`, `bookmarks` | `select` | Keyboard ← → navigation |
+| `CheckpointTimeline` | `checkpoints`, `activeSeq` | `select` | Keyboard ← → navigation |
 | `ReplayPreview` | `files` | — | Runs one checkpoint read-only in the shared WebContainer (its own `replay/` folder), only after **Run preview**. Moving to another step rewrites the files; a changed `package.json` reinstalls |
 
 ---

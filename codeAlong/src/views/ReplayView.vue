@@ -11,9 +11,10 @@ import DiffView from '@/components/replay/DiffView.vue'
 import NotesPanel from '@/components/replay/NotesPanel.vue'
 import ExportDialog from '@/components/replay/ExportDialog.vue'
 import ReplayPreview from '@/components/replay/ReplayPreview.vue'
+import { downloadProject } from '@/utils/downloadProject.js'
 
 // One class, step by step: pick a checkpoint and see what changed since the one before it,
-// with my notes and bookmarks beside it. Owner: Ray Yien. design-docs/04, 05 §11.
+// with my notes beside it. Owner: Ray Yien. design-docs/04, 05 §11.
 // ?seq=4 opens checkpoint 4 (search results link here like that).
 const props = defineProps({ sessionId: { type: String, required: true } })
 
@@ -91,14 +92,6 @@ async function loadCheckpoint(cp = active.value) {
 const notesHere = computed(() =>
   notes.value.filter((n) => n.kind === NoteKind.NOTE && n.checkpointId === active.value?.id),
 )
-const bookmarkHere = computed(() =>
-  notes.value.find((n) => n.kind === NoteKind.BOOKMARK && n.checkpointId === active.value?.id),
-)
-const bookmarkedSeqs = computed(() =>
-  notes.value
-    .filter((n) => n.kind === NoteKind.BOOKMARK)
-    .map((n) => checkpoints.value.find((c) => c.id === n.checkpointId)?.seq),
-)
 
 // Runs one note change; done() lets the notes panel clear its text box only once it's saved,
 // so a failed save keeps what the student wrote
@@ -115,19 +108,9 @@ async function run(action, done = () => {}) {
   }
 }
 
-const toggleBookmark = () =>
-  run(async () => {
-    if (bookmarkHere.value) {
-      const id = bookmarkHere.value.id
-      await store.removeNote(id)
-      notes.value = notes.value.filter((n) => n.id !== id)
-    } else {
-      const kind = NoteKind.BOOKMARK
-      notes.value.push(
-        await store.addNote({ sessionId: props.sessionId, checkpointId: active.value.id, kind }),
-      )
-    }
-  })
+// the code as it was at this checkpoint, as a .zip: "week-6-mini-cart-checkpoint-3.zip"
+const download = () =>
+  downloadProject(after.value, `${session.value.lesson.title} checkpoint ${active.value.seq}`)
 
 const addNote = (body, done) =>
   run(async () => {
@@ -254,12 +237,7 @@ const repoSlug = (title) =>
 
       <div v-else class="row g-4">
         <aside class="col-12 col-lg-3">
-          <CheckpointTimeline
-            :checkpoints="checkpoints"
-            :active-seq="activeSeq"
-            :bookmarks="bookmarkedSeqs"
-            @select="select"
-          />
+          <CheckpointTimeline :checkpoints="checkpoints" :active-seq="activeSeq" @select="select" />
         </aside>
 
         <section class="col-12 col-lg-6">
@@ -268,11 +246,10 @@ const repoSlug = (title) =>
             <button
               type="button"
               class="ca-btn ca-btn--secondary ca-btn--sm"
-              :disabled="saving"
-              @click="toggleBookmark"
+              :disabled="filesLoading || !after.length"
+              @click="download"
             >
-              <i class="bi" :class="bookmarkHere ? 'bi-bookmark-fill' : 'bi-bookmark'" />
-              {{ bookmarkHere ? 'Remove bookmark' : 'Bookmark' }}
+              <i class="bi bi-download" />Download code
             </button>
           </div>
           <div v-if="filesLoading" class="d-flex justify-content-center py-4">
