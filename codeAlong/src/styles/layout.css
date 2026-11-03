@@ -14,25 +14,6 @@
   }
 }
 
-/* The back button's row: lines up with .ca-page, with the button centred between navbar and page */
-.ca-back-bar {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  max-width: var(--ca-content-max);
-  height: var(--ca-back-bar-height);
-  margin-inline: auto;
-  padding-inline: var(--ca-space-4);
-}
-.ca-back-bar + .ca-page {
-  padding-top: 0;
-}
-@media (min-width: 768px) {
-  .ca-back-bar {
-    padding-inline: var(--ca-space-5);
-  }
-}
-
 /* Page title on the left, buttons on the right; stacks on small phones */
 .ca-page-header {
   display: flex;
@@ -51,14 +32,6 @@
 .ca-fill-viewport {
   height: calc(100dvh - var(--ca-navbar-height));
   min-height: 0;
-}
-.ca-back-bar + .ca-fill-viewport {
-  height: calc(100dvh - var(--ca-navbar-height) - var(--ca-back-bar-height));
-}
-/* these pages run edge to edge, so the back button stays at their left edge too */
-.ca-back-bar:has(+ .ca-fill-viewport) {
-  max-width: none;
-  padding-inline: var(--ca-space-4);
 }
 
 /* Small grey capitals above a heading */

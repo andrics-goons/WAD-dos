@@ -157,7 +157,7 @@ async function saveCheckpoint() {
 
 const confirmEnd = ref(false)
 const ending = ref(false)
-const toReport = () => router.replace({ name: 'session-report', params: { id: props.id } })
+const toReport = () => router.push({ name: 'session-report', params: { id: props.id } })
 async function endClass() {
   ending.value = true
   try {

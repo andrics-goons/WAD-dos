@@ -172,7 +172,7 @@ describe('the TA and the People tab', () => {
 describe('archiving, removing and deleting', () => {
   beforeAll(() => as(prof))
 
-  it('archiving moves a course out of my list only, and restoring brings it back', async () => {
+  it('an archived course leaves the default list, and its code stops working', async () => {
     const old = await create({ ...FORM, section: 'G8' })
     await coursesApi.setArchived(old.id, true)
     expect((await coursesApi.listCourses()).map((c) => c.id)).not.toContain(old.id)
@@ -181,14 +181,8 @@ describe('archiving, removing and deleting', () => {
     )
 
     await as(stu2)
-    expect((await coursesApi.enrolWithCode(old.enrol_code)).id).toBe(old.id)
-    const listed = await coursesApi.listCourses()
-    expect(listed.find((c) => c.id === old.id).archived).toBe(false)
+    expect(await codeOf(coursesApi.enrolWithCode(old.enrol_code))).toBe('NOT_FOUND')
     await as(prof)
-
-    await coursesApi.setArchived(old.id, false)
-    expect((await coursesApi.listCourses()).map((c) => c.id)).toContain(old.id)
-    await coursesApi.setArchived(old.id, true)
   })
 
   it('removeStudent takes away their access', async () => {

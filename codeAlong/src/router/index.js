@@ -11,8 +11,6 @@ import { useToastStore } from '@/stores/toast'
  *                   still refuse any write an admin isn't allowed to make.
  *   guest: true   → only for signed-out visitors; signed-in users go to /home
  *   title:        → appended to the document title
- *   back:         → (route) => { label, to? } for the back button (components/ui/BackButton.vue).
- *                   Without `to` it returns to the previous page. Main pages have none.
  *
  * These guards are UX, not security. The browser talks to Postgres directly, so the
  * real boundary is Row Level Security: a student who hand-navigates to another
@@ -29,10 +27,6 @@ const STAFF = ['prof', 'ta']
 const PROF = ['prof']
 const ADMIN = ['admin']
 
-const toMyCourses = () => ({ label: 'My courses', to: { name: 'courses' } })
-const exitClass = () => ({ label: 'Exit live session' })
-const toCourse = () => ({ label: 'Back to course' })
-
 const routes = [
   // ── Public ────────────────────────────────────────────────────────────────
   {
@@ -45,21 +39,13 @@ const routes = [
     path: '/login',
     name: 'login',
     component: () => import('@/views/LoginView.vue'),
-    meta: {
-      title: 'Log in',
-      guest: true,
-      back: () => ({ label: 'Home', to: { name: 'landing' } }),
-    },
+    meta: { title: 'Log in', guest: true },
   },
   {
     path: '/register',
     name: 'register',
     component: () => import('@/views/RegisterView.vue'),
-    meta: {
-      title: 'Create an account',
-      guest: true,
-      back: () => ({ label: 'Home', to: { name: 'landing' } }),
-    },
+    meta: { title: 'Create an account', guest: true },
   },
 
   // ── Any signed-in user ────────────────────────────────────────────────────
@@ -74,19 +60,14 @@ const routes = [
     path: '/courses',
     name: 'courses',
     component: () => import('@/views/CoursesView.vue'),
-    // the new course form (?new=1) is a step inside this page
-    meta: {
-      auth: true,
-      title: 'My courses',
-      back: (route) => (route.query.new ? toMyCourses() : null),
-    },
+    meta: { auth: true, title: 'My courses' },
   },
   {
     path: '/courses/:id',
     name: 'course',
     component: () => import('@/views/CourseView.vue'),
     props: true,
-    meta: { auth: true, title: 'Course', back: toMyCourses },
+    meta: { auth: true, title: 'Course' },
   },
   {
     // One record for both /join and /join/:code. The QR code links to /join/<code>,
@@ -105,7 +86,7 @@ const routes = [
     name: 'enrol',
     component: () => import('@/views/EnrolView.vue'),
     props: true,
-    meta: { auth: true, roles: ['student', 'ta'], title: 'Enrol in a course', back: toMyCourses },
+    meta: { auth: true, roles: ['student', 'ta'], title: 'Enrol in a course' },
   },
   {
     // The IDE: WebContainer runtime, file tree, editor, preview, terminal.
@@ -115,7 +96,7 @@ const routes = [
     name: 'workspace',
     component: () => import('@/views/WorkspaceView.vue'),
     props: true,
-    meta: { auth: true, title: 'Workspace', back: exitClass },
+    meta: { auth: true, title: 'Workspace' },
   },
   {
     path: '/replays',
@@ -128,11 +109,7 @@ const routes = [
     name: 'replay',
     component: () => import('@/views/ReplayView.vue'),
     props: true,
-    meta: {
-      auth: true,
-      title: 'Replay',
-      back: () => ({ label: 'All replays', to: { name: 'replays' } }),
-    },
+    meta: { auth: true, title: 'Replay' },
   },
   {
     // right after "Continue with GitHub" makes a new account: student or educator?
@@ -154,21 +131,21 @@ const routes = [
     name: 'help-queue',
     component: () => import('@/views/HelpQueueView.vue'),
     props: true,
-    meta: { auth: true, roles: STAFF, title: 'Help queue', back: exitClass },
+    meta: { auth: true, roles: STAFF, title: 'Help queue' },
   },
   {
     path: '/help/:requestId',
     name: 'help-review',
     component: () => import('@/views/HelpReviewView.vue'),
     props: true,
-    meta: { auth: true, roles: STAFF, title: 'Help request', back: () => ({ label: 'Back' }) },
+    meta: { auth: true, roles: STAFF, title: 'Help request' },
   },
   {
     path: '/sessions/:id/report',
     name: 'session-report',
     component: () => import('@/views/ReportView.vue'),
     props: true,
-    meta: { auth: true, roles: STAFF, title: 'Session report', back: toCourse },
+    meta: { auth: true, roles: STAFF, title: 'Session report' },
   },
 
   // ── Prof only ─────────────────────────────────────────────────────────────
@@ -177,29 +154,21 @@ const routes = [
     name: 'teach',
     component: () => import('@/views/TeachView.vue'),
     props: true,
-    meta: { auth: true, roles: PROF, title: 'Teach', back: exitClass },
+    meta: { auth: true, roles: PROF, title: 'Teach' },
   },
   {
     path: '/courses/:id/lessons/new',
     name: 'lesson-new',
     component: () => import('@/views/LessonNewView.vue'),
     props: true,
-    meta: {
-      auth: true,
-      roles: PROF,
-      title: 'New lesson',
-      back: (route) => ({
-        label: 'Back to course',
-        to: { name: 'course', params: { id: route.params.id } },
-      }),
-    },
+    meta: { auth: true, roles: PROF, title: 'New lesson' },
   },
   {
     path: '/lessons/:id/edit',
     name: 'lesson-edit',
     component: () => import('@/views/LessonEditView.vue'),
     props: true,
-    meta: { auth: true, roles: PROF, title: 'Edit lesson', back: toCourse },
+    meta: { auth: true, roles: PROF, title: 'Edit lesson' },
   },
 
   // ── Admin ─────────────────────────────────────────────────────────────────
@@ -225,7 +194,7 @@ const routes = [
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('@/views/NotFoundView.vue'),
-    meta: { title: 'Page not found', back: () => ({ label: 'Back' }) },
+    meta: { title: 'Page not found' },
   },
 ]
 
@@ -269,11 +238,5 @@ router.beforeEach(async (to) => {
 router.afterEach((to) => {
   document.title = to.meta.title ? `${to.meta.title} · CodeAlong` : 'CodeAlong'
 })
-
-// The page you came from. A link opened directly has none, so go to the starting page instead.
-export function goBack() {
-  if (window.history.state?.back) router.back()
-  else router.push({ name: useAuthStore().isAuthenticated ? 'home' : 'landing' })
-}
 
 export default router

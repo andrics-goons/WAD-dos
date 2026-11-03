@@ -279,7 +279,6 @@ This is the section the architecture change affects most. Previously three of th
 | The LLM only ever sees code a student sent with a help request | `analyze-help` reads only the request's own `help_request` snapshot; no name or id goes in the prompt | T-AIH-01, T-AIH-02 |
 | "Slow down" is only ever a count **to staff** | The flag is a row in `slow_down_flags`, readable only by its owner (and admins) — not a column of `student_status`, which staff read and receive over Postgres Changes. Staff read `session_summary`, which exposes `slow_down_count` and no ids | T-PRIV-04 |
 | A student cannot forge their tile state | There is **no** `state` column. `session_tiles` derives it in SQL from `done_seq`, `error`, `last_seen_at` and the session's `checkpoint_seq` | T-STAT-09 |
-| Students see classmates' names only while they are online in the same live class | Presence on `session:<id>`, a channel only course members can join. `profiles` and `course_students` stay closed between students | T-PRIV-11, T-PRIV-12 |
 | Notes are private to the author (admins excepted) | `notes` policies keyed on `user_id = auth.uid()` | T-PRIV-05 |
 | **Admins read, but write only accounts** | One `admin reads all` `select` policy per table; no admin policy for any other command; admin writes only through the admin functions | T-ADM-* |
 | Reports contain counts only | `session_reports` built by `build_session_report` (SQL, on end) from aggregates; no `student_id` anywhere in the row | T-INS-05 |
@@ -359,7 +358,7 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | Function | Owner | Called by | Signature |
 |---|---|---|---|
 | `rpc('create_course')` | Andric | Courses page | `(p_code text, p_title text, p_term text, p_section text) → course row` — prof only; generates the enrol code; adds the caller to `course_staff` as `prof` |
-| `rpc('enrol_with_code')` | Andric | Enrol page | `(p_code text) → course row` — students and TAs; `NOT_FOUND` for a wrong code |
+| `rpc('enrol_with_code')` | Andric | Enrol page | `(p_code text) → course row` — students and TAs; `NOT_FOUND` for a wrong or archived code |
 | `rpc('admin_list_users')` | Andric | Admin page | `() → [{ id, email, name, role, created_at }]` — `FORBIDDEN` unless admin |
 | `rpc('admin_set_role')` | Andric | Admin page | `(p_user_id uuid, p_role text) → [{ id, name, role }]` — refuses the caller's own role |
 | `rpc('add_course_staff')` | Andric | Course people page | `(p_course_id uuid, p_email text) → staff row` — owner only; `CONFLICT` if already staff or enrolled as a student |

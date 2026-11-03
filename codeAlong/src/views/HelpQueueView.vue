@@ -146,7 +146,7 @@ async function claim(request) {
           <template v-if="selected">
             <button
               type="button"
-              class="ca-btn ca-btn--secondary ca-btn--sm mb-2 d-lg-none"
+              class="ca-btn ca-btn--ghost ca-btn--sm mb-2 d-lg-none"
               @click="selectedId = null"
             >
               <i class="bi bi-arrow-left" />Back to the queue

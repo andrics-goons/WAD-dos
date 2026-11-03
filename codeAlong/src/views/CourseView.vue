@@ -1,6 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
 import QRCode from 'qrcode' // Source: https://github.com/soldair/node-qrcode (MIT)
 import { RoleLabel } from '@shared/constants.js'
 import { useCourseStore } from '@/stores/course'
@@ -8,14 +7,12 @@ import { useToastStore } from '@/stores/toast'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import LessonLibrary from '@/components/lesson/LessonLibrary.vue'
-import CourseForm from '@/components/course/CourseForm.vue'
 
 // One course: its lessons (each with its classes) and its people. The owner also gets the enrol link.
 const props = defineProps({ id: { type: String, required: true } })
 
 const store = useCourseStore()
 const toast = useToastStore()
-const router = useRouter()
 
 const course = ref(null)
 const loading = ref(true)
@@ -23,7 +20,6 @@ const loadError = ref('') // also covers "not yours": the database hides it, so 
 
 const staff = ref([])
 const students = ref([])
-const hasClasses = ref(false) // a course with classes keeps its history, so it can't be deleted
 
 const tab = ref('lessons')
 const tabs = [
@@ -38,66 +34,13 @@ onMounted(async () => {
       store.staff(props.id),
       store.students(props.id),
     ])
-    if (course.value.isOwner) {
-      hasClasses.value = (await store.sessions(props.id)).length > 0
-      await makeQr()
-    }
+    if (course.value.isOwner) await makeQr()
   } catch (error) {
     loadError.value = error.code === 'NOT_FOUND' ? 'not-found' : error.message
   } finally {
     loading.value = false
   }
 })
-
-// Edit or delete the course (owner), archive it from your own list (anyone)
-const editing = ref(false)
-const saving = ref(false)
-const editError = ref('')
-async function saveCourse(changes) {
-  saving.value = true
-  editError.value = ''
-  try {
-    course.value = { ...course.value, ...(await store.update(props.id, changes)) }
-    editing.value = false
-    toast.show('Course updated', 'success')
-  } catch (error) {
-    editError.value = error.message
-  } finally {
-    saving.value = false
-  }
-}
-
-const confirmDelete = ref(false)
-const confirmArchive = ref(false)
-const changing = ref(false)
-async function deleteCourse() {
-  changing.value = true
-  try {
-    await store.remove(props.id)
-    toast.show('Course deleted', 'success')
-    router.replace({ name: 'courses' })
-  } catch (error) {
-    confirmDelete.value = false
-    // a class started since this page loaded, so it can only be archived now
-    if (error.code === 'CONFLICT') confirmArchive.value = true
-    else toast.show(error.message, 'danger')
-  } finally {
-    changing.value = false
-  }
-}
-async function setArchived(archived) {
-  changing.value = true
-  try {
-    await store.setArchived(props.id, archived)
-    course.value.archived = archived
-    confirmArchive.value = false
-    toast.show(archived ? 'Course archived' : 'Course restored', 'success')
-  } catch (error) {
-    toast.show(error.message, 'danger')
-  } finally {
-    changing.value = false
-  }
-}
 
 // Share enrolment (owner)
 const shareLink = computed(() => course.value && store.shareLink(course.value.enrol_code))
@@ -113,32 +56,6 @@ async function copyLink() {
     toast.show("Couldn't copy — select the link and copy it yourself", 'warning')
   }
 }
-
-// People (students): who's online in each live class. Staff have the enrolment list instead.
-const isStaff = computed(() => ['prof', 'ta'].includes(course.value?.myRole))
-const liveClasses = ref([])
-let closeChannels = []
-function stopWatching() {
-  closeChannels.forEach((close) => close())
-  closeChannels = []
-}
-watch(tab, async (now) => {
-  stopWatching()
-  if (now !== 'people' || isStaff.value) return
-  try {
-    const sessions = await store.sessions(props.id)
-    if (tab.value !== 'people') return
-    liveClasses.value = sessions
-      .filter((s) => s.status === 'live')
-      .map((s) => ({ id: s.id, title: s.lessons.title, people: [] }))
-    closeChannels = liveClasses.value.map((c) =>
-      store.watchPresent(c.id, (people) => (c.people = people)),
-    )
-  } catch (error) {
-    toast.show(error.message, 'danger')
-  }
-})
-onBeforeUnmount(stopWatching)
 
 // People (owner): add a TA, remove a student
 const taEmail = ref('')
@@ -178,6 +95,14 @@ async function removeStudent() {
 
 <template>
   <div class="ca-page">
+    <RouterLink
+      v-if="!loading && !loadError"
+      :to="{ name: 'courses' }"
+      class="ca-btn ca-btn--ghost ca-btn--sm mb-2"
+    >
+      <i class="bi bi-arrow-left" />My courses
+    </RouterLink>
+
     <!-- Loading -->
     <div v-if="loading" class="d-flex justify-content-center py-5">
       <span class="spinner-border text-primary">
@@ -185,14 +110,14 @@ async function removeStudent() {
       </span>
     </div>
 
-    <!-- Not found / couldn't load -->
+    <!-- Not found (or not yours) / couldn't load -->
     <div v-else-if="loadError" class="ca-surface">
       <EmptyState
         :icon="loadError === 'not-found' ? 'bi-journal-x' : 'bi-exclamation-triangle'"
         :title="loadError === 'not-found' ? 'Course not found' : `Couldn't load the course`"
       >
         <template v-if="loadError === 'not-found'">
-          It may have been removed or the page couldn't be loaded.
+          It may have been removed, or you're not in it.
         </template>
         <template v-else>{{ loadError }}</template>
         <template #actions>
@@ -209,56 +134,8 @@ async function removeStudent() {
           <div class="ca-eyebrow">{{ course.code }} · {{ course.section }} · {{ course.term }}</div>
           <h1>{{ course.title }}</h1>
         </div>
-        <div class="d-flex flex-wrap align-items-center gap-2">
-          <span v-if="course.archived" class="badge text-bg-secondary">Archived</span>
-          <span class="badge text-bg-light">{{ RoleLabel[course.myRole] }}</span>
-          <button
-            v-if="course.isOwner"
-            type="button"
-            class="ca-btn ca-btn--secondary ca-btn--sm"
-            @click="editing = !editing"
-          >
-            <i class="bi bi-pencil" />Edit
-          </button>
-          <button
-            v-if="course.archived"
-            type="button"
-            class="ca-btn ca-btn--secondary ca-btn--sm"
-            :disabled="changing"
-            @click="setArchived(false)"
-          >
-            <i class="bi bi-arrow-counterclockwise" />Restore
-          </button>
-          <button
-            v-else
-            type="button"
-            class="ca-btn ca-btn--secondary ca-btn--sm"
-            @click="confirmArchive = true"
-          >
-            <i class="bi bi-archive" />Archive
-          </button>
-          <button
-            v-if="course.isOwner"
-            type="button"
-            class="ca-btn ca-btn--ghost ca-btn--sm"
-            :disabled="hasClasses"
-            :title="hasClasses ? 'A course that has existing lessons can only be archived' : ''"
-            @click="confirmDelete = true"
-          >
-            <i class="bi bi-trash" />Delete
-          </button>
-        </div>
+        <span class="badge text-bg-light">{{ RoleLabel[course.myRole] }}</span>
       </div>
-
-      <CourseForm
-        v-if="editing"
-        :course="course"
-        submit-label="Save changes"
-        :saving="saving"
-        :error="editError"
-        @save="saveCourse"
-        @cancel="editing = false"
-      />
 
       <!-- Share enrolment (owner) -->
       <section v-if="course.isOwner" class="ca-card mb-4">
@@ -358,25 +235,9 @@ async function removeStudent() {
           </div>
         </div>
 
-        <!-- students see who's online in a live class; the enrolment list is for staff only -->
-        <div v-if="!isStaff" class="col-12 col-lg-6">
+        <div class="col-12 col-lg-6">
           <div class="ca-card h-100">
-            <h2 class="fs-5 mb-3">In class now</h2>
-            <p v-if="!liveClasses.length" class="text-body-secondary mb-0">
-              No class is live right now.
-            </p>
-            <div v-for="c in liveClasses" :key="c.id" class="mb-3">
-              <div class="ca-eyebrow mb-2">{{ c.title }} · {{ c.people.length }} online</div>
-              <p v-if="!c.people.length" class="text-body-secondary mb-0">Nobody yet.</p>
-              <ul v-else class="list-group">
-                <li v-for="p in c.people" :key="p.userId" class="list-group-item">{{ p.name }}</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div v-else class="col-12 col-lg-6">
-          <div class="ca-card h-100">
+            <!-- staff see every student; a student only sees themselves -->
             <h2 class="fs-5 mb-3">Students ({{ students.length }})</h2>
             <p v-if="!students.length" class="text-body-secondary mb-0">Nobody has enrolled yet.</p>
             <ul v-else class="list-group">
@@ -411,28 +272,6 @@ async function removeStudent() {
       @confirm="removeStudent"
     >
       They'll lose access to this course. Their past class activity stays in the reports.
-    </ConfirmModal>
-
-    <ConfirmModal
-      v-model:open="confirmDelete"
-      title="Delete this course?"
-      confirm-label="Delete course"
-      variant="danger"
-      :busy="changing"
-      @confirm="deleteCourse"
-    >
-      This can't be undone.
-    </ConfirmModal>
-
-    <ConfirmModal
-      v-model:open="confirmArchive"
-      title="Archive this course?"
-      confirm-label="Archive course"
-      :busy="changing"
-      @confirm="setArchived(true)"
-    >
-      It moves to your archived courses, and can be restored anytime. This action only applies to
-      your list, nobody else is affected.
     </ConfirmModal>
   </div>
 </template>
