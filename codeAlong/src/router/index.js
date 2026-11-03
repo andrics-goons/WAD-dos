@@ -107,7 +107,7 @@ const routes = [
     name: 'workspace',
     component: () => import('@/views/WorkspaceView.vue'),
     props: true,
-    meta: { auth: true, title: 'Workspace', back: exitClass },
+    meta: { auth: true, title: 'Workspace' }, // no back bar: the student's screen is all workspace
   },
   {
     path: '/replays',
@@ -169,7 +169,7 @@ const routes = [
     name: 'teach',
     component: () => import('@/views/TeachView.vue'),
     props: true,
-    meta: { auth: true, roles: PROF, title: 'Teach', back: exitClass },
+    meta: { auth: true, roles: PROF, title: 'Teach' }, // no back bar: the prof's screen is all class
   },
   {
     path: '/courses/:id/lessons/new',
