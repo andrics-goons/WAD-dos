@@ -394,7 +394,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-REP-05 | Search finds a step title and a note | E2E | Both in results with links |
 | T-REP-06 | Search with regex characters | DB | No crash; literal match (parameterised RPC) |
 | T-REP-07 | Non-member reads a replay | RLS | Zero checkpoints returned |
-| T-REP-08 | Student view of a replay | Unit | A student who joined can switch to their own code as the class ended (code viewer, download, preview, export); staff and students who never joined have no toggle |
+| T-REP-08 | Student view of a replay | Unit | A student who joined can switch to their own code as the class ended (code viewer, download, preview, export); staff have no toggle; a student with nothing saved sees "No saved code" |
 | T-REP-09 | Preview warms up by itself | Unit | With `autostart` the preview installs and starts once there is code, reporting `installing` → `starting` → `ready`; below `md` it waits for Run preview |
 
 ### GH — GitHub import/export · `github-export.test.js`, `replay.spec.js`
