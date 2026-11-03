@@ -11,7 +11,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 
 // The Lessons tab of the course page. Lessons sit in one folder per week ("Week 6"), and opening a
 // folder shows its code files ("ICE", "Extra exercises"), each with the classes run from it.
-// Start new session goes to the import page, so every class starts from code the prof brought in.
+// Each file has its own Start new session, which starts a class from that file's code.
 // Owner: Ray Yien (started by Ying Qi as a working first version).
 const props = defineProps({ course: { type: Object, required: true } })
 
@@ -77,6 +77,7 @@ const folders = computed(() => {
 // the folder already says the week, so "Week 6 · Mini Cart" shows as "Mini Cart"
 const fileName = (l) => l.title.replace(/^Week \d+\s*[·:-]\s*/i, '')
 const classesOf = (lesson) => sessions.value.filter((s) => s.lesson_id === lesson.id)
+const hasLiveClass = (lesson) => classesOf(lesson).some((s) => s.status === 'live')
 
 const STATUS = {
   draft: { label: 'Draft', css: 'text-bg-warning' },
@@ -273,17 +274,6 @@ async function startClass(lesson) {
           </button>
           <i class="bi bi-folder2" />
           <span class="fw-semibold">{{ f.name }}</span>
-          <RouterLink
-            v-if="isProf"
-            :to="{
-              name: 'lesson-new',
-              params: { id: course.id },
-              query: { start: 1, week: f.week ?? undefined },
-            }"
-            class="ca-btn ca-btn--primary ca-btn--sm ms-auto"
-          >
-            Start new session
-          </RouterLink>
         </div>
 
         <!-- the dropdown: the folder's code files, each with the classes run from it -->
@@ -302,9 +292,10 @@ async function startClass(lesson) {
               }}</span>
 
               <span v-if="isProf" class="ms-auto d-flex flex-wrap align-items-center gap-1">
-                <!-- only code that hasn't been taught: a new class imports its own -->
+                <!-- any file not archived, taught before or not; while one of its classes is live,
+                     Open class (in its list below) is the way in instead -->
                 <button
-                  v-if="l.status === LessonStatus.READY && !classesOf(l).length"
+                  v-if="l.status !== LessonStatus.ARCHIVED && !hasLiveClass(l)"
                   type="button"
                   class="ca-btn ca-btn--primary ca-btn--sm"
                   :disabled="starting === l.id"
@@ -312,7 +303,7 @@ async function startClass(lesson) {
                   @click="startClass(l)"
                 >
                   <span v-if="starting === l.id" class="spinner-border spinner-border-sm" />
-                  Start class
+                  Start new session
                 </button>
 
                 <!-- ⋯: edit the files, show or hide it from students, archive -->

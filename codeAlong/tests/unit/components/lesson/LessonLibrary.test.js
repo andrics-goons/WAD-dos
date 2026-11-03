@@ -60,10 +60,14 @@ describe('LessonLibrary', () => {
     expect(wrapper.find('.badge.text-bg-success').text()).toBe('Ready')
   })
 
-  it('T-LES-10: Start class only on a ready file that has never been taught', async () => {
+  it('T-LES-10: each file has its own Start new session, and the week folders have none', async () => {
     const wrapper = await show()
     await openAll(wrapper)
-    expect(wrapper.find('[data-testid="lesson-start-week-1-draft-one"]').exists()).toBe(false)
+    expect(wrapper.findAll('a').filter((a) => a.text() === 'Start new session')).toHaveLength(0)
+    expect(wrapper.find('[data-testid="lesson-start-week-1-draft-one"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="lesson-start-week-2-ready-one"]').text()).toBe(
+      'Start new session',
+    )
     await wrapper.find('[data-testid="lesson-start-week-2-ready-one"]').trigger('click')
     await flushPromises()
     expect(fakes.update).not.toHaveBeenCalled()
@@ -71,7 +75,21 @@ describe('LessonLibrary', () => {
     expect(fakes.push).toHaveBeenCalledWith({ name: 'teach', params: { id: 's1' } })
   })
 
-  it('T-LES-10: no Start class once the file has a class (Open class is in its list)', async () => {
+  it('T-LES-10: a file taught before can start a new session', async () => {
+    fakes.sessions = [
+      {
+        id: 's8',
+        lesson_id: 'Week 2 · Ready one',
+        status: 'ended',
+        started_at: '2026-11-01T01:00:00Z',
+      },
+    ]
+    const wrapper = await show()
+    await openAll(wrapper)
+    expect(wrapper.find('[data-testid="lesson-start-week-2-ready-one"]').exists()).toBe(true)
+  })
+
+  it('T-LES-10: no Start new session while the file has a live class (Open class is in its list)', async () => {
     fakes.sessions = [
       {
         id: 's9',
