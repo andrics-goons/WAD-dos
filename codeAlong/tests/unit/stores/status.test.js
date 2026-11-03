@@ -160,6 +160,45 @@ describe('status store', () => {
   })
 })
 
+describe('leaving the class page', () => {
+  it('T-DASH-12: takes back my Slow down, so it stops counting for a class I have left', async () => {
+    const status = useStatusStore()
+    await status.start('s1')
+    await status.toggleSlowDown()
+    await status.leave()
+    expect(setSlowDown).toHaveBeenLastCalledWith('s1', 'u1', false)
+    expect(status.slowDown).toBe(false)
+  })
+
+  it('sends nothing about Slow down when none was raised', async () => {
+    const status = useStatusStore()
+    await status.start('s1')
+    setSlowDown.mockClear()
+    await status.leave()
+    expect(setSlowDown).not.toHaveBeenCalled()
+  })
+
+  it('a failed take-back (class ended, no connection) never throws: the idle window covers it', async () => {
+    const status = useStatusStore()
+    await status.start('s1')
+    await status.toggleSlowDown()
+    setSlowDown.mockRejectedValue(new Error('This class has ended'))
+    await expect(status.leave()).resolves.toBeUndefined()
+    expect(status.slowDown).toBe(false)
+  })
+
+  it('stops the heartbeat like stop() does', async () => {
+    vi.useFakeTimers()
+    const status = useStatusStore()
+    await status.start('s1')
+    await status.leave()
+    saveStatus.mockClear()
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(saveStatus).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+})
+
 describe('Slow down', () => {
   it('a refresh shows whether I had already asked', async () => {
     getMySlowDown.mockResolvedValue(true)

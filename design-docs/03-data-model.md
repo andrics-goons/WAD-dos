@@ -343,7 +343,7 @@ All `security definer`, for the same reason as the course helpers.
 | `is_session_member(sid)` | The caller is staff or an enrolled student of the session's course |
 | `is_session_staff(sid)` | The caller is the prof or a TA of the session's course |
 | `is_live_session_student(sid)` | The caller is **enrolled** in the session's course **and** the session is `live` |
-| `session_slow_down_count(sid)` | Returns the number of raised "Slow down" flags — to staff and admins. Returns `null` to anyone else |
+| `session_slow_down_count(sid)` | Returns the number of raised "Slow down" flags from students who are **still here** — seen (`student_status.last_seen_at`, the 30 s heartbeat) within the class's `idleAfterSec` (180 s default), the same window as Idle. A student who closed their tab or lost their connection stops counting, and counts again if they return. An ended class counts every flag. To staff and admins; `null` to anyone else |
 | `is_session_channel_member(topic)` | `topic` is exactly `session:<uuid>` and the caller is a member. Anything else is `false`, never a cast error |
 
 ---

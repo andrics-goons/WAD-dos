@@ -11,6 +11,8 @@ import { AppError, mapError } from './mapError'
  *   help      open or claimed "Ask for help" requests
  *   check     open or claimed "Check my work" requests
  *   errors    students' current errors, in the shape groupErrors() takes, for Common errors
+ *   students  [{ studentId, done }] for everyone in the class, so the Teach view can count only
+ *             the students who are connected right now (it never shows the ids)
  * Staff only; RLS gives anyone else zero rows, so every count is 0.
  */
 export async function getClassSummary(sessionId) {
@@ -38,6 +40,7 @@ export async function getClassSummary(sessionId) {
   return {
     total: rows.length,
     done: rows.filter((t) => t.done_seq === t.checkpoint_seq).length,
+    students: rows.map((t) => ({ studentId: t.student_id, done: t.done_seq === t.checkpoint_seq })),
     slowDown: summary.data?.slow_down_count ?? 0,
     help: requests.data.filter((r) => r.type === 'help').length,
     check: requests.data.filter((r) => r.type === 'check').length,

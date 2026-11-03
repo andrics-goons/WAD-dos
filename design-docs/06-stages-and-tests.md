@@ -300,6 +300,9 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-DASH-05 | Student un-taps "Slow down" | E2E | Count decrements |
 | T-DASH-06 | TA (staff) can view dashboard; student cannot | RLS | TA gets tile rows; a student gets zero rows from `session_tiles` |
 | T-DASH-07 | ~~Tiles show icon + label~~ | — | Removed: no per-student tiles |
+| T-DASH-10 | **The dashboard counts only connected students** | Unit | "Done X of N" and Common errors use the students connected now: someone who joined and left isn't in N, their Done or their errors; they count again when they reconnect |
+| T-DASH-11 | **Slow down counts only students who are still here** | RLS | A flag from a student unseen for longer than the idle window (180 s, or the class's own) isn't counted, and counts again when they return; TAs read the same number; students get `null`; an ended class counts all |
+| T-DASH-12 | Leaving the class page takes my Slow down back | Unit | `statusStore.leave()` deletes my flag and stops the heartbeat; with no flag it sends nothing; a refused delete (class ended, offline) never throws |
 
 ### ERRG — Error groups · `error-normalizer.test.js`, `group-errors.test.js`, `api/dashboard.api.test.js`
 

@@ -253,7 +253,7 @@ describe('TeachView', () => {
   it('shows what the class clicked as numbers, with no student tiles', async () => {
     await open()
     expect(api.getClassSummary).toHaveBeenCalledWith('ses-1')
-    expect(wrapper.find('[data-testid="summary-done"]').text()).toContain('of 24')
+    expect(wrapper.find('[data-testid="summary-done"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="slow-down-count"]').text()).toContain('2')
     expect(wrapper.find('[data-testid^="tile-"]').exists()).toBe(false)
   })
@@ -273,9 +273,12 @@ describe('TeachView', () => {
       slowDown: 0,
       help: 0,
       check: 0,
+      students: [],
       errors: [err('a'), err('b')],
     })
     await open()
+    live.present = [{ userId: 'a' }, { userId: 'b' }] // the two who hit it are connected
+    await flushPromises()
     expect(wrapper.find('[data-testid="error-group-0"]').text()).toContain('itmes is not defined')
   })
 
@@ -415,6 +418,70 @@ describe('TeachView', () => {
     await flushPromises()
     expect(live.announce).toHaveBeenCalledWith('ses-1', '')
     expect(lastToast()).toMatchObject({ variant: 'success', text: 'Announcement cleared' })
+  })
+
+  describe('the dashboard counts only the students who are connected', () => {
+    const student = (studentId, done) => ({ studentId, done })
+    const error = (studentId) => ({
+      studentId,
+      errorKey: 'ReferenceError: itmes is not defined',
+      errorShapeKey: null,
+      errorSource: 'runtime',
+      errorPreview: 'itmes is not defined',
+      lastSeenAt: new Date().toISOString(),
+    })
+    const summary = (over = {}) => ({
+      total: 3,
+      done: 2,
+      slowDown: 0,
+      help: 0,
+      check: 0,
+      students: [student('a', true), student('b', false), student('c', true)],
+      errors: [],
+      ...over,
+    })
+    const done = () => wrapper.find('[data-testid="summary-done"]').text()
+
+    it('T-DASH-10: Done is X of the students here, not of everyone who ever joined', async () => {
+      api.getClassSummary.mockResolvedValue(summary())
+      await open()
+      live.present = [{ userId: 'a' }, { userId: 'b' }] // c joined earlier and has left
+      await flushPromises()
+      expect(done()).toContain('1') // a is here and Done; c is Done but gone
+      expect(done()).toContain('of 2')
+      expect(done()).not.toContain('of 3')
+      expect(wrapper.find('[data-testid="connected-count"]').text()).toContain('2 connected')
+    })
+
+    it('nobody connected: Done is 0 of 0, however many joined before', async () => {
+      api.getClassSummary.mockResolvedValue(summary())
+      await open()
+      live.present = []
+      await flushPromises()
+      expect(done()).toContain('of 0')
+    })
+
+    it('a student who reconnects counts again, and a new one counts before the summary has them', async () => {
+      api.getClassSummary.mockResolvedValue(summary())
+      await open()
+      live.present = [{ userId: 'c' }, { userId: 'd' }] // d has no status row yet
+      await flushPromises()
+      expect(done()).toContain('of 2')
+      expect(done()).toContain('1') // only c
+    })
+
+    it('Common errors only counts students who are here', async () => {
+      api.getClassSummary.mockResolvedValue(
+        summary({ errors: [error('a'), error('b'), error('c')] }),
+      )
+      await open()
+      live.present = [{ userId: 'a' }] // b and c made the mistake but left: just one here
+      await flushPromises()
+      expect(wrapper.find('[data-testid="error-group-0"]').exists()).toBe(false) // under the minimum of 2
+      live.present = [{ userId: 'a' }, { userId: 'b' }]
+      await flushPromises()
+      expect(wrapper.find('[data-testid="error-group-0"]').text()).toContain('itmes is not defined')
+    })
   })
 
   it('closes the class when leaving', async () => {

@@ -160,11 +160,25 @@ const stopHelpChanges = live.onChange('help_requests', refreshSummarySoon)
 // slow-down flags never go out on the channel (staff only ever see the count), so check every 10 s
 const slowDownPoll = setInterval(() => live.isLive && loadSummary(), 10_000)
 
-// common errors, from the real class
+// The dashboard is about who is here now. Students who joined earlier and have left don't count
+// in "Done X of N", its bar or Common errors: N is the students connected, and Done and the
+// errors are only theirs. (Slow down is an anonymous count, and help requests stay in the queue
+// until answered, so those aren't filtered.)
+const connected = computed(() => new Set(live.present.map((p) => p.userId)))
+const summaryNow = computed(() => {
+  const s = dashboard.classSummary
+  if (!s) return null
+  return {
+    ...s,
+    total: live.present.length,
+    done: (s.students ?? []).filter((t) => t.done && connected.value.has(t.studentId)).length,
+    errors: s.errors.filter((e) => connected.value.has(e.studentId)),
+  }
+})
+
+// common errors, from the students who are here
 const errorGroups = computed(() =>
-  groupErrors(dashboard.classSummary?.errors ?? [], {
-    presentCount: dashboard.classSummary?.total ?? 0,
-  }),
+  groupErrors(summaryNow.value?.errors ?? [], { presentCount: live.present.length }),
 )
 const savedAt = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -397,7 +411,7 @@ onBeforeUnmount(() => {
               :class="{ collapsed: presenting, 'd-none d-xl-grid': mobileTab !== 'dashboard' }"
             >
               <div class="collapsible-inner">
-                <ClassChoices :summary="dashboard.classSummary" />
+                <ClassChoices :summary="summaryNow" />
                 <p v-if="dashboard.classSummaryError" class="small text-danger mt-2 mb-0">
                   Couldn't refresh the numbers: {{ dashboard.classSummaryError.message }}
                 </p>

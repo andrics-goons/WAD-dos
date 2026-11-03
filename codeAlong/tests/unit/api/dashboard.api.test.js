@@ -150,6 +150,13 @@ describe('getClassSummary', () => {
     expect(summary).toMatchObject({ total: 4, done: 2, slowDown: 2, help: 2, check: 1 })
   })
 
+  it('T-DASH-10: says which students are Done, so the page can count only those who are here', async () => {
+    const { students: list } = await getClassSummary(session.id)
+    expect(list).toHaveLength(4)
+    expect(list.filter((s) => s.done)).toHaveLength(2)
+    expect(list.every((s) => typeof s.studentId === 'string')).toBe(true)
+  })
+
   it('T-DASH-04: has no names or student ids in the counts', async () => {
     const { total, done, slowDown, help, check } = await getClassSummary(session.id)
     expect(JSON.stringify({ total, done, slowDown, help, check })).not.toMatch(/Student|-/)

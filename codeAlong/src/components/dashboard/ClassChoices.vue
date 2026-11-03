@@ -4,7 +4,8 @@ import { computed } from 'vue'
 // What the class has clicked, as numbers only: no names, no tiles.
 // Colours come from the kit: the state colours on each badge, the brand on the bar.
 const props = defineProps({
-  // { total, done, slowDown, help, check } from dashboard.api's getClassSummary, or null
+  // { total, done, slowDown, help, check }, or null. total is the students connected right now
+  // and done only counts them (the Teach view works that out from getClassSummary)
   summary: { type: Object, default: null },
 })
 

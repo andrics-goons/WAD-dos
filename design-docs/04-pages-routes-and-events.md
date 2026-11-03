@@ -207,7 +207,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 | — | `workspaceStore.loadLatestCheckpoint()` | **Catch-up, no RPC:** after the student confirms (and optionally downloads a .zip), loads the latest checkpoint through the file cache, replaces the editor and WebContainer files, and autosaves them. Disabled when there's no checkpoint, `allowCatchUp` is off, or the class has ended | Enrolled |
 | Query | `from('snapshots').select().eq('reason','before_catchup')` | My attempts — RLS makes "mine" automatic | Enrolled |
 | Query | `getMyStatus(sessionId)` / `saveStatus(sessionId, studentId, { doneSeq, error })` — `from('student_status').upsert(…)` | Status on change (throttled to 2 s) + 30 s heartbeat while the tab is visible; driven by `stores/status.js`. No `state` field exists to send | Enrolled |
-| Query | `getMySlowDown(sid)`: my own `slow_down_flags` row → boolean; `setSlowDown(sid, me, on)`: `insert({ session_id, student_id })` / `.delete()` (a duplicate insert is ignored) | "Slow down" on / off, loaded with my status so it survives a reload. Clicking **Done** turns it off too (I've caught up), so forgotten flags don't keep the count high; turning it **on** while Done puts me back to In progress (I'm not caught up after all). Anonymous: staff can only read `slow_down_count` | Enrolled, live session |
+| Query | `getMySlowDown(sid)`: my own `slow_down_flags` row → boolean; `setSlowDown(sid, me, on)`: `insert({ session_id, student_id })` / `.delete()` (a duplicate insert is ignored) | "Slow down" on / off, loaded with my status so it survives a reload. **Leaving the class page in-app takes it back** (`statusStore.leave()`); a closed tab, refresh or lost connection can't, so the database only counts students seen within the idle window (03). Clicking **Done** turns it off too (I've caught up), so forgotten flags don't keep the count high; turning it **on** while Done puts me back to In progress (I'm not caught up after all). Anonymous: staff can only read `slow_down_count` | Enrolled, live session |
 
 ### Help — `help.api.js` (Karin)
 
@@ -357,7 +357,7 @@ RLS applies to subscriptions, so a student receives only their own rows — the 
 
 ### Presence
 
-Students track `{ userId, name }` on join; staff read it for the live attendance count. `joined_at` is still written to `student_status` so the report survives after everyone disconnects. Presence is **not** used for idle — idle is `now() - last_seen_at > idleAfterSec`, derived in `session_tiles`.
+Students track `{ userId, name }` on join; staff read it for the live attendance count. **The Teach view's numbers are about who is connected now:** "N connected" in the session bar, and on the dashboard "Done X of N" (and its bar) and Common errors count only connected students. A student who joined earlier and left drops out of all of them until they reconnect. Slow down (an anonymous count) and the help queue aren't filtered. `joined_at` is still written to `student_status` so the report survives after everyone disconnects. Presence is **not** used for idle — idle is `now() - last_seen_at > idleAfterSec`, derived in `session_tiles`.
 
 ### What used to be socket events
 
