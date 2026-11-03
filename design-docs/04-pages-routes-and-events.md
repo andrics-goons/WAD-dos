@@ -408,7 +408,7 @@ Unchanged — components never knew where the data came from, which is why this 
 | `FollowUpForm` | `request`, `remaining` | `submit` | New. Only on a `replied` request; shows "2 follow-ups left"; at 0, suggests in-person help |
 | `CatchUpModal` | `open`, `checkpoint`, `busy` | `download`, `confirm` | "Load the prof's latest checkpoint?" Names the checkpoint, warns that anything not downloaded is lost, offers **Download my project (.zip)** (`btn-download-project`); confirm is **Replace my code** |
 | `AnnouncementBanner` | `announcement` | `dismiss` | New. Top of the workspace; dismissing hides it until a **new** announcement arrives |
-| `AnnounceInput` | `current` | `announce`, `clear` | New. In the teach view's session bar; 200-char counter |
+| `AnnounceInput` | `current` | `announce`, `clear` | New. In the teach view's session bar as a single **Announce** button (it turns primary while an announcement is showing to students); its menu, like the ⋯ menus, holds the text box (Enter sends; closes on a click elsewhere or Escape), the 200-char counter, Send and Clear. **Send** is disabled until there is text (an empty or blank announcement can't be sent); **Clear** shows only while students can see one, and is the only way to take it down |
 | `SideBySideView` | `studentFiles`, `checkpointFiles` | — | Uses Ray Yien's `DiffView` |
 | `DiffView` | `before`, `after`, `mode: 'split' \| 'unified'` | — | Unified forced on xs |
 | `CheckpointTimeline` | `checkpoints`, `activeSeq`, `bookmarks` | `select` | Keyboard ← → navigation |

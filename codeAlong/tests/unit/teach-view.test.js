@@ -302,6 +302,81 @@ describe('TeachView', () => {
     expect(lastToast()).toMatchObject({ variant: 'success', text: 'Announcement sent' })
   })
 
+  it('T-SESS-20: an empty or blank announcement cannot be sent', async () => {
+    await open()
+    const send = wrapper.find('[data-testid="btn-announce"]')
+    expect(send.attributes('disabled')).toBeDefined() // nothing typed
+    await wrapper.find('#announce').setValue('   ')
+    expect(send.attributes('disabled')).toBeDefined()
+    await wrapper.find('form').trigger('submit') // Enter in the box still can't send it
+    await flushPromises()
+    expect(live.announce).not.toHaveBeenCalled()
+    await wrapper.find('#announce').setValue('5 minute break')
+    expect(send.attributes('disabled')).toBeUndefined()
+  })
+
+  describe('the Announce menu', () => {
+    const menu = () => wrapper.find('.announce-menu')
+    const toggle = () => wrapper.find('[data-testid="btn-open-announce"]')
+
+    it('the session bar has just an Announce button; the box and Send are in its menu', async () => {
+      await open()
+      expect(toggle().text()).toContain('Announce')
+      expect(menu().classes()).not.toContain('show')
+      await toggle().trigger('click')
+      expect(menu().classes()).toContain('show')
+      expect(menu().find('#announce').exists()).toBe(true)
+      expect(menu().find('[data-testid="btn-announce"]').exists()).toBe(true)
+    })
+
+    it('a click anywhere else closes it, but typing inside does not', async () => {
+      await open()
+      await toggle().trigger('click')
+      await menu().find('#announce').setValue('hi')
+      await menu().trigger('click')
+      expect(menu().classes()).toContain('show')
+      document.body.click()
+      await flushPromises()
+      expect(menu().classes()).not.toContain('show')
+    })
+
+    it('Escape closes it', async () => {
+      await open()
+      await toggle().trigger('click')
+      await menu().trigger('keydown', { key: 'Escape' })
+      expect(menu().classes()).not.toContain('show')
+    })
+
+    it('Enter sends it and the menu closes', async () => {
+      await open()
+      await toggle().trigger('click')
+      await menu().find('#announce').setValue('5 minute break')
+      await menu().find('#announce').trigger('keydown', { key: 'Enter' })
+      await flushPromises()
+      expect(live.announce).toHaveBeenCalledWith('ses-1', '5 minute break')
+      expect(menu().classes()).not.toContain('show')
+    })
+
+    it('the button stands out while an announcement is showing to students', async () => {
+      await open()
+      expect(toggle().classes()).toContain('ca-btn--secondary')
+      live.session.announcement = { text: 'hi', at: '2026-11-03T10:00:00Z' }
+      await flushPromises()
+      expect(toggle().classes()).toContain('ca-btn--primary')
+    })
+  })
+
+  it('Clear takes the current announcement down, and only shows while there is one', async () => {
+    await open()
+    expect(wrapper.find('[data-testid="btn-clear-announce"]').exists()).toBe(false)
+    live.session.announcement = { text: '5 minute break', at: '2026-11-03T10:00:00Z' }
+    await flushPromises()
+    await wrapper.find('[data-testid="btn-clear-announce"]').trigger('click')
+    await flushPromises()
+    expect(live.announce).toHaveBeenCalledWith('ses-1', '')
+    expect(lastToast()).toMatchObject({ variant: 'success', text: 'Announcement cleared' })
+  })
+
   it('closes the class when leaving', async () => {
     await open()
     wrapper.unmount()

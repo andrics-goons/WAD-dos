@@ -4,7 +4,7 @@
 // The dashboard shows what the class clicked as numbers (no tiles) and their common errors.
 // The announce box is karin's: students see the message as a banner.
 // No navbar here: the global nav (AppNavbar) wraps every page from App.vue.
-import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { computed, ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Limits } from '@shared/constants.js'
 import { groupErrors } from '@shared/error-normalizer.js'
@@ -40,12 +40,41 @@ const mobileTab = ref('dashboard')
 const editorView = ref('code')
 const announcement = ref('')
 
-// karin's announcements: students see it as a banner. Sending an empty box clears the current one
+// karin's announcements: students see it as a banner. An empty box can't be sent; the Clear
+// button takes the current announcement down
+const canSend = computed(() => announcement.value.trim() !== '')
+
+// The session bar only has an Announce button; its menu holds the box, Send and Clear. A click
+// anywhere else (or Escape) closes it, like the ⋯ menus on the course pages.
+const announceOpen = ref(false)
+const announceBox = ref(null)
+async function toggleAnnounce() {
+  announceOpen.value = !announceOpen.value
+  if (announceOpen.value) {
+    await nextTick()
+    announceBox.value?.focus()
+  }
+}
+const closeAnnounce = () => (announceOpen.value = false)
+onMounted(() => document.addEventListener('click', closeAnnounce))
+onBeforeUnmount(() => document.removeEventListener('click', closeAnnounce))
+
 async function sendAnnouncement() {
+  if (!canSend.value) return
   try {
     await live.announce(props.id, announcement.value)
-    toast.show(announcement.value.trim() ? 'Announcement sent' : 'Announcement cleared', 'success')
+    toast.show('Announcement sent', 'success')
     announcement.value = ''
+    closeAnnounce()
+  } catch (error) {
+    toast.show(error.message, 'danger')
+  }
+}
+async function clearAnnouncement() {
+  try {
+    await live.announce(props.id, '')
+    toast.show('Announcement cleared', 'success')
+    closeAnnounce()
   } catch (error) {
     toast.show(error.message, 'danger')
   }
@@ -215,34 +244,71 @@ onBeforeUnmount(() => {
 
     <template v-else>
       <!-- Session bar -->
-      <div class="session-bar d-flex flex-wrap align-items-center gap-2 px-3 py-2 border-bottom">
+      <div
+        class="session-bar position-relative d-flex flex-wrap align-items-center gap-2 px-3 py-2 border-bottom"
+      >
         <div class="me-auto overflow-hidden">
           <div class="fw-semibold text-truncate">{{ live.session.lesson.title }}</div>
         </div>
         <span class="small text-body-secondary"
           >{{ live.present.length }} joined · {{ elapsed }}</span
         >
-        <form
-          class="col-12 col-md d-flex align-items-center gap-2"
-          @submit.prevent="sendAnnouncement"
-        >
-          <label for="announce" class="visually-hidden">Announcement</label>
-          <input
-            id="announce"
-            v-model="announcement"
-            type="text"
-            class="announce-input ca-input"
-            :maxlength="Limits.ANNOUNCE_MAX_CHARS"
-            placeholder="Announce to class…"
-            data-testid="input-announce"
-          />
-          <span class="small text-body-secondary text-nowrap"
-            >{{ announcement.length }}/{{ Limits.ANNOUNCE_MAX_CHARS }}</span
+        <!-- Announce: students see what you send as a banner. The menu keeps the bar clear -->
+        <div class="dropdown announce-dropdown" @click.stop>
+          <button
+            type="button"
+            class="ca-btn ca-btn--sm"
+            :class="live.session?.announcement ? 'ca-btn--primary' : 'ca-btn--secondary'"
+            data-testid="btn-open-announce"
+            @click="toggleAnnounce"
           >
-          <button class="ca-btn ca-btn--sm" type="submit" data-testid="btn-announce">
-            <i class="bi bi-megaphone" />Send
+            <i class="bi bi-megaphone" />Announce
           </button>
-        </form>
+          <form
+            class="dropdown-menu top-100 end-0 announce-menu p-3"
+            :class="{ show: announceOpen }"
+            @submit.prevent="sendAnnouncement"
+            @keydown.esc="closeAnnounce"
+          >
+            <label for="announce" class="ca-label">Announce to class</label>
+            <!-- Enter sends, so the message stays on one line -->
+            <textarea
+              id="announce"
+              ref="announceBox"
+              v-model="announcement"
+              class="ca-input"
+              rows="3"
+              :maxlength="Limits.ANNOUNCE_MAX_CHARS"
+              placeholder="e.g. 5 minute break"
+              data-testid="input-announce"
+              @keydown.enter.prevent="sendAnnouncement"
+            />
+            <div class="d-flex align-items-center gap-2 mt-2">
+              <span class="small text-body-secondary"
+                >{{ announcement.length }}/{{ Limits.ANNOUNCE_MAX_CHARS }}</span
+              >
+              <!-- only while students can see one -->
+              <button
+                v-if="live.session?.announcement"
+                type="button"
+                class="ca-btn ca-btn--ghost ca-btn--sm ms-auto"
+                data-testid="btn-clear-announce"
+                @click="clearAnnouncement"
+              >
+                Clear
+              </button>
+              <button
+                class="ca-btn ca-btn--primary ca-btn--sm"
+                :class="{ 'ms-auto': !live.session?.announcement }"
+                type="submit"
+                :disabled="!canSend"
+                data-testid="btn-announce"
+              >
+                <i class="bi bi-megaphone" />Send
+              </button>
+            </div>
+          </form>
+        </div>
         <button
           type="button"
           class="ca-btn ca-btn--danger ca-btn--sm"
@@ -405,11 +471,19 @@ onBeforeUnmount(() => {
 .session-bar {
   background: var(--ca-surface);
 }
-/* same height as the small buttons next to it */
-.announce-input {
-  min-height: 2rem;
-  padding-block: 0;
-  font-size: var(--ca-text-sm);
+/* the Announce menu: wide enough for a sentence, never wider than a phone */
+.announce-menu {
+  width: min(22rem, 90vw);
+}
+/* on a phone the button wraps onto its own row, so line the menu up with the whole bar instead
+   of the button (which would push it off the left of the screen) */
+@media (max-width: 767.98px) {
+  .announce-dropdown {
+    position: static;
+  }
+  .announce-menu {
+    margin-inline: 0.5rem;
+  }
 }
 /* Dylan's panels fill their box, so the box sets the height. Stacked below xl it's a fixed
    tall box; from xl it fills what's left of the screen (below) */
