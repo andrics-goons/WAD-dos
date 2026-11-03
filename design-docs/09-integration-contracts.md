@@ -363,6 +363,7 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `rpc('admin_list_users')` | Andric | Admin page | `() → [{ id, email, name, role, created_at }]` — `FORBIDDEN` unless admin |
 | `rpc('admin_set_role')` | Andric | Admin page | `(p_user_id uuid, p_role text) → [{ id, name, role }]` — refuses the caller's own role |
 | `rpc('add_course_staff')` | Andric | Course people page | `(p_course_id uuid, p_email text) → staff row` — owner only; `CONFLICT` if already staff or enrolled as a student |
+| `rpc('leave_course')` | Andric | Course page | `(p_course_id uuid) → void` — the student themselves; deletes their own data in the course |
 | `rpc('remove_course_staff')` | Andric | Course people page | `(p_course_id uuid, p_user_id uuid) → void` — owner only, TA rows only |
 | `rpc('remove_course_student')` | Andric | Course people page | `(p_course_id uuid, p_user_id uuid) → void` — owner only |
 | `rpc('start_session')` | Ying Qi | Teach view | `(p_lesson_id uuid) → session row` (includes `join_code`) |
@@ -415,7 +416,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Area | Examples |
 |---|---|
 | Navigation | `nav-home`, `nav-courses`, `nav-replays`, `nav-profile` |
-| Courses | `course-card-<code>`, `btn-new-course`, `btn-enrol-course`, `input-enrol-code`, `btn-enrol`, `enrol-link`, `btn-copy-enrol-link`, `enrol-qr`, `btn-remove-ta` (People: on each TA, owner only) |
+| Courses | `course-card-<code>`, `btn-new-course`, `btn-enrol-course`, `input-enrol-code`, `btn-enrol`, `enrol-link`, `btn-copy-enrol-link`, `enrol-qr`, `course-menu-<code>` (the ⋯ on each course card: Archive, Delete, Leave course), `course-leave-<code>` (Leave course in it, students only), `course-restore-<code>` (Restore, in an archived course's menu), `course-why-no-delete-<code>` (the ? on a course that has had classes), `btn-remove-ta` (People: on each TA, owner only), `btn-leave-course` (course page header, students only) |
 | Lessons | `lesson-row-<slug>`, `lesson-start-<slug>`, `lesson-menu-<slug>` (the ⋯ on each lesson: Edit files, Visibility (a switch), Archive / Unarchive, Delete (greyed out with a ? once it's taught)), `lesson-why-no-delete-<slug>` (that ?), `lesson-visible-<slug>` (that switch), `btn-connect-github` (import tab, when GitHub isn't connected) |
 | Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `input-checkpoint-title`, `btn-save-checkpoint`, `btn-end-session`, `input-announce`, `btn-announce` (an empty box clears the announcement), `announcement-banner` |
 | Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `btn-download-project`, `workspace-checkpoint`, `tab-code`, `tab-preview`, `tab-console` |

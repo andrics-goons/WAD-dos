@@ -1,11 +1,14 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RoleLabel } from '@shared/constants.js'
 import { useAuthStore } from '@/stores/auth'
 import { useCoursesStore } from '@/stores/courses'
 import { useToastStore } from '@/stores/toast'
 import { useCourseStore } from '@/stores/course'
+import ConfirmModal from '@/components/ui/ConfirmModal.vue'
+import CourseMenu from '@/components/course/CourseMenu.vue'
+import LeaveCourseModal from '@/components/course/LeaveCourseModal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import CourseForm from '@/components/course/CourseForm.vue'
 
@@ -65,6 +68,95 @@ async function createCourse(fields) {
 
 // The courses you've archived are off the main list; you can still open and restore them
 const courseStore = useCourseStore()
+
+// The ⋯ menu on each card: archive it from my list (anyone), or delete it (the owner, until a
+// class has run in it). One menu open at a time; a click anywhere else closes it.
+const menuFor = ref(null) // the course id whose menu is open
+function toggleMenu(course) {
+  menuFor.value = menuFor.value === course.id ? null : course.id
+}
+function closeMenu() {
+  menuFor.value = null
+}
+onMounted(() => document.addEventListener('click', closeMenu))
+onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
+
+const archiving = ref(null) // the course waiting for "Archive this course?"
+const deleting = ref(null) // the course waiting for "Delete this course?"
+const leaving = ref(null) // the course waiting for "Leave this course?" (students)
+const changing = ref(false)
+function askArchive(course) {
+  closeMenu()
+  archiving.value = course
+}
+function askDelete(course) {
+  closeMenu()
+  deleting.value = course
+}
+function askLeave(course) {
+  closeMenu()
+  leaving.value = course
+}
+// the archived list is loaded on demand, so reload it when it's open and a course changed
+const refreshArchived = async () => {
+  if (archived.value) archived.value = await courseStore.archived()
+}
+async function restoreCourse(course) {
+  closeMenu()
+  try {
+    await courseStore.setArchived(course.id, false)
+    await refreshArchived()
+    toast.show('Course restored', 'success')
+  } catch (error) {
+    toast.show(error.message, 'danger')
+  }
+}
+async function leaveCourse() {
+  changing.value = true
+  try {
+    await courseStore.leave(leaving.value.id)
+    await refreshArchived()
+    toast.show(`You left ${leaving.value.title}`, 'success')
+    leaving.value = null
+  } catch (error) {
+    leaving.value = null
+    toast.show(error.message, 'danger')
+  } finally {
+    changing.value = false
+  }
+}
+async function archiveCourse() {
+  changing.value = true
+  try {
+    await courseStore.setArchived(archiving.value.id, true)
+    await refreshArchived()
+    toast.show('Course archived', 'success')
+    archiving.value = null
+  } catch (error) {
+    toast.show(error.message, 'danger')
+  } finally {
+    changing.value = false
+  }
+}
+async function deleteCourse() {
+  changing.value = true
+  try {
+    await courseStore.remove(deleting.value.id)
+    await refreshArchived()
+    toast.show('Course deleted', 'success')
+    deleting.value = null
+  } catch (error) {
+    // a class started since this page loaded: it can only be archived now
+    const message =
+      error.code === 'CONFLICT' ? 'It has classes now, so archive it instead' : error.message
+    deleting.value = null
+    toast.show(message, 'danger', { title: "Couldn't delete the course" })
+    courses.load({ force: true }).catch(() => {})
+  } finally {
+    changing.value = false
+  }
+}
+
 const archived = ref(null) // null while the list is closed
 async function toggleArchived() {
   if (archived.value) {
@@ -140,14 +232,24 @@ async function toggleArchived() {
       <div v-for="c in courses.courses" :key="c.id" class="col-12 col-md-6 col-xl-4">
         <!-- a plain box, not a link, so its text can be selected and copied;
              the title is the link, and a click anywhere else on the card opens the course too -->
+        <!-- pt-3: the header row (name, role, ⋯) is taller than its text, so less padding above it
+             keeps the gap at the top looking as big as the sides -->
         <div
-          class="ca-card d-flex flex-column h-100"
+          class="ca-card d-flex flex-column h-100 pt-3"
           :data-testid="`course-card-${c.code}`"
           @click="openCourse(c)"
         >
           <div class="d-flex align-items-center gap-2 mb-1">
             <span class="ca-eyebrow">{{ c.code }} · {{ c.section }}</span>
             <span class="badge text-bg-light ms-auto">{{ RoleLabel[c.myRole] }}</span>
+            <CourseMenu
+              :course="c"
+              :open="menuFor === c.id"
+              @toggle="toggleMenu(c)"
+              @archive="askArchive(c)"
+              @leave="askLeave(c)"
+              @delete="askDelete(c)"
+            />
           </div>
           <h3 class="mb-1">
             <RouterLink :to="{ name: 'course', params: { id: c.id } }" class="text-reset">
@@ -172,17 +274,61 @@ async function toggleArchived() {
         <h2 class="fs-5 mt-4 mb-3">Archived courses</h2>
         <p v-if="!archived.length" class="text-body-secondary mb-0">No archived courses.</p>
         <div v-else class="list-group">
-          <RouterLink
+          <div
             v-for="c in archived"
             :key="c.id"
-            :to="{ name: 'course', params: { id: c.id } }"
-            class="list-group-item list-group-item-action"
+            class="list-group-item d-flex align-items-center gap-2"
           >
-            <div class="ca-eyebrow">{{ c.code }} · {{ c.section }} · {{ c.term }}</div>
-            <div class="fw-semibold text-body">{{ c.title }}</div>
-          </RouterLink>
+            <RouterLink
+              :to="{ name: 'course', params: { id: c.id } }"
+              class="flex-grow-1 text-decoration-none"
+            >
+              <div class="ca-eyebrow">{{ c.code }} · {{ c.section }} · {{ c.term }}</div>
+              <div class="fw-semibold text-body">{{ c.title }}</div>
+            </RouterLink>
+            <CourseMenu
+              :course="c"
+              :open="menuFor === c.id"
+              @toggle="toggleMenu(c)"
+              @restore="restoreCourse(c)"
+              @leave="askLeave(c)"
+              @delete="askDelete(c)"
+            />
+          </div>
         </div>
       </template>
     </template>
+
+    <ConfirmModal
+      :open="archiving !== null"
+      title="Archive this course?"
+      confirm-label="Archive course"
+      :busy="changing"
+      @update:open="archiving = null"
+      @confirm="archiveCourse"
+    >
+      It moves to your archived courses, and can be restored anytime. This action only applies to
+      your list, nobody else is affected.
+    </ConfirmModal>
+
+    <LeaveCourseModal
+      :open="leaving !== null"
+      :title="leaving?.title"
+      :busy="changing"
+      @update:open="leaving = null"
+      @confirm="leaveCourse"
+    />
+
+    <ConfirmModal
+      :open="deleting !== null"
+      :title="`Delete ${deleting?.title}?`"
+      confirm-label="Delete course"
+      variant="danger"
+      :busy="changing"
+      @update:open="deleting = null"
+      @confirm="deleteCourse"
+    >
+      This can't be undone.
+    </ConfirmModal>
   </div>
 </template>

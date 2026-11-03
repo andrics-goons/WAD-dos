@@ -7,6 +7,7 @@ import { useCourseStore } from '@/stores/course'
 import { useToastStore } from '@/stores/toast'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
+import LeaveCourseModal from '@/components/course/LeaveCourseModal.vue'
 import LessonLibrary from '@/components/lesson/LessonLibrary.vue'
 import CourseForm from '@/components/course/CourseForm.vue'
 
@@ -67,6 +68,22 @@ async function saveCourse(changes) {
     editError.value = error.message
   } finally {
     saving.value = false
+  }
+}
+
+// a student leaves the course: their code, progress and notes in it are deleted
+const confirmLeave = ref(false)
+async function leaveCourse() {
+  changing.value = true
+  try {
+    await store.leave(props.id)
+    toast.show(`You left ${course.value.title}`, 'success')
+    router.replace({ name: 'courses' })
+  } catch (error) {
+    confirmLeave.value = false
+    toast.show(error.message, 'danger')
+  } finally {
+    changing.value = false
   }
 }
 
@@ -224,12 +241,17 @@ async function removeStudent() {
     <template v-else>
       <div class="ca-page-header">
         <div>
-          <div class="ca-eyebrow">{{ course.code }} · {{ course.section }} · {{ course.term }}</div>
+          <!-- who I am in this course, next to which course it is -->
+          <div class="d-flex align-items-center gap-2">
+            <span class="ca-eyebrow"
+              >{{ course.code }} · {{ course.section }} · {{ course.term }}</span
+            >
+            <span class="badge text-bg-light">{{ RoleLabel[course.myRole] }}</span>
+          </div>
           <h1>{{ course.title }}</h1>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
           <span v-if="course.archived" class="badge text-bg-secondary">Archived</span>
-          <span class="badge text-bg-light">{{ RoleLabel[course.myRole] }}</span>
           <button
             v-if="course.isOwner"
             type="button"
@@ -254,6 +276,16 @@ async function removeStudent() {
             @click="confirmArchive = true"
           >
             <i class="bi bi-archive" />Archive
+          </button>
+          <!-- only students: a TA is added by the prof and a prof owns the course -->
+          <button
+            v-if="course.myRole === 'student'"
+            type="button"
+            class="ca-btn ca-btn--danger ca-btn--sm"
+            data-testid="btn-leave-course"
+            @click="confirmLeave = true"
+          >
+            <i class="bi bi-box-arrow-left" />Leave course
           </button>
           <button
             v-if="course.isOwner"
@@ -475,6 +507,13 @@ async function removeStudent() {
     >
       This can't be undone.
     </ConfirmModal>
+
+    <LeaveCourseModal
+      v-model:open="confirmLeave"
+      :title="course?.title"
+      :busy="changing"
+      @confirm="leaveCourse"
+    />
 
     <ConfirmModal
       v-model:open="confirmArchive"

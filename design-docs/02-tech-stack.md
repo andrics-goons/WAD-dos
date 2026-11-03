@@ -109,7 +109,7 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   │   │                           owners add their own RPC migrations, which Andric reviews
 │   │   ├── …_profiles.sql       ← profiles, sign-up trigger, app_role(), is_admin()
 │   │   ├── …_courses.sql        ← courses, course_staff, course_students, is_course_*(),
-│   │   │                           create_course / enrol_with_code / add_course_staff / remove_course_staff / remove_course_student
+│   │   │                           create_course / enrol_with_code / add_course_staff / remove_course_staff / remove_course_student / leave_course
 │   │   ├── …_test_outbox.sql    ← where mocked Edge Functions record what they'd have sent
 │   │   └── (next)               ← lessons → sessions, checkpoints, status + the two views
 │   │                               → snapshots, help requests, notes, reports

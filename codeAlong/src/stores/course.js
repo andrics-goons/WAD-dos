@@ -33,6 +33,10 @@ export const useCourseStore = defineStore('course', () => {
     await coursesApi.deleteCourse(id)
     await refreshList()
   }
+  async function leave(id) {
+    await coursesApi.leaveCourse(id)
+    await refreshList()
+  }
   const archived = async () =>
     (await coursesApi.listCourses({ includeArchived: true })).filter((c) => c.archived)
 
@@ -48,6 +52,7 @@ export const useCourseStore = defineStore('course', () => {
     addTa,
     removeTa,
     removeStudent,
+    leave,
     shareLink,
     update,
     setArchived,
