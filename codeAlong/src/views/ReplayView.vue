@@ -16,7 +16,7 @@ import ReplayTabs from '@/components/replay/ReplayTabs.vue'
 import { downloadProject } from '@/utils/downloadProject.js'
 
 // One class, step by step: pick a checkpoint and see what changed since the one before it,
-// with my notes beside it. A student who joined can switch to Student view: their own code as the
+// with my notes beside it. A student can switch to Student view: their own code as the
 // class ended, with the same download, preview and export. Owner: Ray Yien. design-docs/04, 05 §11.
 // ?seq=4 opens checkpoint 4 (search results link here like that).
 const props = defineProps({ sessionId: { type: String, required: true } })
@@ -32,9 +32,13 @@ const notes = ref([])
 const loading = ref(true)
 const loadError = ref('')
 
-const myFiles = ref(null) // my code when the class ended; null if I'm staff or never joined
+const myFiles = ref([]) // my code when the class ended; empty if I never joined or saved nothing
+const myCodeError = ref('') // why my code couldn't be loaded, if it couldn't
 const view = ref('teacher') // 'teacher': the prof's checkpoints, 'student': my own code
-const student = computed(() => view.value === 'student' && !!myFiles.value)
+// staff have no code of their own, so only students get the toggle, with code saved or not
+const canToggle = computed(() => !!session.value && !session.value.isStaff)
+const student = computed(() => view.value === 'student' && canToggle.value)
+const hasCode = computed(() => myFiles.value.length > 0)
 // ?view=student keeps the choice through a reload or a shared link
 function setView(next) {
   view.value = next
@@ -87,16 +91,17 @@ onMounted(async () => {
   }
 })
 
-// Staff have no code of their own here. A failure only means no Student view, not a broken replay.
+// A failure only empties the Student view (it says why), it doesn't break the replay.
 async function loadMyCode() {
-  if (!session.value || live.value || session.value.isStaff) return
+  if (!canToggle.value || live.value) return
   try {
-    myFiles.value = await store.myCode(props.sessionId)
-  } catch {
-    myFiles.value = null
+    myFiles.value = (await store.myCode(props.sessionId)) ?? []
+  } catch (error) {
+    myFiles.value = []
+    myCodeError.value = error.message
   }
   // a class with no checkpoints still has my code to show
-  if (myFiles.value && (route.query.view === 'student' || !checkpoints.value.length)) {
+  if (route.query.view === 'student' || (hasCode.value && !checkpoints.value.length)) {
     view.value = 'student'
   }
 }
@@ -257,7 +262,7 @@ const repoSlug = (title) =>
             <i class="bi bi-bar-chart" />Report
           </RouterLink>
           <button
-            v-if="checkpoints.length || student"
+            v-if="student ? hasCode : checkpoints.length"
             type="button"
             class="ca-btn ca-btn--secondary"
             data-testid="btn-export-github"
@@ -287,7 +292,7 @@ const repoSlug = (title) =>
         @exported="onExported"
       />
 
-      <div v-if="myFiles" class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <div v-if="canToggle" class="d-flex flex-wrap align-items-center gap-2 mb-3">
         <div class="d-flex gap-1">
           <button
             type="button"
@@ -315,7 +320,21 @@ const repoSlug = (title) =>
         </span>
       </div>
 
-      <div v-if="student" class="row g-4">
+      <div v-if="student && !hasCode" class="ca-surface">
+        <EmptyState icon="bi-file-earmark-x" title="No saved code">
+          {{
+            myCodeError ||
+            "CodeAlong has no code of yours from this class. It saves your code as you work in the workspace, so a class you didn't join leaves nothing here."
+          }}
+          <template #actions>
+            <button type="button" class="ca-btn ca-btn--secondary" @click="setView('teacher')">
+              See the prof's code
+            </button>
+          </template>
+        </EmptyState>
+      </div>
+
+      <div v-else-if="student" class="row g-4">
         <section class="col-12 col-lg-9">
           <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
             <h2 class="fs-5 mb-0">My code at the end of the class</h2>
