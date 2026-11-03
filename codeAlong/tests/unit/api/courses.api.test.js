@@ -199,6 +199,15 @@ describe('archiving, removing and deleting', () => {
     await as(prof)
   })
 
+  it('T-PLAT-24: removeStaff takes a TA off the course, and they lose access', async () => {
+    await coursesApi.removeStaff(course.id, tia.id)
+    expect((await coursesApi.listStaff(course.id)).map((s) => s.user_id)).not.toContain(tia.id)
+    expect(await codeOf(coursesApi.removeStaff(course.id, tia.id))).toBe('NOT_FOUND')
+    await as(tia)
+    expect(await codeOf(coursesApi.getCourse(course.id))).toBe('NOT_FOUND')
+    await as(prof)
+  })
+
   it('a course with no classes yet can be deleted', async () => {
     const spare = await create({ ...FORM, section: 'G7' })
     expect(await codeOf(coursesApi.deleteCourse(spare.id))).toBe('OK')

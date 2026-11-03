@@ -363,6 +363,7 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `rpc('admin_list_users')` | Andric | Admin page | `() → [{ id, email, name, role, created_at }]` — `FORBIDDEN` unless admin |
 | `rpc('admin_set_role')` | Andric | Admin page | `(p_user_id uuid, p_role text) → [{ id, name, role }]` — refuses the caller's own role |
 | `rpc('add_course_staff')` | Andric | Course people page | `(p_course_id uuid, p_email text) → staff row` — owner only; `CONFLICT` if already staff or enrolled as a student |
+| `rpc('remove_course_staff')` | Andric | Course people page | `(p_course_id uuid, p_user_id uuid) → void` — owner only, TA rows only |
 | `rpc('remove_course_student')` | Andric | Course people page | `(p_course_id uuid, p_user_id uuid) → void` — owner only |
 | `rpc('start_session')` | Ying Qi | Teach view | `(p_lesson_id uuid) → session row` (includes `join_code`) |
 | `rpc('join_session')` | Ying Qi | Join view | `(p_join_code text) → { session_id, role }` |
@@ -414,7 +415,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Area | Examples |
 |---|---|
 | Navigation | `nav-home`, `nav-courses`, `nav-replays`, `nav-profile` |
-| Courses | `course-card-<code>`, `btn-new-course`, `btn-enrol-course`, `input-enrol-code`, `btn-enrol`, `enrol-link`, `btn-copy-enrol-link`, `enrol-qr` |
+| Courses | `course-card-<code>`, `btn-new-course`, `btn-enrol-course`, `input-enrol-code`, `btn-enrol`, `enrol-link`, `btn-copy-enrol-link`, `enrol-qr`, `btn-remove-ta` (People: on each TA, owner only) |
 | Lessons | `lesson-row-<slug>`, `lesson-start-<slug>`, `lesson-menu-<slug>` (the ⋯ on each lesson: Edit files, Visibility (a switch), Archive / Unarchive), `lesson-visible-<slug>` (that switch), `btn-connect-github` (import tab, when GitHub isn't connected) |
 | Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `input-checkpoint-title`, `btn-save-checkpoint`, `btn-end-session`, `input-announce`, `btn-announce` (an empty box clears the announcement), `announcement-banner` |
 | Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `btn-download-project`, `workspace-checkpoint`, `tab-code`, `tab-preview`, `tab-console` |

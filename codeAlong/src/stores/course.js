@@ -14,6 +14,7 @@ export const useCourseStore = defineStore('course', () => {
   const staff = (id) => coursesApi.listStaff(id)
   const students = (id) => coursesApi.listStudents(id)
   const addTa = (id, email) => coursesApi.addStaff(id, email)
+  const removeTa = (id, userId) => coursesApi.removeStaff(id, userId)
   const removeStudent = (id, userId) => coursesApi.removeStudent(id, userId)
   const shareLink = (enrolCode) => coursesApi.enrolUrl(enrolCode)
 
@@ -45,6 +46,7 @@ export const useCourseStore = defineStore('course', () => {
     staff,
     students,
     addTa,
+    removeTa,
     removeStudent,
     shareLink,
     update,

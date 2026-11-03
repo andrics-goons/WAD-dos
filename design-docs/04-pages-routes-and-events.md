@@ -146,7 +146,7 @@ Call these through `stores/auth.js`: `register`, `login`, `logout`, `ensureLoade
 
 ### Courses — `courses.api.js` (Andric)
 
-Call these, not the queries below: `listCourses({ includeArchived })`, `getCourse(id)`, `createCourse({ code, title, term, section })`, `enrolWithCode(code)`, `updateCourse(id, changes)`, `setArchived(id, archived)`, `deleteCourse(id)`, `listStaff(courseId)`, `listStudents(courseId)`, `addStaff(courseId, email)`, `removeStudent(courseId, userId)`, `enrolUrl(code)`. Course rows come back with **`myRole`** (`'prof' | 'ta' | 'student'`) and **`isOwner`**, for choosing what to show — RLS still enforces everything. People rows are `{ user_id, name, role | enrolled_at }`. Errors are `AppError`s from `mapError`. The list of my courses lives in `stores/courses.js` (`load`, `create`, `enrol`, cleared on logout).
+Call these, not the queries below: `listCourses({ includeArchived })`, `getCourse(id)`, `createCourse({ code, title, term, section })`, `enrolWithCode(code)`, `updateCourse(id, changes)`, `setArchived(id, archived)`, `deleteCourse(id)`, `listStaff(courseId)`, `listStudents(courseId)`, `addStaff(courseId, email)`, `removeStaff(id, userId)`, `removeStudent(courseId, userId)`, `enrolUrl(code)`. Course rows come back with **`myRole`** (`'prof' | 'ta' | 'student'`) and **`isOwner`**, for choosing what to show — RLS still enforces everything. People rows are `{ user_id, name, role | enrolled_at }`. Errors are `AppError`s from `mapError`. The list of my courses lives in `stores/courses.js` (`load`, `create`, `enrol`, cleared on logout).
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
@@ -158,6 +158,7 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 | Query | `from('courses').delete().eq('id', id)` | FK cascades handle the rest. **`CONFLICT` once the course has any session** — offer Archive (`setArchived`) instead. Archiving is personal: the course ids sit in the user's own `user_metadata.archived_courses` (`auth.updateUser`), so it hides the course from that person's list only and the enrol code keeps working | Owner |
 | RPC | `add_course_staff(p_course_id, p_email)` | Adds as TA, promoting `profiles.role` to `ta` if still `student`. Refuses someone already on staff or **currently enrolled as a student in this course** | Owner |
 | Query | `from('course_staff').select('role, profiles(name)')` + same for students | People tab (names only) | Staff |
+| RPC | `remove_course_staff(p_course_id, p_user_id)` — `removeStaff(id, userId)` | People → **Remove** on a TA (confirm first): they lose the course, their claimed help requests go back to the queue, and an account that TAs nowhere else is a student again | Owner |
 | RPC | `remove_course_student(p_course_id, p_user_id)` | Removes enrolment; past statuses stay for the report | Owner |
 
 ### Lessons — `lessons.api.js` (Evan) + GitHub import (Ray Yien)

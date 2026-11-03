@@ -157,6 +157,18 @@ export async function addStaff(courseId, email) {
   return data
 }
 
+/**
+ * Owner only. Takes a TA off the course: help requests they'd claimed go back to the queue,
+ * and an account that TAs nowhere else becomes a student again. NOT_FOUND if not a TA here.
+ */
+export async function removeStaff(courseId, userId) {
+  const { error } = await supabase.rpc('remove_course_staff', {
+    p_course_id: courseId,
+    p_user_id: userId,
+  })
+  if (error) throw mapError(error)
+}
+
 /** Owner only. Their past class data stays for the reports. */
 export async function removeStudent(courseId, userId) {
   const { error } = await supabase.rpc('remove_course_student', {

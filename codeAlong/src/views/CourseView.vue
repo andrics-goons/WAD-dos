@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import QRCode from 'qrcode' // Source: https://github.com/soldair/node-qrcode (MIT)
-import { RoleLabel } from '@shared/constants.js'
+import { CourseRole, RoleLabel } from '@shared/constants.js'
 import { useCourseStore } from '@/stores/course'
 import { useToastStore } from '@/stores/toast'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -22,6 +22,9 @@ const loading = ref(true)
 const loadError = ref('') // also covers "not yours": the database hides it, so it reads as not found
 
 const staff = ref([])
+// the Staff card: the prof who runs the course on top, then the TAs
+const profs = computed(() => staff.value.filter((s) => s.role === CourseRole.PROF))
+const tas = computed(() => staff.value.filter((s) => s.role === CourseRole.TA))
 const students = ref([])
 const hasClasses = ref(false) // a course with classes keeps its history, so it can't be deleted
 
@@ -140,7 +143,7 @@ watch(tab, async (now) => {
 })
 onBeforeUnmount(stopWatching)
 
-// People (owner): add a TA, remove a student
+// People (owner): add or remove a TA, remove a student
 const taEmail = ref('')
 const addingTa = ref(false)
 const taError = ref('')
@@ -156,6 +159,21 @@ async function addTa() {
     taError.value = error.message
   } finally {
     addingTa.value = false
+  }
+}
+
+const taToRemove = ref(null)
+async function removeTa() {
+  removing.value = true
+  try {
+    await store.removeTa(props.id, taToRemove.value.user_id)
+    staff.value = staff.value.filter((s) => s.user_id !== taToRemove.value.user_id)
+    toast.show(`${taToRemove.value.name} is no longer a TA here`, 'success')
+    taToRemove.value = null
+  } catch (error) {
+    toast.show(error.message, 'danger')
+  } finally {
+    removing.value = false
   }
 }
 
@@ -325,14 +343,35 @@ async function removeStudent() {
         <div class="col-12 col-lg-6">
           <div class="ca-card h-100">
             <h2 class="fs-5 mb-3">Staff</h2>
-            <ul class="list-group mb-3">
+
+            <!-- the prof who runs the course -->
+            <div v-for="p in profs" :key="p.user_id" class="d-flex align-items-center gap-2 mb-3">
+              <span class="ca-avatar">{{ p.name[0] }}</span>
+              <div>
+                <div class="fw-semibold">{{ p.name }}</div>
+                <div class="small text-body-secondary">{{ RoleLabel[p.role] }}</div>
+              </div>
+            </div>
+
+            <!-- the TAs, laid out like the students list -->
+            <div class="ca-eyebrow mb-2">Teaching assistants ({{ tas.length }})</div>
+            <p v-if="!tas.length" class="text-body-secondary">No TAs yet.</p>
+            <ul v-else class="list-group mb-3">
               <li
-                v-for="p in staff"
+                v-for="p in tas"
                 :key="p.user_id"
-                class="list-group-item d-flex justify-content-between"
+                class="list-group-item d-flex align-items-center justify-content-between"
               >
                 {{ p.name }}
-                <span class="badge text-bg-light">{{ RoleLabel[p.role] }}</span>
+                <button
+                  v-if="course.isOwner"
+                  type="button"
+                  class="ca-btn ca-btn--ghost ca-btn--sm"
+                  data-testid="btn-remove-ta"
+                  @click="taToRemove = p"
+                >
+                  Remove
+                </button>
               </li>
             </ul>
 
@@ -400,6 +439,19 @@ async function removeStudent() {
         </div>
       </section>
     </template>
+
+    <ConfirmModal
+      :open="!!taToRemove"
+      :title="`Remove ${taToRemove?.name} as a TA?`"
+      confirm-label="Remove TA"
+      variant="danger"
+      :busy="removing"
+      @update:open="(open) => !open && (taToRemove = null)"
+      @confirm="removeTa"
+    >
+      They'll lose access to this course's classes and help queue. Help requests they'd claimed go
+      back to the queue, and their past replies stay.
+    </ConfirmModal>
 
     <ConfirmModal
       :open="!!toRemove"
