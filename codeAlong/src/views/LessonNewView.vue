@@ -6,7 +6,6 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import GithubImportTab from '@/components/lesson/GithubImportTab.vue'
-import { useCourseStore } from '@/stores/course'
 import { useLessonsStore } from '@/stores/lessons'
 import { useSessionStore } from '@/stores/session'
 import { useToastStore } from '@/stores/toast'
@@ -16,7 +15,6 @@ const props = defineProps({ id: { type: String, required: true } }) // the cours
 const router = useRouter()
 const route = useRoute()
 const lessons = useLessonsStore()
-const course = useCourseStore()
 const toast = useToastStore()
 const sessions = useSessionStore()
 
@@ -96,9 +94,8 @@ function suggestTitle(name) {
   titleError.value = ''
 }
 
-// check the title, and that no other lesson has this week, before leaving the first stage.
-// The database refuses a second lesson in the same week anyway; this says so before the review.
-async function next() {
+// check the title and the week before leaving the first stage. A week can hold several lessons
+function next() {
   if (stage.value === 1 && !title.value.trim()) {
     titleError.value = 'Give the code a name before you continue'
     document.getElementById('title')?.focus()
@@ -108,15 +105,6 @@ async function next() {
     weekError.value = 'Week is a whole number from 1 to 13, or leave it empty'
     document.getElementById('week')?.focus()
     return
-  }
-  if (stage.value === 1 && week.value) {
-    const existing = await course.lessons(props.id).catch(() => [])
-    const taken = existing.find((l) => l.week === Number(week.value) && l.status !== 'archived')
-    if (taken) {
-      weekError.value = `Week ${week.value} already has "${taken.title}". Pick a different week.`
-      document.getElementById('week')?.focus()
-      return
-    }
   }
   stage.value++
 }

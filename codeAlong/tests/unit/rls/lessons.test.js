@@ -18,8 +18,7 @@ const createdCourses = []
 let profA, profB, ta, stu, outsider, admin
 let course
 
-// Same shape as createLesson() in lessons.api.js. No week by default: a course can only have
-// one lesson per week (T-LES-09), and these tests make many lessons in one course.
+// Same shape as createLesson() in lessons.api.js. No week by default.
 function insertLesson(client, fields = {}) {
   return client
     .from('lessons')
@@ -215,36 +214,18 @@ describe('editing a lesson (the updateLesson() path)', () => {
   })
 })
 
-describe('T-LES-09: one lesson per week in a course', () => {
-  it('refuses a second lesson in the same week', async () => {
+describe('T-LES-09: a week can hold several lessons', () => {
+  it('two lessons in the same week of a course are both kept', async () => {
     const { error: first } = await insertLesson(profA.client, { title: 'Week 9 A', week: 9 })
+    const { error: second } = await insertLesson(profA.client, { title: 'Week 9 B', week: 9 })
     expect(first).toBeNull()
-    const { error } = await insertLesson(profA.client, { title: 'Week 9 B', week: 9 })
-    expect(error?.code).toBe('23505')
-    expect(error.message).toContain('lessons_course_week_key')
+    expect(second).toBeNull()
   })
 
-  it('refuses moving a lesson into a week that is taken', async () => {
+  it('a lesson can move into a week that already has one', async () => {
     await insertLesson(profA.client, { title: 'Week 10', week: 10 })
     const { data: other } = await insertLesson(profA.client, { title: 'Week 11', week: 11 })
     const { error } = await profA.client.from('lessons').update({ week: 10 }).eq('id', other.id)
-    expect(error?.code).toBe('23505')
-  })
-
-  it('an archived lesson frees its week', async () => {
-    const { data: old } = await insertLesson(profA.client, { title: 'Old week 12', week: 12 })
-    await profA.client.from('lessons').update({ status: 'archived' }).eq('id', old.id)
-    const { error } = await insertLesson(profA.client, { title: 'New week 12', week: 12 })
-    expect(error).toBeNull()
-  })
-
-  it('the same week in another course is fine', async () => {
-    await insertLesson(profA.client, { title: 'Week 13 here', week: 13 })
-    const { data: other } = await profA.client.rpc('create_course', {
-      p_code: 'IS217', p_title: 'Other', p_term: 'T', p_section: 'S',
-    })
-    createdCourses.push(other.id)
-    const { error } = await insertLesson(profA.client, { course_id: other.id, title: 'Week 13 there', week: 13 })
     expect(error).toBeNull()
   })
 })

@@ -1,7 +1,7 @@
--- One lesson per week in a course, so the library has no two "Week 6" lessons.
--- Lessons without a week, and archived ones, don't count: archiving last term's Week 6 frees it.
--- A clash is a unique violation (23505); lessons.api.js turns it into a friendly CONFLICT.
--- Spec: design-docs/03-data-model.md#lessons
-
-create unique index lessons_course_week_key on public.lessons (course_id, week)
-    where week is not null and status is distinct from 'archived';
+-- Was: one lesson per week in a course (a unique index on lessons (course_id, week)).
+-- Dropped before it reached the cloud: a week holds several lessons (the library shows each
+-- week as a folder of files, with "Start new session" to add another), and the cloud already
+-- had two Week 6 lessons, so the index couldn't be built there.
+-- Local databases that ran the old version still have the index;
+-- 20261103173604_allow_many_lessons_per_week.sql drops it.
+select 1;

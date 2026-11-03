@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { AppError, mapError } from './mapError'
+import { mapError } from './mapError'
 
 // all the lesson calls to supabase live here. A lesson is a title and its starter files:
 // there are no steps, the prof saves checkpoints during class (design-docs/05 §3).
@@ -52,19 +52,6 @@ export function toLessonPatch(changes) {
   return patch
 }
 
-// a course can't have two lessons in the same week (lessons_course_week_key, archived ones
-// don't count); anything else maps as usual
-function lessonError(error) {
-  if (error.code === '23505' && error.message?.includes('lessons_course_week_key')) {
-    return new AppError(
-      'CONFLICT',
-      'Another lesson in this course already has that week. Pick a different week.',
-      { status: 409, cause: error },
-    )
-  }
-  return mapError(error)
-}
-
 // lessons
 
 // make a lesson, hidden from students until the prof switches it on in the editor, so code
@@ -92,7 +79,7 @@ export async function createLesson(
     })
     .select(LESSON_DETAIL)
     .single()
-  if (error) throw lessonError(error)
+  if (error) throw mapError(error)
   return toLesson(row)
 }
 
@@ -129,7 +116,7 @@ export async function updateLesson(lessonId, changes) {
     .eq('id', lessonId)
     .select(LESSON_DETAIL)
     .single()
-  if (error) throw lessonError(error)
+  if (error) throw mapError(error)
   return toLesson(data)
 }
 
