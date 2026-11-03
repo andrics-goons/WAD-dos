@@ -14,6 +14,7 @@ const props = defineProps({
   open: { type: Boolean, default: false },
   sessionId: { type: String, required: true },
   defaultName: { type: String, default: '' },
+  mine: { type: Boolean, default: false }, // my own final code as one commit, not the prof's checkpoints
 })
 // exported(repoUrl): the new repo's commit history on GitHub
 const emit = defineEmits(['update:open', 'exported'])
@@ -66,6 +67,7 @@ async function exportRepo() {
       props.sessionId,
       name.value.trim(),
       isPrivate.value,
+      props.mine,
     )
     emit('exported', repoUrl)
     emit('update:open', false)
@@ -90,7 +92,8 @@ async function exportRepo() {
     @update:open="emit('update:open', $event)"
     @confirm="exportRepo"
   >
-    <p>A new repository on your GitHub, with one commit per checkpoint.</p>
+    <p v-if="mine">A new repository on your GitHub, with your code at the end of the class.</p>
+    <p v-else>A new repository on your GitHub, with one commit per checkpoint.</p>
     <form @submit.prevent="exportRepo">
       <div class="ca-field mb-2">
         <label class="ca-label" for="export-repo-name">Repository name</label>

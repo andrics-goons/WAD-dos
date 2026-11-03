@@ -394,6 +394,8 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-REP-05 | Search finds a step title and a note | E2E | Both in results with links |
 | T-REP-06 | Search with regex characters | DB | No crash; literal match (parameterised RPC) |
 | T-REP-07 | Non-member reads a replay | RLS | Zero checkpoints returned |
+| T-REP-08 | Student view of a replay | Unit | A student who joined can switch to their own code as the class ended (code viewer, download, preview, export); staff and students who never joined have no toggle |
+| T-REP-09 | Preview warms up by itself | Unit | With `autostart` the preview installs and starts once there is code, reporting `installing` → `starting` → `ready`; below `md` it waits for Run preview |
 
 ### GH — GitHub import/export · `github-export.test.js`, `replay.spec.js`
 
@@ -406,6 +408,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-GH-05 | Repo name taken (422) | E2E | UI asks for another name |
 | T-GH-06 | **Token never persisted in our schema** | DB | No GitHub token in any row of any `public` table after an export |
 | T-GH-07 | Export to a private repo | Unit | "Connect GitHub" asks for the `repo` scope; GitHub refusing a private repo (403/404) → `FORBIDDEN` "reconnect GitHub", not "try again" |
+| T-GH-08 | Export my own code | Unit | `mine: true` exports the caller's final autosave as one commit ("My code at the end of the class"); no saved code → `BAD_REQUEST` |
 
 ### INS — Insights · `rls/session_report.test.js`, `digest-function.test.js`, `views/ReportView.test.js`
 

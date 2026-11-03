@@ -22,7 +22,7 @@ Deno.serve((req) =>
       const { data } = await asCaller(req).auth.getUser()
       return data.user?.id ?? null
     },
-    async loadExport(req, sessionId) {
+    async loadExport(req, sessionId, mine) {
       const db = asCaller(req)
       const { data: session } = await db
         .from('sessions')
@@ -30,6 +30,29 @@ Deno.serve((req) =>
         .eq('id', sessionId)
         .maybeSingle()
       if (!session) return null
+      if (mine) {
+        // my own autosave; the student_id filter keeps staff to their own, if they have one
+        const { data: me } = await db.auth.getUser()
+        const { data: snapshot, error } = await db
+          .from('snapshots')
+          .select('files')
+          .eq('session_id', sessionId)
+          .eq('student_id', me.user?.id ?? '')
+          .eq('reason', 'autosave')
+          .maybeSingle()
+        if (error) throw error
+        const checkpoints = snapshot
+          ? [
+              {
+                files: snapshot.files,
+                seq: 1,
+                title: null,
+                message: 'My code at the end of the class',
+              },
+            ]
+          : []
+        return { lessonTitle: session.lessons.title, checkpoints }
+      }
       const { data: checkpoints, error } = await db
         .from('checkpoints')
         .select('files, seq, title')

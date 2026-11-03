@@ -47,7 +47,7 @@ const STEP_3 = [pkg({ vue: '3', axios: '1' }), { path: 'src/Cart.vue', content: 
 let wc, wrapper
 beforeEach(() => {
   wc = fakeContainer()
-  getWebContainer.mockResolvedValue(wc)
+  getWebContainer.mockReset().mockResolvedValue(wc)
 })
 afterEach(() => wrapper?.unmount())
 
@@ -71,9 +71,9 @@ describe('ReplayPreview', () => {
       { 'package.json': expect.anything(), src: { directory: { 'App.vue': expect.anything() } } },
       { mountPoint: 'replay' },
     )
-    expect(commands()).toEqual(['pnpm install', 'pnpm run dev'])
+    expect(commands()).toEqual(['pnpm install --prefer-offline', 'pnpm run dev'])
     expect(wc.spawned.every((p) => p.options.cwd === 'replay')).toBe(true)
-    expect(wrapper.text()).toContain('Starting the app…')
+    expect(wrapper.text()).toContain('Starting the app')
 
     wc.serverReady('https://preview.test')
     await flushPromises()
@@ -82,13 +82,33 @@ describe('ReplayPreview', () => {
     )
   })
 
+  it("ignores the lesson's backend announcing itself, and shows the app on Vite's port", async () => {
+    await startWith(STEP_1)
+    wc.listeners.forEach((fn) => fn(3001, 'https://api.test')) // Express: its page is "Cannot GET /"
+    await flushPromises()
+    expect(wrapper.find('[data-testid="preview-frame"]').exists()).toBe(false)
+    wc.listeners.forEach((fn) => fn(5174, 'https://vite.test')) // Vite, when 5173 was taken
+    await flushPromises()
+    expect(wrapper.get('[data-testid="preview-frame"]').attributes('src')).toBe('https://vite.test')
+  })
+
+  it('runs an app in client/ next to server/ from its own folder', async () => {
+    const files = [
+      { path: 'client/package.json', content: '{}' },
+      { path: 'client/index.html', content: '<div></div>' },
+      { path: 'server/package.json', content: '{}' },
+    ]
+    await startWith(files)
+    expect(wc.spawned.every((p) => p.options.cwd === 'replay/client')).toBe(true)
+  })
+
   it('moves to another step by rewriting the files, without reinstalling', async () => {
     await startWith(STEP_1)
     await wrapper.setProps({ files: STEP_2 })
     await flushPromises()
     expect(wc.fs.rm).toHaveBeenCalledWith('replay/src/App.vue', { force: true })
     expect(wc.mount).toHaveBeenCalledTimes(2)
-    expect(commands()).toEqual(['pnpm install', 'pnpm run dev'])
+    expect(commands()).toEqual(['pnpm install --prefer-offline', 'pnpm run dev'])
   })
 
   it('reinstalls and restarts when the step changed package.json', async () => {
@@ -97,7 +117,12 @@ describe('ReplayPreview', () => {
     await wrapper.setProps({ files: STEP_3 })
     await flushPromises()
     expect(firstServer.kill).toHaveBeenCalled()
-    expect(commands()).toEqual(['pnpm install', 'pnpm run dev', 'pnpm install', 'pnpm run dev'])
+    expect(commands()).toEqual([
+      'pnpm install --prefer-offline',
+      'pnpm run dev',
+      'pnpm install --prefer-offline',
+      'pnpm run dev',
+    ])
     expect(wrapper.text()).not.toContain('stopped') // killing it ourselves isn't a failure
   })
 
@@ -108,11 +133,33 @@ describe('ReplayPreview', () => {
     expect(wrapper.get('.ca-field-error').text()).toBe(
       "This step didn't start: Couldn't install the packages",
     )
-    expect(commands()).toEqual(['pnpm install'])
+    expect(commands()).toEqual(['pnpm install --prefer-offline'])
 
     await wrapper.get('button').trigger('click')
     await flushPromises()
-    expect(commands()).toEqual(['pnpm install', 'pnpm install'])
+    expect(commands()).toEqual(['pnpm install --prefer-offline', 'pnpm install --prefer-offline'])
+  })
+
+  it('T-REP-09: with autostart it begins by itself once there is code, and says how far it is', async () => {
+    wrapper = mount(ReplayPreview, { props: { files: [], autostart: true } })
+    await flushPromises()
+    expect(getWebContainer).not.toHaveBeenCalled() // nothing to run yet
+
+    await wrapper.setProps({ files: STEP_1 })
+    await flushPromises()
+    expect(commands()).toEqual(['pnpm install --prefer-offline', 'pnpm run dev'])
+    expect(wrapper.emitted('state').flat()).toEqual(['installing', 'starting'])
+    wc.serverReady('https://preview.test')
+    await flushPromises()
+    expect(wrapper.emitted('state').flat().at(-1)).toBe('ready')
+  })
+
+  it('T-REP-09: a small screen waits for Run preview even with autostart', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: false }))
+    wrapper = mount(ReplayPreview, { props: { files: STEP_1, autostart: true } })
+    await flushPromises()
+    expect(getWebContainer).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
   })
 
   it('stops the app and stops listening when you leave the page', async () => {
@@ -122,5 +169,24 @@ describe('ReplayPreview', () => {
     wrapper = null
     expect(server.kill).toHaveBeenCalled()
     expect(wc.listeners.size).toBe(0)
+  })
+})
+
+describe('ReplayPreview progress', () => {
+  it('T-REP-09: lists the steps, with the install counted from what pnpm reports', async () => {
+    wc.spawn.mockImplementationOnce(async () => ({
+      exit: new Promise(() => {}), // the install never finishes in this test
+      kill: vi.fn(),
+      output: new ReadableStream({
+        start(controller) {
+          controller.enqueue('Progress: resolved 50, reused 0, downloaded 10, added 25')
+        },
+      }),
+    }))
+    await startWith(STEP_1)
+    await flushPromises()
+    expect(wrapper.find('progress').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Installing packages')
+    expect(wrapper.text()).toContain('25 of 50 packages')
   })
 })

@@ -37,12 +37,17 @@ export const isValidRepoName = (name) =>
 
 // One commit per checkpoint, named like everywhere else in the app:
 // 'Checkpoint 3 · Fetch items for the selected category', or 'Checkpoint 3' without a title
-export const commitMessage = (checkpoint) => checkpointLabel(checkpoint.seq, checkpoint.title)
+// An export of a student's own final code has one commit, with its own `message`
+export const commitMessage = (checkpoint) =>
+  checkpoint.message ?? checkpointLabel(checkpoint.seq, checkpoint.title)
 
 // README.md for the exported repo: what it is, and the checkpoints in order
 export function exportReadme(lessonTitle, checkpoints) {
   const list = checkpoints.map((c) => `- ${commitMessage(c)}`).join('\n')
-  return `# ${lessonTitle}\n\nExported from CodeAlong: one commit per checkpoint, so the history shows how the code was built.\n\n${list}\n`
+  const what = checkpoints.some((c) => c.message)
+    ? 'my code at the end of the class'
+    : 'one commit per checkpoint, so the history shows how the code was built'
+  return `# ${lessonTitle}\n\nExported from CodeAlong: ${what}.\n\n${list}\n`
 }
 
 // The files of one commit: exactly the checkpoint's files, plus our README unless it has its own

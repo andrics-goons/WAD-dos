@@ -87,7 +87,7 @@ export function addProbe(files) {
   }
 
   // 1 + 2: the entry script is the module script index.html loads
-  const app = appFolder(byPath)
+  const app = appFolder(new Set(byPath.keys()))
   if (app === null) {
     return fail(
       'There is no index.html at the top of the project, or in a folder with its own package.json (like client/).',
@@ -157,12 +157,12 @@ export function addProbe(files) {
 
 // The folder the app is in: '' when index.html is at the top, otherwise the closest folder with
 // both index.html and package.json, e.g. 'client/' next to 'server/'. null when there's neither.
-function appFolder(byPath) {
-  if (byPath.has('index.html')) return ''
-  const folders = [...byPath.keys()]
+export function appFolder(paths) {
+  if (paths.has('index.html')) return ''
+  const folders = [...paths]
     .filter((p) => p.endsWith('/index.html'))
     .map((p) => p.slice(0, -'index.html'.length))
-    .filter((folder) => byPath.has(`${folder}package.json`))
+    .filter((folder) => paths.has(`${folder}package.json`))
     .sort((a, b) => a.split('/').length - b.split('/').length)
   return folders[0] ?? null
 }

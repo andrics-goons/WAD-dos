@@ -618,7 +618,7 @@ The old design hand-rolled OAuth and held the token in server memory for 10 minu
 ```
 1. Client: auth.linkIdentity({ provider: 'github', scopes: 'repo' })
 2. Supabase completes the OAuth dance and puts provider_token on the session
-3. Client: functions.invoke('github-export', { sessionId, repoName, private })
+3. Client: functions.invoke('github-export', { sessionId, repoName, private, mine? }) — `mine: true` (the replay's Student view) exports the caller's own final autosave as a single commit instead of the prof's checkpoints
            with the provider token in the body
 4. Function uses that token for the Git Data API calls below, and never stores it
 ```

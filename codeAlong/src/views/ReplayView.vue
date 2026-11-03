@@ -11,10 +11,13 @@ import DiffView from '@/components/replay/DiffView.vue'
 import NotesPanel from '@/components/replay/NotesPanel.vue'
 import ExportDialog from '@/components/replay/ExportDialog.vue'
 import ReplayPreview from '@/components/replay/ReplayPreview.vue'
+import CodeViewer from '@/components/replay/CodeViewer.vue'
+import ReplayTabs from '@/components/replay/ReplayTabs.vue'
 import { downloadProject } from '@/utils/downloadProject.js'
 
 // One class, step by step: pick a checkpoint and see what changed since the one before it,
-// with my notes beside it. Owner: Ray Yien. design-docs/04, 05 §11.
+// with my notes beside it. A student who joined can switch to Student view: their own code as the
+// class ended, with the same download, preview and export. Owner: Ray Yien. design-docs/04, 05 §11.
 // ?seq=4 opens checkpoint 4 (search results link here like that).
 const props = defineProps({ sessionId: { type: String, required: true } })
 
@@ -29,9 +32,36 @@ const notes = ref([])
 const loading = ref(true)
 const loadError = ref('')
 
+const myFiles = ref(null) // my code when the class ended; null if I'm staff or never joined
+const view = ref('teacher') // 'teacher': the prof's checkpoints, 'student': my own code
+const student = computed(() => view.value === 'student' && !!myFiles.value)
+// ?view=student keeps the choice through a reload or a shared link
+function setView(next) {
+  view.value = next
+  tab.value = 'code'
+  router.replace({ query: { ...route.query, view: next === 'student' ? 'student' : undefined } })
+}
+// the centre of the page: the code, or the running app (a long diff would push it off screen)
+const tab = ref('code')
+// the preview warms up in the background, so its tab says how far along it is
+const previewState = ref('idle')
+const TABS = computed(() => [
+  { key: 'code', label: 'Code', icon: 'bi-file-earmark-code' },
+  {
+    key: 'preview',
+    label: 'Preview',
+    icon: 'bi-play-circle',
+    busy: ['installing', 'starting'].includes(previewState.value),
+    done: previewState.value === 'ready',
+  },
+])
+
 const activeSeq = ref(null)
 const active = computed(() => checkpoints.value.find((c) => c.seq === activeSeq.value))
 const previous = computed(() => checkpoints.value.find((c) => c.seq === activeSeq.value - 1))
+// where I am in the timeline: "3 of 8", with a way to step either side
+const position = computed(() => checkpoints.value.findIndex((c) => c.seq === activeSeq.value))
+const next = computed(() => checkpoints.value[position.value + 1])
 // a replay is a class that has ended; a live one is joined, not replayed
 const live = computed(() => session.value?.status === 'live')
 
@@ -47,7 +77,9 @@ onMounted(async () => {
       ? wanted
       : (checkpoints.value[0]?.seq ?? null)
     // ?seq=99 falls back to the first checkpoint: say so in the URL too
-    if (route.query.seq && activeSeq.value !== wanted) router.replace({ query: {} })
+    if (route.query.seq && activeSeq.value !== wanted)
+      router.replace({ query: { ...route.query, seq: undefined } })
+    await loadMyCode()
   } catch (error) {
     loadError.value = error.message
   } finally {
@@ -55,11 +87,25 @@ onMounted(async () => {
   }
 })
 
+// Staff have no code of their own here. A failure only means no Student view, not a broken replay.
+async function loadMyCode() {
+  if (!session.value || live.value || session.value.isStaff) return
+  try {
+    myFiles.value = await store.myCode(props.sessionId)
+  } catch {
+    myFiles.value = null
+  }
+  // a class with no checkpoints still has my code to show
+  if (myFiles.value && (route.query.view === 'student' || !checkpoints.value.length)) {
+    view.value = 'student'
+  }
+}
+
 const when = (iso) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 
 function select(seq) {
   activeSeq.value = seq
-  router.replace({ query: { seq } })
+  router.replace({ query: { ...route.query, seq } })
 }
 
 // The code before and after the active checkpoint; checkpoint 1 is compared with the starter code
@@ -110,7 +156,9 @@ async function run(action, done = () => {}) {
 
 // the code as it was at this checkpoint, as a .zip: "week-6-mini-cart-checkpoint-3.zip"
 const download = () =>
-  downloadProject(after.value, `${session.value.lesson.title} checkpoint ${active.value.seq}`)
+  student.value
+    ? downloadProject(myFiles.value, `${session.value.lesson.title} my code`)
+    : downloadProject(after.value, `${session.value.lesson.title} checkpoint ${active.value.seq}`)
 
 const addNote = (body, done) =>
   run(async () => {
@@ -131,8 +179,13 @@ const removeNote = (id) =>
   })
 
 // Export to GitHub: the dialog, and the new repo's link once it's done
+function onExported(url) {
+  exportedUrl.value = url
+  exportedHidden.value = false
+}
 const exportOpen = ref(false)
 const exportedUrl = ref('')
+const exportedHidden = ref(false) // dismissed
 // "Week 6 · Mini Cart" → "week-6-mini-cart", a name GitHub accepts
 const repoSlug = (title) =>
   title
@@ -204,7 +257,7 @@ const repoSlug = (title) =>
             <i class="bi bi-bar-chart" />Report
           </RouterLink>
           <button
-            v-if="checkpoints.length"
+            v-if="checkpoints.length || student"
             type="button"
             class="ca-btn ca-btn--secondary"
             data-testid="btn-export-github"
@@ -215,21 +268,75 @@ const repoSlug = (title) =>
         </div>
       </div>
 
-      <div v-if="exportedUrl" class="alert alert-success d-flex align-items-start gap-2 small">
+      <div
+        v-if="exportedUrl && !exportedHidden"
+        class="alert alert-success alert-dismissible d-flex align-items-start gap-2 small"
+      >
         <i class="bi bi-check-circle-fill flex-shrink-0" />
         <span>
           Exported.
           <a :href="exportedUrl" target="_blank" rel="noopener">See the commits on GitHub</a>
         </span>
+        <button type="button" class="btn-close" @click="exportedHidden = true" />
       </div>
       <ExportDialog
         v-model:open="exportOpen"
         :session-id="sessionId"
-        :default-name="repoSlug(session.lesson.title)"
-        @exported="exportedUrl = $event"
+        :default-name="repoSlug(session.lesson.title) + (student ? '-my-code' : '')"
+        :mine="student"
+        @exported="onExported"
       />
 
-      <div v-if="!checkpoints.length" class="ca-surface">
+      <div v-if="myFiles" class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <div class="d-flex gap-1">
+          <button
+            type="button"
+            class="ca-btn ca-btn--sm"
+            :class="student ? 'ca-btn--secondary' : 'ca-btn--primary'"
+            @click="setView('teacher')"
+          >
+            <i class="bi bi-easel" />Teacher
+          </button>
+          <button
+            type="button"
+            class="ca-btn ca-btn--sm"
+            :class="student ? 'ca-btn--primary' : 'ca-btn--secondary'"
+            @click="setView('student')"
+          >
+            <i class="bi bi-person" />Student
+          </button>
+        </div>
+        <span class="small text-body-secondary">
+          {{
+            student
+              ? 'Your own code as the class ended'
+              : "The prof's code, checkpoint by checkpoint, with your notes"
+          }}
+        </span>
+      </div>
+
+      <div v-if="student" class="row g-4">
+        <section class="col-12 col-lg-9">
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <h2 class="fs-5 mb-0">My code at the end of the class</h2>
+          </div>
+          <ReplayTabs v-model="tab" :tabs="TABS">
+            <button type="button" class="ca-btn ca-btn--secondary ca-btn--sm" @click="download">
+              <i class="bi bi-download" />Download code
+            </button>
+          </ReplayTabs>
+          <CodeViewer v-show="tab === 'code'" :files="myFiles" />
+          <!-- hidden, not removed, so a running preview survives a look at the code -->
+          <ReplayPreview
+            v-show="tab === 'preview'"
+            :files="myFiles"
+            autostart
+            @state="previewState = $event"
+          />
+        </section>
+      </div>
+
+      <div v-else-if="!checkpoints.length" class="ca-surface">
         <EmptyState icon="bi-clock-history" title="Nothing to replay">
           The prof didn't save any checkpoints in this class.
         </EmptyState>
@@ -243,6 +350,31 @@ const repoSlug = (title) =>
         <section class="col-12 col-lg-6">
           <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
             <h2 class="fs-5 mb-0 me-auto">{{ checkpointLabel(active.seq, active.title) }}</h2>
+          </div>
+          <ReplayTabs v-model="tab" :tabs="TABS">
+            <div class="d-flex align-items-center gap-1">
+              <button
+                type="button"
+                class="ca-btn ca-btn--ghost ca-btn--sm"
+                :disabled="!previous"
+                title="Previous checkpoint"
+                @click="select(previous.seq)"
+              >
+                <i class="bi bi-chevron-left" />
+              </button>
+              <span class="small text-body-secondary">
+                {{ position + 1 }} of {{ checkpoints.length }}
+              </span>
+              <button
+                type="button"
+                class="ca-btn ca-btn--ghost ca-btn--sm"
+                :disabled="!next"
+                title="Next checkpoint"
+                @click="select(next.seq)"
+              >
+                <i class="bi bi-chevron-right" />
+              </button>
+            </div>
             <button
               type="button"
               class="ca-btn ca-btn--secondary ca-btn--sm"
@@ -251,38 +383,44 @@ const repoSlug = (title) =>
             >
               <i class="bi bi-download" />Download code
             </button>
+          </ReplayTabs>
+          <!-- a wrapper, since the diff has several root elements and v-show needs one -->
+          <div v-show="tab === 'code'">
+            <div v-if="filesLoading" class="d-flex justify-content-center py-4">
+              <span class="spinner-border text-primary">
+                <span class="visually-hidden">Loading the code…</span>
+              </span>
+            </div>
+            <div v-else-if="filesError" class="ca-surface">
+              <EmptyState
+                icon="bi-exclamation-triangle"
+                title="Couldn't load this checkpoint"
+                compact
+              >
+                {{ filesError }}
+                <template #actions>
+                  <button type="button" class="ca-btn ca-btn--secondary" @click="loadCheckpoint()">
+                    Try again
+                  </button>
+                </template>
+              </EmptyState>
+            </div>
+            <DiffView
+              v-else
+              :before="before"
+              :after="after"
+              :before-label="previous ? `Checkpoint ${previous.seq}` : 'Starter code'"
+              :after-label="`Checkpoint ${active.seq}`"
+            />
           </div>
-          <div v-if="filesLoading" class="d-flex justify-content-center py-4">
-            <span class="spinner-border text-primary">
-              <span class="visually-hidden">Loading the code…</span>
-            </span>
-          </div>
-          <div v-else-if="filesError" class="ca-surface">
-            <EmptyState
-              icon="bi-exclamation-triangle"
-              title="Couldn't load this checkpoint"
-              compact
-            >
-              {{ filesError }}
-              <template #actions>
-                <button type="button" class="ca-btn ca-btn--secondary" @click="loadCheckpoint()">
-                  Try again
-                </button>
-              </template>
-            </EmptyState>
-          </div>
-          <DiffView
-            v-else
-            :before="before"
-            :after="after"
-            :before-label="previous ? `Checkpoint ${previous.seq}` : 'Starter code'"
-            :after-label="`Checkpoint ${active.seq}`"
+          <!-- hidden, not removed, so a running preview survives a look at the code -->
+          <ReplayPreview
+            v-if="!filesError"
+            v-show="tab === 'preview'"
+            :files="after"
+            autostart
+            @state="previewState = $event"
           />
-
-          <template v-if="!filesError">
-            <h2 class="fs-6 mt-4 mb-2">Preview</h2>
-            <ReplayPreview :files="after" />
-          </template>
         </section>
 
         <aside class="col-12 col-lg-3">
