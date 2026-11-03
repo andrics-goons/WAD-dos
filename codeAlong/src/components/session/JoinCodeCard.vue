@@ -29,7 +29,9 @@ async function copyLink() {
       <span class="fw-semibold">Join code</span>
       <i class="bi" :class="open ? 'bi-chevron-up' : 'bi-chevron-down'" />
     </button>
-    <div v-show="open" class="d-flex flex-wrap align-items-center gap-3 px-3 pb-3">
+    <!-- v-if, not v-show: d-flex is display:flex !important, which beats the display:none that
+         v-show sets, so the card could never close -->
+    <div v-if="open" class="d-flex flex-wrap align-items-center gap-3 px-3 pb-3">
       <QrDisplay :text="joinUrl" class="qr flex-shrink-0" data-testid="join-qr" />
       <div class="overflow-hidden">
         <div class="ca-eyebrow">Students enter</div>

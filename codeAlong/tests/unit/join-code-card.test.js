@@ -35,6 +35,17 @@ describe('JoinCodeCard', () => {
     )
   })
 
+  it('the header folds the code away and brings it back', async () => {
+    const { wrapper } = open()
+    const header = wrapper.find('button')
+    expect(wrapper.find('[data-testid="join-code"]').exists()).toBe(true) // open to start with
+    await header.trigger('click')
+    expect(wrapper.find('[data-testid="join-code"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="join-qr"]').exists()).toBe(false)
+    await header.trigger('click')
+    expect(wrapper.find('[data-testid="join-code"]').text()).toBe('CART42')
+  })
+
   it('copies the join link', async () => {
     const writeText = vi.fn().mockResolvedValue()
     vi.stubGlobal('navigator', { clipboard: { writeText } })
