@@ -434,8 +434,7 @@ The section the architecture change affects most. Each rule that used to be "no 
 | T-PRIV-06 | **Every `public` table has RLS enabled** | RLS | `tables_without_rls()` returns empty |
 | T-PRIV-07 | **Every view uses `security_invoker`** | RLS | A view without it would leak all sessions; assert none exist |
 | T-PRIV-08 | No keystroke logging | Review | Status written only on change + 30 s heartbeat |
-| T-PRIV-11 | **Students can't read each other's profiles or enrolments** | RLS | A student reads the names of their course's staff, never of other students in it (the live-class online list is the one exception: T-PRIV-12) |
-| T-PRIV-12 | **A student sees classmates online in their live class** | RLS | Presence on `session:<id>` shows who is online to class members only; outsiders can't join the channel (T-SESS-10) |
+| T-PRIV-11 | **Students don't see each other's names** | RLS | A student reads the names of their course's staff, never of other students in it |
 | T-PRIV-09 | **No build-error code frame reaches staff** | Unit+DB | Real Vite error output → `student_status.error` holds the message only; no source line appears in `session_tiles` |
 | T-PRIV-10 | **Terminal output never persisted** | DB | No table holds `pnpm install` or dev-server text |
 

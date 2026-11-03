@@ -7,7 +7,6 @@ import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import GithubImportTab from '@/components/lesson/GithubImportTab.vue'
 import { useLessonsStore } from '@/stores/lessons'
-import { useSessionStore } from '@/stores/session'
 import { useToastStore } from '@/stores/toast'
 import { buildLessonFiles, isIgnored, languageForPath } from '../../shared/lesson-files.js'
 
@@ -16,10 +15,6 @@ const router = useRouter()
 const route = useRoute()
 const lessons = useLessonsStore()
 const toast = useToastStore()
-const sessions = useSessionStore()
-
-// ?start=1: came from Start new session, so the class starts as soon as the code is in
-const startingClass = !!route.query.start
 
 const stage = ref(1)
 // ?source=github: back from connecting GitHub in the import tab
@@ -36,7 +31,7 @@ const githubSource = ref(null) // { type: 'github', repo, ref, dir } from the la
 
 // lesson details
 const title = ref('')
-const week = ref(route.query.week ?? '')
+const week = ref('')
 const description = ref('')
 const titleError = ref('')
 const saving = ref(false)
@@ -96,7 +91,7 @@ function suggestTitle(name) {
 // check the title before leaving the first stage
 function next() {
   if (stage.value === 1 && !title.value.trim()) {
-    titleError.value = 'Give the code a name before you continue'
+    titleError.value = 'Give the lesson a title before you continue'
     document.getElementById('title')?.focus()
     return
   }
@@ -115,14 +110,8 @@ async function create() {
       // an import keeps where it came from (repo, branch, folder) — design-docs/03 lessons.source
       source: source.value === 'github' ? githubSource.value : { type: 'upload' },
     })
-    if (startingClass) {
-      await lessons.update(lesson.id, { status: 'ready' })
-      const session = await sessions.start(lesson.id)
-      router.replace({ name: 'teach', params: { id: session.id } })
-      return
-    }
     toast.show("Lesson created. It's hidden from students until you make it visible", 'success')
-    router.replace({ name: 'lesson-edit', params: { id: lesson.id } })
+    router.push({ name: 'lesson-edit', params: { id: lesson.id } })
   } catch (err) {
     toast.show(err.message, 'danger', { title: "Couldn't create the lesson" })
   } finally {
@@ -208,8 +197,8 @@ async function onFolderPicked(event) {
       <div class="ca-page-header">
         <div>
           <div class="ca-eyebrow">Lessons</div>
-          <h1>{{ startingClass ? 'Start new session' : 'New lesson' }}</h1>
-          <p class="text-body-secondary mb-0">Bring in the code your class begins from.</p>
+          <h1>New lesson</h1>
+          <p class="text-body-secondary mb-0">Upload the starter code your class begins from.</p>
         </div>
       </div>
 
@@ -347,12 +336,12 @@ async function onFolderPicked(event) {
 
         <div class="row g-3">
           <div class="col-12 col-md-8 ca-field">
-            <label class="ca-label" for="title">Name</label>
+            <label class="ca-label" for="title">Lesson title</label>
             <input
               id="title"
               v-model="title"
               class="ca-input"
-              placeholder="ICE or Extra exercises"
+              placeholder="Week 6 · Mini Cart"
               maxlength="100"
               :class="{ 'ca-input--invalid': titleError }"
               @input="titleError = ''"
@@ -448,7 +437,7 @@ async function onFolderPicked(event) {
           @click="create"
         >
           <span v-if="saving" class="spinner-border spinner-border-sm" />
-          <i v-else class="bi bi-check-lg" />{{ startingClass ? 'Start session' : 'Create lesson' }}
+          <i v-else class="bi bi-check-lg" />Create lesson
         </button>
       </div>
     </div>

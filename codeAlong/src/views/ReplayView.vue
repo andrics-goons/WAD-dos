@@ -166,7 +166,12 @@ const repoSlug = (title) =>
 
     <template v-else>
       <div class="ca-page-header">
-        <h1 class="mb-0">{{ session.lesson.title }}</h1>
+        <div>
+          <RouterLink :to="{ name: 'replays' }" class="small">
+            <i class="bi bi-arrow-left" />All replays
+          </RouterLink>
+          <h1 class="mb-0">{{ session.lesson.title }}</h1>
+        </div>
         <button
           v-if="checkpoints.length"
           type="button"

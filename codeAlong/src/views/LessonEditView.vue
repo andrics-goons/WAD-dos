@@ -149,7 +149,7 @@ const confirmDelete = ref(false)
 const confirmArchive = ref(false)
 const deleting = ref(false)
 
-const backToCourse = () => router.replace({ name: 'course', params: { id: lesson.value.courseId } })
+const backToCourse = () => router.push({ name: 'course', params: { id: lesson.value.courseId } })
 
 async function removeLesson() {
   deleting.value = true
@@ -194,7 +194,7 @@ async function archiveLesson() {
       <div class="ca-page-header">
         <div>
           <div class="ca-eyebrow">{{ details.title }}</div>
-          <h1>Edit Lesson's Starter Code(s)</h1>
+          <h1>Edit lesson</h1>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
           <div class="form-check form-switch mb-0 me-2">
@@ -209,7 +209,7 @@ async function archiveLesson() {
             <label class="form-check-label small" for="lesson-visible">Visible to students</label>
           </div>
           <button type="button" class="ca-btn ca-btn--sm" @click="startDetails">
-            <i class="bi bi-pencil" />Edit Details
+            <i class="bi bi-pencil" />Details
           </button>
           <button
             v-if="taught"
@@ -258,6 +258,10 @@ async function archiveLesson() {
           </div>
         </div>
       </section>
+      <p class="ca-field-hint mt-2">
+        This is the code every student starts from. During class you save checkpoints whenever you
+        like from the teach view.
+      </p>
     </template>
 
     <ConfirmModal

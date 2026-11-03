@@ -1,13 +1,11 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { RoleLabel } from '@shared/constants.js'
 import { useAuthStore } from '@/stores/auth'
 import { useCoursesStore } from '@/stores/courses'
 import { useToastStore } from '@/stores/toast'
-import { useCourseStore } from '@/stores/course'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import CourseForm from '@/components/course/CourseForm.vue'
 
 // My courses: one card per course. Educators can create a course here;
 // students and TAs go to /enrol to join one with a code.
@@ -15,7 +13,6 @@ const auth = useAuthStore()
 const courses = useCoursesStore()
 const toast = useToastStore()
 const router = useRouter()
-const route = useRoute()
 
 const isProf = computed(() => auth.role === 'prof')
 const canEnrol = computed(() => ['student', 'ta'].includes(auth.role))
@@ -33,14 +30,23 @@ onMounted(async () => {
   }
 })
 
-// New course form (educators only). It has its own address, so the My courses button closes it.
-const showForm = computed(() => isProf.value && !!route.query.new)
+// New course form (educators only)
+const blankForm = () => ({ code: '', title: '', ay: '', termNo: '', section: '' })
+const showForm = ref(false)
+const form = ref(blankForm())
 const saving = ref(false)
 const formError = ref('')
 
+// This academic year and the next, e.g. AY2026/27 and AY2027/28. A new AY starts in August.
+const now = new Date()
+const firstYear = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1
+const academicYears = [firstYear, firstYear + 1].map((y) => `AY${y}/${String(y + 1).slice(2)}`)
+const terms = ['T1', 'T2', 'T3A', 'T3B']
+
 function closeForm() {
+  form.value = blankForm()
   formError.value = ''
-  router.replace({ name: 'courses' })
+  showForm.value = false
 }
 
 // Clicking a course card opens it, unless you were selecting text (e.g. to copy the enrol code)
@@ -49,11 +55,13 @@ function openCourse(course) {
   router.push({ name: 'course', params: { id: course.id } })
 }
 
-async function createCourse(fields) {
+async function createCourse() {
   saving.value = true
   formError.value = ''
   try {
-    const course = await courses.create(fields)
+    const { code, title, ay, termNo, section } = form.value
+    // stored as one string, e.g. "AY2026/27 T1"
+    const course = await courses.create({ code, title, term: `${ay} ${termNo}`, section })
     toast.show(`Created ${course.code} · ${course.title}`, 'success')
     closeForm()
   } catch (error) {
@@ -62,25 +70,20 @@ async function createCourse(fields) {
     saving.value = false
   }
 }
-
-// The courses you've archived are off the main list; you can still open and restore them
-const courseStore = useCourseStore()
-const archived = ref(null) // null while the list is closed
-async function toggleArchived() {
-  if (archived.value) {
-    archived.value = null
-    return
-  }
-  try {
-    archived.value = await courseStore.archived()
-  } catch (error) {
-    toast.show(error.message, 'danger')
-  }
-}
 </script>
 
 <template>
   <div class="ca-page">
+    <!-- the new course form takes over the page; Back returns to the course list -->
+    <button
+      v-if="showForm"
+      type="button"
+      class="ca-btn ca-btn--ghost ca-btn--sm mb-2"
+      @click="closeForm"
+    >
+      <i class="bi bi-arrow-left" />My courses
+    </button>
+
     <div class="ca-page-header">
       <h1>{{ showForm ? 'New course' : 'My courses' }}</h1>
       <button
@@ -88,7 +91,7 @@ async function toggleArchived() {
         type="button"
         class="ca-btn ca-btn--primary"
         data-testid="btn-new-course"
-        @click="router.push({ query: { new: 1 } })"
+        @click="showForm = true"
       >
         <i class="bi bi-plus-lg" />New course
       </button>
@@ -103,14 +106,63 @@ async function toggleArchived() {
     </div>
 
     <!-- New course (educators) -->
-    <CourseForm
-      v-if="showForm"
-      submit-label="Create course"
-      :saving="saving"
-      :error="formError"
-      @save="createCourse"
-      @cancel="closeForm"
-    />
+    <form v-if="showForm" class="ca-card mb-4" @submit.prevent="createCourse">
+      <div class="row g-3">
+        <div class="ca-field col-12 col-sm-6 col-lg-2">
+          <label class="ca-label" for="course-code">Course code</label>
+          <input
+            id="course-code"
+            v-model="form.code"
+            class="ca-input text-uppercase"
+            placeholder="IS216"
+            required
+          />
+        </div>
+        <div class="ca-field col-12 col-sm-6 col-lg-4">
+          <label class="ca-label" for="course-title">Title</label>
+          <input
+            id="course-title"
+            v-model="form.title"
+            class="ca-input"
+            placeholder="Web Application Development II"
+            maxlength="100"
+            required
+          />
+        </div>
+        <div class="ca-field col-6 col-sm-4 col-lg-2">
+          <label class="ca-label" for="course-ay">Academic year</label>
+          <select id="course-ay" v-model="form.ay" class="ca-input" required>
+            <option value="" disabled>Choose…</option>
+            <option v-for="ay in academicYears" :key="ay" :value="ay">{{ ay }}</option>
+          </select>
+        </div>
+        <div class="ca-field col-6 col-sm-4 col-lg-2">
+          <label class="ca-label" for="course-term">Term</label>
+          <select id="course-term" v-model="form.termNo" class="ca-input" required>
+            <option value="" disabled>Choose…</option>
+            <option v-for="t in terms" :key="t" :value="t">{{ t }}</option>
+          </select>
+        </div>
+        <div class="ca-field col-12 col-sm-4 col-lg-2">
+          <label class="ca-label" for="course-section">Section</label>
+          <input
+            id="course-section"
+            v-model="form.section"
+            class="ca-input"
+            placeholder="G2"
+            required
+          />
+        </div>
+      </div>
+      <p v-if="formError" class="ca-field-error mt-3">{{ formError }}</p>
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <button type="submit" class="ca-btn ca-btn--primary" :disabled="saving">
+          <span v-if="saving" class="spinner-border spinner-border-sm" />
+          Create course
+        </button>
+        <button type="button" class="ca-btn ca-btn--secondary" @click="closeForm">Cancel</button>
+      </div>
+    </form>
 
     <!-- Loading (the list is hidden while the form is open) -->
     <div v-else-if="loading" class="d-flex justify-content-center py-5">
@@ -162,27 +214,5 @@ async function toggleArchived() {
         </div>
       </div>
     </div>
-
-    <template v-if="!showForm && !loading">
-      <button type="button" class="ca-btn ca-btn--ghost ca-btn--sm mt-3" @click="toggleArchived">
-        <i class="bi" :class="archived ? 'bi-chevron-up' : 'bi-archive'" />
-        {{ archived ? 'Hide archived courses' : 'Show archived courses' }}
-      </button>
-      <template v-if="archived">
-        <h2 class="fs-5 mt-4 mb-3">Archived courses</h2>
-        <p v-if="!archived.length" class="text-body-secondary mb-0">No archived courses.</p>
-        <div v-else class="list-group">
-          <RouterLink
-            v-for="c in archived"
-            :key="c.id"
-            :to="{ name: 'course', params: { id: c.id } }"
-            class="list-group-item list-group-item-action"
-          >
-            <div class="ca-eyebrow">{{ c.code }} · {{ c.section }} · {{ c.term }}</div>
-            <div class="fw-semibold text-body">{{ c.title }}</div>
-          </RouterLink>
-        </div>
-      </template>
-    </template>
   </div>
 </template>
