@@ -49,7 +49,20 @@ describe('parseRepoUrl', () => {
       { owner: 'prof', repo: 'labs', ref: 'main', dir: 'week6/cart' },
     ],
     ['https://gitlab.com/prof/mini-cart', null],
-    ['github.com/prof/mini-cart', null],
+    // the links people copy from the address bar
+    ['github.com/prof/mini-cart', { owner: 'prof', repo: 'mini-cart', ref: null, dir: '' }],
+    [
+      'http://www.github.com/prof/mini-cart',
+      { owner: 'prof', repo: 'mini-cart', ref: null, dir: '' },
+    ],
+    [
+      'https://github.com/prof/mini-cart?tab=readme-ov-file#mini-cart',
+      { owner: 'prof', repo: 'mini-cart', ref: null, dir: '' },
+    ],
+    [
+      'https://github.com/prof/labs/blob/main/week6/src/App.vue',
+      { owner: 'prof', repo: 'labs', ref: 'main', dir: 'week6/src' },
+    ],
     ['https://github.com/prof', null],
   ])('%s', (url, expected) => {
     expect(parseRepoUrl(url)).toEqual(expected)
@@ -99,6 +112,22 @@ describe('github-import', () => {
     const res = await run({ repoUrl: 'https://github.com/prof/mini-cart' }, github)
     expect((await res.json()).files.map((f) => f.path)).toEqual(['index.html'])
     expect(github.text).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves room for the file CodeAlong adds: 40 source files is one too many', async () => {
+    const files = Object.fromEntries(Array.from({ length: 40 }, (_, i) => [`src/f${i}.js`, 'x']))
+    const res = await run({ repoUrl: 'https://github.com/prof/big' }, fakeGithub(files))
+    expect(res.status).toBe(400)
+    expect((await res.json()).message).toMatch(/at most 39 \(CodeAlong adds one more\)/)
+  })
+
+  it('refuses a repo GitHub could only partly list, instead of importing it with files missing', async () => {
+    const github = fakeGithub({ 'index.html': '<p></p>' })
+    github.json.mockResolvedValueOnce({ default_branch: 'main' })
+    github.json.mockResolvedValueOnce({ tree: [], truncated: true })
+    const res = await run({ repoUrl: 'https://github.com/prof/huge' }, github)
+    expect(res.status).toBe(400)
+    expect((await res.json()).message).toMatch(/too big to read/)
   })
 
   it('T-GH-02: refuses more than 40 source files without downloading any', async () => {

@@ -136,6 +136,15 @@ describe('a prof makes and edits a lesson', () => {
     expect(await codeOf(getLesson(spare.id))).toBe('NOT_FOUND')
   })
 
+  it('T-LES-09: a second lesson in the same week is a CONFLICT that says so', async () => {
+    // the lesson above is week 7 now
+    const err = await createLesson(course.id, { ...DETAILS, title: 'Also week 7', week: 7 }).catch(
+      (e) => e,
+    )
+    expect(err.code).toBe('CONFLICT')
+    expect(err.message).toMatch(/already has that week/)
+  })
+
   it('T-LES-06: deleteLesson refuses a taught lesson with CONFLICT', async () => {
     const { data: session } = await service
       .from('sessions')

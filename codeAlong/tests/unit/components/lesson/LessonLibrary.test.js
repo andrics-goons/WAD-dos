@@ -1,167 +1,103 @@
 // @vitest-environment jsdom
-// The Lessons tab of the course page: the ⋯ menu on each lesson (edit, visibility, archive, delete)
+// The Lessons tab of the course page, with its stores faked
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
-import { createPinia, setActivePinia } from 'pinia'
+import { flushPromises, mount } from '@vue/test-utils'
+
+const fakes = vi.hoisted(() => ({
+  lessons: [],
+  sessions: [],
+  update: vi.fn(),
+  start: vi.fn(),
+  push: vi.fn(),
+}))
+vi.mock('@/stores/course', () => ({
+  useCourseStore: () => ({
+    lessons: async () => fakes.lessons,
+    sessions: async () => fakes.sessions,
+  }),
+}))
+vi.mock('@/stores/lessons', () => ({ useLessonsStore: () => ({ update: fakes.update }) }))
+vi.mock('@/stores/session', () => ({ useSessionStore: () => ({ start: fakes.start }) }))
+vi.mock('@/stores/toast', () => ({ useToastStore: () => ({ show: vi.fn() }) }))
+vi.mock('vue-router', () => ({ useRouter: () => ({ push: fakes.push }) }))
 import LessonLibrary from '@/components/lesson/LessonLibrary.vue'
 
-const course = vi.hoisted(() => ({}))
-const lessons = vi.hoisted(() => ({}))
-const toast = vi.hoisted(() => ({ show: vi.fn() }))
-vi.mock('@/stores/course', () => ({ useCourseStore: () => course }))
-vi.mock('@/stores/lessons', () => ({ useLessonsStore: () => lessons }))
-vi.mock('@/stores/session', () => ({ useSessionStore: () => ({}) }))
-vi.mock('@/stores/toast', () => ({ useToastStore: () => toast }))
-vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+const lesson = (title, status, week) => ({ id: title, title, status, week })
 
-const RouterLink = { props: ['to'], template: '<a><slot /></a>' }
-const lesson = (id, title, status) => ({ id, title, status, week: 6 })
-
-async function open(myRole = 'prof', list = [lesson('l1', 'Mini Cart', 'ready')], classes = []) {
-  course.lessons = vi.fn().mockResolvedValue(list)
-  course.sessions = vi.fn().mockResolvedValue(classes)
+async function show(myRole = 'prof') {
   const wrapper = mount(LessonLibrary, {
     props: { course: { id: 'c1', myRole } },
-    global: { stubs: { RouterLink } },
-    attachTo: document.body,
+    global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
   })
   await flushPromises()
-  await wrapper.find('.lesson-toggle').trigger('click') // open the Week 6 folder
   return wrapper
 }
-const menu = (wrapper, slug = 'mini-cart') => wrapper.find(`[data-testid="lesson-menu-${slug}"]`)
-const items = (wrapper) =>
-  wrapper.findAll('.dropdown-menu.show .dropdown-item').map((i) => i.text())
-const visible = (wrapper, slug = 'mini-cart') =>
-  wrapper.find(`[data-testid="lesson-visible-${slug}"]`)
-const badge = (wrapper) => wrapper.find('[data-testid="lesson-row-mini-cart"] .badge').text()
+const names = (wrapper) => wrapper.findAll('.fw-semibold').map((s) => s.text())
+// opens every week folder
+async function openAll(wrapper) {
+  for (const button of wrapper.findAll('.lesson-toggle')) await button.trigger('click')
+}
 
 beforeEach(() => {
-  setActivePinia(createPinia())
-  lessons.update = vi.fn().mockResolvedValue({})
-  lessons.remove = vi.fn().mockResolvedValue()
-  toast.show.mockReset()
-  document.body.innerHTML = ''
+  fakes.lessons = [
+    lesson('Week 1 · Draft one', 'draft', 1),
+    lesson('Week 2 · Ready one', 'ready', 2),
+    lesson('Week 3 · Old one', 'archived', 3),
+  ]
+  fakes.sessions = []
+  fakes.update.mockReset().mockResolvedValue({})
+  fakes.start.mockReset().mockResolvedValue({ id: 's1' })
+  fakes.push.mockReset()
 })
 
-describe('LessonLibrary ⋯ menu', () => {
-  it('opens with edit, Visibility (on), archive and delete for a lesson not taught yet', async () => {
-    const wrapper = await open()
-    expect(items(wrapper)).toEqual([])
-    await menu(wrapper).trigger('click')
-    expect(items(wrapper)).toEqual(['Edit files', 'Visibility', 'Archive', 'Delete'])
-    expect(visible(wrapper).element.checked).toBe(true)
+describe('LessonLibrary', () => {
+  it('shows one folder per week, and its files with their status once opened', async () => {
+    const wrapper = await show()
+    expect(names(wrapper)).toEqual(['Week 1', 'Week 2'])
+    await openAll(wrapper)
+    expect(names(wrapper)).toEqual(['Week 1', 'Draft one', 'Week 2', 'Ready one'])
+    expect(wrapper.find('.badge.text-bg-warning').text()).toBe('Draft')
+    expect(wrapper.find('.badge.text-bg-success').text()).toBe('Ready')
   })
 
-  it('one menu at a time, and a click anywhere else closes it', async () => {
-    const wrapper = await open('prof', [
-      lesson('l1', 'Mini Cart', 'ready'),
-      lesson('l2', 'Extra', 'draft'),
-    ])
-    await menu(wrapper).trigger('click')
-    await menu(wrapper, 'extra').trigger('click')
-    expect(visible(wrapper, 'extra').element.checked).toBe(false) // a draft
-    document.body.click()
+  it('T-LES-10: Start class only on a ready file that has never been taught', async () => {
+    const wrapper = await show()
+    await openAll(wrapper)
+    expect(wrapper.find('[data-testid="lesson-start-week-1-draft-one"]').exists()).toBe(false)
+    await wrapper.find('[data-testid="lesson-start-week-2-ready-one"]').trigger('click')
     await flushPromises()
-    expect(items(wrapper)).toEqual([])
+    expect(fakes.update).not.toHaveBeenCalled()
+    expect(fakes.start).toHaveBeenCalledWith('Week 2 · Ready one')
+    expect(fakes.push).toHaveBeenCalledWith({ name: 'teach', params: { id: 's1' } })
   })
 
-  it('switching visible off hides it, the badge says so, and the menu stays open', async () => {
-    const wrapper = await open()
-    await menu(wrapper).trigger('click')
-    await visible(wrapper).setValue(false)
-    await flushPromises()
-    expect(lessons.update).toHaveBeenCalledWith('l1', { status: 'draft' })
-    expect(badge(wrapper)).toBe('draft')
-    expect(toast.show).toHaveBeenCalledWith('Hidden from students', 'success')
-    expect(items(wrapper)).toHaveLength(4)
+  it('T-LES-10: no Start class once the file has a class (Open class is in its list)', async () => {
+    fakes.sessions = [
+      {
+        id: 's9',
+        lesson_id: 'Week 2 · Ready one',
+        status: 'live',
+        started_at: '2026-11-02T01:00:00Z',
+        join_code: 'CART42',
+      },
+    ]
+    const wrapper = await show() // the folder with a live class starts open
+    expect(wrapper.find('[data-testid="lesson-start-week-2-ready-one"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Open class')
   })
 
-  it('the switch goes back if saving fails', async () => {
-    lessons.update.mockRejectedValue(new Error('No connection'))
-    const wrapper = await open()
-    await menu(wrapper).trigger('click')
-    await visible(wrapper).setValue(false)
-    await flushPromises()
-    expect(visible(wrapper).element.checked).toBe(true)
-    expect(badge(wrapper)).toBe('ready')
+  it('hides archived lessons until asked for, students included (their past classes are there)', async () => {
+    for (const role of ['prof', 'student']) {
+      const wrapper = await show(role)
+      expect(names(wrapper)).not.toContain('Week 3')
+      await wrapper.find('#show-archived').setValue(true)
+      expect(names(wrapper)).toContain('Week 3')
+    }
   })
 
-  it('archives only after the prof confirms', async () => {
-    const wrapper = await open()
-    await menu(wrapper).trigger('click')
-    await wrapper.findAll('.dropdown-menu.show .dropdown-item')[2].trigger('click')
-    expect(lessons.update).not.toHaveBeenCalled()
-    const confirm = [...document.querySelectorAll('.ca-modal button')].find(
-      (b) => b.textContent.trim() === 'Archive lesson',
-    )
-    confirm.click()
-    await flushPromises()
-    expect(lessons.update).toHaveBeenCalledWith('l1', { status: 'archived' })
-    expect(badge(wrapper)).toBe('archived')
-  })
-
-  it('an archived lesson offers Unarchive, not Archive', async () => {
-    const wrapper = await open('prof', [lesson('l1', 'Mini Cart', 'archived')])
-    await menu(wrapper).trigger('click')
-    expect(items(wrapper)).toEqual(['Edit files', 'Unarchive', 'Delete'])
-  })
-
-  const clickItem = async (wrapper, text) =>
-    wrapper
-      .findAll('.dropdown-menu.show .dropdown-item')
-      .find((i) => i.text() === text)
-      .trigger('click')
-  const confirmButton = (text) =>
-    [...document.querySelectorAll('.ca-modal button')].find((b) => b.textContent.trim() === text)
-
-  it('T-LES-06: once a class has run from it, Delete is greyed out and the ? says why', async () => {
-    const wrapper = await open('prof', undefined, [
-      { id: 's1', lesson_id: 'l1', status: 'ended', started_at: '2026-10-12T06:00:00Z' },
-    ])
-    await menu(wrapper).trigger('click')
-    expect(items(wrapper)).toEqual(['Edit files', 'Visibility', 'Archive']) // Delete isn't one
-    const why = wrapper.find('[data-testid="lesson-why-no-delete-mini-cart"]')
-    const reason = "It's been taught, so it can't be deleted. Archive it instead."
-    expect(why.attributes('title')).toBe(reason) // on hover
-    expect(wrapper.text()).not.toContain(reason)
-    await why.trigger('click') // on a phone
-    expect(wrapper.find('.dropdown-menu.show').text()).toContain(reason)
-    expect(document.querySelector('.ca-modal')).toBeNull()
-    expect(lessons.remove).not.toHaveBeenCalled()
-  })
-
-  it('deletes only after the prof confirms, and the lesson leaves the list', async () => {
-    const wrapper = await open()
-    await menu(wrapper).trigger('click')
-    await clickItem(wrapper, 'Delete')
-    expect(lessons.remove).not.toHaveBeenCalled()
-    confirmButton('Delete lesson').click()
-    await flushPromises()
-    expect(lessons.remove).toHaveBeenCalledWith('l1')
-    expect(wrapper.find('[data-testid="lesson-row-mini-cart"]').exists()).toBe(false)
-    expect(toast.show).toHaveBeenCalledWith('Lesson deleted', 'success')
-  })
-
-  it('T-LES-06: taught since the page loaded, it stays and says to archive it', async () => {
-    lessons.remove.mockRejectedValue(
-      Object.assign(new Error("This lesson has been taught, so it can't be deleted"), {
-        code: 'CONFLICT',
-      }),
-    )
-    const wrapper = await open()
-    await menu(wrapper).trigger('click')
-    await clickItem(wrapper, 'Delete')
-    confirmButton('Delete lesson').click()
-    await flushPromises()
-    expect(wrapper.find('[data-testid="lesson-row-mini-cart"]').exists()).toBe(true)
-    expect(toast.show).toHaveBeenCalledWith('It has been taught, so archive it instead', 'danger', {
-      title: "Couldn't delete the lesson",
-    })
-  })
-
-  it.each(['ta', 'student'])('a %s gets no ⋯ menu', async (role) => {
-    const wrapper = await open(role)
-    expect(menu(wrapper).exists()).toBe(false)
+  it('says every lesson is archived, rather than "No lessons yet"', async () => {
+    fakes.lessons = [lesson('Week 3 · Old one', 'archived', 3)]
+    const wrapper = await show()
+    expect(wrapper.text()).toContain('Every lesson is archived')
   })
 })

@@ -11,15 +11,18 @@ export interface ExportCheckpoint {
   files: { path: string; content: string }[]
   seq: number
   title: string | null // optional: the prof may save a checkpoint without one
+  message?: string // the commit's message, when it isn't named after a checkpoint (my own code)
 }
 
 export interface ExportDeps {
   callerId(req: Request): Promise<string | null> // null if logged out
   // The class's lesson title and checkpoints in save order, read as the caller (so RLS decides);
-  // null when the caller can't see that class
+  // null when the caller can't see that class. `mine`: the caller's own final code instead of the
+  // prof's checkpoints, as a single entry
   loadExport(
     req: Request,
     sessionId: string,
+    mine: boolean,
   ): Promise<{ lessonTitle: string; checkpoints: ExportCheckpoint[] } | null>
   makeGithub(token: string): Github
   wait(ms: number): Promise<void>
@@ -37,10 +40,16 @@ export async function handleExport(req: Request, deps: ExportDeps): Promise<Resp
     return fail(400, 'BAD_REQUEST', 'Use only letters, numbers, - _ and . in the repository name')
   }
 
-  const data = await deps.loadExport(req, body.sessionId)
+  const data = await deps.loadExport(req, body.sessionId, body.mine === true)
   if (!data) return fail(404, 'NOT_FOUND', 'Replay not found')
   if (!data.checkpoints.length)
-    return fail(400, 'BAD_REQUEST', 'This class has no checkpoints to export')
+    return fail(
+      400,
+      'BAD_REQUEST',
+      body.mine
+        ? 'You have no saved code in this class'
+        : 'This class has no checkpoints to export',
+    )
 
   const gh = deps.makeGithub(body.providerToken)
   let repo

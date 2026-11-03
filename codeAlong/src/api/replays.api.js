@@ -5,14 +5,18 @@ import { mapError } from './mapError'
 // Contract: design-docs/04 "Replay, notes, search, export". A replay's checkpoints come from
 // listCheckpoints() in checkpoints.api.js, and their files from loadFiles() in src/cache/files.js.
 
-/** Ended classes in every course I'm in (RLS), newest first. */
+/**
+ * Ended classes in every course I'm in (RLS), newest first. A class with no checkpoints has
+ * nothing to step through, so it isn't listed.
+ */
 export async function listReplays() {
   const { data, error } = await supabase
     .from('sessions')
     .select(
-      'id, course_id, checkpoint_seq, started_at, ended_at, lessons(title), courses(code, title, section)',
+      'id, course_id, checkpoint_seq, started_at, ended_at, lessons(title), courses(code, title, section, term)',
     )
     .eq('status', 'ended')
+    .gt('checkpoint_seq', 0)
     .order('started_at', { ascending: false })
   if (error) throw mapError(error)
   return data.map((row) => ({
@@ -24,6 +28,37 @@ export async function listReplays() {
     lessonTitle: row.lessons.title,
     course: row.courses,
   }))
+}
+
+/**
+ * One class for the replay page: { id, lesson_id, status, join_code, started_at, lesson,
+ * course: { code, section, term }, isStaff }. null when it doesn't exist or I can't see it (RLS).
+ */
+export async function getReplay(id) {
+  const [{ data, error }, { data: auth }] = await Promise.all([
+    supabase
+      .from('sessions')
+      .select(
+        'id, lesson_id, status, join_code, started_at, lessons(title, files_hash), courses(code, section, term, course_staff(user_id))',
+      )
+      .eq('id', id)
+      .maybeSingle(),
+    supabase.auth.getSession(),
+  ])
+  if (error) {
+    const mapped = mapError(error)
+    if (mapped.code === 'NOT_FOUND') return null // a malformed id in the URL
+    throw mapped
+  }
+  if (!data) return null
+  const { lessons: lesson, courses: course, ...session } = data
+  const isStaff = course.course_staff.some((s) => s.user_id === auth.session?.user.id)
+  return {
+    ...session,
+    lesson,
+    course: { code: course.code, section: course.section, term: course.term },
+    isStaff,
+  }
 }
 
 /**

@@ -10,9 +10,9 @@ const CHECKPOINTS = [
 ]
 
 let wrapper
-const mountAt = (activeSeq, bookmarks = []) =>
+const mountAt = (activeSeq) =>
   (wrapper = mount(CheckpointTimeline, {
-    props: { checkpoints: CHECKPOINTS, activeSeq, bookmarks },
+    props: { checkpoints: CHECKPOINTS, activeSeq },
     attachTo: document.body,
   }))
 afterEach(() => wrapper?.unmount())
@@ -30,12 +30,10 @@ describe('CheckpointTimeline', () => {
     ])
   })
 
-  it('marks the active checkpoint and the bookmarked ones', () => {
-    mountAt(2, [3])
+  it('marks the active checkpoint', () => {
+    mountAt(2)
     expect(item(2).classes()).toContain('ca-btn--primary')
     expect(item(1).classes()).toContain('ca-btn--secondary')
-    expect(item(3).text()).toContain('(bookmarked)')
-    expect(item(1).text()).not.toContain('(bookmarked)')
   })
 
   it('selects a checkpoint on click', async () => {

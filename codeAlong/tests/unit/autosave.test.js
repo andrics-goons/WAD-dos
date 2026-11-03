@@ -142,6 +142,30 @@ describe('autosave', () => {
     expect(autosavePatch).toHaveBeenCalledTimes(1)
   })
 
+  it('after the class ends, leaving the window or tab sends nothing more', async () => {
+    const { saver } = setup()
+    autosavePatch.mockRejectedValue(Object.assign(new Error('ended'), { code: 'CONFLICT' }))
+    saver.autosave(project())
+    await saver.flush()
+    window.dispatchEvent(new Event('blur'))
+    window.dispatchEvent(new Event('pagehide'))
+    await saver.flush()
+    expect(autosavePatch).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks before the page is left with edits not saved yet, and not once they are', async () => {
+    const { saver } = setup()
+    const leave = () => {
+      const event = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(event)
+      return event.defaultPrevented
+    }
+    saver.autosave(project()) // waiting for the 5 s countdown
+    expect(leave()).toBe(true)
+    await saver.idle()
+    expect(leave()).toBe(false) // the leave itself saved it
+  })
+
   it('does not retry a save the server refused (e.g. FORBIDDEN), but tries again on the next edit', async () => {
     const { saver, statuses } = setup()
     autosavePatch.mockRejectedValueOnce(Object.assign(new Error('no'), { code: 'FORBIDDEN' }))
@@ -218,6 +242,7 @@ describe('autosave', () => {
     expect(removeDoc).toHaveBeenCalledWith('visibilitychange', expect.any(Function))
     expect(removeWin).toHaveBeenCalledWith('blur', expect.any(Function))
     expect(removeWin).toHaveBeenCalledWith('pagehide', expect.any(Function))
+    expect(removeWin).toHaveBeenCalledWith('beforeunload', expect.any(Function))
     removeDoc.mockRestore()
     removeWin.mockRestore()
   })

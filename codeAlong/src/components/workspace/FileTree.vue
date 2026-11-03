@@ -82,7 +82,12 @@
         if (!path) return "Type a file name"
         if (!isStorablePath(path)) return "Use only letters, numbers, - _ . and /"
         if (!languageOf(path) || isSyncIgnored(path)) return "Use a .html, .css, .js, .vue, .json or .md file"
-        if (path !== from && props.filePaths.includes(path)) return "A file with that name already exists"
+        const others = props.filePaths.filter(p => p !== from)
+        if (others.includes(path)) return "A file with that name already exists"
+        // "index.html/x.js" would put a file inside a file; "src" would be a file named like a folder
+        if (others.some(p => path.startsWith(`${p}/`) || p.startsWith(`${path}/`))) {
+            return "That name clashes with a file or folder that already exists"
+        }
         return ""
     }
 
@@ -98,33 +103,43 @@
         if (from === null) emit("create", path)
         else if (path !== from) emit("rename", from, path)
     }
+
+    // Clicking away keeps what was typed (like pressing Enter); an untouched box just closes
+    function onBlur() {
+        if (!editing.value) return // Esc already closed it
+        if (editing.value.value.trim() === (editing.value.from ?? "")) editing.value = null
+        else submit()
+    }
+
+    // the last file can't go: an empty project can't be saved, so it would come back on refresh
+    const canDelete = computed(() => visiblePaths.value.length > 1)
 </script>
 
 <template>
     <div class="file-tree">
-        <div v-if="editable" class="tree-toolbar">
+        <div v-if="editable" class="d-flex justify-content-end px-3 pt-1">
             <button class="tree-action" type="button" title="New file" @click="startEditing(null)">
                 <i class="bi bi-file-earmark-plus" />
             </button>
         </div>
 
-        <form v-if="editing && editing.from === null" class="tree-edit" @submit.prevent="submit">
+        <form v-if="editing && editing.from === null" class="px-3 py-1" @submit.prevent="submit">
             <input
                 :ref="el => (input = el)"
                 v-model="editing.value"
                 class="tree-input"
-                placeholder="src/components/Cart.vue"
+                placeholder="src/Cart.vue, then Enter"
                 @keydown.esc="editing = null"
-                @blur="editing = null"
+                @blur="onBlur"
             />
-            <p v-if="editing.error" class="tree-error">{{ editing.error }}</p>
+            <p v-if="editing.error" class="ca-field-error mb-0">{{ editing.error }}</p>
         </form>
 
         <div class="tree-list">
             <template v-for="row in rows" :key="row.path">
                 <form
                     v-if="editing && editing.from === row.path"
-                    class="tree-edit"
+                    class="px-3 py-1"
                     @submit.prevent="submit"
                 >
                     <input
@@ -132,36 +147,37 @@
                         v-model="editing.value"
                         class="tree-input"
                         @keydown.esc="editing = null"
-                        @blur="editing = null"
+                        @blur="onBlur"
                     />
-                    <p v-if="editing.error" class="tree-error">{{ editing.error }}</p>
+                    <p v-if="editing.error" class="ca-field-error mb-0">{{ editing.error }}</p>
                 </form>
                 <div
                     v-else
                     class="tree-item"
                     :class="{ active: row.path === selectedFile }"
-                    :style="{ paddingLeft: `${14 + row.depth * 16}px` }"
                     :title="row.path"
                     @click="onRowClick(row)"
                 >
+                    <!-- one indent per folder level -->
+                    <span v-for="d in row.depth" :key="d" class="tree-indent" />
                     <!-- chevron slot is kept for files too so icons line up within a folder -->
-                    <span class="tree-chevron" :class="{ open: row.open }">
-                        <svg v-if="row.isFolder" viewBox="0 0 16 16" fill="none" stroke="currentColor">
-                            <path d="M6 4l4 4-4 4" />
-                        </svg>
-                    </span>
-                    <svg v-if="row.isFolder" class="tree-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor">
-                        <path d="M1.5 3.5h4.5l1.5 1.5h7v8.5h-13z" />
-                    </svg>
-                    <svg v-else class="tree-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor">
-                        <path d="M4 1.5h5l3 3v10H4z M9 1.5v3h3" />
-                    </svg>
-                    <span class="tree-name">{{ row.name }}</span>
+                    <i
+                        class="tree-chevron bi"
+                        :class="row.isFolder ? (row.open ? 'bi-chevron-down' : 'bi-chevron-right') : ''"
+                    />
+                    <i class="bi" :class="row.isFolder ? 'bi-folder' : 'bi-file-earmark'" />
+                    <span class="text-truncate">{{ row.name }}</span>
                     <span v-if="editable && !row.isFolder" class="tree-row-actions">
                         <button class="tree-action" type="button" title="Rename" @click.stop="startEditing(row.path)">
                             <i class="bi bi-pencil" />
                         </button>
-                        <button class="tree-action" type="button" title="Delete" @click.stop="emit('delete', row.path)">
+                        <button
+                            v-if="canDelete"
+                            class="tree-action"
+                            type="button"
+                            title="Delete"
+                            @click.stop="emit('delete', row.path)"
+                        >
                             <i class="bi bi-trash" />
                         </button>
                     </span>
@@ -176,19 +192,12 @@
         display: flex;
         flex-direction: column;
         height: 100%;
-        background: #282c34;
-        color: #abb2bf;
+        background: var(--ca-ide-surface);
+        color: var(--ca-ide-muted);
         font-size: 14px;
         user-select: none;
     }
-    .tree-toolbar {
-        display: flex;
-        justify-content: flex-end;
-        padding: 4px 14px 0;
-    }
     .tree-list {
-        display: flex;
-        flex-direction: column;
         flex: 1;
         padding: 6px 0;
         overflow-y: auto;
@@ -200,36 +209,15 @@
         padding: 3px 14px;
         cursor: pointer;
     }
-    .tree-item:hover {
-        background: #2c313a;
-    }
+    .tree-item:hover,
     .tree-item.active {
-        background: #3e4451;
-        color: #d7dae0;
+        background: var(--ca-ide-raised);
+        color: var(--ca-ide-text);
     }
+    .tree-indent,
     .tree-chevron {
-        display: flex;
         width: 12px;
-        height: 12px;
         flex-shrink: 0;
-        transition: transform 0.1s;
-    }
-    .tree-chevron.open {
-        transform: rotate(90deg);
-    }
-    .tree-chevron svg {
-        width: 100%;
-        height: 100%;
-    }
-    .tree-icon {
-        width: 16px;
-        height: 16px;
-        flex-shrink: 0;
-    }
-    .tree-name {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
     }
     /* rename and delete show on the row you're pointing at, or the open file */
     .tree-row-actions {
@@ -242,30 +230,20 @@
         display: flex;
     }
     .tree-action {
-        display: flex;
         padding: 0;
         border: none;
         background: none;
         color: inherit;
-        cursor: pointer;
     }
     .tree-action:hover {
-        color: #fff;
-    }
-    .tree-edit {
-        padding: 3px 14px;
+        color: var(--ca-ide-text);
     }
     .tree-input {
         width: 100%;
         padding: 2px 6px;
-        border: 1px solid #528bff;
-        background: #1e2127;
-        color: #d7dae0;
+        border: 1px solid var(--ca-ide-accent);
+        background: var(--ca-ide-bg);
+        color: var(--ca-ide-text);
         font-size: 13px;
-    }
-    .tree-error {
-        margin: 4px 0 0;
-        color: #e06c75;
-        font-size: 12px;
     }
 </style>

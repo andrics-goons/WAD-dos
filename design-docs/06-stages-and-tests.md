@@ -14,7 +14,7 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | 5 | Status & dashboard | Week 10 | `session_tiles` returns correct state for all 5 cases; idle derives without a write; filters; anonymous slow-down count |
 | 6 | Catch-up | Week 10 | Load checkpoint warns first, offers a .zip download, then replaces the code with the checkpoint |
 | 7 | Help flow | Week 10 | Check my work → pass/reply; Ask for help → claim/resolve; **a replied request can be followed up**; Telegram ping (mock in tests) |
-| 8 | Replay & GitHub | Week 11 | Replay steps through all checkpoints; notes/bookmarks; import + export (one commit per checkpoint) |
+| 8 | Replay & GitHub | Week 11 | Replay steps through all checkpoints; notes; download a checkpoint's code; import + export (one commit per checkpoint) |
 | 9 | Error groups | Week 11 | Grouping matches unit-test expectations (Spotlight dropped) |
 | 10 | Insights | Week 11 | Report built in SQL when the class ends; trouble score + trends; digest sent (mock in tests) |
 | 11 | Hardening | Week 11–12 | Validation + error states everywhere; responsive pass 375 → 1440 px; load test 40 students passes **inside the Realtime free-tier cap** |
@@ -209,6 +209,8 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-LES-06 | Delete a lesson that was taught | DB | Trigger raises `CONFLICT`; the ⋯ menu on the course page shows Delete only before the first class, and a refused delete says to archive it instead |
 | T-LES-07 | What an enrolled student can read | RLS | A **draft** lesson: zero rows. A **ready** lesson: visible, with its starter `files` (RLS can't hide one column; starter files aren't secret — see [03](./03-data-model.md#policies-1)) |
 | T-LES-08 | An uploaded or imported project gets the error reporter (`addProbe`, [lesson-import-requirements](./lesson-import-requirements.md)) | Unit | `src/ca-probe.js` added, imported first by the entry script, `ca-errors` in `vite.config.js`, Vite 8 pins; running it twice changes nothing; a project it can't patch is rejected with a message |
+| T-LES-09 | Two lessons in one course with the same week | DB + Unit | Second insert / update fails with `CONFLICT` "Another lesson in this course already has that week…" (New lesson says so at Next: "Week N already has …"); archived lessons and lessons without a week don't count |
+| T-LES-10 | Start class on the lesson list | Unit | Only a ready file that has never been taught shows Start class, and it starts straight away; a draft, or a file with a class, has none (Start new session on its week folder brings in code instead) |
 | T-TODO-* | ~~TODO parser~~ | — | Removed with lesson steps |
 
 ### SESS — Live session engine · `live-session.spec.js`
@@ -399,10 +401,12 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-REP-01 | Replay lists checkpoints in order | E2E | Step titles 1…n |
 | T-REP-02 | Changed lines highlighted vs previous checkpoint | E2E | Highlight count matches diff |
 | T-REP-03 | Read-only preview runs | E2E | Preview renders the app at that step |
-| T-REP-04 | Add / edit / delete note and bookmark | E2E | Persist after reload; private to author |
+| T-REP-04 | Add / edit / delete a note | E2E | Persist after reload; private to author |
 | T-REP-05 | Search finds a step title and a note | E2E | Both in results with links |
 | T-REP-06 | Search with regex characters | DB | No crash; literal match (parameterised RPC) |
 | T-REP-07 | Non-member reads a replay | RLS | Zero checkpoints returned |
+| T-REP-08 | Student view of a replay | Unit | A student who joined can switch to their own code as the class ended (code viewer, download, preview, export); staff have no toggle; a student with nothing saved sees "No saved code" |
+| T-REP-09 | Preview warms up by itself | Unit | With `autostart` the preview installs and starts once there is code, reporting `installing` → `starting` → `ready`; below `md` it waits for Run preview |
 
 ### GH — GitHub import/export · `github-export.test.js`, `replay.spec.js`
 
@@ -415,6 +419,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-GH-05 | Repo name taken (422) | E2E | UI asks for another name |
 | T-GH-06 | **Token never persisted in our schema** | DB | No GitHub token in any row of any `public` table after an export |
 | T-GH-07 | Export to a private repo | Unit | "Connect GitHub" asks for the `repo` scope; GitHub refusing a private repo (403/404) → `FORBIDDEN` "reconnect GitHub", not "try again" |
+| T-GH-08 | Export my own code | Unit | `mine: true` exports the caller's final autosave as one commit ("My code at the end of the class"); no saved code → `BAD_REQUEST` |
 
 ### INS — Insights · `rls/session_report.test.js`, `digest-function.test.js`, `views/ReportView.test.js`
 

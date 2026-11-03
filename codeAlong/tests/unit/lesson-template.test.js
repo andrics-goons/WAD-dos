@@ -84,6 +84,29 @@ describe('T-LES-08: addProbe', () => {
     )
   })
 
+  it('works on an app in client/ next to its backend in server/, and leaves the backend alone', () => {
+    const inClient = (x) => ({ ...x, path: `client/${x.path}` })
+    const server = [
+      f('server/package.json', JSON.stringify({ scripts: { start: 'node index.js' } })),
+      f('server/index.js', 'app.listen(3000)'),
+      f('server/public/index.html', '<p>served by Express</p>'),
+    ]
+    const r = addProbe([
+      ...[INDEX, MAIN, APP, CONFIG].map(inClient),
+      ...server,
+      inClient(PKG({ devDependencies: { vite: '^8.1.5' } })),
+    ])
+    expect(r.error).toBeNull()
+    expect(content(r.files, 'client/src/ca-probe.js')).toBe(CA_PROBE_JS)
+    expect(r.changes.map((c) => c.path)).toEqual([
+      'client/src/ca-probe.js',
+      'client/src/main.js',
+      'client/vite.config.js',
+      'client/package.json',
+    ])
+    for (const file of server) expect(content(r.files, file.path)).toBe(file.content)
+  })
+
   it('pins the Rolldown binding on Vite 8 only', () => {
     const v8 = addProbe([INDEX, MAIN, CONFIG, PKG({ devDependencies: { vite: '^8.1.5' } })])
     expect(JSON.parse(content(v8.files, 'package.json')).devDependencies).toMatchObject(VITE8_PINS)
@@ -93,6 +116,11 @@ describe('T-LES-08: addProbe', () => {
 
   it.each([
     ['no index.html', [MAIN, PKG()], /index\.html/],
+    [
+      'an index.html in a folder without its own package.json',
+      [f('server/public/index.html', '<p></p>'), f('server/package.json', '{}')],
+      /index\.html/,
+    ],
     [
       'a TypeScript entry',
       [f('index.html', '<script type="module" src="/src/main.ts"></script>'), PKG()],

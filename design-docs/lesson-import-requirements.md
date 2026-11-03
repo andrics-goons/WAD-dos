@@ -4,6 +4,8 @@
 
 **Built:** `addProbe()` in `codeAlong/shared/lesson-template.js` makes all four changes below and holds the one copy of the template text (`CA_PROBE_JS`, `CA_PROBE_IMPORT`, `CA_ERRORS_PLUGIN`, `VITE8_PINS`). New lesson runs it for uploads and GitHub imports alike through `buildLessonFiles(entries, { probe: true })`, before the limits are checked, and lists the files it added or changed. Tests: `tests/unit/lesson-template.test.js` (T-LES-08), which also checks the Mini Cart seed still matches the template.
 
+**Frontend + backend projects.** The app can sit at the top of the project or in a folder of its own next to its backend, e.g. `client/` + `server/`. `addProbe()` uses the top folder when it has `index.html`, otherwise the closest folder with both `index.html` and `package.json`, and makes every change below inside that folder (`client/src/ca-probe.js`, `client/vite.config.js`, ...). The backend is left alone. In the workspace, students start each half in its own terminal (`cd server`, then `cd client` and `pnpm dev`). The preview shows Vite on port 5173. The app can call its backend at `http://localhost:3000` (the WebContainer forwards it), so the backend needs `cors()`, as it does on a laptop, unless Vite proxies the calls like Mini Cart does.
+
 A normal Vite project from GitHub won't report errors to CodeAlong as is. Before a lesson is inserted into `public.lessons`, the import has to add or change these files:
 
 | # | File | Change | Why |

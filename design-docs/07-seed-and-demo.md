@@ -86,7 +86,7 @@ Two things this changes:
 | 11 `student_status` rows + `status_history` | 8 click Done on checkpoint 8; **6 hit `ReferenceError: items is not defined` on checkpoint 4** (`items` instead of `props.items`); **3 never catch up after checkpoint 6** and end in progress. Each checkpoint resets everyone to in progress; history is written exactly as the triggers would have, with real timestamps | Insights funnel, checkpoint 4 as top trouble spot |
 | 18 snapshots | Everyone's autosave, 2 `before_catchup` (Eli, Ivan), 5 `help_request` | Privacy: a TA sees only the 5 sent ones |
 | 5 help requests | 2 passed checks, 2 replied helps on the checkpoint 4 bug, 1 in-person resolved (Gus, seat C14) | Help history in replay |
-| 4 notes/bookmarks | Alex's notes on checkpoints 4 and 7 | Notes + search |
+| 4 notes | Alex's notes on checkpoints 4 and 7 | Notes + search |
 | 12 `slow_down_events` | Three asking to slow down at once around checkpoint 4, three again near the end | `slow_down_peak` = 3 |
 | `session_reports` row | Literal counts matching the history above, per the [05 §10](./05-core-logic.md#10-insights-report) definitions, per checkpoint: checkpoint 4 trouble 0.236 (top), checkpoint 7 drop-off 3. `seed.test.js` checks them against the history | Report page renders immediately |
 

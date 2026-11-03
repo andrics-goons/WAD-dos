@@ -1,14 +1,13 @@
 <script setup>
 // The replay's checkpoints in order: a row you scroll sideways on phones, a column from lg.
 // ← and → move to the previous / next checkpoint and keep the focus on it.
-//   <CheckpointTimeline :checkpoints="cps" :active-seq="seq" :bookmarks="[4, 7]" @select="seq = $event" />
+//   <CheckpointTimeline :checkpoints="cps" :active-seq="seq" @select="seq = $event" />
 import { nextTick, ref } from 'vue'
 import { checkpointLabel } from '@shared/checkpoint-label.js'
 
 const props = defineProps({
   checkpoints: { type: Array, default: () => [] }, // [{ id, seq, title }] in seq order
   activeSeq: { type: Number, default: null },
-  bookmarks: { type: Array, default: () => [] }, // seqs I bookmarked
 })
 const emit = defineEmits(['select'])
 
@@ -41,8 +40,6 @@ async function step(by) {
       @click="emit('select', c.seq)"
     >
       <span>{{ checkpointLabel(c.seq, c.title) }}</span>
-      <i v-if="bookmarks.includes(c.seq)" class="bi bi-bookmark-fill ms-auto" />
-      <span v-if="bookmarks.includes(c.seq)" class="visually-hidden">(bookmarked)</span>
     </button>
   </nav>
 </template>

@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import * as replaysApi from '@/api/replays.api'
 import * as notesApi from '@/api/notes.api'
-import * as sessionsApi from '@/api/sessions.api'
 import * as checkpointsApi from '@/api/checkpoints.api'
+import * as filesApi from '@/api/files.api'
 import { loadFiles } from '@/cache/files.js'
 
 // The calls the replay pages (/replays, /replays/:sessionId) make. Owner: Ray Yien.
@@ -11,8 +11,9 @@ export const useReplaysStore = defineStore('replays', () => {
   const list = () => replaysApi.listReplays()
   const search = (q, courseId) => replaysApi.search(q, courseId)
 
-  // the class, its lesson (for the starter code) and its checkpoints, without files
-  const session = (id) => sessionsApi.getSession(id)
+  // the class (null if I can't see it), its lesson (for the starter code) and its checkpoints,
+  // without files
+  const session = (id) => replaysApi.getReplay(id)
   const checkpoints = (id) => checkpointsApi.listCheckpoints(id)
 
   // files through the IndexedDB cache, so stepping back and forth doesn't download again
@@ -20,6 +21,12 @@ export const useReplaysStore = defineStore('replays', () => {
     loadFiles('lesson', session.lesson_id, session.lesson.files_hash)
   const checkpointFiles = (checkpoint) =>
     loadFiles('checkpoint', checkpoint.id, checkpoint.files_hash)
+
+  // my own code when the class ended (my last autosave), or null if I never joined
+  const myCode = async (sessionId) => {
+    const autosave = await filesApi.findMyAutosave(sessionId)
+    return autosave ? loadFiles('snapshot', autosave.id) : null
+  }
 
   const notes = (sessionId) => notesApi.listNotes(sessionId)
   const addNote = (note) => notesApi.createNote(note)
@@ -33,6 +40,7 @@ export const useReplaysStore = defineStore('replays', () => {
     checkpoints,
     starterFiles,
     checkpointFiles,
+    myCode,
     notes,
     addNote,
     editNote,

@@ -153,7 +153,7 @@ export async function loadFiles(kind, id, remoteHash) {
 
 Built as `src/cache/files.js`, with the Supabase calls in `src/api/files.api.js` (`fetchFiles`, the cheap `fetchHash` probe, and `findMyAutosave`). Two details beyond the sketch above: with no `remoteHash` it probes the hash before downloading anything, and it stores the hash that came back with the files. **A student's own snapshots are never cached:** on a shared lab computer the next person could read them out of IndexedDB, and an autosave changes every few seconds anyway. Only lessons and checkpoints, the files 40 students all load, go in the cache.
 
-IndexedDB is a **cache and an outbox, never the source of truth.** Browsers evict it silently under storage pressure, so every read must survive a miss, and pending autosaves in the outbox must be flushed to Supabase rather than relied upon. Eviction is then a slow load, not lost work.
+IndexedDB is a **cache, never the source of truth.** Browsers evict it silently under storage pressure, so every read must survive a miss. Eviction is then a slow load, not lost work. Edits not saved yet live only in memory, so the page asks before it is left with any (next section).
 
 ### What syncs, and what never does
 
@@ -169,21 +169,21 @@ SYNC_IGNORE: ['node_modules/**', 'dist/**', '.vite/**', '.cache/**',
 
 ### Autosave: 5-second debounce, changed files only
 
-Autosave fires **5 seconds after the last keystroke** (`AUTOSAVE_DEBOUNCE_MS`), plus an immediate flush on blur, `visibilitychange` and `beforeunload` so closing a tab never costs those 5 seconds.
+Autosave fires **5 seconds after the last keystroke** (`AUTOSAVE_DEBOUNCE_MS`), plus an immediate flush on blur, `visibilitychange` and `pagehide`. A save started while the page unloads is often cancelled by the browser, so while edits aren't saved yet (pending, saving, retrying) `beforeunload` also makes the browser ask "Leave site?". Once the class has ended the server refuses saves (`CONFLICT`), so autosave stops and removes these listeners instead of retrying on every blur.
 
 A naive autosave would re-upload all 40 files because one character changed. The IndexedDB cache is what makes a real delta possible: it already holds the **last successfully synced content hash per path**, so the client can compute what changed without reading anything back from Supabase.
 
 ```js
 // src/cache/autosave.js  — runs on the debounced tick
 const eligible = tree.filter(f => !matchesAny(f.path, Limits.SYNC_IGNORE))
-const synced   = await idb.get(`synced:${sessionId}`) ?? {}      // { path: contentHash }
+const synced   = await idb.get(`synced:${userId}:${sessionId}`) ?? {}  // { path: contentHash }; per user, lab PCs are shared
 
 const upsert = eligible.filter(f => hash(f.content) !== synced[f.path])
 const remove = Object.keys(synced).filter(p => !eligible.some(f => f.path === p))
 if (!upsert.length && !remove.length) return                      // nothing to do: no request at all
 
 const { data } = await api.autosavePatch(sessionId, upsert, remove)
-await idb.put(`synced:${sessionId}`, nextHashes(eligible))         // only after success
+await idb.put(`synced:${userId}:${sessionId}`, nextHashes(eligible))  // only after success
 ```
 
 ```sql
@@ -592,7 +592,7 @@ Prof only, once per class (the function sets `session_reports.digest = { sentAt,
 
 ### Replay
 
-The replay view queries `checkpoints` in `seq` order. For each, the client shows its title, the code with lines changed since the previous checkpoint highlighted (`diffSummary`, client-side), and a live preview (same sandbox as the workspace, read-only). Notes and bookmarks anchor to a `checkpoint_id`.
+The replay view queries `checkpoints` in `seq` order. For each, the client shows its title, the code with lines changed since the previous checkpoint highlighted (`diffSummary`, client-side), and a live preview (same sandbox as the workspace, read-only). Notes anchor to a `checkpoint_id`. **Download code** zips the checkpoint's files in the browser (`downloadProject`). The `bookmark` note kind is no longer used by the app.
 
 Search is `rpc('search')`: a ranked full-text query over checkpoint titles and the caller's own notes, using the GIN index on `notes.body`. Because it is a parameterised function, regex characters in the query are literal — no escaping to remember (T-REP-06).
 
@@ -619,7 +619,7 @@ The old design hand-rolled OAuth and held the token in server memory for 10 minu
 ```
 1. Client: auth.linkIdentity({ provider: 'github', scopes: 'repo' })
 2. Supabase completes the OAuth dance and puts provider_token on the session
-3. Client: functions.invoke('github-export', { sessionId, repoName, private })
+3. Client: functions.invoke('github-export', { sessionId, repoName, private, mine? }) — `mine: true` (the replay's Student view) exports the caller's own final autosave as a single commit instead of the prof's checkpoints
            with the provider token in the body
 4. Function uses that token for the Git Data API calls below, and never stores it
 ```
@@ -637,7 +637,7 @@ The old design hand-rolled OAuth and held the token in server memory for 10 minu
 5. Return https://github.com/{o}/{r}/commits/main
 ```
 
-≈ 3 + 2 × checkpoints requests (19 for a class with 8 checkpoints). Trees are built **without** `base_tree`, so each commit contains exactly that checkpoint's files. The generated README lists each checkpoint with a link to its commit and, if the student opts in, their notes. Name already taken → 422 → the UI asks for another name.
+≈ 3 + 2 × checkpoints requests (19 for a class with 8 checkpoints). Trees are built **without** `base_tree`, so each commit contains exactly that checkpoint's files. The generated README lists the checkpoints in order. Notes stay private to the student and aren't exported. Name already taken → 422 → the UI asks for another name.
 
 > **Contract change worth flagging to the team.** The old rule was "the GitHub token lives only in server memory for 10 minutes and is never written to the database." The new rule: the token is held by Supabase Auth on the session and passed to the function per call — so it does reach the browser, which is weaker than before. We never persist it in our own tables, and T-GH-06 is rewritten to assert that: no GitHub token in any row we own.
 

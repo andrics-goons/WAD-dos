@@ -47,9 +47,19 @@ onMounted(async () => {
   }
 })
 
+// archived lessons are out of use: hidden unless asked for. Students can ask too, since their
+// past classes from those lessons (and the Replay links) are listed under them
+const showArchived = ref(false)
+const archivedCount = computed(
+  () => lessons.value.filter((l) => l.status === LessonStatus.ARCHIVED).length,
+)
 const search = ref('')
 const shownLessons = computed(() =>
-  lessons.value.filter((l) => l.title.toLowerCase().includes(search.value.trim().toLowerCase())),
+  lessons.value.filter(
+    (l) =>
+      (showArchived.value || l.status !== LessonStatus.ARCHIVED) &&
+      l.title.toLowerCase().includes(search.value.trim().toLowerCase()),
+  ),
 )
 // one folder per week, in week order (listLessons sorts them); lessons with no week go last
 const folders = computed(() => {
@@ -67,6 +77,12 @@ const folders = computed(() => {
 // the folder already says the week, so "Week 6 · Mini Cart" shows as "Mini Cart"
 const fileName = (l) => l.title.replace(/^Week \d+\s*[·:-]\s*/i, '')
 const classesOf = (lesson) => sessions.value.filter((s) => s.lesson_id === lesson.id)
+
+const STATUS = {
+  draft: { label: 'Draft', css: 'text-bg-warning' },
+  ready: { label: 'Ready', css: 'text-bg-success' },
+  archived: { label: 'Archived', css: 'text-bg-secondary' },
+}
 const when = (iso) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 
 // "Week 6 · Mini Cart" → "week-6-mini-cart", for the lesson-row / lesson-start test ids
@@ -173,9 +189,15 @@ async function removeLesson() {
 }
 
 const starting = ref(null)
+// Only a ready lesson can start a class, so starting from a draft publishes it first: students
+// see it from now on, which they would once class starts anyway
 async function startClass(lesson) {
   starting.value = lesson.id
   try {
+    if (lesson.status === LessonStatus.DRAFT) {
+      await lessonsStore.update(lesson.id, { status: LessonStatus.READY })
+      lesson.status = LessonStatus.READY
+    }
     const session = await sessionStore.start(lesson.id)
     router.push({ name: 'teach', params: { id: session.id } })
   } catch (error) {
@@ -203,6 +225,12 @@ async function startClass(lesson) {
         <i class="bi bi-plus-lg" />New lesson
       </RouterLink>
     </div>
+    <div v-if="archivedCount" class="form-check mb-3">
+      <input id="show-archived" v-model="showArchived" class="form-check-input" type="checkbox" />
+      <label class="form-check-label small" for="show-archived">
+        Show archived lessons ({{ archivedCount }})
+      </label>
+    </div>
 
     <div v-if="loading" class="d-flex justify-content-center py-4">
       <span class="spinner-border text-primary">
@@ -217,10 +245,19 @@ async function startClass(lesson) {
     <div v-else-if="!shownLessons.length" class="ca-surface">
       <EmptyState
         icon="bi-journal-code"
-        :title="search ? 'No matching lessons' : 'No lessons yet'"
+        :title="
+          search
+            ? 'No matching lessons'
+            : archivedCount
+              ? 'Every lesson is archived'
+              : 'No lessons yet'
+        "
         compact
       >
-        <template v-if="!search && isProf">Create a lesson from your starter code.</template>
+        <template v-if="archivedCount && !showArchived">
+          Tick "Show archived lessons" to see the {{ archivedCount }} archived.
+        </template>
+        <template v-else-if="!search && isProf">Create a lesson from your starter code.</template>
       </EmptyState>
     </div>
     <ul v-else class="list-group">
@@ -260,7 +297,9 @@ async function startClass(lesson) {
             <div class="d-flex flex-wrap align-items-center gap-2">
               <i class="bi bi-file-earmark-code" />
               <span class="fw-semibold">{{ fileName(l) }}</span>
-              <span v-if="isStaff" class="badge text-bg-light text-capitalize">{{ l.status }}</span>
+              <span v-if="isStaff" class="badge" :class="STATUS[l.status].css">{{
+                STATUS[l.status].label
+              }}</span>
 
               <span v-if="isProf" class="ms-auto d-flex flex-wrap align-items-center gap-1">
                 <!-- only code that hasn't been taught: a new class imports its own -->

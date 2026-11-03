@@ -5,7 +5,11 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { AppError } from '@/api/mapError'
 
-vi.mock('@/api/github.api', () => ({ importFromGithub: vi.fn(), exportToGithub: vi.fn() }))
+vi.mock('@/api/github.api', () => ({
+  importFromGithub: vi.fn(),
+  exportToGithub: vi.fn(),
+  hasGithubToken: vi.fn(),
+}))
 vi.mock('@/api/auth.api', () => ({ connectGitHub: vi.fn(async () => {}) }))
 vi.mock('vue-router', () => ({ useRoute: () => ({ fullPath: '/replays/s1' }) }))
 import { exportToGithub } from '@/api/github.api'
@@ -53,7 +57,7 @@ describe('ExportDialog', () => {
 
     inBody('#export-private').click()
     await clickExport()
-    expect(exportToGithub).toHaveBeenCalledWith('s1', 'week-6-mini-cart', true)
+    expect(exportToGithub).toHaveBeenCalledWith('s1', 'week-6-mini-cart', true, false)
     expect(wrapper.emitted('exported')).toEqual([
       ['https://github.com/alex/week-6-mini-cart/commits/main'],
     ])
@@ -103,5 +107,14 @@ describe('ExportDialog', () => {
     inBody('[data-testid="btn-connect-github"]').click()
     await flushPromises()
     expect(connectGitHub).toHaveBeenCalledWith('/replays/s1')
+  })
+
+  it('T-GH-08: exports my own code, not the checkpoints, when asked', async () => {
+    exportToGithub.mockResolvedValue({ repoUrl: 'https://github.com/alex/x/commits/main' })
+    await openDialog()
+    await wrapper.setProps({ mine: true })
+    expect(document.body.textContent).toContain('your code at the end of the class')
+    await clickExport()
+    expect(exportToGithub).toHaveBeenCalledWith('s1', 'week-6-mini-cart', false, true)
   })
 })
