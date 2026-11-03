@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { anonClient, userClient, service, cleanup } from './_helpers.js'
 import { generateJoinCode } from '@shared/join-code.js'
 
-let prof, stu, outsider, course, session
+let prof, stu, stu2, outsider, course, session
 
 // Try to join the channel. Resolves with how it went ('SUBSCRIBED' or 'CHANNEL_ERROR'), the
 // error message if refused, and `heard`, which turns true if any broadcast arrives afterwards.
@@ -40,9 +40,10 @@ async function broadcastSomething() {
 }
 
 beforeAll(async () => {
-  ;[prof, stu, outsider] = await Promise.all([
+  ;[prof, stu, stu2, outsider] = await Promise.all([
     userClient({ name: 'Prof Lee', role: 'prof' }),
     userClient({ name: 'Stu Dent' }),
+    userClient({ name: 'Second Stu' }),
     userClient({ name: 'Out Sider' }),
   ])
 
@@ -55,6 +56,7 @@ beforeAll(async () => {
   if (error) throw error
   course = data
   await stu.client.rpc('enrol_with_code', { p_code: course.enrol_code })
+  await stu2.client.rpc('enrol_with_code', { p_code: course.enrol_code })
 
   const lesson = await prof.client
     .from('lessons')
@@ -99,6 +101,35 @@ describe('session channel access', () => {
     expect(attempt.status).toBe('SUBSCRIBED')
     expect(attempt.heard).toBe(true)
   }, 40_000)
+
+  it('T-PRIV-12: a student sees the classmates online in their live class', async () => {
+    const here = stu.client.channel(`session:${session.id}`, {
+      config: { private: true, presence: { key: stu.id } },
+    })
+    await new Promise((resolve) =>
+      here.subscribe((status) => {
+        if (status === 'SUBSCRIBED') here.track({ userId: stu.id, name: 'Stu Dent' }).then(resolve)
+      }),
+    )
+
+    const watching = stu2.client.channel(`session:${session.id}`, {
+      config: { private: true, presence: { key: '' } },
+    })
+    const names = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('nobody seen within 10s')), 10_000)
+      watching.on('presence', { event: 'sync' }, () => {
+        const people = Object.values(watching.presenceState()).map(([p]) => p.name)
+        if (people.length) {
+          clearTimeout(timer)
+          resolve(people)
+        }
+      })
+      watching.subscribe()
+    })
+    await stu.client.removeChannel(here)
+    await stu2.client.removeChannel(watching)
+    expect(names).toEqual(['Stu Dent'])
+  }, 20_000)
 
   it('T-SESS-09: a logged-out visitor cannot join, and hears nothing', async () => {
     const anon = anonClient()
