@@ -38,6 +38,9 @@ const loadError = ref('')
 const mobileTab = ref('dashboard')
 // the editor area shows either the code or the running app, switched by the panels' own buttons
 const editorView = ref('code')
+// Presenting: the dashboard and the right-hand panels go, and the editor fills the page (for
+// showing the class the code). The editor stays mounted, so the code and the running app survive.
+const presenting = ref(false)
 const announcement = ref('')
 
 // karin's announcements: students see it as a banner. An empty box can't be sent; the Clear
@@ -253,6 +256,18 @@ onBeforeUnmount(() => {
         <span class="small text-body-secondary"
           >{{ live.present.length }} joined · {{ elapsed }}</span
         >
+        <!-- Present: just the editor, full page. The same button brings the dashboard back -->
+        <button
+          type="button"
+          class="ca-btn ca-btn--secondary ca-btn--sm"
+          data-testid="btn-present"
+          @click="presenting = !presenting"
+        >
+          <i class="bi" :class="presenting ? 'bi-grid-3x3-gap' : 'bi-fullscreen'" />{{
+            presenting ? 'Dashboard view' : 'Present'
+          }}
+        </button>
+
         <!-- Announce: students see what you send as a banner. The menu keeps the bar clear -->
         <div class="dropdown announce-dropdown" @click.stop>
           <button
@@ -321,42 +336,57 @@ onBeforeUnmount(() => {
 
       <!-- position-relative keeps the hidden form labels (visually-hidden is absolute) inside
            this scroll box; without it they stretch the page and add a second scrollbar -->
-      <div class="teach-body flex-grow-1 overflow-auto position-relative p-3">
+      <div
+        class="teach-body flex-grow-1 overflow-auto position-relative"
+        :class="presenting ? 'p-0 presenting' : 'p-3'"
+      >
         <!-- Below xl: switch between dashboard and editor -->
-        <div class="ca-surface nav nav-pills nav-fill gap-1 p-1 mb-3 d-xl-none">
-          <button
-            type="button"
-            class="nav-link d-flex align-items-center justify-content-center gap-2"
-            :class="{ active: mobileTab === 'dashboard' }"
-            @click="mobileTab = 'dashboard'"
-          >
-            <i class="bi bi-grid-3x3-gap" />Dashboard
-          </button>
-          <button
-            type="button"
-            class="nav-link d-flex align-items-center justify-content-center gap-2"
-            :class="{ active: mobileTab === 'editor' }"
-            @click="mobileTab = 'editor'"
-          >
-            <i class="bi bi-code-slash" />Editor &amp; checkpoints
-          </button>
+        <div class="collapsible d-xl-none" :class="{ collapsed: presenting }">
+          <div class="collapsible-inner">
+            <div class="ca-surface nav nav-pills nav-fill gap-1 p-1 mb-3">
+              <button
+                type="button"
+                class="nav-link d-flex align-items-center justify-content-center gap-2"
+                :class="{ active: mobileTab === 'dashboard' }"
+                @click="mobileTab = 'dashboard'"
+              >
+                <i class="bi bi-grid-3x3-gap" />Dashboard
+              </button>
+              <button
+                type="button"
+                class="nav-link d-flex align-items-center justify-content-center gap-2"
+                :class="{ active: mobileTab === 'editor' }"
+                @click="mobileTab = 'editor'"
+              >
+                <i class="bi bi-code-slash" />Editor &amp; checkpoints
+              </button>
+            </div>
+          </div>
         </div>
 
         <div class="teach-row row g-3 flex-xl-nowrap">
           <!-- The class summary, then the editor (terminal under it) / preview filling the rest,
                so its bottom lines up with the right-hand column -->
-          <div class="col-12 col-xl-8 d-flex flex-column gap-3">
+          <div
+            class="teach-main col-12 d-flex flex-column gap-3"
+            :class="{ 'col-xl-8': !presenting }"
+          >
             <!-- what the class clicked: first on phones (the Dashboard tab), on top from xl -->
-            <div :class="{ 'd-none d-xl-block': mobileTab !== 'dashboard' }">
-              <ClassChoices :summary="dashboard.classSummary" />
-              <p v-if="dashboard.classSummaryError" class="small text-danger mt-2 mb-0">
-                Couldn't refresh the numbers: {{ dashboard.classSummaryError.message }}
-              </p>
+            <div
+              class="collapsible stats-collapse"
+              :class="{ collapsed: presenting, 'd-none d-xl-grid': mobileTab !== 'dashboard' }"
+            >
+              <div class="collapsible-inner">
+                <ClassChoices :summary="dashboard.classSummary" />
+                <p v-if="dashboard.classSummaryError" class="small text-danger mt-2 mb-0">
+                  Couldn't refresh the numbers: {{ dashboard.classSummaryError.message }}
+                </p>
+              </div>
             </div>
 
             <div
               class="teach-editor d-flex flex-column flex-grow-1 gap-3"
-              :class="{ 'd-none d-xl-flex': mobileTab !== 'editor' }"
+              :class="{ 'd-none d-xl-flex': !presenting && mobileTab !== 'editor' }"
             >
               <EmptyState
                 v-if="!isolated"
@@ -396,7 +426,7 @@ onBeforeUnmount(() => {
           <!-- Join code + checkpoints + error groups -->
           <div
             class="teach-side col-12 col-xl-4"
-            :class="{ 'd-none d-xl-block': mobileTab !== 'editor' }"
+            :class="{ 'd-none d-xl-block': mobileTab !== 'editor', 'side-hidden': presenting }"
           >
             <div class="d-flex flex-column gap-3">
               <JoinCodeCard :code="live.session.join_code" />
@@ -428,7 +458,8 @@ onBeforeUnmount(() => {
                     :disabled="saving"
                   >
                     <span v-if="saving" class="spinner-border spinner-border-sm" />
-                    <i v-else class="bi bi-flag-fill" />Save checkpoint {{ live.checkpointSeq + 1 }}
+                    <i v-else class="bi bi-flag-fill" />Save checkpoint
+                    {{ live.checkpointSeq + 1 }}
                   </button>
                   <span class="small text-body-secondary text-center"
                     >Sends it to every student and resets them to In progress</span
@@ -492,6 +523,81 @@ onBeforeUnmount(() => {
   min-height: 36rem;
   border-radius: var(--ca-radius);
   overflow: hidden;
+}
+/* Present: things ease out instead of snapping. The stats and the phone tabs collapse upward,
+   the side panels slide away while the editor widens, and the padding and corners ease off.
+   Nothing is unmounted (re-creating the QR code and panels freezes the page for a moment,
+   which made coming back snap), it's all CSS.
+   (The 1fr -> 0fr grid row is how a block's height is animated without knowing it.) */
+.collapsible {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows 0.3s ease,
+    opacity 0.3s ease,
+    margin-bottom 0.3s ease,
+    visibility 0s;
+}
+.collapsible-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.collapsible.collapsed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  /* cancel the flex gap above the editor, so it doesn't leave a strip behind */
+  margin-bottom: -1rem;
+  transition:
+    grid-template-rows 0.3s ease,
+    opacity 0.3s ease,
+    margin-bottom 0.3s ease,
+    visibility 0s 0.3s;
+}
+.teach-main {
+  transition: width 0.3s ease;
+}
+.teach-body {
+  transition: padding 0.3s ease;
+}
+.editor-box {
+  transition: border-radius 0.3s ease;
+}
+.presenting .editor-box {
+  border-radius: 0;
+}
+.teach-side {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    visibility 0s;
+}
+.teach-side.side-hidden {
+  opacity: 0;
+  transform: translateX(2rem);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    visibility 0s 0.3s;
+}
+/* stacked below xl the panels sit under the editor, so they have to leave the layout */
+@media (max-width: 1199.98px) {
+  .teach-side.side-hidden {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .collapsible,
+  .collapsible.collapsed,
+  .teach-main,
+  .teach-body,
+  .editor-box,
+  .teach-side,
+  .teach-side.side-hidden {
+    transition: none;
+  }
 }
 /* xl: the page fits the screen. The editor fills the left side down to the bottom, and the
    right-hand panels scroll on their own, so a long AI summary never stretches the editor */

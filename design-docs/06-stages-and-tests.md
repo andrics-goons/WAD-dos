@@ -235,6 +235,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-SESS-18 | Announcement over 200 chars | DB | Check constraint rejects it |
 | T-SESS-19 | **Start a lesson that is already live** | DB | Returns the same class and join code, even on a double-click; a new class only once it has ended |
 | T-SESS-20 | An empty announcement can't be sent | Unit | **Send** is disabled for an empty or blank box and Enter does nothing; **Clear** (shown only while an announcement is live) is how it comes down |
+| T-SESS-21 | The prof presents the editor | Unit | **Present** hides the dashboard numbers, the join code, checkpoints and summary panels, the editor takes the full width, the button reads **Dashboard view**, and pressing it again restores everything with the same editor still mounted |
 
 ### SBX — Workspace, runtime & cache · `workspace.spec.js`, `build-error.test.js`, `files-cache.test.js`
 

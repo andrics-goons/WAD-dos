@@ -315,6 +315,44 @@ describe('TeachView', () => {
     expect(send.attributes('disabled')).toBeUndefined()
   })
 
+  describe('T-SESS-21: Present', () => {
+    const button = () => wrapper.find('[data-testid="btn-present"]')
+
+    it('hides the dashboard and the side panels, leaving only the editor, and the button becomes Dashboard view', async () => {
+      await open(session(), { isolated: true })
+      expect(button().text()).toBe('Present')
+      expect(wrapper.find('.teach-side').classes()).not.toContain('side-hidden')
+      expect(wrapper.find('.stats-collapse').classes()).not.toContain('collapsed')
+
+      await button().trigger('click')
+      expect(button().text()).toBe('Dashboard view')
+      // they ease away (still mounted, so coming back doesn't have to rebuild them)
+      expect(wrapper.find('.teach-side').classes()).toContain('side-hidden')
+      expect(wrapper.find('.stats-collapse').classes()).toContain('collapsed')
+      expect(wrapper.find('editor-panel-stub').exists()).toBe(true)
+      // the editor takes the whole width
+      expect(wrapper.find('.teach-row > div').classes()).not.toContain('col-xl-8')
+    })
+
+    it('Dashboard view brings everything back, and the editor is the same one (code and app survive)', async () => {
+      await open(session(), { isolated: true })
+      const editor = wrapper.find('editor-panel-stub').element
+      await button().trigger('click')
+      await button().trigger('click')
+      expect(button().text()).toBe('Present')
+      expect(wrapper.find('.teach-side').classes()).not.toContain('side-hidden')
+      expect(wrapper.find('.stats-collapse').classes()).not.toContain('collapsed')
+      expect(wrapper.find('editor-panel-stub').element).toBe(editor)
+    })
+
+    it('Announce and End session are still there while presenting', async () => {
+      await open(session(), { isolated: true })
+      await button().trigger('click')
+      expect(wrapper.find('[data-testid="btn-open-announce"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="btn-end-session"]').exists()).toBe(true)
+    })
+  })
+
   describe('the Announce menu', () => {
     const menu = () => wrapper.find('.announce-menu')
     const toggle = () => wrapper.find('[data-testid="btn-open-announce"]')
