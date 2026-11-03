@@ -192,28 +192,7 @@ const summaryNow = computed(() => {
 
 // everyone connected, with their state and requests for the Students menu. A student who has
 // only just joined has no status row yet, so they're In progress until it arrives
-// TEMP STUB (remove before committing): /s/<id>/teach?stub=students shows a fake class in dev
-const STUB_STUDENTS = [
-  ['Alex Tan', 'error', true, false],
-  ['Priya Nair', 'in_progress', true, false],
-  ['Bea Koh', 'in_progress', false, true],
-  ['Marcus Lim', 'done', false, true],
-  ['Chen Wei', 'error', false, false],
-  ['Siti Rahman', 'error', false, false],
-  ['Daniel Ong', 'in_progress', false, false],
-  ['Hannah Goh', 'in_progress', false, false],
-  ['Ethan Teo', 'in_progress', false, false],
-  ['Jia Hui Lee', 'idle', false, false],
-  ['Ravi Kumar', 'idle', false, false],
-  ['Zoe Ng', 'done', false, false],
-  ['Wei Ling Tay', 'done', false, false],
-  ['Aaron Chua', 'done', false, false],
-].map(([name, state, help, check], i) => ({ id: `stub-${i}`, name, state, help, check }))
-const stubbed =
-  import.meta.env.DEV && new URLSearchParams(location.search).get('stub') === 'students'
-
 const roster = computed(() => {
-  if (stubbed) return STUB_STUDENTS
   const rows = new Map((dashboard.classSummary?.students ?? []).map((t) => [t.studentId, t]))
   return live.present.map((p) => {
     const t = rows.get(p.userId)
