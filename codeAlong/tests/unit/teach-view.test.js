@@ -400,6 +400,34 @@ describe('TeachView', () => {
       expect(menu().classes()).not.toContain('show')
     })
 
+    it('while one is live, the menu shows it with a labelled Clear', async () => {
+      await open()
+      expect(wrapper.find('[data-testid="announce-showing"]').exists()).toBe(false)
+      expect(menu().text()).toContain('Announce to class')
+
+      live.session.announcement = { text: '5 minute break', at: '2026-11-03T10:00:00Z' }
+      await flushPromises()
+      expect(toggle().attributes('title')).toContain('Open to see it or clear it')
+      const showing = wrapper.find('[data-testid="announce-showing"]')
+      expect(showing.text()).toContain('Showing to students now')
+      expect(showing.text()).toContain('5 minute break')
+      expect(showing.find('[data-testid="btn-clear-announce"]').text()).toBe('Clear announcement')
+      // the box is for replacing it
+      expect(menu().text()).toContain('Or send a new one (it replaces this)')
+    })
+
+    it('the live message goes when it is cleared', async () => {
+      await open()
+      live.session.announcement = { text: 'hi', at: '2026-11-03T10:00:00Z' }
+      await flushPromises()
+      await wrapper.find('[data-testid="btn-clear-announce"]').trigger('click')
+      await flushPromises()
+      expect(live.announce).toHaveBeenCalledWith('ses-1', '')
+      live.session.announcement = null // what the class channel does
+      await flushPromises()
+      expect(wrapper.find('[data-testid="announce-showing"]').exists()).toBe(false)
+    })
+
     it('the button stands out while an announcement is showing to students', async () => {
       await open()
       expect(toggle().classes()).toContain('ca-btn--secondary')

@@ -308,6 +308,11 @@ onBeforeUnmount(() => {
             type="button"
             class="ca-btn ca-btn--sm"
             :class="live.session?.announcement ? 'ca-btn--primary' : 'ca-btn--secondary'"
+            :title="
+              live.session?.announcement
+                ? 'An announcement is showing to students. Open to see it or clear it.'
+                : ''
+            "
             data-testid="btn-open-announce"
             @click="toggleAnnounce"
           >
@@ -319,7 +324,29 @@ onBeforeUnmount(() => {
             @submit.prevent="sendAnnouncement"
             @keydown.esc="closeAnnounce"
           >
-            <label for="announce" class="ca-label">Announce to class</label>
+            <!-- what students are seeing now, and the way to take it down -->
+            <div v-if="live.session?.announcement" class="mb-3" data-testid="announce-showing">
+              <div class="ca-eyebrow mb-1">Showing to students now</div>
+              <div class="small p-2 rounded bg-body-secondary text-break">
+                {{ live.session.announcement.text }}
+              </div>
+              <button
+                type="button"
+                class="ca-btn ca-btn--secondary ca-btn--sm ca-btn--block mt-2"
+                data-testid="btn-clear-announce"
+                @click="clearAnnouncement"
+              >
+                <i class="bi bi-x-lg" />Clear announcement
+              </button>
+              <hr class="my-3" />
+            </div>
+            <label for="announce" class="ca-label">
+              {{
+                live.session?.announcement
+                  ? 'Or send a new one (it replaces this)'
+                  : 'Announce to class'
+              }}
+            </label>
             <!-- Enter sends, so the message stays on one line -->
             <textarea
               id="announce"
@@ -336,19 +363,8 @@ onBeforeUnmount(() => {
               <span class="small text-body-secondary"
                 >{{ announcement.length }}/{{ Limits.ANNOUNCE_MAX_CHARS }}</span
               >
-              <!-- only while students can see one -->
               <button
-                v-if="live.session?.announcement"
-                type="button"
-                class="ca-btn ca-btn--ghost ca-btn--sm ms-auto"
-                data-testid="btn-clear-announce"
-                @click="clearAnnouncement"
-              >
-                Clear
-              </button>
-              <button
-                class="ca-btn ca-btn--primary ca-btn--sm"
-                :class="{ 'ms-auto': !live.session?.announcement }"
+                class="ca-btn ca-btn--primary ca-btn--sm ms-auto"
                 type="submit"
                 :disabled="!canSend"
                 data-testid="btn-announce"
