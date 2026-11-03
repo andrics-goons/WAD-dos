@@ -22,8 +22,11 @@ vi.mock('@/api/dashboard.api', () => ({
   getHelpSummary: vi.fn(),
 }))
 
-const push = vi.hoisted(() => vi.fn())
-vi.mock('vue-router', async (original) => ({ ...(await original()), useRouter: () => ({ push }) }))
+const replace = vi.hoisted(() => vi.fn())
+vi.mock('vue-router', async (original) => ({
+  ...(await original()),
+  useRouter: () => ({ replace }),
+}))
 
 import TeachView from '@/views/TeachView.vue'
 
@@ -221,7 +224,7 @@ describe('TeachView', () => {
     await wrapper.find('[data-testid="btn-end-session"]').trigger('click')
     await confirmModal()
     expect(live.end).toHaveBeenCalled()
-    expect(push).toHaveBeenCalledWith({ name: 'session-report', params: { id: 'ses-1' } })
+    expect(replace).toHaveBeenCalledWith({ name: 'session-report', params: { id: 'ses-1' } })
   })
 
   it('says so when the class has already ended', async () => {

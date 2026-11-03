@@ -275,6 +275,7 @@ Patterns:
 
 | Class | Use for |
 |---|---|
+| `ca-back-bar` | The row holding `BackButton`, lined up with `ca-page`. Used by `BackButton` only |
 | `ca-page` | **Wrapper for every non-IDE page.** Centred, max width 1320px, side gutters |
 | `ca-page-header` | Title row: `<h1>` left, actions right; wraps at xs |
 | `ca-eyebrow` | Small uppercase label above a heading |
@@ -398,6 +399,12 @@ Mounted once in `App.vue`. It has a `#status` slot for live indicators; to add s
 import { TileState, TileStateOrder, HelpStatus, Limits } from '@shared/constants.js'
 ```
 Never hard-code `'in_progress'` or `200` when a constant exists. This file is a team contract (`09-integration-contracts.md` §1); ping the team before changing it.
+
+---
+
+### BackButton
+
+Rendered once by `App.vue`, so **pages never add their own**. A route opts in with `meta.back`, a function returning `{ label, to? }`. The label says where it goes: "My courses", "All replays", "Exit live session", "Back to course". With `to` it goes there; without, it returns to the previous page (Home, or Landing if logged out, when a link was opened directly). Main pages (Home, Courses, Replays, Join, Profile) have no `meta.back`, so no button. After a form finishes, use `router.replace` so returning skips the form. In-page controls stay in the page, such as the lesson stepper's Back and the help queue's "Back to the queue" on phones.
 
 ---
 
