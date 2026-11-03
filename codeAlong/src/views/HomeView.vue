@@ -6,8 +6,8 @@ import { useCoursesStore } from '@/stores/courses'
 import { useHomeStore } from '@/stores/home'
 import EmptyState from '@/components/ui/EmptyState.vue'
 
-// Where you land once logged in: classes that are live right now, a way to join one,
-// and your courses. The public landing page (/) sends logged-in users here.
+// Where you land once logged in: classes that are live right now and your courses. Joining with a
+// code is the navbar's "Join a class". The public landing page (/) sends logged-in users here.
 const auth = useAuthStore()
 const courses = useCoursesStore()
 const store = useHomeStore()
@@ -47,9 +47,6 @@ function classLink(s) {
         <div class="ca-eyebrow">{{ RoleLabel[auth.role] }}</div>
         <h1>Hi, {{ auth.user.name }}</h1>
       </div>
-      <RouterLink v-if="!isProf" :to="{ name: 'join' }" class="ca-btn ca-btn--primary">
-        <i class="bi bi-box-arrow-in-right" />Join with a code
-      </RouterLink>
     </div>
 
     <div v-if="loading" class="d-flex justify-content-center py-5">
