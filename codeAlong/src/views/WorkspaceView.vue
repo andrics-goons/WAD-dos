@@ -109,7 +109,7 @@
       const opening = workspaceStore.load(props.id).then(async () => {
         if (unmounted) return workspaceStore.close() // left while loading: stop the autosave it started
         await statusStore.start(props.id) // tells the dashboard I'm here
-        if (unmounted) return statusStore.stop()
+        if (unmounted) return statusStore.leave()
         loaded.value = true
       })
       const [webcontainer] = await Promise.all([getWebContainer(), opening])
@@ -130,7 +130,7 @@
   onBeforeUnmount(() => {
     unmounted = true
     stopWorkspace?.() // if the startWorkspace has finished firing and returned the function, then call the stop function before unmount
-    statusStore.stop()
+    statusStore.leave() // stops reporting, and takes back my Slow down
     workspaceStore.close() // saves any edit still waiting for the 5 s autosave, then leaves the class channel
   })
 </script>

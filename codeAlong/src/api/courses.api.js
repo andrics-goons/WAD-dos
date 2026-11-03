@@ -9,7 +9,8 @@ const COURSE = 'id, code, title, term, section, owner_id, enrol_code, created_at
 
 // The course plus the staff list, so we can tell the caller's role without a second query.
 // Every member may read a course's staff list (the "members read staff list" policy).
-const COURSE_WITH_STAFF = `${COURSE}, course_staff(user_id, role)`
+// and how many classes it has run: a course with any can't be deleted (hasClasses)
+const COURSE_WITH_STAFF = `${COURSE}, course_staff(user_id, role), sessions(count)`
 
 async function currentUser() {
   const {
@@ -25,12 +26,13 @@ const archivedIds = (user) => user?.user_metadata?.archived_courses ?? []
 // 'prof' | 'ta' for staff, 'student' otherwise (RLS only shows a course to its members).
 // Only used to pick what to show — every rule is enforced by RLS and the RPCs.
 function withMyRole(course, user) {
-  const { course_staff: staff = [], ...rest } = course
+  const { course_staff: staff = [], sessions, ...rest } = course
   const mine = staff.find((s) => s.user_id === user?.id)
   return {
     ...rest,
     myRole: mine?.role ?? 'student',
     isOwner: course.owner_id === user?.id,
+    hasClasses: (sessions?.[0]?.count ?? 0) > 0,
     archived: archivedIds(user).includes(course.id),
   }
 }
@@ -157,12 +159,33 @@ export async function addStaff(courseId, email) {
   return data
 }
 
+/**
+ * Owner only. Takes a TA off the course: help requests they'd claimed go back to the queue,
+ * and an account that TAs nowhere else becomes a student again. NOT_FOUND if not a TA here.
+ */
+export async function removeStaff(courseId, userId) {
+  const { error } = await supabase.rpc('remove_course_staff', {
+    p_course_id: courseId,
+    p_user_id: userId,
+  })
+  if (error) throw mapError(error)
+}
+
 /** Owner only. Their past class data stays for the reports. */
 export async function removeStudent(courseId, userId) {
   const { error } = await supabase.rpc('remove_course_student', {
     p_course_id: courseId,
     p_user_id: userId,
   })
+  if (error) throw mapError(error)
+}
+
+/**
+ * A student leaves a course. Unlike the owner removing them, this deletes their own data in it:
+ * their code, progress, help requests and notes. NOT_FOUND if they aren't enrolled.
+ */
+export async function leaveCourse(courseId) {
+  const { error } = await supabase.rpc('leave_course', { p_course_id: courseId })
   if (error) throw mapError(error)
 }
 

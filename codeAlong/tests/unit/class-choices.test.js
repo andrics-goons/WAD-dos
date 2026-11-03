@@ -29,6 +29,16 @@ describe('ClassChoices', () => {
     expect(bar.attributes('style')).toContain('width: 25%')
   })
 
+  it('hides the bar while nobody is Done, keeping its space so nothing below moves', () => {
+    const doneBar = (done) =>
+      mount(ClassChoices, { props: { summary: { ...summary, done } } }).find(
+        '[data-testid="summary-done"] .done-bar',
+      )
+    expect(doneBar(0).exists()).toBe(true)
+    expect(doneBar(0).classes()).toContain('invisible')
+    expect(doneBar(1).classes()).not.toContain('invisible')
+  })
+
   it('gives each count a short line saying what it means', () => {
     const text = mount(ClassChoices, { props: { summary } }).text()
     expect(text).toContain('Caught up')

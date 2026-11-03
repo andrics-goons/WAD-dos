@@ -14,6 +14,7 @@ export const useCourseStore = defineStore('course', () => {
   const staff = (id) => coursesApi.listStaff(id)
   const students = (id) => coursesApi.listStudents(id)
   const addTa = (id, email) => coursesApi.addStaff(id, email)
+  const removeTa = (id, userId) => coursesApi.removeStaff(id, userId)
   const removeStudent = (id, userId) => coursesApi.removeStudent(id, userId)
   const shareLink = (enrolCode) => coursesApi.enrolUrl(enrolCode)
 
@@ -32,6 +33,10 @@ export const useCourseStore = defineStore('course', () => {
     await coursesApi.deleteCourse(id)
     await refreshList()
   }
+  async function leave(id) {
+    await coursesApi.leaveCourse(id)
+    await refreshList()
+  }
   const archived = async () =>
     (await coursesApi.listCourses({ includeArchived: true })).filter((c) => c.archived)
 
@@ -45,7 +50,9 @@ export const useCourseStore = defineStore('course', () => {
     staff,
     students,
     addTa,
+    removeTa,
     removeStudent,
+    leave,
     shareLink,
     update,
     setArchived,

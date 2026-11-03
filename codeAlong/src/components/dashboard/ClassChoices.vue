@@ -4,7 +4,8 @@ import { computed } from 'vue'
 // What the class has clicked, as numbers only: no names, no tiles.
 // Colours come from the kit: the state colours on each badge, the brand on the bar.
 const props = defineProps({
-  // { total, done, slowDown, help, check } from dashboard.api's getClassSummary, or null
+  // { total, done, slowDown, help, check }, or null. total is the students connected right now
+  // and done only counts them (the Teach view works that out from getClassSummary)
   summary: { type: Object, default: null },
 })
 
@@ -59,7 +60,13 @@ const choices = computed(() => {
         <div class="fs-3 fw-bold lh-1 mt-2">{{ c.n }}</div>
         <div class="small text-body-secondary mt-1">{{ c.note }}</div>
         <!-- the bar's width is data, so it's the one inline style here -->
-        <div v-if="c.percent !== undefined" class="done-bar progress mt-2">
+        <!-- hidden until someone is Done (an empty track looks like a stray line); it keeps its
+             space, so the cards and the editor below don't jump when the first one finishes -->
+        <div
+          v-if="c.percent !== undefined"
+          class="done-bar progress mt-2"
+          :class="{ invisible: !c.n }"
+        >
           <div class="progress-bar" :style="{ width: `${c.percent}%` }" />
         </div>
       </div>

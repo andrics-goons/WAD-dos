@@ -1,11 +1,12 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { LessonStatus } from '@shared/constants.js'
 import { useCourseStore } from '@/stores/course'
 import { useLessonsStore } from '@/stores/lessons'
 import { useSessionStore } from '@/stores/session'
 import { useToastStore } from '@/stores/toast'
+import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 
 // The Lessons tab of the course page. Lessons sit in one folder per week ("Week 6"), and opening a
@@ -90,6 +91,102 @@ const slug = (text) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
+
+// the ⋯ menu on each lesson: one open at a time, closed by a click anywhere else
+const menuFor = ref(null) // the lesson id whose menu is open
+const whyNoDelete = ref(false) // the ? on a taught lesson's greyed-out Delete is open
+function toggleMenu(lesson) {
+  menuFor.value = menuFor.value === lesson.id ? null : lesson.id
+  whyNoDelete.value = false
+}
+function closeMenu() {
+  menuFor.value = null
+  whyNoDelete.value = false
+}
+// a taught lesson can't be deleted: the replays and reports point at it
+const noDeleteReason = (lesson) =>
+  lesson.status === LessonStatus.ARCHIVED
+    ? "It's been taught, so it can't be deleted."
+    : "It's been taught, so it can't be deleted. Archive it instead."
+onMounted(() => document.addEventListener('click', closeMenu))
+onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
+
+// ready: students can see it and the prof can start a class. Hidden = draft. Archived:
+// students still see its past classes, but no new class starts from it. Same as the switch on
+// the lesson edit page, which also takes an archived lesson back to ready.
+async function setStatus(lesson, status) {
+  await lessonsStore.update(lesson.id, { status })
+  lessons.value = lessons.value.map((l) => (l.id === lesson.id ? { ...l, status } : l))
+}
+// the Visibility switch (on = students can see it): saves the moment it's flipped, and the menu stays open
+const savingVisible = ref(null) // the lesson whose switch is saving
+async function setVisible(lesson, input) {
+  savingVisible.value = lesson.id
+  try {
+    await setStatus(lesson, input.checked ? LessonStatus.READY : LessonStatus.DRAFT)
+    toast.show(input.checked ? 'Students can see this lesson' : 'Hidden from students', 'success')
+  } catch (error) {
+    input.checked = !input.checked // put the switch back
+    toast.show(error.message, 'danger', { title: "Couldn't change who can see the lesson" })
+  } finally {
+    savingVisible.value = null
+  }
+}
+
+async function unarchive(lesson) {
+  closeMenu()
+  try {
+    await setStatus(lesson, LessonStatus.READY)
+    toast.show('Lesson unarchived', 'success')
+  } catch (error) {
+    toast.show(error.message, 'danger', { title: "Couldn't unarchive the lesson" })
+  }
+}
+
+const archiving = ref(null) // the lesson waiting for "Archive lesson?"
+const archiveBusy = ref(false)
+function askArchive(lesson) {
+  closeMenu()
+  archiving.value = lesson
+}
+async function archive() {
+  archiveBusy.value = true
+  try {
+    await setStatus(archiving.value, LessonStatus.ARCHIVED)
+    archiving.value = null
+    toast.show('Lesson archived', 'success')
+  } catch (error) {
+    toast.show(error.message, 'danger', { title: "Couldn't archive the lesson" })
+  } finally {
+    archiveBusy.value = false
+  }
+}
+
+// Delete: only a lesson no class has run from (the replays and reports point at it otherwise,
+// and the database refuses too); a taught one is archived instead
+const deleting = ref(null) // the lesson waiting for "Delete this lesson?"
+const deleteBusy = ref(false)
+function askDelete(lesson) {
+  closeMenu()
+  deleting.value = lesson
+}
+async function removeLesson() {
+  deleteBusy.value = true
+  try {
+    await lessonsStore.remove(deleting.value.id)
+    lessons.value = lessons.value.filter((l) => l.id !== deleting.value.id)
+    deleting.value = null
+    toast.show('Lesson deleted', 'success')
+  } catch (error) {
+    deleting.value = null
+    // taught since this page loaded
+    const message =
+      error.code === 'CONFLICT' ? 'It has been taught, so archive it instead' : error.message
+    toast.show(message, 'danger', { title: "Couldn't delete the lesson" })
+  } finally {
+    deleteBusy.value = false
+  }
+}
 
 const starting = ref(null)
 // Only a ready lesson can start a class, so starting from a draft publishes it first: students
@@ -204,16 +301,10 @@ async function startClass(lesson) {
                 STATUS[l.status].label
               }}</span>
 
-              <span v-if="isProf" class="ms-auto d-flex flex-wrap gap-1">
-                <RouterLink
-                  :to="{ name: 'lesson-edit', params: { id: l.id } }"
-                  class="ca-btn ca-btn--ghost ca-btn--sm"
-                >
-                  Edit
-                </RouterLink>
+              <span v-if="isProf" class="ms-auto d-flex flex-wrap align-items-center gap-1">
                 <!-- only code that hasn't been taught: a new class imports its own -->
                 <button
-                  v-if="l.status === 'ready' && !classesOf(l).length"
+                  v-if="l.status === LessonStatus.READY && !classesOf(l).length"
                   type="button"
                   class="ca-btn ca-btn--primary ca-btn--sm"
                   :disabled="starting === l.id"
@@ -223,6 +314,105 @@ async function startClass(lesson) {
                   <span v-if="starting === l.id" class="spinner-border spinner-border-sm" />
                   Start class
                 </button>
+
+                <!-- ⋯: edit the files, show or hide it from students, archive -->
+                <div class="dropdown">
+                  <button
+                    type="button"
+                    class="ca-btn ca-btn--ghost ca-btn--sm ca-btn--icon"
+                    :data-testid="`lesson-menu-${slug(l.title)}`"
+                    @click.stop="toggleMenu(l)"
+                  >
+                    <i class="bi bi-three-dots-vertical" />
+                    <span class="visually-hidden">Lesson options</span>
+                  </button>
+                  <!-- top-100 end-0: under the ⋯, right edges lined up (no Bootstrap JS to place it) -->
+                  <!-- clicks inside don't close it, so the switch can be flipped and seen -->
+                  <div
+                    class="dropdown-menu top-100 end-0"
+                    :class="{ show: menuFor === l.id }"
+                    @click.stop
+                  >
+                    <RouterLink
+                      :to="{ name: 'lesson-edit', params: { id: l.id } }"
+                      class="dropdown-item"
+                    >
+                      <i class="bi bi-pencil me-2" />Edit files
+                    </RouterLink>
+                    <!-- an archived lesson's classes stay visible, so it gets Unarchive instead -->
+                    <button
+                      v-if="l.status === LessonStatus.ARCHIVED"
+                      type="button"
+                      class="dropdown-item"
+                      @click="unarchive(l)"
+                    >
+                      <i class="bi bi-arrow-counterclockwise me-2" />Unarchive
+                    </button>
+                    <template v-else>
+                      <!-- a row like the others: icon and name, the switch on the right; the
+                           whole row flips it (on = students can see the lesson) -->
+                      <label
+                        class="dropdown-item d-flex align-items-center"
+                        :for="`lesson-visible-${l.id}`"
+                      >
+                        <i
+                          class="bi me-2"
+                          :class="l.status === LessonStatus.READY ? 'bi-eye' : 'bi-eye-slash'"
+                        />Visibility
+                        <span
+                          class="form-check form-switch d-flex align-items-center mb-0 ps-0 ms-auto"
+                        >
+                          <input
+                            :id="`lesson-visible-${l.id}`"
+                            class="form-check-input float-none ms-4 mt-0"
+                            type="checkbox"
+                            :checked="l.status === LessonStatus.READY"
+                            :disabled="savingVisible === l.id"
+                            :data-testid="`lesson-visible-${slug(l.title)}`"
+                            @change="setVisible(l, $event.target)"
+                          />
+                        </span>
+                      </label>
+                      <button type="button" class="dropdown-item" @click="askArchive(l)">
+                        <i class="bi bi-archive me-2" />Archive
+                      </button>
+                    </template>
+                    <button
+                      v-if="!classesOf(l).length"
+                      type="button"
+                      class="dropdown-item text-danger"
+                      @click="askDelete(l)"
+                    >
+                      <i class="bi bi-trash me-2" />Delete
+                    </button>
+                    <!-- taught: greyed out, and the ? says why (hover, or click on a phone) -->
+                    <template v-else>
+                      <!-- faded red: it's Delete, just not available; the bare ? keeps the row as
+                           tall as the others -->
+                      <div class="dropdown-item-text d-flex align-items-center">
+                        <span class="text-danger opacity-50">
+                          <i class="bi bi-trash me-2" />Delete
+                        </span>
+                        <button
+                          type="button"
+                          class="border-0 bg-transparent p-0 lh-1 ms-auto text-danger opacity-50"
+                          :title="noDeleteReason(l)"
+                          :data-testid="`lesson-why-no-delete-${slug(l.title)}`"
+                          @click="whyNoDelete = !whyNoDelete"
+                        >
+                          <i class="bi bi-question-circle" />
+                          <span class="visually-hidden">Why can't I delete it?</span>
+                        </button>
+                      </div>
+                      <p
+                        v-if="whyNoDelete"
+                        class="dropdown-item-text small text-body-secondary mb-0"
+                      >
+                        {{ noDeleteReason(l) }}
+                      </p>
+                    </template>
+                  </div>
+                </div>
               </span>
             </div>
 
@@ -287,6 +477,30 @@ async function startClass(lesson) {
         </ul>
       </li>
     </ul>
+
+    <ConfirmModal
+      :open="archiving !== null"
+      title="Archive this lesson?"
+      confirm-label="Archive lesson"
+      :busy="archiveBusy"
+      @update:open="archiving = null"
+      @confirm="archive"
+    >
+      No new class can start from it. Its past classes, replays and reports stay, and students can
+      still open them.
+    </ConfirmModal>
+
+    <ConfirmModal
+      :open="deleting !== null"
+      :title="`Delete ${deleting ? fileName(deleting) : 'this lesson'}?`"
+      confirm-label="Delete lesson"
+      variant="danger"
+      :busy="deleteBusy"
+      @update:open="deleting = null"
+      @confirm="removeLesson"
+    >
+      Its starter files will be removed. This can't be undone.
+    </ConfirmModal>
   </section>
 </template>
 

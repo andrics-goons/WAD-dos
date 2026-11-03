@@ -1,10 +1,9 @@
 <script setup>
-// lesson editor: the starter files the class begins from, plus the lesson's details and status.
+// lesson editor: the starter files the class begins from, plus the lesson's details. Visibility,
+// archiving and deleting are in the lesson's ⋯ menu on the course page.
 // There are no steps: the prof saves checkpoints whenever they like during class.
 // changes stay on the page until save, then go to the db together
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { LessonStatus } from '@shared/constants.js'
 import { useLessonsStore } from '@/stores/lessons'
 import { useToastStore } from '@/stores/toast'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
@@ -13,7 +12,6 @@ import CodeEditor from '@/components/workspace/CodeEditor.vue'
 import FileTree from '@/components/workspace/FileTree.vue'
 
 const props = defineProps({ id: { type: String, required: true } })
-const router = useRouter()
 const lessons = useLessonsStore()
 const toast = useToastStore()
 
@@ -42,29 +40,6 @@ const detailsOf = (l) => ({
   week: l.week ?? null,
   description: l.description || null,
 })
-
-// visible = ready: students can see it and the prof can start a class. Hidden = draft.
-// The switch saves the moment it's flipped, on its own, so it never counts as an unsaved edit
-// for the Save button. Archiving is its own button, so it isn't one of the choices here
-const visible = computed(() => lesson.value?.status === LessonStatus.READY)
-const savingVisibility = ref(false)
-async function setVisible(input) {
-  const status = input.checked ? LessonStatus.READY : LessonStatus.DRAFT
-  savingVisibility.value = true
-  try {
-    await lessons.update(props.id, { status })
-    lesson.value = { ...lesson.value, status }
-    toast.show(input.checked ? 'Students can see this lesson' : 'Hidden from students', 'success')
-  } catch (err) {
-    input.checked = visible.value // put the switch back
-    toast.show(err.message, 'danger', { title: "Couldn't change who can see the lesson" })
-  } finally {
-    savingVisibility.value = false
-  }
-}
-
-// once taught, the class history refers to this lesson, so it's archived rather than deleted
-const taught = computed(() => !!lesson.value?.taught)
 
 // files: a working copy the prof edits, saved with everything else
 
@@ -142,44 +117,6 @@ async function save() {
     saving.value = false
   }
 }
-
-// delete, or archive if it was already taught
-
-const confirmDelete = ref(false)
-const confirmArchive = ref(false)
-const deleting = ref(false)
-
-const backToCourse = () => router.replace({ name: 'course', params: { id: lesson.value.courseId } })
-
-async function removeLesson() {
-  deleting.value = true
-  try {
-    await lessons.remove(props.id)
-    confirmDelete.value = false
-    toast.show('Lesson deleted', 'success')
-    backToCourse()
-  } catch (err) {
-    confirmDelete.value = false
-    if (err.code === 'CONFLICT') confirmArchive.value = true
-    else toast.show(err.message, 'danger', { title: "Couldn't delete the lesson" })
-  } finally {
-    deleting.value = false
-  }
-}
-
-async function archiveLesson() {
-  deleting.value = true
-  try {
-    await lessons.update(props.id, { status: LessonStatus.ARCHIVED })
-    confirmArchive.value = false
-    toast.show('Lesson archived', 'success')
-    backToCourse()
-  } catch (err) {
-    toast.show(err.message, 'danger', { title: "Couldn't archive the lesson" })
-  } finally {
-    deleting.value = false
-  }
-}
 </script>
 
 <template>
@@ -197,35 +134,8 @@ async function archiveLesson() {
           <h1>Edit Lesson's Starter Code(s)</h1>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
-          <div class="form-check form-switch mb-0 me-2">
-            <input
-              id="lesson-visible"
-              :checked="visible"
-              :disabled="savingVisibility"
-              class="form-check-input"
-              type="checkbox"
-              @change="setVisible($event.target)"
-            />
-            <label class="form-check-label small" for="lesson-visible">Visible to students</label>
-          </div>
           <button type="button" class="ca-btn ca-btn--sm" @click="startDetails">
             <i class="bi bi-pencil" />Edit Details
-          </button>
-          <button
-            v-if="taught"
-            type="button"
-            class="ca-btn ca-btn--sm"
-            @click="confirmArchive = true"
-          >
-            <i class="bi bi-archive" />Archive lesson
-          </button>
-          <button
-            v-else
-            type="button"
-            class="ca-btn ca-btn--danger ca-btn--sm"
-            @click="confirmDelete = true"
-          >
-            <i class="bi bi-trash" />Delete lesson
           </button>
           <button
             type="button"
@@ -302,28 +212,6 @@ async function archiveLesson() {
           maxlength="500"
         />
       </div>
-    </ConfirmModal>
-
-    <ConfirmModal
-      v-model:open="confirmDelete"
-      title="Delete this lesson?"
-      confirm-label="Delete lesson"
-      variant="danger"
-      :busy="deleting"
-      @confirm="removeLesson"
-    >
-      Its starter files will be removed. This can't be undone.
-    </ConfirmModal>
-
-    <ConfirmModal
-      v-model:open="confirmArchive"
-      title="Archive this lesson instead?"
-      confirm-label="Archive lesson"
-      :busy="deleting"
-      @confirm="archiveLesson"
-    >
-      This lesson has been taught, so it can't be deleted. Archiving hides it from the lesson list
-      and keeps the class history.
     </ConfirmModal>
   </div>
 </template>

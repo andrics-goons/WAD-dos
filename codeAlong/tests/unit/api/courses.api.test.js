@@ -199,6 +199,23 @@ describe('archiving, removing and deleting', () => {
     await as(prof)
   })
 
+  it('T-PLAT-24: removeStaff takes a TA off the course, and they lose access', async () => {
+    await coursesApi.removeStaff(course.id, tia.id)
+    expect((await coursesApi.listStaff(course.id)).map((s) => s.user_id)).not.toContain(tia.id)
+    expect(await codeOf(coursesApi.removeStaff(course.id, tia.id))).toBe('NOT_FOUND')
+    await as(tia)
+    expect(await codeOf(coursesApi.getCourse(course.id))).toBe('NOT_FOUND')
+    await as(prof)
+  })
+
+  it('T-PLAT-25: leaveCourse takes the student out of the course, and they cannot leave twice', async () => {
+    await as(stu)
+    await coursesApi.leaveCourse(course.id)
+    expect(await codeOf(coursesApi.getCourse(course.id))).toBe('NOT_FOUND')
+    expect(await codeOf(coursesApi.leaveCourse(course.id))).toBe('NOT_FOUND')
+    await as(prof)
+  })
+
   it('a course with no classes yet can be deleted', async () => {
     const spare = await create({ ...FORM, section: 'G7' })
     expect(await codeOf(coursesApi.deleteCourse(spare.id))).toBe('OK')
@@ -231,6 +248,14 @@ describe('archiving, removing and deleting', () => {
     createdSessions.push(session.id)
 
     expect(await codeOf(coursesApi.deleteCourse(course.id))).toBe('CONFLICT')
+  })
+
+  it('hasClasses says which courses already have classes, so the page can grey out Delete', async () => {
+    const fresh = await create({ ...FORM, section: 'G6' })
+    const list = await coursesApi.listCourses({ includeArchived: true })
+    expect(list.find((c) => c.id === fresh.id).hasClasses).toBe(false)
+    expect(list.find((c) => c.id === course.id).hasClasses).toBe(true) // the class just made
+    expect(list[0]).not.toHaveProperty('sessions') // folded into hasClasses
   })
 })
 

@@ -2,11 +2,12 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import QRCode from 'qrcode' // Source: https://github.com/soldair/node-qrcode (MIT)
-import { RoleLabel } from '@shared/constants.js'
+import { CourseRole, RoleLabel } from '@shared/constants.js'
 import { useCourseStore } from '@/stores/course'
 import { useToastStore } from '@/stores/toast'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
+import LeaveCourseModal from '@/components/course/LeaveCourseModal.vue'
 import LessonLibrary from '@/components/lesson/LessonLibrary.vue'
 import CourseForm from '@/components/course/CourseForm.vue'
 
@@ -22,6 +23,9 @@ const loading = ref(true)
 const loadError = ref('') // also covers "not yours": the database hides it, so it reads as not found
 
 const staff = ref([])
+// the Staff card: the prof who runs the course on top, then the TAs
+const profs = computed(() => staff.value.filter((s) => s.role === CourseRole.PROF))
+const tas = computed(() => staff.value.filter((s) => s.role === CourseRole.TA))
 const students = ref([])
 const hasClasses = ref(false) // a course with classes keeps its history, so it can't be deleted
 
@@ -64,6 +68,22 @@ async function saveCourse(changes) {
     editError.value = error.message
   } finally {
     saving.value = false
+  }
+}
+
+// a student leaves the course: their code, progress and notes in it are deleted
+const confirmLeave = ref(false)
+async function leaveCourse() {
+  changing.value = true
+  try {
+    await store.leave(props.id)
+    toast.show(`You left ${course.value.title}`, 'success')
+    router.replace({ name: 'courses' })
+  } catch (error) {
+    confirmLeave.value = false
+    toast.show(error.message, 'danger')
+  } finally {
+    changing.value = false
   }
 }
 
@@ -140,7 +160,7 @@ watch(tab, async (now) => {
 })
 onBeforeUnmount(stopWatching)
 
-// People (owner): add a TA, remove a student
+// People (owner): add or remove a TA, remove a student
 const taEmail = ref('')
 const addingTa = ref(false)
 const taError = ref('')
@@ -156,6 +176,21 @@ async function addTa() {
     taError.value = error.message
   } finally {
     addingTa.value = false
+  }
+}
+
+const taToRemove = ref(null)
+async function removeTa() {
+  removing.value = true
+  try {
+    await store.removeTa(props.id, taToRemove.value.user_id)
+    staff.value = staff.value.filter((s) => s.user_id !== taToRemove.value.user_id)
+    toast.show(`${taToRemove.value.name} is no longer a TA here`, 'success')
+    taToRemove.value = null
+  } catch (error) {
+    toast.show(error.message, 'danger')
+  } finally {
+    removing.value = false
   }
 }
 
@@ -206,12 +241,17 @@ async function removeStudent() {
     <template v-else>
       <div class="ca-page-header">
         <div>
-          <div class="ca-eyebrow">{{ course.code }} · {{ course.section }} · {{ course.term }}</div>
+          <!-- who I am in this course, next to which course it is -->
+          <div class="d-flex align-items-center gap-2">
+            <span class="ca-eyebrow"
+              >{{ course.code }} · {{ course.section }} · {{ course.term }}</span
+            >
+            <span class="badge text-bg-light">{{ RoleLabel[course.myRole] }}</span>
+          </div>
           <h1>{{ course.title }}</h1>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
           <span v-if="course.archived" class="badge text-bg-secondary">Archived</span>
-          <span class="badge text-bg-light">{{ RoleLabel[course.myRole] }}</span>
           <button
             v-if="course.isOwner"
             type="button"
@@ -236,6 +276,16 @@ async function removeStudent() {
             @click="confirmArchive = true"
           >
             <i class="bi bi-archive" />Archive
+          </button>
+          <!-- only students: a TA is added by the prof and a prof owns the course -->
+          <button
+            v-if="course.myRole === 'student'"
+            type="button"
+            class="ca-btn ca-btn--danger ca-btn--sm"
+            data-testid="btn-leave-course"
+            @click="confirmLeave = true"
+          >
+            <i class="bi bi-box-arrow-left" />Leave course
           </button>
           <button
             v-if="course.isOwner"
@@ -325,14 +375,35 @@ async function removeStudent() {
         <div class="col-12 col-lg-6">
           <div class="ca-card h-100">
             <h2 class="fs-5 mb-3">Staff</h2>
-            <ul class="list-group mb-3">
+
+            <!-- the prof who runs the course -->
+            <div v-for="p in profs" :key="p.user_id" class="d-flex align-items-center gap-2 mb-3">
+              <span class="ca-avatar">{{ p.name[0] }}</span>
+              <div>
+                <div class="fw-semibold">{{ p.name }}</div>
+                <div class="small text-body-secondary">{{ RoleLabel[p.role] }}</div>
+              </div>
+            </div>
+
+            <!-- the TAs, laid out like the students list -->
+            <div class="ca-eyebrow mb-2">Teaching assistants ({{ tas.length }})</div>
+            <p v-if="!tas.length" class="text-body-secondary">No TAs yet.</p>
+            <ul v-else class="list-group mb-3">
               <li
-                v-for="p in staff"
+                v-for="p in tas"
                 :key="p.user_id"
-                class="list-group-item d-flex justify-content-between"
+                class="list-group-item d-flex align-items-center justify-content-between"
               >
                 {{ p.name }}
-                <span class="badge text-bg-light">{{ RoleLabel[p.role] }}</span>
+                <button
+                  v-if="course.isOwner"
+                  type="button"
+                  class="ca-btn ca-btn--ghost ca-btn--sm"
+                  data-testid="btn-remove-ta"
+                  @click="taToRemove = p"
+                >
+                  Remove
+                </button>
               </li>
             </ul>
 
@@ -402,6 +473,19 @@ async function removeStudent() {
     </template>
 
     <ConfirmModal
+      :open="!!taToRemove"
+      :title="`Remove ${taToRemove?.name} as a TA?`"
+      confirm-label="Remove TA"
+      variant="danger"
+      :busy="removing"
+      @update:open="(open) => !open && (taToRemove = null)"
+      @confirm="removeTa"
+    >
+      They'll lose access to this course's classes and help queue. Help requests they'd claimed go
+      back to the queue, and their past replies stay.
+    </ConfirmModal>
+
+    <ConfirmModal
       :open="!!toRemove"
       :title="`Remove ${toRemove?.name}?`"
       confirm-label="Remove"
@@ -423,6 +507,13 @@ async function removeStudent() {
     >
       This can't be undone.
     </ConfirmModal>
+
+    <LeaveCourseModal
+      v-model:open="confirmLeave"
+      :title="course?.title"
+      :busy="changing"
+      @confirm="leaveCourse"
+    />
 
     <ConfirmModal
       v-model:open="confirmArchive"

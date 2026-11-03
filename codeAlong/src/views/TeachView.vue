@@ -4,7 +4,7 @@
 // The dashboard shows what the class clicked as numbers (no tiles) and their common errors.
 // The announce box is karin's: students see the message as a banner.
 // No navbar here: the global nav (AppNavbar) wraps every page from App.vue.
-import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { computed, ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Limits } from '@shared/constants.js'
 import { groupErrors } from '@shared/error-normalizer.js'
@@ -19,6 +19,7 @@ import { useSessionStore } from '@/stores/session'
 import { useTeachStore } from '@/stores/teach'
 import { useToastStore } from '@/stores/toast'
 import ClassChoices from '@/components/dashboard/ClassChoices.vue'
+import StudentsByStatus from '@/components/dashboard/StudentsByStatus.vue'
 import ErrorGroupList from '@/components/dashboard/ErrorGroupList.vue'
 import HelpSummaryPanel from '@/components/dashboard/HelpSummaryPanel.vue'
 import JoinCodeCard from '@/components/session/JoinCodeCard.vue'
@@ -38,14 +39,59 @@ const loadError = ref('')
 const mobileTab = ref('dashboard')
 // the editor area shows either the code or the running app, switched by the panels' own buttons
 const editorView = ref('code')
+// Presenting: the dashboard and the right-hand panels go, and the editor fills the page (for
+// showing the class the code). The editor stays mounted, so the code and the running app survive.
+const presenting = ref(false)
 const announcement = ref('')
 
-// karin's announcements: students see it as a banner. Sending an empty box clears the current one
+// karin's announcements: students see it as a banner. An empty box can't be sent; the Clear
+// button takes the current announcement down
+const canSend = computed(() => announcement.value.trim() !== '')
+
+// The session bar only has an Announce button; its menu holds the box, Send and Clear. A click
+// anywhere else (or Escape) closes it, like the ⋯ menus on the course pages.
+const announceOpen = ref(false)
+const announceBox = ref(null)
+async function toggleAnnounce() {
+  studentsOpen.value = false
+  announceOpen.value = !announceOpen.value
+  if (announceOpen.value) {
+    await nextTick()
+    announceBox.value?.focus()
+  }
+}
+const closeAnnounce = () => (announceOpen.value = false)
+onMounted(() => document.addEventListener('click', closeAnnounce))
+onBeforeUnmount(() => document.removeEventListener('click', closeAnnounce))
+
+// The students panel under the number cards: who is connected, grouped by status. It closes
+// the same way
+const studentsOpen = ref(false)
+function toggleStudents() {
+  announceOpen.value = false
+  studentsOpen.value = !studentsOpen.value
+}
+const closeStudents = () => (studentsOpen.value = false)
+watch(presenting, closeStudents)
+onMounted(() => document.addEventListener('click', closeStudents))
+onBeforeUnmount(() => document.removeEventListener('click', closeStudents))
+
 async function sendAnnouncement() {
+  if (!canSend.value) return
   try {
     await live.announce(props.id, announcement.value)
-    toast.show(announcement.value.trim() ? 'Announcement sent' : 'Announcement cleared', 'success')
+    toast.show('Announcement sent', 'success')
     announcement.value = ''
+    closeAnnounce()
+  } catch (error) {
+    toast.show(error.message, 'danger')
+  }
+}
+async function clearAnnouncement() {
+  try {
+    await live.announce(props.id, '')
+    toast.show('Announcement cleared', 'success')
+    closeAnnounce()
   } catch (error) {
     toast.show(error.message, 'danger')
   }
@@ -128,11 +174,41 @@ const stopHelpChanges = live.onChange('help_requests', refreshSummarySoon)
 // slow-down flags never go out on the channel (staff only ever see the count), so check every 10 s
 const slowDownPoll = setInterval(() => live.isLive && loadSummary(), 10_000)
 
-// common errors, from the real class
+// The dashboard is about who is here now. Students who joined earlier and have left don't count
+// in "Done X of N", its bar or Common errors: N is the students connected, and Done and the
+// errors are only theirs. (Slow down is an anonymous count, and help requests stay in the queue
+// until answered, so those aren't filtered.)
+const connected = computed(() => new Set(live.present.map((p) => p.userId)))
+const summaryNow = computed(() => {
+  const s = dashboard.classSummary
+  if (!s) return null
+  return {
+    ...s,
+    total: live.present.length,
+    done: (s.students ?? []).filter((t) => t.done && connected.value.has(t.studentId)).length,
+    errors: s.errors.filter((e) => connected.value.has(e.studentId)),
+  }
+})
+
+// everyone connected, with their state and requests for the Students menu. A student who has
+// only just joined has no status row yet, so they're In progress until it arrives
+const roster = computed(() => {
+  const rows = new Map((dashboard.classSummary?.students ?? []).map((t) => [t.studentId, t]))
+  return live.present.map((p) => {
+    const t = rows.get(p.userId)
+    return {
+      id: p.userId,
+      name: p.name,
+      state: t?.state ?? 'in_progress',
+      help: !!t?.help,
+      check: !!t?.check,
+    }
+  })
+})
+
+// common errors, from the students who are here
 const errorGroups = computed(() =>
-  groupErrors(dashboard.classSummary?.errors ?? [], {
-    presentCount: dashboard.classSummary?.total ?? 0,
-  }),
+  groupErrors(summaryNow.value?.errors ?? [], { presentCount: live.present.length }),
 )
 const savedAt = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -215,34 +291,119 @@ onBeforeUnmount(() => {
 
     <template v-else>
       <!-- Session bar -->
-      <div class="session-bar d-flex flex-wrap align-items-center gap-2 px-3 py-2 border-bottom">
-        <div class="me-auto overflow-hidden">
+      <div
+        class="session-bar position-relative d-flex flex-wrap align-items-center gap-2 px-3 py-2 border-bottom"
+      >
+        <!-- the title with who's here and how long it's run beside it; the buttons go right -->
+        <div
+          class="me-auto d-flex align-items-center column-gap-3 row-gap-1 flex-wrap overflow-hidden"
+        >
           <div class="fw-semibold text-truncate">{{ live.session.lesson.title }}</div>
+          <!-- the two live figures stay together when the bar wraps on a phone -->
+          <div class="d-flex align-items-center column-gap-3 ps-1">
+            <!-- how many students are connected right now (it drops when one closes their tab) -->
+            <span
+              class="small text-nowrap d-inline-flex align-items-center gap-2"
+              data-testid="connected-count"
+            >
+              <span class="live-dot" />
+              <span
+                ><strong>{{ live.present.length }}</strong> connected</span
+              >
+            </span>
+            <!-- how long the class has been running -->
+            <span
+              class="small text-body-secondary text-nowrap d-inline-flex align-items-center gap-1 elapsed"
+              data-testid="elapsed"
+            >
+              <i class="bi bi-clock" />{{ elapsed }}
+            </span>
+          </div>
         </div>
-        <span class="small text-body-secondary"
-          >{{ live.present.length }} joined · {{ elapsed }}</span
+        <!-- Present: just the editor, full page. The same button brings the dashboard back -->
+        <button
+          type="button"
+          class="ca-btn ca-btn--secondary ca-btn--sm"
+          data-testid="btn-present"
+          @click="presenting = !presenting"
         >
-        <form
-          class="col-12 col-md d-flex align-items-center gap-2"
-          @submit.prevent="sendAnnouncement"
-        >
-          <label for="announce" class="visually-hidden">Announcement</label>
-          <input
-            id="announce"
-            v-model="announcement"
-            type="text"
-            class="announce-input ca-input"
-            :maxlength="Limits.ANNOUNCE_MAX_CHARS"
-            placeholder="Announce to class…"
-            data-testid="input-announce"
-          />
-          <span class="small text-body-secondary text-nowrap"
-            >{{ announcement.length }}/{{ Limits.ANNOUNCE_MAX_CHARS }}</span
+          <i class="bi" :class="presenting ? 'bi-grid-3x3-gap' : 'bi-fullscreen'" />{{
+            presenting ? 'Dashboard view' : 'Present'
+          }}
+        </button>
+
+        <!-- Announce: students see what you send as a banner. The menu keeps the bar clear -->
+        <div class="dropdown announce-dropdown" @click.stop>
+          <button
+            type="button"
+            class="ca-btn ca-btn--sm"
+            :class="live.session?.announcement ? 'ca-btn--primary' : 'ca-btn--secondary'"
+            :title="
+              live.session?.announcement
+                ? 'An announcement is showing to students. Open to see it or clear it.'
+                : ''
+            "
+            data-testid="btn-open-announce"
+            @click="toggleAnnounce"
           >
-          <button class="ca-btn ca-btn--sm" type="submit" data-testid="btn-announce">
-            <i class="bi bi-megaphone" />Send
+            <i class="bi bi-megaphone" />Announce
           </button>
-        </form>
+          <form
+            class="dropdown-menu top-100 end-0 announce-menu p-3"
+            :class="{ show: announceOpen }"
+            @submit.prevent="sendAnnouncement"
+            @keydown.esc="closeAnnounce"
+          >
+            <!-- what students are seeing now, and the way to take it down -->
+            <div v-if="live.session?.announcement" class="mb-3" data-testid="announce-showing">
+              <div class="ca-eyebrow mb-1">Showing to students now</div>
+              <div class="small p-2 rounded bg-body-secondary text-break">
+                {{ live.session.announcement.text }}
+              </div>
+              <button
+                type="button"
+                class="ca-btn ca-btn--secondary ca-btn--sm ca-btn--block mt-2"
+                data-testid="btn-clear-announce"
+                @click="clearAnnouncement"
+              >
+                <i class="bi bi-x-lg" />Clear announcement
+              </button>
+              <hr class="my-3" />
+            </div>
+            <label for="announce" class="ca-label">
+              {{
+                live.session?.announcement
+                  ? 'Or send a new one (it replaces this)'
+                  : 'Announce to class'
+              }}
+            </label>
+            <!-- Enter sends, so the message stays on one line -->
+            <textarea
+              id="announce"
+              ref="announceBox"
+              v-model="announcement"
+              class="ca-input"
+              rows="3"
+              :maxlength="Limits.ANNOUNCE_MAX_CHARS"
+              placeholder="e.g. 5 minute break"
+              data-testid="input-announce"
+              @keydown.enter.prevent="sendAnnouncement"
+            />
+            <div class="d-flex align-items-center gap-2 mt-2">
+              <span class="small text-body-secondary"
+                >{{ announcement.length }}/{{ Limits.ANNOUNCE_MAX_CHARS }}</span
+              >
+              <button
+                class="ca-btn ca-btn--primary ca-btn--sm ms-auto"
+                type="submit"
+                :disabled="!canSend"
+                data-testid="btn-announce"
+              >
+                <i class="bi bi-megaphone" />Send
+              </button>
+            </div>
+          </form>
+        </div>
         <button
           type="button"
           class="ca-btn ca-btn--danger ca-btn--sm"
@@ -255,42 +416,82 @@ onBeforeUnmount(() => {
 
       <!-- position-relative keeps the hidden form labels (visually-hidden is absolute) inside
            this scroll box; without it they stretch the page and add a second scrollbar -->
-      <div class="teach-body flex-grow-1 overflow-auto position-relative p-3">
+      <div
+        class="teach-body flex-grow-1 overflow-auto position-relative"
+        :class="presenting ? 'p-0 presenting' : 'p-3'"
+      >
         <!-- Below xl: switch between dashboard and editor -->
-        <div class="ca-surface nav nav-pills nav-fill gap-1 p-1 mb-3 d-xl-none">
-          <button
-            type="button"
-            class="nav-link d-flex align-items-center justify-content-center gap-2"
-            :class="{ active: mobileTab === 'dashboard' }"
-            @click="mobileTab = 'dashboard'"
-          >
-            <i class="bi bi-grid-3x3-gap" />Dashboard
-          </button>
-          <button
-            type="button"
-            class="nav-link d-flex align-items-center justify-content-center gap-2"
-            :class="{ active: mobileTab === 'editor' }"
-            @click="mobileTab = 'editor'"
-          >
-            <i class="bi bi-code-slash" />Editor &amp; checkpoints
-          </button>
+        <div class="collapsible d-xl-none" :class="{ collapsed: presenting }">
+          <div class="collapsible-inner">
+            <div class="ca-surface nav nav-pills nav-fill gap-1 p-1 mb-3">
+              <button
+                type="button"
+                class="nav-link d-flex align-items-center justify-content-center gap-2"
+                :class="{ active: mobileTab === 'dashboard' }"
+                @click="mobileTab = 'dashboard'"
+              >
+                <i class="bi bi-grid-3x3-gap" />Dashboard
+              </button>
+              <button
+                type="button"
+                class="nav-link d-flex align-items-center justify-content-center gap-2"
+                :class="{ active: mobileTab === 'editor' }"
+                @click="mobileTab = 'editor'"
+              >
+                <i class="bi bi-code-slash" />Editor &amp; checkpoints
+              </button>
+            </div>
+          </div>
         </div>
 
         <div class="teach-row row g-3 flex-xl-nowrap">
           <!-- The class summary, then the editor (terminal under it) / preview filling the rest,
                so its bottom lines up with the right-hand column -->
-          <div class="col-12 col-xl-8 d-flex flex-column gap-3">
+          <div
+            class="teach-main col-12 d-flex flex-column d-xl-grid gap-3"
+            :class="{ 'col-xl-8': !presenting }"
+          >
             <!-- what the class clicked: first on phones (the Dashboard tab), on top from xl -->
-            <div :class="{ 'd-none d-xl-block': mobileTab !== 'dashboard' }">
-              <ClassChoices :summary="dashboard.classSummary" />
-              <p v-if="dashboard.classSummaryError" class="small text-danger mt-2 mb-0">
-                Couldn't refresh the numbers: {{ dashboard.classSummaryError.message }}
-              </p>
+            <div
+              class="collapsible stats-collapse"
+              :class="{ collapsed: presenting, 'd-none d-xl-grid': mobileTab !== 'dashboard' }"
+            >
+              <div class="collapsible-inner">
+                <ClassChoices :summary="summaryNow" />
+                <p v-if="dashboard.classSummaryError" class="small text-danger mt-2 mb-0">
+                  Couldn't refresh the numbers: {{ dashboard.classSummaryError.message }}
+                </p>
+                <!-- who's connected, by status: it opens over the editor -->
+                <button
+                  type="button"
+                  class="ca-btn ca-btn--ghost ca-btn--sm ca-btn--block mt-2"
+                  data-testid="btn-open-students"
+                  @click.stop="toggleStudents"
+                >
+                  <i class="bi bi-people" />{{ studentsOpen ? 'Hide' : 'Show' }} students ·
+                  {{ roster.length }}
+                  <i class="bi" :class="studentsOpen ? 'bi-chevron-up' : 'bi-chevron-down'" />
+                </button>
+              </div>
+            </div>
+
+            <!-- the students panel. From xl it sits in the editor's place, on top of it, so it
+                 covers the editor exactly; on a phone it's under the cards on the Dashboard tab -->
+            <div
+              v-if="studentsOpen && !presenting"
+              class="ca-surface shadow p-3 students-menu"
+              :class="{ 'd-none d-xl-block': mobileTab !== 'dashboard' }"
+              data-testid="students-menu"
+              @click.stop
+              @keydown.esc="closeStudents"
+            >
+              <div class="ca-eyebrow mb-3">Connected now · {{ roster.length }}</div>
+              <StudentsByStatus :students="roster" />
             </div>
 
             <div
               class="teach-editor d-flex flex-column flex-grow-1 gap-3"
-              :class="{ 'd-none d-xl-flex': mobileTab !== 'editor' }"
+              :class="{ 'd-none d-xl-flex': !presenting && mobileTab !== 'editor' }"
             >
               <EmptyState
                 v-if="!isolated"
@@ -330,7 +531,7 @@ onBeforeUnmount(() => {
           <!-- Join code + checkpoints + error groups -->
           <div
             class="teach-side col-12 col-xl-4"
-            :class="{ 'd-none d-xl-block': mobileTab !== 'editor' }"
+            :class="{ 'd-none d-xl-block': mobileTab !== 'editor', 'side-hidden': presenting }"
           >
             <div class="d-flex flex-column gap-3">
               <JoinCodeCard :code="live.session.join_code" />
@@ -362,7 +563,8 @@ onBeforeUnmount(() => {
                     :disabled="saving"
                   >
                     <span v-if="saving" class="spinner-border spinner-border-sm" />
-                    <i v-else class="bi bi-flag-fill" />Save checkpoint {{ live.checkpointSeq + 1 }}
+                    <i v-else class="bi bi-flag-fill" />Save checkpoint
+                    {{ live.checkpointSeq + 1 }}
                   </button>
                   <span class="small text-body-secondary text-center"
                     >Sends it to every student and resets them to In progress</span
@@ -380,8 +582,10 @@ onBeforeUnmount(() => {
                 </ol>
               </div>
 
-              <HelpSummaryPanel :session-id="id" />
-              <ErrorGroupList :groups="errorGroups" />
+              <!-- what the class is stuck on: the live errors, then the help requests -->
+              <HelpSummaryPanel :session-id="id">
+                <ErrorGroupList :groups="errorGroups" />
+              </HelpSummaryPanel>
             </div>
           </div>
         </div>
@@ -405,11 +609,37 @@ onBeforeUnmount(() => {
 .session-bar {
   background: var(--ca-surface);
 }
-/* same height as the small buttons next to it */
-.announce-input {
-  min-height: 2rem;
-  padding-block: 0;
-  font-size: var(--ca-text-sm);
+/* the green dot before "3 connected": students are live. Brighter than the kit's success
+   green (that one is for text and buttons), with a soft ring so it reads as a live light */
+.live-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 0.2rem rgba(34, 197, 94, 0.25);
+}
+/* same width for every digit, so the time doesn't jiggle as it ticks */
+.elapsed {
+  font-variant-numeric: tabular-nums;
+}
+/* the Announce menu: wide enough for a sentence, never wider than a phone */
+.announce-menu {
+  width: min(22rem, 90vw);
+}
+/* about two rows of groups; a longer class scrolls inside the students panel */
+.students-menu {
+  max-height: 21rem;
+  overflow-y: auto;
+}
+/* on a phone the button wraps onto its own row, so line the menu up with the whole bar instead
+   of the button (which would push it off the left of the screen) */
+@media (max-width: 767.98px) {
+  .announce-dropdown {
+    position: static;
+  }
+  .announce-menu {
+    margin-inline: 0.5rem;
+  }
 }
 /* Dylan's panels fill their box, so the box sets the height. Stacked below xl it's a fixed
    tall box; from xl it fills what's left of the screen (below) */
@@ -418,6 +648,83 @@ onBeforeUnmount(() => {
   min-height: 36rem;
   border-radius: var(--ca-radius);
   overflow: hidden;
+}
+/* Present: things ease out instead of snapping. The stats and the phone tabs collapse upward,
+   the side panels slide away while the editor widens, and the padding and corners ease off.
+   Nothing is unmounted (re-creating the QR code and panels freezes the page for a moment,
+   which made coming back snap), it's all CSS.
+   (The 1fr -> 0fr grid row is how a block's height is animated without knowing it.) */
+.collapsible {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows 0.3s ease,
+    opacity 0.3s ease,
+    margin-bottom 0.3s ease,
+    visibility 0s;
+}
+.collapsible-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.collapsible.collapsed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  /* cancel the flex gap above the editor, so it doesn't leave a strip behind */
+  margin-bottom: -1rem;
+  transition:
+    grid-template-rows 0.3s ease,
+    opacity 0.3s ease,
+    margin-bottom 0.3s ease,
+    visibility 0s 0.3s;
+}
+.teach-main {
+  transition:
+    width 0.3s ease,
+    row-gap 0.3s ease;
+}
+.teach-body {
+  transition: padding 0.3s ease;
+}
+.editor-box {
+  transition: border-radius 0.3s ease;
+}
+.presenting .editor-box {
+  border-radius: 0;
+}
+.teach-side {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    visibility 0s;
+}
+.teach-side.side-hidden {
+  opacity: 0;
+  transform: translateX(2rem);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    visibility 0s 0.3s;
+}
+/* stacked below xl the panels sit under the editor, so they have to leave the layout */
+@media (max-width: 1199.98px) {
+  .teach-side.side-hidden {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .collapsible,
+  .collapsible.collapsed,
+  .teach-main,
+  .teach-body,
+  .editor-box,
+  .teach-side,
+  .teach-side.side-hidden {
+    transition: none;
+  }
 }
 /* xl: the page fits the screen. The editor fills the left side down to the bottom, and the
    right-hand panels scroll on their own, so a long AI summary never stretches the editor */
@@ -434,6 +741,29 @@ onBeforeUnmount(() => {
   .teach-editor,
   .editor-box {
     min-height: 0;
+  }
+  /* the cards on top, the editor filling the rest. The students panel opens in the editor's
+     cell too, on top of it, so it lines up with the editor */
+  .teach-main {
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr); /* the column's width, never the editor's content */
+  }
+  .teach-editor,
+  .students-menu {
+    grid-row: 2;
+    grid-column: 1;
+    min-height: 0;
+  }
+  /* as tall as its list, up to 21rem, and never past the editor's bottom (then it scrolls) */
+  .students-menu {
+    align-self: start;
+    max-height: min(100%, 21rem);
+    z-index: 5;
+    border-radius: var(--ca-radius); /* the editor's corners, so none of it shows behind */
+  }
+  /* Present: the cards fold to nothing, so the gap under them goes too */
+  .presenting .teach-main {
+    row-gap: 0 !important;
   }
   .teach-side {
     height: 100%;

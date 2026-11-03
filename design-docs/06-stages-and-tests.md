@@ -194,17 +194,19 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-21 | **Profile updates still work alongside "read coursemates"** | RLS | A student renaming themselves succeeds and promoting themselves fails with `42501` — never `42P17` (regression guard for the recursion fix) |
 | T-PLAT-22 | **A new GitHub account picks its role once** | RLS + Unit | `/welcome` → `choose_role('prof')` makes a prof; a second call, an email account, or an enrolled student who reset `role_chosen` → `CONFLICT`; `admin` → `VALIDATION_FAILED` |
 | T-PLAT-23 | **Delete my account** | RLS + Unit | Only after typing DELETE; a student's rows go and the classes stay; a prof's courses and classes go, another prof's stay; logged out → `FORBIDDEN` |
+| T-PLAT-24 | **The owner removes a TA** | RLS + API | Only the owner, only a TA row (never themselves); the TA loses the course, a request they'd claimed goes back to `open`, and their account is `student` again unless they still TA elsewhere |
+| T-PLAT-25 | **A student leaves a course** | RLS + API | Only an enrolled student; their snapshots, progress, Slow down, help requests and notes in that course are gone and they lose the course and its replays; the classes, other students and their other courses are untouched |
 
 ### LESSON — Lessons · `lessons.spec.js`, `lesson-edit-view.test.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
-| T-LES-01 | Upload starter files → new lesson | E2E | Lesson created hidden from students (`draft`) with its files; opens in the editor, where the "Visible to students" switch shows it (`ready`) |
+| T-LES-01 | Upload starter files → new lesson | E2E | Lesson created hidden from students (`draft`) with its files; opens in the editor; the Visibility switch in its ⋯ menu on the course page shows it (`ready`) |
 | T-LES-02 | Edit a starter file and the lesson details | E2E | Saved; persists after reload |
 | T-LES-03 | ~~Reorder steps~~ | — | Removed with lesson steps |
 | T-LES-04 | ~~Delete step~~ | — | Removed with lesson steps |
 | T-LES-05 | Unsafe path / > 20 files / > 200 KB | DB | `files_valid()` / `octet_length` constraint rejects the insert |
-| T-LES-06 | Delete a lesson that was taught | DB | Trigger raises `CONFLICT` → UI offers Archive |
+| T-LES-06 | Delete a lesson that was taught | DB | Trigger raises `CONFLICT`; the ⋯ menu on the course page shows Delete only before the first class, and a refused delete says to archive it instead |
 | T-LES-07 | What an enrolled student can read | RLS | A **draft** lesson: zero rows. A **ready** lesson: visible, with its starter `files` (RLS can't hide one column; starter files aren't secret — see [03](./03-data-model.md#policies-1)) |
 | T-LES-08 | An uploaded or imported project gets the error reporter (`addProbe`, [lesson-import-requirements](./lesson-import-requirements.md)) | Unit | `src/ca-probe.js` added, imported first by the entry script, `ca-errors` in `vite.config.js`, Vite 8 pins; running it twice changes nothing; a project it can't patch is rejected with a message |
 | T-LES-09 | Two lessons in one course with the same week | DB + Unit | Second insert / update fails with `CONFLICT` "Another lesson in this course already has that week…" (New lesson says so at Next: "Week N already has …"); archived lessons and lessons without a week don't count |
@@ -234,6 +236,8 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-SESS-17 | Student or TA calls `announce` | RLS | `FORBIDDEN` |
 | T-SESS-18 | Announcement over 200 chars | DB | Check constraint rejects it |
 | T-SESS-19 | **Start a lesson that is already live** | DB | Returns the same class and join code, even on a double-click; a new class only once it has ended |
+| T-SESS-20 | An empty announcement can't be sent | Unit | **Send** is disabled for an empty or blank box and Enter does nothing; **Clear** (shown only while an announcement is live) is how it comes down |
+| T-SESS-21 | The prof presents the editor | Unit | **Present** hides the dashboard numbers, the join code, checkpoints and summary panels, the editor takes the full width, the button reads **Dashboard view**, and pressing it again restores everything with the same editor still mounted |
 
 ### SBX — Workspace, runtime & cache · `workspace.spec.js`, `build-error.test.js`, `files-cache.test.js`
 
@@ -260,6 +264,9 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-SBX-23 | Deleted file is removed server-side | E2E | Path appears in `p_delete`; gone from the autosave row |
 | T-SBX-24 | **Multiple terminals** | Unit | Starts with one; + adds up to 3, using the lowest free number; switching keeps every terminal mounted; closing the one on screen shows the first; the last can't be closed |
 | T-SBX-25 | A hidden terminal isn't refitted | Unit | A zero-width resize doesn't call `fit()`, so a server running in another terminal keeps its width |
+| T-SBX-26 | Packages are saved after an install | Unit | Once pnpm writes `.modules.yaml`, `node_modules` (minus `.vite`/`.cache`) and the lockfile go to IndexedDB under a hash of `package.json`; never mid-install, never when `node_modules` is just deleted |
+| T-SBX-27 | **A reload gets the packages back** | Unit + browser | Same `package.json` → `node_modules` and the lockfile are restored; `pnpm i` says "Already up to date" (~0.6 s, was ~16 s) and `pnpm dev` starts |
+| T-SBX-28 | Changed packages install cleanly | Unit + browser | A different `package.json` restores nothing; in a restored tab, a checkpoint that changes `package.json` clears the restored packages so `pnpm i` succeeds; only the 2 most recently used sets are kept |
 | T-SBX-12 | Done disabled while the last run has an error | E2E | Button disabled with reason (runtime **or** build) |
 | T-SBX-13 | **`SYNC_IGNORE` respected** | DB | After an install, no saved row contains a `node_modules/`, `dist/` or `.vite/` path |
 | T-SBX-14 | **Cache hit costs no network** | Unit | Matching `files_hash` → `loadFiles` returns from IndexedDB with zero fetches |
@@ -295,6 +302,10 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-DASH-05 | Student un-taps "Slow down" | E2E | Count decrements |
 | T-DASH-06 | TA (staff) can view dashboard; student cannot | RLS | TA gets tile rows; a student gets zero rows from `session_tiles` |
 | T-DASH-07 | ~~Tiles show icon + label~~ | — | Removed: no per-student tiles |
+| T-DASH-10 | **The dashboard counts only connected students** | Unit | "Done X of N" and Common errors use the students connected now: someone who joined and left isn't in N, their Done or their errors; they count again when they reconnect |
+| T-DASH-11 | **Slow down counts only students who are still here** | RLS | A flag from a student unseen for longer than the idle window (180 s, or the class's own) isn't counted, and counts again when they return; TAs read the same number; students get `null`; an ended class counts all |
+| T-DASH-12 | Leaving the class page takes my Slow down back | Unit | `statusStore.leave()` deletes my flag and stops the heartbeat; with no flag it sends nothing; a refused delete (class ended, offline) never throws |
+| T-DASH-13 | **The Students menu lists who is connected, by status** | Unit | `getClassSummary` gives each student's state and open/claimed help and check requests; the menu shows connected students only (one without a status row is In progress), each in one group (help, check, error, in progress, idle, done, in that order), and never says who asked to slow down; Present closes it |
 
 ### ERRG — Error groups · `error-normalizer.test.js`, `group-errors.test.js`, `api/dashboard.api.test.js`
 

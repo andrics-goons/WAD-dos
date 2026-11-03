@@ -139,25 +139,7 @@ describe('LessonEditView', () => {
     expect(saveButton().attributes('disabled')).toBeDefined()
   })
 
-  it('shows or hides the lesson the moment the switch is flipped, without Save', async () => {
-    await open()
-    const visible = wrapper.find('#lesson-visible')
-    expect(visible.element.checked).toBe(false) // a draft is hidden
-
-    await visible.setValue(true)
-    await flushPromises()
-    expect(api.updateLesson).toHaveBeenCalledWith('les-1', { status: 'ready' })
-    expect(useToastStore(pinia).messages.at(-1).text).toBe('Students can see this lesson')
-    // it's saved already, so Save has nothing to do
-    expect(saveButton().attributes('disabled')).toBeDefined()
-
-    await visible.setValue(false)
-    await flushPromises()
-    expect(api.updateLesson).toHaveBeenLastCalledWith('les-1', { status: 'draft' })
-    expect(useToastStore(pinia).messages.at(-1).text).toBe('Hidden from students')
-  })
-
-  it("Save never sends the visibility: it's the switch's job", async () => {
+  it('Save sends only what changed, never the status', async () => {
     await open()
     wrapper.findComponent(CodeEditor).vm.$emit('update:selectedCode', '<p>new</p>\n')
     await flushPromises()
@@ -165,20 +147,12 @@ describe('LessonEditView', () => {
     expect(api.updateLesson).toHaveBeenCalledWith('les-1', { files: expect.any(Array) })
   })
 
-  it('puts the switch back when the change is refused', async () => {
-    api.updateLesson.mockRejectedValue(
-      new AppError('FORBIDDEN', 'Only the course prof can do that'),
-    )
-    await open()
-    await wrapper.find('#lesson-visible').setValue(true)
-    await flushPromises()
-    expect(wrapper.find('#lesson-visible').element.checked).toBe(false)
-    expect(useToastStore(pinia).messages.at(-1)).toMatchObject({ variant: 'danger' })
-  })
-
-  it('has no Draft / Ready / Archived dropdown: archiving is its own button', async () => {
+  it('has no visibility, archive or delete: those are in the ⋯ menu on the course page', async () => {
     await open()
     expect(wrapper.find('select').exists()).toBe(false)
+    expect(wrapper.find('input[type="checkbox"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Archive')
+    expect(wrapper.text()).not.toContain('Delete')
   })
 
   it('shows the error when saving fails', async () => {
@@ -193,27 +167,6 @@ describe('LessonEditView', () => {
     })
     // the unsaved change is kept so nothing is lost
     expect(saveButton().attributes('disabled')).toBeUndefined()
-  })
-
-  it('deletes the lesson and goes back to the course', async () => {
-    await open()
-    await clickText('Delete lesson')
-    await confirmModal()
-    expect(api.deleteLesson).toHaveBeenCalledWith('les-1')
-    expect(replace).toHaveBeenCalledWith({ name: 'course', params: { id: 'course-1' } })
-  })
-
-  it('T-LES-06: offers to archive a lesson that was already taught', async () => {
-    api.deleteLesson.mockRejectedValue(
-      new AppError('CONFLICT', "This lesson has been taught, so it can't be deleted"),
-    )
-    await open()
-    await clickText('Delete lesson')
-    await confirmModal()
-    expect(document.body.textContent).toContain('Archive')
-    await confirmModal()
-    expect(api.updateLesson).toHaveBeenCalledWith('les-1', { status: 'archived' })
-    expect(replace).toHaveBeenCalledWith({ name: 'course', params: { id: 'course-1' } })
   })
 
   it('saves edited lesson details', async () => {
@@ -239,16 +192,5 @@ describe('LessonEditView', () => {
     await confirmModal()
     expect(inBody('#lesson-title')).not.toBeNull() // still open
     expect(saveButton().attributes('disabled')).toBeDefined()
-  })
-
-  describe('a lesson that has been taught', () => {
-    it('T-LES-06: offers archive instead of delete', async () => {
-      await open(lesson({ taught: true }))
-      expect(wrapper.findAll('button').some((b) => b.text().trim() === 'Delete lesson')).toBe(false)
-      await clickText('Archive lesson')
-      await confirmModal()
-      expect(api.deleteLesson).not.toHaveBeenCalled()
-      expect(api.updateLesson).toHaveBeenCalledWith('les-1', { status: 'archived' })
-    })
   })
 })

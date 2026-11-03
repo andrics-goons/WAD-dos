@@ -45,21 +45,13 @@ const routes = [
     path: '/login',
     name: 'login',
     component: () => import('@/views/LoginView.vue'),
-    meta: {
-      title: 'Log in',
-      guest: true,
-      back: () => ({ label: 'Home', to: { name: 'landing' } }),
-    },
+    meta: { title: 'Log in', guest: true },
   },
   {
     path: '/register',
     name: 'register',
     component: () => import('@/views/RegisterView.vue'),
-    meta: {
-      title: 'Create an account',
-      guest: true,
-      back: () => ({ label: 'Home', to: { name: 'landing' } }),
-    },
+    meta: { title: 'Create an account', guest: true },
   },
 
   // ── Any signed-in user ────────────────────────────────────────────────────
@@ -115,7 +107,7 @@ const routes = [
     name: 'workspace',
     component: () => import('@/views/WorkspaceView.vue'),
     props: true,
-    meta: { auth: true, title: 'Workspace', back: exitClass },
+    meta: { auth: true, title: 'Workspace' }, // no back bar: the student's screen is all workspace
   },
   {
     path: '/replays',
@@ -177,7 +169,7 @@ const routes = [
     name: 'teach',
     component: () => import('@/views/TeachView.vue'),
     props: true,
-    meta: { auth: true, roles: PROF, title: 'Teach', back: exitClass },
+    meta: { auth: true, roles: PROF, title: 'Teach' }, // no back bar: the prof's screen is all class
   },
   {
     path: '/courses/:id/lessons/new',

@@ -55,6 +55,24 @@ export const useStatusStore = defineStore('status', () => {
     heartbeat = waiting = sessionId = null
   }
 
+  // Leaving the class page (Home, another class, Exit): stop reporting, and take back my Slow down
+  // so it stops counting for a class I'm no longer in. If that can't be sent (the class has ended,
+  // or no connection) the database stops counting me once I've not been seen for a few minutes.
+  // A refresh or a closed tab runs none of this: the same few minutes cover them.
+  async function leave() {
+    const id = sessionId
+    const me = studentId
+    const raised = slowDown.value
+    stop()
+    slowDown.value = false
+    if (!id || !raised) return
+    try {
+      await setSlowDown(id, me, false)
+    } catch {
+      // see above: the idle window takes it down
+    }
+  }
+
   // Back on the tab after being away: say I'm here straight away, not at the next heartbeat
   const onVisible = () => document.visibilityState === 'visible' && write()
 
@@ -157,6 +175,7 @@ export const useStatusStore = defineStore('status', () => {
     slowDown,
     start,
     stop,
+    leave,
     markDone,
     markInProgress,
     setError,

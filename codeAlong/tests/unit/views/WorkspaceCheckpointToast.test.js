@@ -34,6 +34,7 @@ beforeEach(() => {
   store.close = vi.fn()
   status.start = vi.fn(async () => {})
   status.stop = vi.fn()
+  status.leave = vi.fn()
   session.checkpointSeq = 0
   session.latestCheckpoint = null
 })

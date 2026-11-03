@@ -7,8 +7,10 @@ import { getWebContainer } from "@/runtime/webcontainer"
 import { findMyAutosave } from "@/api/files.api"
 import { loadFiles } from "@/cache/files.js"
 import { createAutosave } from "@/cache/autosave.js"
+import { forgetRestoredPackages } from "@/runtime/install"
 
 vi.mock("@/runtime/webcontainer", () => ({ getWebContainer: vi.fn() }))
+vi.mock("@/runtime/install", () => ({ forgetRestoredPackages: vi.fn() }))
 // the class channel: open() hands back the session
 const getSession = vi.hoisted(() => vi.fn())
 const closeSession = vi.hoisted(() => vi.fn())
@@ -174,8 +176,12 @@ describe("loading the prof's latest checkpoint", () => {
         const store = await loaded([...MINE, pkg("{}")])
         CHECKPOINT.push(pkg('{"axios":"1"}'))
         expect(await store.loadLatestCheckpoint()).toMatchObject({ packageChanged: true })
+        // packages restored from this device's cache are cleared, so pnpm install starts clean
+        expect(forgetRestoredPackages).toHaveBeenCalledTimes(1)
         CHECKPOINT.pop()
+        vi.mocked(forgetRestoredPackages).mockClear()
         expect(await (await loaded(MINE)).loadLatestCheckpoint()).toMatchObject({ packageChanged: false })
+        expect(forgetRestoredPackages).not.toHaveBeenCalled()
     })
 
     it("says whether the checkpoint reached Supabase, so a failed save isn't reported as done", async () => {

@@ -89,7 +89,12 @@ function fakeWorkspace() {
   })
 }
 
-const stubs = { EditorPanel: true, PreviewPanel: true, HelpSummaryPanel: true }
+// the help summary is stubbed (it calls an Edge Function), but keeps its slot: Common errors
+const stubs = {
+  EditorPanel: true,
+  PreviewPanel: true,
+  HelpSummaryPanel: { template: '<div><slot /></div>' },
+}
 let wrapper
 let pinia
 async function open(data = session(), { isolated = false } = {}) {
@@ -136,7 +141,7 @@ afterEach(() => {
 })
 
 describe('TeachView', () => {
-  it('opens the class and shows the lesson, join code and who has joined', async () => {
+  it('opens the class and shows the lesson, join code and who is connected', async () => {
     await open()
     expect(live.open).toHaveBeenCalledWith('ses-1')
     live.present = [
@@ -146,7 +151,9 @@ describe('TeachView', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Week 6 · Mini Cart')
     expect(wrapper.find('[data-testid="join-code"]').text()).toBe('CART42')
-    expect(wrapper.text()).toContain('2 joined')
+    expect(wrapper.find('[data-testid="connected-count"]').text()).toContain('2 connected')
+    expect(wrapper.find('[data-testid="connected-count"] .live-dot').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="elapsed"]').text()).toMatch(/\d+:\d{2}/)
   })
 
   it("lets dylan's editor open the class when it can run, and boots the preview", async () => {
@@ -251,7 +258,7 @@ describe('TeachView', () => {
   it('shows what the class clicked as numbers, with no student tiles', async () => {
     await open()
     expect(api.getClassSummary).toHaveBeenCalledWith('ses-1')
-    expect(wrapper.find('[data-testid="summary-done"]').text()).toContain('of 24')
+    expect(wrapper.find('[data-testid="summary-done"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="slow-down-count"]').text()).toContain('2')
     expect(wrapper.find('[data-testid^="tile-"]').exists()).toBe(false)
   })
@@ -271,9 +278,12 @@ describe('TeachView', () => {
       slowDown: 0,
       help: 0,
       check: 0,
+      students: [],
       errors: [err('a'), err('b')],
     })
     await open()
+    live.present = [{ userId: 'a' }, { userId: 'b' }] // the two who hit it are connected
+    await flushPromises()
     expect(wrapper.find('[data-testid="error-group-0"]').text()).toContain('itmes is not defined')
   })
 
@@ -300,6 +310,308 @@ describe('TeachView', () => {
     expect(live.announce).toHaveBeenCalledWith('ses-1', '5 minute break')
     expect(wrapper.find('#announce').element.value).toBe('')
     expect(lastToast()).toMatchObject({ variant: 'success', text: 'Announcement sent' })
+  })
+
+  it('T-SESS-20: an empty or blank announcement cannot be sent', async () => {
+    await open()
+    const send = wrapper.find('[data-testid="btn-announce"]')
+    expect(send.attributes('disabled')).toBeDefined() // nothing typed
+    await wrapper.find('#announce').setValue('   ')
+    expect(send.attributes('disabled')).toBeDefined()
+    await wrapper.find('form').trigger('submit') // Enter in the box still can't send it
+    await flushPromises()
+    expect(live.announce).not.toHaveBeenCalled()
+    await wrapper.find('#announce').setValue('5 minute break')
+    expect(send.attributes('disabled')).toBeUndefined()
+  })
+
+  describe('T-SESS-21: Present', () => {
+    const button = () => wrapper.find('[data-testid="btn-present"]')
+
+    it('hides the dashboard and the side panels, leaving only the editor, and the button becomes Dashboard view', async () => {
+      await open(session(), { isolated: true })
+      expect(button().text()).toBe('Present')
+      expect(wrapper.find('.teach-side').classes()).not.toContain('side-hidden')
+      expect(wrapper.find('.stats-collapse').classes()).not.toContain('collapsed')
+
+      await button().trigger('click')
+      expect(button().text()).toBe('Dashboard view')
+      // they ease away (still mounted, so coming back doesn't have to rebuild them)
+      expect(wrapper.find('.teach-side').classes()).toContain('side-hidden')
+      expect(wrapper.find('.stats-collapse').classes()).toContain('collapsed')
+      expect(wrapper.find('editor-panel-stub').exists()).toBe(true)
+      // the editor takes the whole width
+      expect(wrapper.find('.teach-row > div').classes()).not.toContain('col-xl-8')
+    })
+
+    it('Dashboard view brings everything back, and the editor is the same one (code and app survive)', async () => {
+      await open(session(), { isolated: true })
+      const editor = wrapper.find('editor-panel-stub').element
+      await button().trigger('click')
+      await button().trigger('click')
+      expect(button().text()).toBe('Present')
+      expect(wrapper.find('.teach-side').classes()).not.toContain('side-hidden')
+      expect(wrapper.find('.stats-collapse').classes()).not.toContain('collapsed')
+      expect(wrapper.find('editor-panel-stub').element).toBe(editor)
+    })
+
+    it('Announce and End session are still there while presenting', async () => {
+      await open(session(), { isolated: true })
+      await button().trigger('click')
+      expect(wrapper.find('[data-testid="btn-open-announce"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="btn-end-session"]').exists()).toBe(true)
+    })
+  })
+
+  describe('the Announce menu', () => {
+    const menu = () => wrapper.find('.announce-menu')
+    const toggle = () => wrapper.find('[data-testid="btn-open-announce"]')
+
+    it('the session bar has just an Announce button; the box and Send are in its menu', async () => {
+      await open()
+      expect(toggle().text()).toContain('Announce')
+      expect(menu().classes()).not.toContain('show')
+      await toggle().trigger('click')
+      expect(menu().classes()).toContain('show')
+      expect(menu().find('#announce').exists()).toBe(true)
+      expect(menu().find('[data-testid="btn-announce"]').exists()).toBe(true)
+    })
+
+    it('a click anywhere else closes it, but typing inside does not', async () => {
+      await open()
+      await toggle().trigger('click')
+      await menu().find('#announce').setValue('hi')
+      await menu().trigger('click')
+      expect(menu().classes()).toContain('show')
+      document.body.click()
+      await flushPromises()
+      expect(menu().classes()).not.toContain('show')
+    })
+
+    it('Escape closes it', async () => {
+      await open()
+      await toggle().trigger('click')
+      await menu().trigger('keydown', { key: 'Escape' })
+      expect(menu().classes()).not.toContain('show')
+    })
+
+    it('Enter sends it and the menu closes', async () => {
+      await open()
+      await toggle().trigger('click')
+      await menu().find('#announce').setValue('5 minute break')
+      await menu().find('#announce').trigger('keydown', { key: 'Enter' })
+      await flushPromises()
+      expect(live.announce).toHaveBeenCalledWith('ses-1', '5 minute break')
+      expect(menu().classes()).not.toContain('show')
+    })
+
+    it('while one is live, the menu shows it with a labelled Clear', async () => {
+      await open()
+      expect(wrapper.find('[data-testid="announce-showing"]').exists()).toBe(false)
+      expect(menu().text()).toContain('Announce to class')
+
+      live.session.announcement = { text: '5 minute break', at: '2026-11-03T10:00:00Z' }
+      await flushPromises()
+      expect(toggle().attributes('title')).toContain('Open to see it or clear it')
+      const showing = wrapper.find('[data-testid="announce-showing"]')
+      expect(showing.text()).toContain('Showing to students now')
+      expect(showing.text()).toContain('5 minute break')
+      expect(showing.find('[data-testid="btn-clear-announce"]').text()).toBe('Clear announcement')
+      // the box is for replacing it
+      expect(menu().text()).toContain('Or send a new one (it replaces this)')
+    })
+
+    it('the live message goes when it is cleared', async () => {
+      await open()
+      live.session.announcement = { text: 'hi', at: '2026-11-03T10:00:00Z' }
+      await flushPromises()
+      await wrapper.find('[data-testid="btn-clear-announce"]').trigger('click')
+      await flushPromises()
+      expect(live.announce).toHaveBeenCalledWith('ses-1', '')
+      live.session.announcement = null // what the class channel does
+      await flushPromises()
+      expect(wrapper.find('[data-testid="announce-showing"]').exists()).toBe(false)
+    })
+
+    it('the button stands out while an announcement is showing to students', async () => {
+      await open()
+      expect(toggle().classes()).toContain('ca-btn--secondary')
+      live.session.announcement = { text: 'hi', at: '2026-11-03T10:00:00Z' }
+      await flushPromises()
+      expect(toggle().classes()).toContain('ca-btn--primary')
+    })
+  })
+
+  it('Clear takes the current announcement down, and only shows while there is one', async () => {
+    await open()
+    expect(wrapper.find('[data-testid="btn-clear-announce"]').exists()).toBe(false)
+    live.session.announcement = { text: '5 minute break', at: '2026-11-03T10:00:00Z' }
+    await flushPromises()
+    await wrapper.find('[data-testid="btn-clear-announce"]').trigger('click')
+    await flushPromises()
+    expect(live.announce).toHaveBeenCalledWith('ses-1', '')
+    expect(lastToast()).toMatchObject({ variant: 'success', text: 'Announcement cleared' })
+  })
+
+  describe('the dashboard counts only the students who are connected', () => {
+    const student = (studentId, done) => ({ studentId, done })
+    const error = (studentId) => ({
+      studentId,
+      errorKey: 'ReferenceError: itmes is not defined',
+      errorShapeKey: null,
+      errorSource: 'runtime',
+      errorPreview: 'itmes is not defined',
+      lastSeenAt: new Date().toISOString(),
+    })
+    const summary = (over = {}) => ({
+      total: 3,
+      done: 2,
+      slowDown: 0,
+      help: 0,
+      check: 0,
+      students: [student('a', true), student('b', false), student('c', true)],
+      errors: [],
+      ...over,
+    })
+    const done = () => wrapper.find('[data-testid="summary-done"]').text()
+
+    it('T-DASH-10: Done is X of the students here, not of everyone who ever joined', async () => {
+      api.getClassSummary.mockResolvedValue(summary())
+      await open()
+      live.present = [{ userId: 'a' }, { userId: 'b' }] // c joined earlier and has left
+      await flushPromises()
+      expect(done()).toContain('1') // a is here and Done; c is Done but gone
+      expect(done()).toContain('of 2')
+      expect(done()).not.toContain('of 3')
+      expect(wrapper.find('[data-testid="connected-count"]').text()).toContain('2 connected')
+    })
+
+    it('nobody connected: Done is 0 of 0, however many joined before', async () => {
+      api.getClassSummary.mockResolvedValue(summary())
+      await open()
+      live.present = []
+      await flushPromises()
+      expect(done()).toContain('of 0')
+    })
+
+    it('a student who reconnects counts again, and a new one counts before the summary has them', async () => {
+      api.getClassSummary.mockResolvedValue(summary())
+      await open()
+      live.present = [{ userId: 'c' }, { userId: 'd' }] // d has no status row yet
+      await flushPromises()
+      expect(done()).toContain('of 2')
+      expect(done()).toContain('1') // only c
+    })
+
+    it('Common errors only counts students who are here', async () => {
+      api.getClassSummary.mockResolvedValue(
+        summary({ errors: [error('a'), error('b'), error('c')] }),
+      )
+      await open()
+      live.present = [{ userId: 'a' }] // b and c made the mistake but left: just one here
+      await flushPromises()
+      expect(wrapper.find('[data-testid="error-group-0"]').exists()).toBe(false) // under the minimum of 2
+      live.present = [{ userId: 'a' }, { userId: 'b' }]
+      await flushPromises()
+      expect(wrapper.find('[data-testid="error-group-0"]').text()).toContain('itmes is not defined')
+    })
+  })
+
+  describe('T-DASH-13: the Students menu lists who is connected, grouped by status', () => {
+    const row = (studentId, state, over = {}) => ({
+      studentId,
+      done: state === 'done',
+      state,
+      help: false,
+      check: false,
+      ...over,
+    })
+    const menu = () => wrapper.find('[data-testid="students-menu"]')
+    const group = (key) => wrapper.find(`[data-testid="students-group-${key}"]`)
+    const names = (key) =>
+      group(key)
+        .findAll('li .text-truncate')
+        .map((n) => n.text())
+
+    beforeEach(() => {
+      api.getClassSummary.mockResolvedValue({
+        total: 6,
+        done: 1,
+        slowDown: 1,
+        help: 1,
+        check: 1,
+        errors: [],
+        students: [
+          row('a', 'error', { help: true }), // asked for help: that group wins over the error
+          row('b', 'in_progress', { check: true }),
+          row('c', 'error'),
+          row('d', 'done'),
+          row('e', 'idle'),
+          row('f', 'done'), // joined earlier and has left
+        ],
+      })
+    })
+
+    it('opens from under the number cards and groups each connected student once, most urgent first', async () => {
+      await open()
+      live.present = ['a', 'b', 'c', 'd', 'e', 'g'].map((id) => ({
+        userId: id,
+        name: `Student ${id.toUpperCase()}`,
+      }))
+      await flushPromises()
+      expect(menu().exists()).toBe(false)
+      await wrapper.find('[data-testid="btn-open-students"]').trigger('click')
+      expect(menu().exists()).toBe(true)
+      expect(menu().text()).toContain('Connected now · 6')
+
+      expect(names('help')).toEqual(['Student A'])
+      expect(names('check')).toEqual(['Student B'])
+      expect(names('error')).toEqual(['Student C'])
+      expect(names('idle')).toEqual(['Student E'])
+      expect(names('done')).toEqual(['Student D']) // F left, so isn't listed
+      expect(names('in_progress')).toEqual(['Student G']) // no status row yet
+      const order = menu()
+        .findAll('section')
+        .map((sec) => sec.attributes('data-testid'))
+      expect(order).toEqual([
+        'students-group-help',
+        'students-group-check',
+        'students-group-error',
+        'students-group-in_progress',
+        'students-group-idle',
+        'students-group-done',
+      ])
+      expect(group('done').find('.ca-avatar').text()).toBe('S')
+    })
+
+    it('never says who asked to slow down, and shows an empty note with nobody here', async () => {
+      await open()
+      await wrapper.find('[data-testid="btn-open-students"]').trigger('click')
+      expect(menu().text()).toContain('No students connected yet')
+      expect(menu().text()).not.toMatch(/slow down/i)
+    })
+
+    it('closes on a click outside, and opening Announce closes it', async () => {
+      await open()
+      await wrapper.find('[data-testid="btn-open-students"]').trigger('click')
+      document.body.click()
+      await flushPromises()
+      expect(menu().exists()).toBe(false)
+      await wrapper.find('[data-testid="btn-open-students"]').trigger('click')
+      await wrapper.find('[data-testid="btn-open-announce"]').trigger('click')
+      expect(menu().exists()).toBe(false)
+    })
+
+    it('Present closes it, and it stays closed when the dashboard comes back', async () => {
+      await open()
+      await wrapper.find('[data-testid="btn-open-students"]').trigger('click')
+      expect(wrapper.find('[data-testid="btn-open-students"]').text()).toContain('Hide students')
+      await wrapper.find('[data-testid="btn-present"]').trigger('click')
+      expect(menu().exists()).toBe(false)
+      await wrapper.find('[data-testid="btn-present"]').trigger('click')
+      expect(menu().exists()).toBe(false)
+      expect(wrapper.find('[data-testid="btn-open-students"]').text()).toContain('Show students')
+    })
   })
 
   it('closes the class when leaving', async () => {
