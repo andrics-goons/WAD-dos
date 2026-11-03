@@ -34,7 +34,7 @@ async function enrol() {
     toast.show(`You're enrolled in ${course.code} · ${course.title}`, 'success')
     router.replace({ name: 'course', params: { id: course.id } })
   } catch (error) {
-    // NOT_FOUND covers wrong and archived codes alike; the rest have their own message
+    // NOT_FOUND is a wrong code; the rest have their own message
     errorMsg.value = error.code === 'NOT_FOUND' ? 'No course with that code' : error.message
   } finally {
     isSubmitting.value = false
@@ -52,7 +52,7 @@ onMounted(() => {
       <h1>Enrol in a course</h1>
     </div>
     <p class="text-body-secondary">
-      Enter the code your instructor gave you. You only need to do this once per course.
+      Enter the code your instructor gave you. You only need to do this once.
     </p>
 
     <form class="row g-3 align-items-end" @submit.prevent="enrol()">

@@ -80,12 +80,12 @@ update public.profiles p set role = u.role from seed.users u where p.id = u.id;
 
 -- 3. Courses, staff, students ------------------------------------
 
-insert into public.courses (id, code, title, term, section, owner_id, enrol_code, archived) values
-    ('00000000-0000-0000-0001-000000000001', 'IS216', 'Web Application Development II', 'AY2026/27 T1', 'G2', seed.u(1),  'WAD2G2', false),
-    -- last term, archived: its report gives "recurring trouble across terms" something to find
-    ('00000000-0000-0000-0001-000000000002', 'IS216', 'Web Application Development II', 'AY2025/26 T1', 'G2', seed.u(1),  'WADG25', true),
+insert into public.courses (id, code, title, term, section, owner_id, enrol_code) values
+    ('00000000-0000-0000-0001-000000000001', 'IS216', 'Web Application Development II', 'AY2026/27 T1', 'G2', seed.u(1),  'WAD2G2'),
+    -- last term, archived by its staff (below): its report gives "recurring trouble across terms" something to find
+    ('00000000-0000-0000-0001-000000000002', 'IS216', 'Web Application Development II', 'AY2025/26 T1', 'G2', seed.u(1),  'WADG25'),
     -- Prof Tan's: Prof Lee must never see it, and his trends must never count it
-    ('00000000-0000-0000-0001-000000000003', 'IS216', 'Web Application Development II', 'AY2026/27 T1', 'G1', seed.u(16), 'TANWAD', false);
+    ('00000000-0000-0000-0001-000000000003', 'IS216', 'Web Application Development II', 'AY2026/27 T1', 'G1', seed.u(16), 'TANWAD');
 
 insert into public.course_staff (course_id, user_id, role) values
     ('00000000-0000-0000-0001-000000000001', seed.u(1),  'prof'),
@@ -94,6 +94,10 @@ insert into public.course_staff (course_id, user_id, role) values
     ('00000000-0000-0000-0001-000000000002', seed.u(1),  'prof'),
     ('00000000-0000-0000-0001-000000000002', seed.u(2),  'ta'),
     ('00000000-0000-0000-0001-000000000003', seed.u(16), 'prof');
+
+insert into public.course_archives (course_id, user_id) values
+    ('00000000-0000-0000-0001-000000000002', seed.u(1)),
+    ('00000000-0000-0000-0001-000000000002', seed.u(2));
 
 -- Alex … Kim (users 4–14) in the current course. Zoe (15) is deliberately left out.
 insert into public.course_students (course_id, user_id)

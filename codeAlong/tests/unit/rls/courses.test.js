@@ -6,7 +6,12 @@ import { mapError } from '@/api/mapError'
 // Our RPCs raise 'CODE|message'; mapError turns that into { code, message }.
 const codeOf = (error) => mapError(error)?.code
 
-const IS216 = { p_code: 'IS216', p_title: 'Web Application Development II', p_term: 'AY2026/27 T1', p_section: 'G2' }
+const IS216 = {
+  p_code: 'IS216',
+  p_title: 'Web Application Development II',
+  p_term: 'AY2026/27 T1',
+  p_section: 'G2',
+}
 
 const createdCourses = []
 async function createCourse(client, args = IS216) {
@@ -93,7 +98,10 @@ describe('creating a course', () => {
 describe('per-prof isolation', () => {
   it("T-PLAT-15: a prof never sees another prof's course or its members", async () => {
     const courses = await profB.client.from('courses').select('id').eq('id', courseA.id)
-    const staff = await profB.client.from('course_staff').select('user_id').eq('course_id', courseA.id)
+    const staff = await profB.client
+      .from('course_staff')
+      .select('user_id')
+      .eq('course_id', courseA.id)
     expect(courses.data).toEqual([])
     expect(staff.data).toEqual([])
   })
@@ -139,11 +147,19 @@ describe('enrolling', () => {
     expect(codeOf(error)).toBe('FORBIDDEN')
   })
 
-  it("an archived course's code no longer works", async () => {
+  it('archiving is per person: others keep the course and its code still works', async () => {
     const { data: old } = await createCourse(profA.client, { ...IS216, p_code: 'IS100' })
-    await profA.client.from('courses').update({ archived: true }).eq('id', old.id)
+    await stu.client.rpc('enrol_with_code', { p_code: old.enrol_code })
+
+    const archive = { course_id: old.id }
+    expect((await profA.client.from('course_archives').insert(archive)).error).toBeNull()
+    expect((await stu2.client.from('course_archives').insert(archive)).error).not.toBeNull() // not in it
+
+    const { data: seen } = await stu.client.from('course_archives').select().eq('course_id', old.id)
+    expect(seen).toHaveLength(0) // can't see the prof's archive, and has none of their own
+
     const { error } = await stu2.client.rpc('enrol_with_code', { p_code: old.enrol_code })
-    expect(codeOf(error)).toBe('NOT_FOUND')
+    expect(error).toBeNull()
   })
 })
 
@@ -219,12 +235,18 @@ describe('T-PLAT-20: nobody is both staff and student in one course', () => {
 
 describe('who sees whose name', () => {
   it("T-PRIV-11: a student sees their course's staff, never the other students", async () => {
-    const { data } = await stu.client.from('profiles').select('id').in('id', [profA.id, tia.id, stu2.id])
+    const { data } = await stu.client
+      .from('profiles')
+      .select('id')
+      .in('id', [profA.id, tia.id, stu2.id])
     expect(data.map((p) => p.id).sort()).toEqual([profA.id, tia.id].sort())
   })
 
-  it("a student sees only their own enrolment row", async () => {
-    const { data } = await stu.client.from('course_students').select('user_id').eq('course_id', courseA.id)
+  it('a student sees only their own enrolment row', async () => {
+    const { data } = await stu.client
+      .from('course_students')
+      .select('user_id')
+      .eq('course_id', courseA.id)
     expect(data).toEqual([{ user_id: stu.id }])
   })
 
@@ -245,7 +267,10 @@ describe('who sees whose name', () => {
 
 describe('editing and removing', () => {
   it('the owner can rename their course', async () => {
-    const { error } = await profA.client.from('courses').update({ title: 'WAD II' }).eq('id', courseA.id)
+    const { error } = await profA.client
+      .from('courses')
+      .update({ title: 'WAD II' })
+      .eq('id', courseA.id)
     expect(error).toBeNull()
   })
 
@@ -257,7 +282,7 @@ describe('editing and removing', () => {
     expect(error?.code).toBe('42501')
   })
 
-  it("a TA cannot edit the course (owner only) — the update silently matches nothing", async () => {
+  it('a TA cannot edit the course (owner only) — the update silently matches nothing', async () => {
     const { data } = await tia.client
       .from('courses')
       .update({ title: 'Hijacked' })
@@ -296,7 +321,10 @@ describe('editing and removing', () => {
 
 describe('admins and logged-out visitors', () => {
   it("an admin reads every prof's courses", async () => {
-    const { data } = await admin.client.from('courses').select('id').in('id', [courseA.id, courseB.id])
+    const { data } = await admin.client
+      .from('courses')
+      .select('id')
+      .in('id', [courseA.id, courseB.id])
     expect(data).toHaveLength(2)
   })
 

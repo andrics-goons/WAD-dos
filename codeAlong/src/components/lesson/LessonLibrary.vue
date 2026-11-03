@@ -6,8 +6,9 @@ import { useSessionStore } from '@/stores/session'
 import { useToastStore } from '@/stores/toast'
 import EmptyState from '@/components/ui/EmptyState.vue'
 
-// The Lessons tab of the course page: search, the list, and for the prof New / Edit / Start new session.
-// Each lesson has a dropdown of the classes run from it.
+// The Lessons tab of the course page. Lessons sit in one folder per week ("Week 6"), and opening a
+// folder shows its code files ("ICE", "Extra exercises"), each with the classes run from it.
+// Start new session goes to the import page, so every class starts from code the prof brought in.
 // Owner: Ray Yien (started by Ying Qi as a working first version).
 const props = defineProps({ course: { type: Object, required: true } })
 
@@ -21,7 +22,7 @@ const isProf = computed(() => props.course.myRole === 'prof')
 
 const lessons = ref([])
 const sessions = ref([])
-const opened = ref({}) // lesson id → is its dropdown open?
+const opened = ref({}) // week → is its folder open?
 const loading = ref(true)
 const loadError = ref('')
 onMounted(async () => {
@@ -32,7 +33,8 @@ onMounted(async () => {
     ])
     // start with live classes showing, so nobody has to hunt for the way in
     for (const s of sessions.value) {
-      if (s.status === 'live') opened.value[s.lesson_id] = true
+      const lesson = lessons.value.find((l) => l.id === s.lesson_id)
+      if (s.status === 'live' && lesson) opened.value[lesson.week] = true
     }
   } catch (error) {
     loadError.value = error.message
@@ -45,11 +47,21 @@ const search = ref('')
 const shownLessons = computed(() =>
   lessons.value.filter((l) => l.title.toLowerCase().includes(search.value.trim().toLowerCase())),
 )
-// "Week 6 - Mini Cart". A title that already starts with its week ("Week 6 · Mini Cart") isn't doubled.
-const heading = (l) => {
-  const title = l.title.replace(/^Week \d+\s*[·:-]\s*/i, '')
-  return l.week ? `Week ${l.week} - ${title}` : l.title
-}
+// one folder per week, in week order (listLessons sorts them); lessons with no week go last
+const folders = computed(() => {
+  const byWeek = new Map()
+  for (const l of shownLessons.value) {
+    if (!byWeek.has(l.week)) byWeek.set(l.week, [])
+    byWeek.get(l.week).push(l)
+  }
+  return [...byWeek].map(([week, files]) => ({
+    week,
+    name: week ? `Week ${week}` : 'No week',
+    files,
+  }))
+})
+// the folder already says the week, so "Week 6 · Mini Cart" shows as "Mini Cart"
+const fileName = (l) => l.title.replace(/^Week \d+\s*[·:-]\s*/i, '')
 const classesOf = (lesson) => sessions.value.filter((s) => s.lesson_id === lesson.id)
 const when = (iso) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -112,111 +124,125 @@ async function startClass(lesson) {
       </EmptyState>
     </div>
     <ul v-else class="list-group">
-      <li
-        v-for="l in shownLessons"
-        :key="l.id"
-        class="list-group-item"
-        :data-testid="`lesson-row-${slug(l.title)}`"
-      >
+      <li v-for="f in folders" :key="f.name" class="list-group-item">
         <div class="d-flex flex-wrap align-items-center gap-2">
           <button
             type="button"
             class="ca-btn ca-btn--secondary ca-btn--sm lesson-toggle"
-            @click="opened[l.id] = !opened[l.id]"
+            @click="opened[f.week] = !opened[f.week]"
           >
-            <i class="bi" :class="opened[l.id] ? 'bi-chevron-up' : 'bi-chevron-down'" />
-            {{ classesOf(l).length }} {{ classesOf(l).length === 1 ? 'class' : 'classes' }}
+            <i class="bi" :class="opened[f.week] ? 'bi-chevron-up' : 'bi-chevron-down'" />
+            {{ f.files.length }} {{ f.files.length === 1 ? 'file' : 'files' }}
           </button>
-          <span class="fw-semibold">{{ heading(l) }}</span>
-          <span v-if="isStaff" class="badge text-bg-light text-capitalize">{{ l.status }}</span>
-
-          <span class="ms-auto d-flex flex-wrap gap-1">
-            <template v-if="isProf">
-              <RouterLink
-                :to="{ name: 'lesson-edit', params: { id: l.id } }"
-                class="ca-btn ca-btn--ghost ca-btn--sm"
-              >
-                Edit
-              </RouterLink>
-              <button
-                v-if="l.status === 'ready'"
-                type="button"
-                class="ca-btn ca-btn--primary ca-btn--sm"
-                :disabled="starting === l.id"
-                :data-testid="`lesson-start-${slug(l.title)}`"
-                @click="startClass(l)"
-              >
-                <span v-if="starting === l.id" class="spinner-border spinner-border-sm" />
-                Start new session
-              </button>
-            </template>
-          </span>
+          <i class="bi bi-folder2" />
+          <span class="fw-semibold">{{ f.name }}</span>
+          <RouterLink
+            v-if="isProf"
+            :to="{
+              name: 'lesson-new',
+              params: { id: course.id },
+              query: { start: 1, week: f.week ?? undefined },
+            }"
+            class="ca-btn ca-btn--primary ca-btn--sm ms-auto"
+          >
+            Start new session
+          </RouterLink>
         </div>
 
-        <!-- the dropdown: every class run from this lesson, newest first -->
-        <template v-if="opened[l.id]">
-          <p v-if="!classesOf(l).length" class="text-body-secondary small mt-2 mb-0">
-            No classes yet.
-          </p>
-          <ul v-else class="list-group mt-2">
-            <li
-              v-for="s in classesOf(l)"
-              :key="s.id"
-              class="list-group-item d-flex flex-wrap align-items-center gap-2"
-            >
-              <span v-if="s.status === 'live'" class="ca-pill ca-pill--sm ca-state--error">
-                <i class="bi bi-broadcast" />Live
-              </span>
-              <span v-else class="badge text-bg-light">Ended</span>
-              <span class="fw-semibold">{{ heading(l) }}</span>
-              <span class="text-body-secondary small">{{ when(s.started_at) }}</span>
-              <span v-if="isStaff && s.status === 'live'" class="small">
-                Code <span class="ca-mono fw-semibold">{{ s.join_code }}</span>
-              </span>
+        <!-- the dropdown: the folder's code files, each with the classes run from it -->
+        <ul v-if="opened[f.week]" class="list-group mt-2">
+          <li
+            v-for="l in f.files"
+            :key="l.id"
+            class="list-group-item"
+            :data-testid="`lesson-row-${slug(l.title)}`"
+          >
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <i class="bi bi-file-earmark-code" />
+              <span class="fw-semibold">{{ fileName(l) }}</span>
+              <span v-if="isStaff" class="badge text-bg-light text-capitalize">{{ l.status }}</span>
 
-              <span class="ms-auto d-flex gap-1">
-                <template v-if="s.status === 'live'">
-                  <RouterLink
-                    v-if="isProf"
-                    :to="{ name: 'teach', params: { id: s.id } }"
-                    class="ca-btn ca-btn--primary ca-btn--sm"
-                  >
-                    Open class
-                  </RouterLink>
-                  <RouterLink
-                    v-else-if="isStaff"
-                    :to="{ name: 'help-queue', params: { id: s.id } }"
-                    class="ca-btn ca-btn--primary ca-btn--sm"
-                  >
-                    Help queue
-                  </RouterLink>
-                  <RouterLink
-                    v-else
-                    :to="{ name: 'workspace', params: { id: s.id } }"
-                    class="ca-btn ca-btn--primary ca-btn--sm"
-                  >
-                    Join
-                  </RouterLink>
-                </template>
-                <template v-else>
-                  <RouterLink
-                    :to="{ name: 'replay', params: { sessionId: s.id } }"
-                    class="ca-btn ca-btn--secondary ca-btn--sm"
-                  >
-                    Replay
-                  </RouterLink>
-                  <RouterLink
-                    v-if="isStaff"
-                    :to="{ name: 'session-report', params: { id: s.id } }"
-                    class="ca-btn ca-btn--ghost ca-btn--sm"
-                  >
-                    Report
-                  </RouterLink>
-                </template>
+              <span v-if="isProf" class="ms-auto d-flex flex-wrap gap-1">
+                <RouterLink
+                  :to="{ name: 'lesson-edit', params: { id: l.id } }"
+                  class="ca-btn ca-btn--ghost ca-btn--sm"
+                >
+                  Edit
+                </RouterLink>
+                <!-- only code that hasn't been taught: a new class imports its own -->
+                <button
+                  v-if="l.status === 'ready' && !classesOf(l).length"
+                  type="button"
+                  class="ca-btn ca-btn--primary ca-btn--sm"
+                  :disabled="starting === l.id"
+                  :data-testid="`lesson-start-${slug(l.title)}`"
+                  @click="startClass(l)"
+                >
+                  <span v-if="starting === l.id" class="spinner-border spinner-border-sm" />
+                  Start class
+                </button>
               </span>
-            </li>
-          </ul>
-        </template>
+            </div>
+
+            <ul v-if="classesOf(l).length" class="list-group mt-2">
+              <li
+                v-for="s in classesOf(l)"
+                :key="s.id"
+                class="list-group-item d-flex flex-wrap align-items-center gap-2"
+              >
+                <span v-if="s.status === 'live'" class="ca-pill ca-pill--sm ca-state--error">
+                  <i class="bi bi-broadcast" />Live
+                </span>
+                <span v-else class="badge text-bg-light">Ended</span>
+                <span class="text-body-secondary small">{{ when(s.started_at) }}</span>
+                <span v-if="isStaff && s.status === 'live'" class="small">
+                  Code <span class="ca-mono fw-semibold">{{ s.join_code }}</span>
+                </span>
+
+                <span class="ms-auto d-flex gap-1">
+                  <template v-if="s.status === 'live'">
+                    <RouterLink
+                      v-if="isProf"
+                      :to="{ name: 'teach', params: { id: s.id } }"
+                      class="ca-btn ca-btn--primary ca-btn--sm"
+                    >
+                      Open class
+                    </RouterLink>
+                    <RouterLink
+                      v-else-if="isStaff"
+                      :to="{ name: 'help-queue', params: { id: s.id } }"
+                      class="ca-btn ca-btn--primary ca-btn--sm"
+                    >
+                      Help queue
+                    </RouterLink>
+                    <RouterLink
+                      v-else
+                      :to="{ name: 'workspace', params: { id: s.id } }"
+                      class="ca-btn ca-btn--primary ca-btn--sm"
+                    >
+                      Join
+                    </RouterLink>
+                  </template>
+                  <template v-else>
+                    <RouterLink
+                      :to="{ name: 'replay', params: { sessionId: s.id } }"
+                      class="ca-btn ca-btn--secondary ca-btn--sm"
+                    >
+                      Replay
+                    </RouterLink>
+                    <RouterLink
+                      v-if="isStaff"
+                      :to="{ name: 'session-report', params: { id: s.id } }"
+                      class="ca-btn ca-btn--ghost ca-btn--sm"
+                    >
+                      Report
+                    </RouterLink>
+                  </template>
+                </span>
+              </li>
+            </ul>
+          </li>
+        </ul>
       </li>
     </ul>
   </section>
