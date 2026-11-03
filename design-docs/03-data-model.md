@@ -265,7 +265,7 @@ Built by the **lessons migration** (`supabase/migrations/…_lessons.sql`), toge
 | `id` | `uuid` PK | |
 | `course_id` | `uuid not null → courses` on delete cascade | |
 | `title` | `text not null check (char_length(title) between 1 and 100)` | e.g. "Week 6 · Mini Cart" |
-| `week` | `int check (week between 1 and 13)` | Optional; orders the library. **One lesson per week in a course:** unique index `lessons_course_week_key (course_id, week) where week is not null and status is distinct from 'archived'`, so archiving a lesson frees its week. `lessons.api.js` turns the 23505 into `CONFLICT` "Another lesson in this course already has that week" |
+| `week` | `int check (week between 1 and 13)` | Optional; orders the library. A week can hold several lessons (the library shows each week as a folder of them). An early unique index on `(course_id, week)` was dropped before it reached the cloud (`20261103173604_allow_many_lessons_per_week.sql`). |
 | `description` | `text check (char_length(description) <= 500)` | |
 | `files` | `jsonb not null check (public.files_valid(files) and octet_length(files::text) <= 200000)` | Starter code — a real Vite project, source files only |
 | `files_hash` | `text generated always as (md5(files::text)) stored` | Cheap change check for the IndexedDB cache — the client selects this, not `files` |
