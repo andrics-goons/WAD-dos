@@ -45,21 +45,15 @@ const routes = [
     path: '/login',
     name: 'login',
     component: () => import('@/views/LoginView.vue'),
-    meta: {
-      title: 'Log in',
-      guest: true,
-      back: () => ({ label: 'Home', to: { name: 'landing' } }),
-    },
+    // no back bar: the page puts its Home button above the card, lined up with it
+    meta: { title: 'Log in', guest: true },
   },
   {
     path: '/register',
     name: 'register',
     component: () => import('@/views/RegisterView.vue'),
-    meta: {
-      title: 'Create an account',
-      guest: true,
-      back: () => ({ label: 'Home', to: { name: 'landing' } }),
-    },
+    // no back bar: the page puts its Home button above the card, lined up with it
+    meta: { title: 'Create an account', guest: true },
   },
 
   // ── Any signed-in user ────────────────────────────────────────────────────

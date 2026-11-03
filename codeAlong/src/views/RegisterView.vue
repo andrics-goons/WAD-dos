@@ -43,6 +43,11 @@ async function register() {
   <div class="ca-page">
     <div class="row justify-content-center">
       <div class="col-12 col-sm-10 col-md-7 col-lg-5">
+        <!-- back to the landing page, lined up with the card (the app's back bar would sit at
+             the far left edge of the page, away from this narrow card) -->
+        <RouterLink :to="{ name: 'landing' }" class="ca-btn ca-btn--secondary ca-btn--sm mb-3">
+          <i class="bi bi-arrow-left" />Home
+        </RouterLink>
         <div class="ca-card">
           <h1 class="h2 mb-1">Create an account</h1>
           <p class="text-body-secondary mb-4">Join your class on CodeAlong.</p>
