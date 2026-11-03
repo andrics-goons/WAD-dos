@@ -6,4 +6,5 @@ import * as githubApi from '@/api/github.api'
 export const useGithubStore = defineStore('github', () => ({
   importRepo: githubApi.importFromGithub,
   exportSession: githubApi.exportToGithub,
+  connected: githubApi.hasGithubToken,
 }))

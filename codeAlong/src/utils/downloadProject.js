@@ -5,11 +5,6 @@
 //   downloadProject(workspaceStore.files, 'Week 6 · Mini Cart')   → "week-6-mini-cart.zip"
 import { strToU8, zipSync } from 'fflate' // Source: https://github.com/101arrowz/fflate (MIT)
 
-// the zip itself, kept separate so tests can unzip it
-export function zipProject(files) {
-  return zipSync(Object.fromEntries(files.map((f) => [f.path, strToU8(f.content)])))
-}
-
 // "Week 6 · Mini Cart" → "week-6-mini-cart"
 const fileName = (name) =>
   name
@@ -17,8 +12,15 @@ const fileName = (name) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '') || 'project'
 
+// the zip itself, kept separate so tests can unzip it. Everything sits in one folder named
+// after the lesson, so "Extract here" doesn't scatter the files into Downloads.
+export function zipProject(files, name = 'project') {
+  const folder = fileName(name)
+  return zipSync(Object.fromEntries(files.map((f) => [`${folder}/${f.path}`, strToU8(f.content)])))
+}
+
 export function downloadProject(files, name) {
-  const url = URL.createObjectURL(new Blob([zipProject(files)], { type: 'application/zip' }))
+  const url = URL.createObjectURL(new Blob([zipProject(files, name)], { type: 'application/zip' }))
   const link = document.createElement('a')
   link.href = url
   link.download = `${fileName(name)}.zip`

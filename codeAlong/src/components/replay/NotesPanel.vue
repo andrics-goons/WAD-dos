@@ -1,14 +1,17 @@
 <script setup>
 // My notes on one checkpoint of a replay: add, edit, delete. Only I can see them.
 // The page does the saving; this checks the text first, so a blank note never reaches the server.
+// The text box only clears (or the edit closes) once the page calls done(), after the save
+// worked, so a failed save keeps what was written.
 //   <NotesPanel :notes="notesHere" :busy="saving" @add="addNote" @save="saveNote" @remove="removeNote" />
 import { ref } from 'vue'
+import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 
 defineProps({
   notes: { type: Array, default: () => [] }, // [{ id, body, updatedAt }]
   busy: { type: Boolean, default: false },
 })
-// add(body) · save(id, body) · remove(id)
+// add(body, done) · save(id, body, done) · remove(id)
 const emit = defineEmits(['add', 'save', 'remove'])
 
 const MAX = 2000 // notes.body check in the schema
@@ -18,7 +21,7 @@ const problem = (text) =>
   !text.trim()
     ? 'Write something first'
     : text.length > MAX
-      ? `Keep it under ${MAX} characters`
+      ? `Notes can be up to ${MAX} characters. This one has ${text.length}.`
       : ''
 
 const draft = ref('')
@@ -26,8 +29,14 @@ const draftError = ref('')
 function add() {
   draftError.value = problem(draft.value)
   if (draftError.value) return
-  emit('add', draft.value.trim())
-  draft.value = ''
+  emit('add', draft.value.trim(), () => (draft.value = ''))
+}
+
+// asks before deleting: a note can't be brought back
+const deletingId = ref(null)
+function confirmDelete() {
+  emit('remove', deletingId.value)
+  deletingId.value = null
 }
 
 const editingId = ref(null)
@@ -41,8 +50,7 @@ function startEdit(note) {
 function save() {
   editError.value = problem(editText.value)
   if (editError.value) return
-  emit('save', editingId.value, editText.value.trim())
-  editingId.value = null
+  emit('save', editingId.value, editText.value.trim(), () => (editingId.value = null))
 }
 </script>
 
@@ -82,7 +90,7 @@ function save() {
               type="button"
               class="ca-btn ca-btn--ghost ca-btn--sm"
               :disabled="busy"
-              @click="emit('remove', n.id)"
+              @click="deletingId = n.id"
             >
               Delete
             </button>
@@ -103,6 +111,9 @@ function save() {
           placeholder="What do you want to remember about this step?"
         />
         <p v-if="draftError" class="ca-field-error">{{ draftError }}</p>
+        <p v-else-if="draft.length > MAX - 200" class="ca-field-hint">
+          {{ draft.length }} / {{ MAX }} characters
+        </p>
       </div>
       <button
         type="submit"
@@ -113,5 +124,16 @@ function save() {
         <i class="bi bi-plus-lg" />Add note
       </button>
     </form>
+
+    <ConfirmModal
+      :open="deletingId !== null"
+      title="Delete this note?"
+      confirm-label="Delete note"
+      variant="danger"
+      @update:open="deletingId = null"
+      @confirm="confirmDelete"
+    >
+      It can't be brought back.
+    </ConfirmModal>
   </section>
 </template>

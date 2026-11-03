@@ -6,6 +6,7 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import GithubImportTab from '@/components/lesson/GithubImportTab.vue'
+import { useCourseStore } from '@/stores/course'
 import { useLessonsStore } from '@/stores/lessons'
 import { useSessionStore } from '@/stores/session'
 import { useToastStore } from '@/stores/toast'
@@ -15,6 +16,7 @@ const props = defineProps({ id: { type: String, required: true } }) // the cours
 const router = useRouter()
 const route = useRoute()
 const lessons = useLessonsStore()
+const course = useCourseStore()
 const toast = useToastStore()
 const sessions = useSessionStore()
 
@@ -39,6 +41,7 @@ const title = ref('')
 const week = ref(route.query.week ?? '')
 const description = ref('')
 const titleError = ref('')
+const weekError = ref('')
 const saving = ref(false)
 
 // What the upload is doing right now, so the page never looks frozen:
@@ -93,12 +96,27 @@ function suggestTitle(name) {
   titleError.value = ''
 }
 
-// check the title before leaving the first stage
-function next() {
+// check the title, and that no other lesson has this week, before leaving the first stage.
+// The database refuses a second lesson in the same week anyway; this says so before the review.
+async function next() {
   if (stage.value === 1 && !title.value.trim()) {
     titleError.value = 'Give the code a name before you continue'
     document.getElementById('title')?.focus()
     return
+  }
+  if (stage.value === 1 && week.value !== '' && !/^([1-9]|1[0-3])$/.test(String(week.value))) {
+    weekError.value = 'Week is a whole number from 1 to 13, or leave it empty'
+    document.getElementById('week')?.focus()
+    return
+  }
+  if (stage.value === 1 && week.value) {
+    const existing = await course.lessons(props.id).catch(() => [])
+    const taken = existing.find((l) => l.week === Number(week.value) && l.status !== 'archived')
+    if (taken) {
+      weekError.value = `Week ${week.value} already has "${taken.title}". Pick a different week.`
+      document.getElementById('week')?.focus()
+      return
+    }
   }
   stage.value++
 }
@@ -112,8 +130,9 @@ async function create() {
       description: description.value.trim(),
       files: files.value,
       entryFile: entryFile.value,
-      // an import keeps where it came from (repo, branch, folder) — design-docs/03 lessons.source
-      source: source.value === 'github' ? githubSource.value : { type: 'upload' },
+      // an import keeps where it came from (repo, branch, folder) — design-docs/03 lessons.source.
+      // Set by where the files came from, not by the tab that happens to be open now.
+      source: githubSource.value ?? { type: 'upload' },
     })
     if (startingClass) {
       await lessons.update(lesson.id, { status: 'ready' })
@@ -192,6 +211,7 @@ async function onFolderPicked(event) {
     )
 
     load(entries, { stripRoot: true })
+    githubSource.value = null // these files came from the folder, not the last import
     ignoredCount.value = picked.length - wanted.length
     suggestTitle(picked[0].webkitRelativePath.split('/')[0]) // the picked folder's name
   } catch (err) {
@@ -361,7 +381,17 @@ async function onFolderPicked(event) {
           </div>
           <div class="col-12 col-md-4 ca-field">
             <label class="ca-label" for="week">Week</label>
-            <input id="week" v-model="week" class="ca-input" type="number" min="1" max="13" />
+            <input
+              id="week"
+              v-model="week"
+              class="ca-input"
+              type="number"
+              min="1"
+              max="13"
+              :class="{ 'ca-input--invalid': weekError }"
+              @input="weekError = ''"
+            />
+            <p v-if="weekError" class="ca-field-error">{{ weekError }}</p>
           </div>
           <div class="col-12 ca-field">
             <label class="ca-label" for="desc">Description</label>

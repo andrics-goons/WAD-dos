@@ -53,13 +53,15 @@
   async function catchUp() {
     catchingUp.value = true
     try {
-      const { packageChanged } = await workspaceStore.loadLatestCheckpoint()
+      const { packageChanged, saved } = await workspaceStore.loadLatestCheckpoint()
       catchUpOpen.value = false
       toast.show(
-        packageChanged
-          ? "Its packages changed: run pnpm install in the terminal, then pnpm dev."
-          : "Your code now matches the prof's. Click Done once it runs.",
-        packageChanged ? "warning" : "success",
+        !saved
+          ? "It isn't saved yet: it keeps trying. Don't refresh the page until it says Saved."
+          : packageChanged
+            ? "This checkpoint changed package.json: stop the dev server (Ctrl+C), run pnpm install, then pnpm dev."
+            : "Your code now matches the prof's. Click Done once it runs.",
+        packageChanged || !saved ? "warning" : "success",
         { title: `Loaded ${checkpoint.value}` },
       )
     } catch (e) {

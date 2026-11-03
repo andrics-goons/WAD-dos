@@ -119,7 +119,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     // "Load latest checkpoint" (design-docs/05 §7): replace my code with the prof's latest
     // checkpoint. The workspace asks first and offers a download; after this my old code is gone,
     // because the autosave row is overwritten too. Returns whether package.json changed, since the
-    // student then needs to run pnpm install again.
+    // student then needs to run pnpm install again, and whether the new code reached Supabase
+    // (if not, autosave keeps retrying, but a refresh now would bring the old code back).
     async function loadLatestCheckpoint() {
         const session = useSessionStore()
         const checkpoint = session.latestCheckpoint
@@ -144,7 +145,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         await saver?.flush()
         // a catch-up for the prof's report: which checkpoint the class lost me at
         await useStatusStore().recordCatchUp()
-        return { packageChanged }
+        return { packageChanged, saved: saveStatus.value === 'saved' }
     }
 
     // The file tree's New file / Rename / Delete (T-SBX-16): the editor's files change, autosave

@@ -5,6 +5,8 @@
 //   2. the entry script imports it on its first line
 //   3. vite.config.js has the ca-errors plugin, which prints each error in the terminal
 //   4. Vite 8: package.json pins the Rolldown WASM binding, or Vite crashes in the WebContainer
+// The app is at the top of the project, or in a folder of its own next to its backend
+// (client/ + server/); all four changes go in the app's folder.
 // Pure: takes and returns the flat files list. Nothing here touches the DOM or the network.
 
 export const CA_PROBE_JS = `// CodeAlong runtime probe: reports errors in your app to your CodeAlong workspace.
@@ -85,13 +87,18 @@ export function addProbe(files) {
   }
 
   // 1 + 2: the entry script is the module script index.html loads
-  const html = byPath.get('index.html')?.content
-  if (!html) return fail('There is no index.html at the top of the project.')
+  const app = appFolder(byPath)
+  if (app === null) {
+    return fail(
+      'There is no index.html at the top of the project, or in a folder with its own package.json (like client/).',
+    )
+  }
+  const html = byPath.get(`${app}index.html`).content
   const tag = (html.match(/<script\b[^>]*>/gi) ?? []).find((t) =>
     /type\s*=\s*["']module["']/i.test(t),
   )
   const src = tag?.match(/src\s*=\s*["']([^"']+)["']/i)?.[1]
-  const entry = src?.replace(/^(\.?\/)+/, '')
+  const entry = src && app + src.replace(/^(\.?\/)+/, '')
   if (!entry || !byPath.has(entry) || !entry.endsWith('.js')) {
     return fail(
       'index.html has to load a JavaScript entry file (<script type="module" src="/src/main.js">). TypeScript projects are not supported.',
@@ -108,15 +115,15 @@ export function addProbe(files) {
   }
 
   // 3: the ca-errors plugin in vite.config.js
-  if (byPath.has('vite.config.mjs') || byPath.has('vite.config.cjs')) {
+  if (byPath.has(`${app}vite.config.mjs`) || byPath.has(`${app}vite.config.cjs`)) {
     return fail(
       'Rename vite.config.mjs / .cjs to vite.config.js so CodeAlong can add its error reporter.',
     )
   }
-  const config = byPath.get('vite.config.js')?.content
+  const config = byPath.get(`${app}vite.config.js`)?.content
   if (config === undefined) {
-    const vue = files.some((f) => f.language === 'vue')
-    put('vite.config.js', 'js', defaultConfig(vue))
+    const vue = files.some((f) => f.language === 'vue' && f.path.startsWith(app))
+    put(`${app}vite.config.js`, 'js', defaultConfig(vue))
   } else if (!config.includes('ca-errors')) {
     const patched = patchConfig(config)
     if (!patched) {
@@ -124,11 +131,11 @@ export function addProbe(files) {
         "CodeAlong couldn't add its error reporter to vite.config.js. Use the export default defineConfig({ ... }) form.",
       )
     }
-    put('vite.config.js', 'js', patched)
+    put(`${app}vite.config.js`, 'js', patched)
   }
 
   // 4: package.json needs a dev script, and the pins on Vite 8
-  const pkgText = byPath.get('package.json')?.content
+  const pkgText = byPath.get(`${app}package.json`)?.content
   if (pkgText === undefined) return fail('There is no package.json at the top of the project.')
   let pkg
   try {
@@ -142,10 +149,22 @@ export function addProbe(files) {
   const missing = Object.entries(VITE8_PINS).some(([name, v]) => pkg.devDependencies?.[name] !== v)
   if (/^\D*8(\.|$)/.test(vite) && missing) {
     pkg.devDependencies = { ...pkg.devDependencies, ...VITE8_PINS }
-    put('package.json', 'json', JSON.stringify(pkg, null, 2) + '\n')
+    put(`${app}package.json`, 'json', JSON.stringify(pkg, null, 2) + '\n')
   }
 
   return { files: [...byPath.values()], changes, error: null }
+}
+
+// The folder the app is in: '' when index.html is at the top, otherwise the closest folder with
+// both index.html and package.json, e.g. 'client/' next to 'server/'. null when there's neither.
+function appFolder(byPath) {
+  if (byPath.has('index.html')) return ''
+  const folders = [...byPath.keys()]
+    .filter((p) => p.endsWith('/index.html'))
+    .map((p) => p.slice(0, -'index.html'.length))
+    .filter((folder) => byPath.has(`${folder}package.json`))
+    .sort((a, b) => a.split('/').length - b.split('/').length)
+  return folders[0] ?? null
 }
 
 // The project had no vite.config.js: the Mini Cart one without its proxy

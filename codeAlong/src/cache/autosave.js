@@ -1,5 +1,6 @@
 // Delta autosave for the student workspace (design-docs/05-core-logic.md §2).
-// Saves 5 s after the last edit, and straight away when the tab is hidden or closed.
+// Saves 5 s after the last edit, and straight away when the tab is hidden or closed; asks
+// before the page is left with edits not yet saved.
 // Only files that changed since the last good save are sent; their hashes are kept in
 // IndexedDB so a page refresh doesn't re-upload everything.
 //
@@ -30,7 +31,7 @@ const NO_RETRY = [
 // onStatus(state): 'pending' (waiting to save), 'saving', 'saved', 'retrying' (last save
 // failed), 'too_large' (over MAX_FILES / MAX_SNAPSHOT_BYTES, so nothing is sent), 'ended'
 // (the class has ended, so saving has stopped) or 'error' (refused; tried again on the next edit)
-export function createAutosave({ sessionId, userId, saved = null, onStatus = () => {} }) {
+export function createAutosave({ sessionId, userId, saved = null, onStatus: report = () => {} }) {
   // Keyed by user too: lab PCs are shared, and someone else's hashes would make us skip files
   const key = `synced:${userId}:${sessionId}`
   let latest = null // newest file list from the editor
@@ -38,10 +39,17 @@ export function createAutosave({ sessionId, userId, saved = null, onStatus = () 
   let timer = null
   let retries = 0
   let stopped = false
+  let ended = false // the class has ended: the server refuses every save, so don't send any
+  let status = null
   let queue = Promise.resolve() // saves run one at a time, in order
 
+  const onStatus = (state) => {
+    status = state
+    report(state)
+  }
+
   async function saveNow() {
-    if (!latest) return
+    if (!latest || ended) return
     // What Supabase has, so only real changes are sent and deleted files are removed. Taken
     // from `saved` when the workspace has just loaded it: IndexedDB can be empty (another
     // device, cleared site data) or stale (the row was changed elsewhere), and either way a
@@ -57,7 +65,9 @@ export function createAutosave({ sessionId, userId, saved = null, onStatus = () 
       await autosavePatch(sessionId, plan.upsert, plan.remove)
     } catch (error) {
       if (error.code === 'CONFLICT') {
-        stopped = true // the class has ended: nothing more will save
+        // the class has ended: nothing more will save, so stop listening for chances to
+        stopped = ended = true
+        unlisten()
         return onStatus('ended')
       }
       if (NO_RETRY.includes(error.code)) return onStatus('error')
@@ -95,15 +105,29 @@ export function createAutosave({ sessionId, userId, saved = null, onStatus = () 
 
   // Save straight away when the student switches tab, leaves the window or closes the page
   const onHide = () => document.visibilityState === 'hidden' && flush()
+  // A save started while the page unloads is usually cancelled by the browser, so if edits
+  // haven't reached Supabase yet, ask before leaving (the browser shows its own "Leave site?")
+  const onBeforeUnload = (event) => {
+    if (!['pending', 'saving', 'retrying'].includes(status)) return
+    flush()
+    event.preventDefault()
+    event.returnValue = ''
+  }
   document.addEventListener('visibilitychange', onHide)
   window.addEventListener('blur', flush)
   window.addEventListener('pagehide', flush)
+  window.addEventListener('beforeunload', onBeforeUnload)
 
-  async function stop() {
-    stopped = true
+  function unlisten() {
     document.removeEventListener('visibilitychange', onHide)
     window.removeEventListener('blur', flush)
     window.removeEventListener('pagehide', flush)
+    window.removeEventListener('beforeunload', onBeforeUnload)
+  }
+
+  async function stop() {
+    stopped = true
+    unlisten()
     await flush()
   }
 

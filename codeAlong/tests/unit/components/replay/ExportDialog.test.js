@@ -5,7 +5,11 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { AppError } from '@/api/mapError'
 
-vi.mock('@/api/github.api', () => ({ importFromGithub: vi.fn(), exportToGithub: vi.fn() }))
+vi.mock('@/api/github.api', () => ({
+  importFromGithub: vi.fn(),
+  exportToGithub: vi.fn(),
+  hasGithubToken: vi.fn(),
+}))
 vi.mock('@/api/auth.api', () => ({ connectGitHub: vi.fn(async () => {}) }))
 vi.mock('vue-router', () => ({ useRoute: () => ({ fullPath: '/replays/s1' }) }))
 import { exportToGithub } from '@/api/github.api'

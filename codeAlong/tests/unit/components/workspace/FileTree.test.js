@@ -13,7 +13,7 @@ const mountTree = (props = {}) =>
   }))
 afterEach(() => wrapper?.unmount())
 
-const names = () => wrapper.findAll('.tree-name').map((n) => n.text())
+const names = () => wrapper.findAll('.tree-item .text-truncate').map((n) => n.text())
 const row = (name) => wrapper.findAll('.tree-item').find((r) => r.text() === name)
 
 // Opens the name box with `button` (New file, or a row's Rename), types `name` and presses Enter
@@ -21,7 +21,7 @@ async function typeName(button, name) {
   await button.trigger('click')
   const input = wrapper.get('.tree-input')
   await input.setValue(name)
-  await wrapper.get('.tree-edit').trigger('submit')
+  await wrapper.get('form').trigger('submit')
 }
 
 describe('FileTree', () => {
@@ -62,11 +62,12 @@ describe('FileTree', () => {
     ['logo.png', 'Use a .html, .css, .js, .vue, .json or .md file'],
     ['debug.log', 'Use a .html, .css, .js, .vue, .json or .md file'],
     ['src/App.vue', 'A file with that name already exists'],
+    ['index.html/x.js', 'That name clashes with a file or folder that already exists'],
   ])('refuses %j, which autosave could not save', async (name, error) => {
     mountTree()
     await typeName(wrapper.get('[title="New file"]'), name)
     expect(wrapper.emitted('create')).toBeUndefined()
-    expect(wrapper.get('.tree-error').text()).toBe(error)
+    expect(wrapper.get('.ca-field-error').text()).toBe(error)
   })
 
   it('renaming to the same name changes nothing, and Escape cancels', async () => {
@@ -77,6 +78,25 @@ describe('FileTree', () => {
     await wrapper.get('[title="New file"]').trigger('click')
     await wrapper.get('.tree-input').trigger('keydown', { key: 'Escape' })
     expect(wrapper.find('.tree-input').exists()).toBe(false)
+  })
+
+  it('clicking away keeps the name typed; an untouched box just closes', async () => {
+    mountTree()
+    await wrapper.get('[title="New file"]').trigger('click')
+    await wrapper.get('.tree-input').setValue('src/Cart.vue')
+    await wrapper.get('.tree-input').trigger('blur')
+    expect(wrapper.emitted('create')).toEqual([['src/Cart.vue']])
+
+    await row('main.js').get('[title="Rename"]').trigger('click')
+    await wrapper.get('.tree-input').trigger('blur')
+    expect(wrapper.emitted('rename')).toBeUndefined()
+    expect(wrapper.find('.tree-input').exists()).toBe(false)
+  })
+
+  it('offers no Delete on the last file, since an empty project cannot be saved', () => {
+    mountTree({ filePaths: ['index.html'], selectedFile: 'index.html' })
+    expect(row('index.html').find('[title="Delete"]').exists()).toBe(false)
+    expect(row('index.html').find('[title="Rename"]').exists()).toBe(true)
   })
 
   it('without editable (the replay, the lesson editor) it only browses', () => {

@@ -38,18 +38,28 @@ export async function handleImport(req: Request, deps: ImportDeps): Promise<Resp
 
   try {
     const ref = target.ref ?? (await github.json('GET', base)).default_branch
-    const { tree } = await github.json(
+    const { tree, truncated } = await github.json(
       'GET',
       `${base}/git/trees/${encodeURIComponent(ref)}?recursive=1`,
     )
-    const wanted = importCandidates(tree, dir)
-
-    // Check the limits before downloading, so a huge repo costs one request, not hundreds
-    if (wanted.length > LIMITS.MAX_FILES) {
+    // GitHub stops listing very big repos part way: importing that would silently miss files
+    if (truncated) {
       return fail(
         400,
         'VALIDATION_FAILED',
-        `That has ${wanted.length} source files; a lesson can have at most ${LIMITS.MAX_FILES}`,
+        "That repository is too big to read in one go. Link to the lesson's folder instead (…/tree/main/week6)",
+      )
+    }
+    const wanted = importCandidates(tree, dir)
+
+    // Check the limits before downloading, so a huge repo costs one request, not hundreds.
+    // New lesson adds ca-probe.js after this, so leave room for it unless the repo has one.
+    const room = LIMITS.MAX_FILES - (wanted.some((f) => f.path.endsWith('ca-probe.js')) ? 0 : 1)
+    if (wanted.length > room) {
+      return fail(
+        400,
+        'VALIDATION_FAILED',
+        `That has ${wanted.length} source files; a lesson can have at most ${room} (CodeAlong adds one more)`,
       )
     }
     if (wanted.reduce((sum, f) => sum + f.size, 0) > LIMITS.MAX_BYTES) {

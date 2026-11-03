@@ -15,12 +15,26 @@ describe('NotesPanel', () => {
     expect(wrapper.text()).toContain('props.items, not items')
   })
 
-  it('adds a note, trimmed, and clears the box', async () => {
+  it('adds a note, trimmed, and clears the box once it has saved', async () => {
     const wrapper = mount(NotesPanel)
     await wrapper.get('#note-new').setValue('  watch needs deep: true  ')
     await wrapper.get('form').trigger('submit')
-    expect(wrapper.emitted('add')).toEqual([['watch needs deep: true']])
+    const [[body, done]] = wrapper.emitted('add')
+    expect(body).toBe('watch needs deep: true')
+    // not saved yet (or the save failed): the text stays
+    expect(wrapper.get('#note-new').element.value).toBe('  watch needs deep: true  ')
+    done()
+    await wrapper.vm.$nextTick()
     expect(wrapper.get('#note-new').element.value).toBe('')
+  })
+
+  it('says how long a note may be', async () => {
+    const wrapper = mount(NotesPanel)
+    await wrapper.get('#note-new').setValue('x'.repeat(2001))
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.get('.ca-field-error').text()).toBe(
+      'Notes can be up to 2000 characters. This one has 2001.',
+    )
   })
 
   it("won't send a blank note", async () => {
@@ -31,14 +45,29 @@ describe('NotesPanel', () => {
     expect(wrapper.get('.ca-field-error').text()).toBe('Write something first')
   })
 
-  it('edits and deletes a note', async () => {
+  it('edits a note, closing the editor once it has saved', async () => {
     const wrapper = mount(NotesPanel, { props: { notes: NOTES } })
     await buttonWith(wrapper, 'Edit').trigger('click')
     await wrapper.get('#note-edit-n1').setValue('props.items in the script')
     await wrapper.findAll('form')[0].trigger('submit') // the edit form, above "Add a note"
-    expect(wrapper.emitted('save')).toEqual([['n1', 'props.items in the script']])
+    const [[id, body, done]] = wrapper.emitted('save')
+    expect([id, body]).toEqual(['n1', 'props.items in the script'])
+    expect(wrapper.find('#note-edit-n1').exists()).toBe(true)
+    done()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('#note-edit-n1').exists()).toBe(false)
+  })
 
+  it('asks before deleting a note', async () => {
+    const wrapper = mount(NotesPanel, { props: { notes: NOTES }, attachTo: document.body })
     await buttonWith(wrapper, 'Delete').trigger('click')
+    expect(wrapper.emitted('remove')).toBeUndefined()
+    const confirm = [...document.body.querySelectorAll('button')].find((b) =>
+      b.textContent.includes('Delete note'),
+    )
+    confirm.click()
+    await wrapper.vm.$nextTick()
     expect(wrapper.emitted('remove')).toEqual([['n1']])
+    wrapper.unmount()
   })
 })
