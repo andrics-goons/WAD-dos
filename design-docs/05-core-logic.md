@@ -591,7 +591,7 @@ Prof only, once per class (the function sets `session_reports.digest = { sentAt,
 
 ### Replay
 
-The replay view queries `checkpoints` in `seq` order. For each, the client shows its title, the code with lines changed since the previous checkpoint highlighted (`diffSummary`, client-side), and a live preview (same sandbox as the workspace, read-only). Notes and bookmarks anchor to a `checkpoint_id`.
+The replay view queries `checkpoints` in `seq` order. For each, the client shows its title, the code with lines changed since the previous checkpoint highlighted (`diffSummary`, client-side), and a live preview (same sandbox as the workspace, read-only). Notes anchor to a `checkpoint_id`. **Download code** zips the checkpoint's files in the browser (`downloadProject`). The `bookmark` note kind is no longer used by the app.
 
 Search is `rpc('search')`: a ranked full-text query over checkpoint titles and the caller's own notes, using the GIN index on `notes.body`. Because it is a parameterised function, regex characters in the query are literal — no escaping to remember (T-REP-06).
 

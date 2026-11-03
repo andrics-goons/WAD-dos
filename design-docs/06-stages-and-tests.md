@@ -14,7 +14,7 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | 5 | Status & dashboard | Week 10 | `session_tiles` returns correct state for all 5 cases; idle derives without a write; filters; anonymous slow-down count |
 | 6 | Catch-up | Week 10 | Load checkpoint warns first, offers a .zip download, then replaces the code with the checkpoint |
 | 7 | Help flow | Week 10 | Check my work → pass/reply; Ask for help → claim/resolve; **a replied request can be followed up**; Telegram ping (mock in tests) |
-| 8 | Replay & GitHub | Week 11 | Replay steps through all checkpoints; notes/bookmarks; import + export (one commit per checkpoint) |
+| 8 | Replay & GitHub | Week 11 | Replay steps through all checkpoints; notes; download a checkpoint's code; import + export (one commit per checkpoint) |
 | 9 | Error groups | Week 11 | Grouping matches unit-test expectations (Spotlight dropped) |
 | 10 | Insights | Week 11 | Report built in SQL when the class ends; trouble score + trends; digest sent (mock in tests) |
 | 11 | Hardening | Week 11–12 | Validation + error states everywhere; responsive pass 375 → 1440 px; load test 40 students passes **inside the Realtime free-tier cap** |
@@ -390,7 +390,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-REP-01 | Replay lists checkpoints in order | E2E | Step titles 1…n |
 | T-REP-02 | Changed lines highlighted vs previous checkpoint | E2E | Highlight count matches diff |
 | T-REP-03 | Read-only preview runs | E2E | Preview renders the app at that step |
-| T-REP-04 | Add / edit / delete note and bookmark | E2E | Persist after reload; private to author |
+| T-REP-04 | Add / edit / delete a note | E2E | Persist after reload; private to author |
 | T-REP-05 | Search finds a step title and a note | E2E | Both in results with links |
 | T-REP-06 | Search with regex characters | DB | No crash; literal match (parameterised RPC) |
 | T-REP-07 | Non-member reads a replay | RLS | Zero checkpoints returned |
