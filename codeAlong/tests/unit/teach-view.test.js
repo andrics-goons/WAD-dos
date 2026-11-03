@@ -136,7 +136,7 @@ afterEach(() => {
 })
 
 describe('TeachView', () => {
-  it('opens the class and shows the lesson, join code and who has joined', async () => {
+  it('opens the class and shows the lesson, join code and who is connected', async () => {
     await open()
     expect(live.open).toHaveBeenCalledWith('ses-1')
     live.present = [
@@ -146,7 +146,9 @@ describe('TeachView', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Week 6 · Mini Cart')
     expect(wrapper.find('[data-testid="join-code"]').text()).toBe('CART42')
-    expect(wrapper.text()).toContain('2 joined')
+    expect(wrapper.find('[data-testid="connected-count"]').text()).toContain('2 connected')
+    expect(wrapper.find('[data-testid="connected-count"] .live-dot').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="elapsed"]').text()).toMatch(/\d+:\d{2}/)
   })
 
   it("lets dylan's editor open the class when it can run, and boots the preview", async () => {

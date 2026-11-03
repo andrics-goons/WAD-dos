@@ -250,12 +250,32 @@ onBeforeUnmount(() => {
       <div
         class="session-bar position-relative d-flex flex-wrap align-items-center gap-2 px-3 py-2 border-bottom"
       >
-        <div class="me-auto overflow-hidden">
-          <div class="fw-semibold text-truncate">{{ live.session.lesson.title }}</div>
-        </div>
-        <span class="small text-body-secondary"
-          >{{ live.present.length }} joined · {{ elapsed }}</span
+        <!-- the title with who's here and how long it's run beside it; the buttons go right -->
+        <div
+          class="me-auto d-flex align-items-center column-gap-3 row-gap-1 flex-wrap overflow-hidden"
         >
+          <div class="fw-semibold text-truncate">{{ live.session.lesson.title }}</div>
+          <!-- the two live figures stay together when the bar wraps on a phone -->
+          <div class="d-flex align-items-center column-gap-3 ps-1">
+            <!-- how many students are connected right now (it drops when one closes their tab) -->
+            <span
+              class="small text-nowrap d-inline-flex align-items-center gap-2"
+              data-testid="connected-count"
+            >
+              <span class="live-dot" />
+              <span
+                ><strong>{{ live.present.length }}</strong> connected</span
+              >
+            </span>
+            <!-- how long the class has been running -->
+            <span
+              class="small text-body-secondary text-nowrap d-inline-flex align-items-center gap-1 elapsed"
+              data-testid="elapsed"
+            >
+              <i class="bi bi-clock" />{{ elapsed }}
+            </span>
+          </div>
+        </div>
         <!-- Present: just the editor, full page. The same button brings the dashboard back -->
         <button
           type="button"
@@ -501,6 +521,19 @@ onBeforeUnmount(() => {
 <style scoped>
 .session-bar {
   background: var(--ca-surface);
+}
+/* the green dot before "3 connected": students are live. Brighter than the kit's success
+   green (that one is for text and buttons), with a soft ring so it reads as a live light */
+.live-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 0.2rem rgba(34, 197, 94, 0.25);
+}
+/* same width for every digit, so the time doesn't jiggle as it ticks */
+.elapsed {
+  font-variant-numeric: tabular-nums;
 }
 /* the Announce menu: wide enough for a sentence, never wider than a phone */
 .announce-menu {
