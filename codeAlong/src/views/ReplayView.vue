@@ -22,7 +22,7 @@ const toast = useToastStore()
 const route = useRoute()
 const router = useRouter()
 
-const session = ref(null)
+const session = ref(null) // null after loading: it doesn't exist, or it isn't one of my classes
 const checkpoints = ref([])
 const notes = ref([])
 const loading = ref(true)
@@ -31,6 +31,8 @@ const loadError = ref('')
 const activeSeq = ref(null)
 const active = computed(() => checkpoints.value.find((c) => c.seq === activeSeq.value))
 const previous = computed(() => checkpoints.value.find((c) => c.seq === activeSeq.value - 1))
+// a replay is a class that has ended; a live one is joined, not replayed
+const live = computed(() => session.value?.status === 'live')
 
 onMounted(async () => {
   try {
@@ -43,12 +45,16 @@ onMounted(async () => {
     activeSeq.value = checkpoints.value.some((c) => c.seq === wanted)
       ? wanted
       : (checkpoints.value[0]?.seq ?? null)
+    // ?seq=99 falls back to the first checkpoint: say so in the URL too
+    if (route.query.seq && activeSeq.value !== wanted) router.replace({ query: {} })
   } catch (error) {
     loadError.value = error.message
   } finally {
     loading.value = false
   }
 })
+
+const when = (iso) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 
 function select(seq) {
   activeSeq.value = seq
@@ -59,9 +65,12 @@ function select(seq) {
 const before = ref([])
 const after = ref([])
 const filesLoading = ref(false)
-watch(active, async (cp) => {
+const filesError = ref('') // this checkpoint's code didn't load; never show the last one's instead
+watch(active, (cp) => loadCheckpoint(cp))
+async function loadCheckpoint(cp = active.value) {
   if (!cp) return
   filesLoading.value = true
+  filesError.value = ''
   try {
     const [prev, cur] = await Promise.all([
       previous.value ? store.checkpointFiles(previous.value) : store.starterFiles(session.value),
@@ -71,11 +80,13 @@ watch(active, async (cp) => {
     before.value = prev
     after.value = cur
   } catch (error) {
-    toast.show(error.message, 'danger')
+    if (cp !== active.value) return
+    before.value = after.value = []
+    filesError.value = error.message
   } finally {
     if (cp === active.value) filesLoading.value = false
   }
-})
+}
 
 const notesHere = computed(() =>
   notes.value.filter((n) => n.kind === NoteKind.NOTE && n.checkpointId === active.value?.id),
@@ -89,11 +100,14 @@ const bookmarkedSeqs = computed(() =>
     .map((n) => checkpoints.value.find((c) => c.id === n.checkpointId)?.seq),
 )
 
+// Runs one note change; done() lets the notes panel clear its text box only once it's saved,
+// so a failed save keeps what the student wrote
 const saving = ref(false)
-async function run(action) {
+async function run(action, done = () => {}) {
   saving.value = true
   try {
     await action()
+    done()
   } catch (error) {
     toast.show(error.message, 'danger')
   } finally {
@@ -115,17 +129,17 @@ const toggleBookmark = () =>
     }
   })
 
-const addNote = (body) =>
+const addNote = (body, done) =>
   run(async () => {
     const note = { sessionId: props.sessionId, checkpointId: active.value.id, body }
     notes.value.push(await store.addNote({ ...note, kind: NoteKind.NOTE }))
-  })
+  }, done)
 
-const saveNote = (id, body) =>
+const saveNote = (id, body, done) =>
   run(async () => {
     const saved = await store.editNote(id, body)
     notes.value = notes.value.map((n) => (n.id === id ? saved : n))
-  })
+  }, done)
 
 const removeNote = (id) =>
   run(async () => {
@@ -164,18 +178,58 @@ const repoSlug = (title) =>
       </EmptyState>
     </div>
 
+    <div v-else-if="!session" class="ca-surface">
+      <EmptyState icon="bi-clock-history" title="Replay not found">
+        This class doesn't exist, or it's from a course you're not in.
+        <template #actions>
+          <RouterLink :to="{ name: 'replays' }" class="ca-btn ca-btn--secondary">
+            All replays
+          </RouterLink>
+        </template>
+      </EmptyState>
+    </div>
+
+    <div v-else-if="live" class="ca-surface">
+      <EmptyState icon="bi-broadcast" title="This class is still live">
+        Its replay is ready once the class ends.
+        <template #actions>
+          <RouterLink
+            :to="{ name: 'join', params: { code: session.join_code } }"
+            class="ca-btn ca-btn--primary"
+          >
+            Go to the class
+          </RouterLink>
+        </template>
+      </EmptyState>
+    </div>
+
     <template v-else>
       <div class="ca-page-header">
-        <h1 class="mb-0">{{ session.lesson.title }}</h1>
-        <button
-          v-if="checkpoints.length"
-          type="button"
-          class="ca-btn ca-btn--secondary"
-          data-testid="btn-export-github"
-          @click="exportOpen = true"
-        >
-          <i class="bi bi-github" />Export to GitHub
-        </button>
+        <div>
+          <h1 class="mb-0">{{ session.lesson.title }}</h1>
+          <p class="text-body-secondary small mb-0">
+            {{ session.course.code }} · {{ session.course.section }} · {{ session.course.term }} ·
+            {{ when(session.started_at) }}
+          </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          <RouterLink
+            v-if="session.isStaff"
+            :to="{ name: 'session-report', params: { id: sessionId } }"
+            class="ca-btn ca-btn--ghost"
+          >
+            <i class="bi bi-bar-chart" />Report
+          </RouterLink>
+          <button
+            v-if="checkpoints.length"
+            type="button"
+            class="ca-btn ca-btn--secondary"
+            data-testid="btn-export-github"
+            @click="exportOpen = true"
+          >
+            <i class="bi bi-github" />Export to GitHub
+          </button>
+        </div>
       </div>
 
       <div v-if="exportedUrl" class="alert alert-success d-flex align-items-start gap-2 small">
@@ -218,13 +272,27 @@ const repoSlug = (title) =>
               @click="toggleBookmark"
             >
               <i class="bi" :class="bookmarkHere ? 'bi-bookmark-fill' : 'bi-bookmark'" />
-              {{ bookmarkHere ? 'Bookmarked' : 'Bookmark' }}
+              {{ bookmarkHere ? 'Remove bookmark' : 'Bookmark' }}
             </button>
           </div>
           <div v-if="filesLoading" class="d-flex justify-content-center py-4">
             <span class="spinner-border text-primary">
               <span class="visually-hidden">Loading the code…</span>
             </span>
+          </div>
+          <div v-else-if="filesError" class="ca-surface">
+            <EmptyState
+              icon="bi-exclamation-triangle"
+              title="Couldn't load this checkpoint"
+              compact
+            >
+              {{ filesError }}
+              <template #actions>
+                <button type="button" class="ca-btn ca-btn--secondary" @click="loadCheckpoint()">
+                  Try again
+                </button>
+              </template>
+            </EmptyState>
           </div>
           <DiffView
             v-else
@@ -234,8 +302,10 @@ const repoSlug = (title) =>
             :after-label="`Checkpoint ${active.seq}`"
           />
 
-          <h2 class="fs-6 mt-4 mb-2">Preview</h2>
-          <ReplayPreview :files="after" />
+          <template v-if="!filesError">
+            <h2 class="fs-6 mt-4 mb-2">Preview</h2>
+            <ReplayPreview :files="after" />
+          </template>
         </section>
 
         <aside class="col-12 col-lg-3">

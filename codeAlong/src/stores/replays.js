@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import * as replaysApi from '@/api/replays.api'
 import * as notesApi from '@/api/notes.api'
-import * as sessionsApi from '@/api/sessions.api'
 import * as checkpointsApi from '@/api/checkpoints.api'
 import { loadFiles } from '@/cache/files.js'
 
@@ -11,8 +10,9 @@ export const useReplaysStore = defineStore('replays', () => {
   const list = () => replaysApi.listReplays()
   const search = (q, courseId) => replaysApi.search(q, courseId)
 
-  // the class, its lesson (for the starter code) and its checkpoints, without files
-  const session = (id) => sessionsApi.getSession(id)
+  // the class (null if I can't see it), its lesson (for the starter code) and its checkpoints,
+  // without files
+  const session = (id) => replaysApi.getReplay(id)
   const checkpoints = (id) => checkpointsApi.listCheckpoints(id)
 
   // files through the IndexedDB cache, so stepping back and forth doesn't download again

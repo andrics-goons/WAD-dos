@@ -173,9 +173,18 @@ describe("loading the prof's latest checkpoint", () => {
         const pkg = (deps) => ({ path: "package.json", language: "json", content: deps })
         const store = await loaded([...MINE, pkg("{}")])
         CHECKPOINT.push(pkg('{"axios":"1"}'))
-        expect(await store.loadLatestCheckpoint()).toEqual({ packageChanged: true })
+        expect(await store.loadLatestCheckpoint()).toMatchObject({ packageChanged: true })
         CHECKPOINT.pop()
-        expect(await (await loaded(MINE)).loadLatestCheckpoint()).toEqual({ packageChanged: false })
+        expect(await (await loaded(MINE)).loadLatestCheckpoint()).toMatchObject({ packageChanged: false })
+    })
+
+    it("says whether the checkpoint reached Supabase, so a failed save isn't reported as done", async () => {
+        const store = await loaded(MINE)
+        const { onStatus } = createAutosave.mock.calls.at(-1)[0]
+        saver.flush.mockImplementation(async () => onStatus("retrying"))
+        expect(await store.loadLatestCheckpoint()).toMatchObject({ saved: false })
+        saver.flush.mockImplementation(async () => onStatus("saved"))
+        expect(await store.loadLatestCheckpoint()).toMatchObject({ saved: true })
     })
 })
 

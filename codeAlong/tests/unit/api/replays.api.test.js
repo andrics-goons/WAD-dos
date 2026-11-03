@@ -106,12 +106,57 @@ describe('listReplays', () => {
     })
   })
 
+  it('leaves out an ended class with no checkpoints: there is nothing to replay', async () => {
+    const { data: empty } = await service
+      .from('sessions')
+      .insert({
+        lesson_id: ended.lesson_id,
+        course_id: course.id,
+        started_by: prof.id,
+        join_code: 'NOCKPT',
+        status: 'ended',
+      })
+      .select()
+      .single()
+    await as(stu)
+    const ids = (await replaysApi.listReplays()).map((r) => r.id)
+    expect(ids).toContain(ended.id)
+    expect(ids).not.toContain(empty.id)
+  })
+
   it('T-REP-07: a non-member sees no replay and reads zero checkpoints', async () => {
     await as(outsider)
     const theirs = await replaysApi.listReplays()
     expect(theirs.some((r) => r.courseId === course.id)).toBe(false)
     const { data } = await supabase.from('checkpoints').select('id').eq('session_id', ended.id)
     expect(data).toEqual([])
+  })
+})
+
+describe('getReplay', () => {
+  it('gives the class with its course, and says whether I teach it', async () => {
+    await as(stu)
+    const r = await replaysApi.getReplay(ended.id)
+    expect(r).toMatchObject({
+      id: ended.id,
+      status: 'ended',
+      lesson: { title: 'Week 6 · Mini Cart' },
+      course: { code: 'IS216', section: 'G7', term: 'AY2026/27 T1' },
+      isStaff: false,
+    })
+    await as(prof)
+    expect((await replaysApi.getReplay(ended.id)).isStaff).toBe(true)
+  })
+
+  it('tells a live class apart, so the page can send people to it instead', async () => {
+    await as(stu)
+    expect((await replaysApi.getReplay(live.id)).status).toBe('live')
+  })
+
+  it('is null for a class in a course I am not in, and for a malformed id', async () => {
+    await as(outsider)
+    expect(await replaysApi.getReplay(ended.id)).toBeNull()
+    expect(await replaysApi.getReplay('not-a-uuid')).toBeNull()
   })
 })
 

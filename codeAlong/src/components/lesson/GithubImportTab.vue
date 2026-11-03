@@ -2,7 +2,7 @@
 // The "Import from GitHub" tab of New lesson: paste a repo link, get its starter files.
 // The prof's own GitHub reads the repo, so they connect GitHub first; it comes back to this tab.
 // Emits `imported` with { files, entryFile, source }, which the page handles like an upload.
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useGithubStore } from '@/stores/github'
@@ -16,6 +16,11 @@ const repoUrl = ref('')
 const error = ref('')
 const needsGithub = ref(false) // not connected, or the connection expired
 const loading = ref(false)
+
+// offer Connect GitHub straight away, rather than after a failed import
+onMounted(async () => {
+  needsGithub.value = !(await github.connected())
+})
 
 async function importRepo() {
   error.value = ''
@@ -49,21 +54,22 @@ async function connect() {
       <input
         id="repo"
         v-model="repoUrl"
-        type="url"
         class="ca-input"
         :class="{ 'ca-input--invalid': error }"
-        placeholder="https://github.com/your-prof/week6-mini-cart"
-        required
+        placeholder="github.com/your-prof/week6-mini-cart"
       />
       <button type="submit" class="ca-btn ca-btn--primary" :disabled="loading || !repoUrl.trim()">
         <span v-if="loading" class="spinner-border spinner-border-sm" />Import
       </button>
     </div>
     <p v-if="error" class="ca-field-error">{{ error }}</p>
+    <p v-else-if="needsGithub" class="ca-field-hint">
+      Connect GitHub first: CodeAlong reads the repository with your own account, so private ones
+      you can open work too.
+    </p>
     <p v-else class="ca-field-hint">
-      The whole repository, or one folder of it (…/tree/main/week6). Read with your own GitHub
-      account, so private repositories you can open work too. CodeAlong adds its error reporter
-      (src/ca-probe.js) so students' errors reach you.
+      The whole repository, or one folder of it (…/tree/main/week6). CodeAlong adds one small file
+      so errors in students' apps reach you.
     </p>
     <button
       v-if="needsGithub"

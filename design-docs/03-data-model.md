@@ -263,14 +263,14 @@ Built by the **lessons migration** (`supabase/migrations/…_lessons.sql`), toge
 | `id` | `uuid` PK | |
 | `course_id` | `uuid not null → courses` on delete cascade | |
 | `title` | `text not null check (char_length(title) between 1 and 100)` | e.g. "Week 6 · Mini Cart" |
-| `week` | `int check (week between 1 and 13)` | Optional; orders the library |
+| `week` | `int check (week between 1 and 13)` | Optional; orders the library. **One lesson per week in a course:** unique index `lessons_course_week_key (course_id, week) where week is not null and status is distinct from 'archived'`, so archiving a lesson frees its week. `lessons.api.js` turns the 23505 into `CONFLICT` "Another lesson in this course already has that week" |
 | `description` | `text check (char_length(description) <= 500)` | |
 | `files` | `jsonb not null check (public.files_valid(files) and octet_length(files::text) <= 200000)` | Starter code — a real Vite project, source files only |
 | `files_hash` | `text generated always as (md5(files::text)) stored` | Cheap change check for the IndexedDB cache — the client selects this, not `files` |
 | `entry_file` | `text not null` | `index.html` for the dev server; checked by the `entry_file_exists` constraint |
 | `dev_command` | `text not null default 'pnpm dev'` (1–200 chars) | What WebContainer spawns |
 | `source` | `jsonb` | `{ type: 'upload' \| 'github', repo, ref, dir }` |
-| `status` | `text not null default 'draft' check (status in ('draft','ready','archived'))` | Only `ready` can start a session; **students never see `draft`** |
+| `status` | `text not null default 'draft' check (status in ('draft','ready','archived'))` | Only `ready` can start a session (the lesson library's **Start** on a draft marks it `ready` first); **students never see `draft`**; the library hides `archived` unless "Show archived lessons" is ticked (students can too, for their past classes) |
 | `created_by` | `uuid not null default auth.uid() → profiles` | Filled in automatically; the insert policy refuses anyone else's id |
 | `created_at` / `updated_at` | `timestamptz not null default now()` | `updated_at` maintained by `set_updated_at()` |
 

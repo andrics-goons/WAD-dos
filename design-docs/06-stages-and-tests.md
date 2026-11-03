@@ -207,6 +207,8 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-LES-06 | Delete a lesson that was taught | DB | Trigger raises `CONFLICT` → UI offers Archive |
 | T-LES-07 | What an enrolled student can read | RLS | A **draft** lesson: zero rows. A **ready** lesson: visible, with its starter `files` (RLS can't hide one column; starter files aren't secret — see [03](./03-data-model.md#policies-1)) |
 | T-LES-08 | An uploaded or imported project gets the error reporter (`addProbe`, [lesson-import-requirements](./lesson-import-requirements.md)) | Unit | `src/ca-probe.js` added, imported first by the entry script, `ca-errors` in `vite.config.js`, Vite 8 pins; running it twice changes nothing; a project it can't patch is rejected with a message |
+| T-LES-09 | Two lessons in one course with the same week | DB + Unit | Second insert / update fails with `CONFLICT` "Another lesson in this course already has that week…" (New lesson says so at Next: "Week N already has …"); archived lessons and lessons without a week don't count |
+| T-LES-10 | Start class on the lesson list | Unit | Only a ready file that has never been taught shows Start class, and it starts straight away; a draft, or a file with a class, has none (Start new session on its week folder brings in code instead) |
 | T-TODO-* | ~~TODO parser~~ | — | Removed with lesson steps |
 
 ### SESS — Live session engine · `live-session.spec.js`

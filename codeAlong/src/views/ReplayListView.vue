@@ -34,6 +34,8 @@ const groups = computed(() => {
 })
 
 const when = (iso) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+const day = (iso) => new Date(iso).toLocaleDateString([], { dateStyle: 'medium' })
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 // Search: null until the first search, then the results (possibly none)
 const q = ref('')
@@ -41,10 +43,7 @@ const results = ref(null)
 const searching = ref(false)
 const searchError = ref('')
 async function runSearch() {
-  if (!q.value.trim()) {
-    results.value = null
-    return
-  }
+  if (!q.value.trim()) return clearSearch()
   searching.value = true
   searchError.value = ''
   try {
@@ -82,7 +81,12 @@ function clearSearch() {
         <span v-if="searching" class="spinner-border spinner-border-sm" />
         <i v-else class="bi bi-search" />Search
       </button>
-      <button v-if="results" type="button" class="ca-btn ca-btn--ghost" @click="clearSearch">
+      <button
+        v-if="results || searchError"
+        type="button"
+        class="ca-btn ca-btn--ghost"
+        @click="clearSearch"
+      >
         Clear
       </button>
     </form>
@@ -107,7 +111,7 @@ function clearSearch() {
           class="list-group-item list-group-item-action"
         >
           <div class="ca-eyebrow">
-            {{ r.courseCode }} · {{ r.lessonTitle }} ·
+            {{ r.courseCode }} · {{ r.lessonTitle }} · {{ day(r.startedAt) }} ·
             {{ r.kind === 'note' ? 'My note' : 'Checkpoint' }}
           </div>
           <div class="fw-semibold text-body">{{ checkpointLabel(r.seq, r.title) }}</div>
@@ -136,6 +140,7 @@ function clearSearch() {
         <section v-for="g in groups" :key="g.courseId" class="mb-4">
           <h2 class="fs-5 mb-3">
             {{ g.course.code }} · {{ g.course.section }} · {{ g.course.title }}
+            <span class="fs-6 fw-normal text-body-secondary">{{ g.course.term }}</span>
           </h2>
           <div class="list-group">
             <RouterLink
@@ -146,7 +151,7 @@ function clearSearch() {
             >
               <span class="fw-semibold text-body me-auto">{{ r.lessonTitle }}</span>
               <span class="small text-body-secondary">
-                {{ when(r.startedAt) }} · {{ r.checkpointCount }} checkpoints
+                {{ when(r.startedAt) }} · {{ plural(r.checkpointCount, 'checkpoint') }}
               </span>
             </RouterLink>
           </div>

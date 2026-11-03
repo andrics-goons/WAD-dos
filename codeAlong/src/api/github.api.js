@@ -21,9 +21,17 @@ async function githubToken() {
     data: { session },
   } = await supabase.auth.getSession()
   if (!session?.provider_token) {
-    throw new AppError('UNAUTHENTICATED', 'Sign in to GitHub again to continue', { status: 401 })
+    throw new AppError('UNAUTHENTICATED', 'Connect GitHub to continue', { status: 401 })
   }
   return session.provider_token
+}
+
+/** Whether this browser holds a GitHub sign-in right now, so pages can offer Connect up front */
+export async function hasGithubToken() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  return !!session?.provider_token
 }
 
 /** A public repo's starter files for New lesson, read with my own GitHub: { files, entryFile, source } */

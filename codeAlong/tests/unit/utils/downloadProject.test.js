@@ -11,10 +11,15 @@ const FILES = [
 afterEach(() => vi.restoreAllMocks())
 
 describe('downloadProject', () => {
-  it('T-CATCH-02: zips every file at its own path, folders included', () => {
-    const unzipped = unzipSync(zipProject(FILES))
-    expect(Object.keys(unzipped)).toEqual(['index.html', 'src/components/ItemCard.vue'])
-    expect(strFromU8(unzipped['src/components/ItemCard.vue'])).toBe('<template>é ✓</template>')
+  it('T-CATCH-02: zips every file at its own path, inside one folder named after the lesson', () => {
+    const unzipped = unzipSync(zipProject(FILES, 'Week 6 · Mini Cart'))
+    expect(Object.keys(unzipped)).toEqual([
+      'week-6-mini-cart/index.html',
+      'week-6-mini-cart/src/components/ItemCard.vue',
+    ])
+    expect(strFromU8(unzipped['week-6-mini-cart/src/components/ItemCard.vue'])).toBe(
+      '<template>é ✓</template>',
+    )
   })
 
   it('downloads it as a .zip named after the lesson', () => {

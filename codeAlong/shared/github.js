@@ -6,14 +6,18 @@ import { isIgnored, languageForPath } from './lesson-files.js'
 
 // 'https://github.com/owner/repo[/tree/<ref>/<dir>]' -> { owner, repo, ref, dir }; null if it isn't one.
 // ref is null when the link doesn't name a branch (the repo's default branch is used).
+// Also takes the links people copy from the address bar: no https://, http://, www., a
+// ?tab=… or #readme on the end, or a file's /blob/<ref>/<path> (that file's folder is imported).
 export function parseRepoUrl(url) {
   const match = String(url)
     .trim()
+    .replace(/[?#].*$/, '')
     .match(
-      /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?(?:\/tree\/([^/]+)(?:\/(.+?))?)?\/?$/,
+      /^(?:https?:\/\/)?(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?(?:\/(tree|blob)\/([^/]+)(?:\/(.+?))?)?\/?$/,
     )
   if (!match) return null
-  const [, owner, repo, ref = null, dir = ''] = match
+  const [, owner, repo, kind, ref = null, rest = ''] = match
+  const dir = kind === 'blob' ? rest.split('/').slice(0, -1).join('/') : rest
   return { owner, repo, ref, dir }
 }
 
