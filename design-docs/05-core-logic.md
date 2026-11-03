@@ -208,27 +208,28 @@ $$;
 
 > **Direction matters.** Autosave is an **upload** — ingress — and the 5 GB free-tier cap is on **egress**. Delta sync buys faster saves on lab wifi and less row churn; it is *not* what protects the egress budget. The `files_hash` read cache above is. Don't conflate the two when tuning.
 
-### Dependency caching — build it only if the cold install hurts
+### Dependency caching — built (`src/runtime/install.js`)
 
-**Decision deferred to measurement, deliberately.** The rule "no `node_modules` in storage" exists to protect the 5 GB Supabase egress budget, and for anything crossing the network it stays absolute. But IndexedDB is local: caching dependencies there costs **zero** Supabase egress.
-
-So if Dylan's spike finds the cold `pnpm install` is slow enough to hurt — a stalled rejoin, or a stalled **Load checkpoint** when `package.json` changed between checkpoints — the fix is a local dependency cache:
+`node_modules` only lives in the WebContainer's memory, so a reload, a new tab or another class meant downloading every package again (a cold `pnpm i` for Mini Cart measured **~16 s**). It's now cached **in IndexedDB on the device** — zero Supabase egress, and only public npm packages, so shared lab computers are fine:
 
 ```
-first boot    → pnpm install → container.export('/node_modules') → IndexedDB
-later boots   → IndexedDB → container.mount() → skip install entirely
-invalidated by → hash of (package.json + pnpm-lock.yaml)
+install finishes   → pnpm rewrites node_modules/.modules.yaml (its last write) → wait 3 s
+                   → container.export('node_modules', binary, minus .vite/.cache) + the lockfile
+                   → IndexedDB, keyed by a SHA-256 of package.json
+workspace boots    → same package.json? mount it back into node_modules + write the lockfile
+                   → pnpm i: "Already up to date" in ~0.6 s, no downloads; pnpm dev at once
 ```
+
+`startWorkspace` (both the workspace and the Teach view) restores right after mounting the source files, then starts watching, so the restore itself never counts as an install.
 
 | | |
 |---|---|
-| **Build it if** | cold install > ~15 s, or catch-up regularly triggers a reinstall |
-| **Skip it if** | installs are already fast (StackBlitz claims several times faster than local) |
-| **Cost** | 50–120 MB of IndexedDB per dependency set — significant on a lab laptop with several lessons cached |
-| **Eviction** | Same as any cache: a miss means a reinstall, never broken state |
-| **Egress impact** | None. This is entirely local |
-
-Until that measurement exists, we install on boot and keep the code path simple. The spike result goes in the README either way, so the decision is on record.
+| **The lockfile is part of a set** | pnpm writes it into the project, but it's never synced (`SYNC_IGNORE`), so a reload loses it. Without it pnpm re-resolves every package and the WebContainer's own pnpm hook fails with "Invalid package" |
+| **Exact match only** | A different `package.json` restores nothing; pnpm installs as before. Topping up an older set doesn't work here (measured: the WebContainer's pnpm re-downloads everything anyway, or fails), so a clean install is the simple, safe path |
+| **Changing packages later** | In a tab that installed for itself, pnpm still has its store, so `pnpm add` / a changed checkpoint only fetches what's new (measured: 1 download, 0.8 s). A **restored** tab has no store — it lives at `/home/.local/share/pnpm/store`, outside the project, and `mount` can't reach it — so when **Load latest checkpoint** changes `package.json` there, `forgetRestoredPackages` clears the restored packages and the next `pnpm i` is a clean one |
+| **Size** | ~65 MB per Vite + Vue set; the **2 most recently used** sets are kept (`packages:index`, each set's snapshot in `packages:<key>:modules`). Chrome refuses one IndexedDB value over ~128 MB, so a set over 120 MB isn't saved, and the index is only written once the snapshot is |
+| **Eviction / failure** | Same as any cache: a miss, a refused write or a failed mount just means a normal install, never broken state |
+| **Offline** | Packages being there means `pnpm i` / `pnpm dev` need no registry. Reloading the page offline still can't work: `WebContainer.boot()` downloads its runtime from StackBlitz |
 
 ### Why there is no mock API any more
 

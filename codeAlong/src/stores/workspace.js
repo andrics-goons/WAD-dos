@@ -2,6 +2,7 @@ import { ref, computed, toRaw } from 'vue'
 import { defineStore } from 'pinia'
 import { writeToContainer, debounceByPath } from '@/runtime/sync'
 import { getWebContainer } from '@/runtime/webcontainer'
+import { forgetRestoredPackages } from '@/runtime/install'
 import { findMyAutosave } from '@/api/files.api'
 import { loadFiles } from '@/cache/files.js'
 import { createAutosave } from '@/cache/autosave.js'
@@ -134,6 +135,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
             if (!keep.has(f.path)) await webcontainer.fs.rm(f.path, { force: true })
         }
         for (const f of next) await writeToContainer(webcontainer, f.path, f.content)
+        // packages put back from this device's cache can't be topped up in a WebContainer, so
+        // clear them: the pnpm install the workspace asks for is then a clean one
+        if (packageChanged) await forgetRestoredPackages(webcontainer)
 
         files.value = structuredClone(next)
         if (!keep.has(selectedFile.value)) selectedFile.value = session.session.lesson.entry_file

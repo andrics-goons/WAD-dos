@@ -154,7 +154,7 @@ Items marked **(moved)** changed owner in the [Week 8 rebalance](#rebalance-week
 |---|---|:---:|
 | **WebContainer runtime: boot, mount, spawn, server-ready → preview URL** | `src/runtime/container.js` | ⬜ |
 | Install flow + streamed terminal output + boot/install states | `src/runtime/install.js`, `terminal.js`, `components/workspace/BootState.vue` | ⬜ |
-| Dependency-change detection and reinstall on catch-up; the IndexedDB dependency cache **only if** spike #3 says so | `src/runtime/install.js` | ⬜ |
+| Dependency-change detection and reinstall on catch-up; the IndexedDB dependency cache (built: a cold install was ~16 s, a restored one ~0.6 s — 05 §2) | `src/runtime/install.js` | ✅ |
 | `parseBuildError()` — strips the code frame before normalising | `shared/build-error.js` | ⬜ |
 | Runtime probe, shipped in the lesson template | lesson `src/ca-probe.js` | ⬜ |
 | IDE shell (tree rail at lg, offcanvas at xs; tabs; panes) — embeds Ray Yien's `FileTree` | `views/WorkspaceView.vue` | ⬜ |
