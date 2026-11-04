@@ -197,6 +197,8 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-24 | **The owner removes a TA** | RLS + API | Only the owner, only a TA row (never themselves); the TA loses the course, a request they'd claimed goes back to `open`, and their account is `student` again unless they still TA elsewhere |
 | T-PLAT-25 | **A student leaves a course** | RLS + API | Only an enrolled student; their snapshots, progress, Slow down, help requests and notes in that course are gone and they lose the course and its replays; the classes, other students and their other courses are untouched |
 | T-PLAT-26 | Home's My courses puts a live class's course first | Unit | Of 3 shown, a course with a class live right now comes first even if it is the oldest, the rest newest first; "See all (n)" appears with more than 3 courses and a plain "See all" otherwise |
+| T-PLAT-27 | The profile page is split into chapters | Unit + browser | Profile shows first, the sidebar switches chapter and the URL follows, an unknown `?chapter=` falls back to Profile, what's half typed survives a switch, and connecting GitHub returns to Connections |
+| T-PLAT-28 | Everyone can connect GitHub and Telegram | Unit + browser | Both cards show in Connections for a student, a TA, a prof and an admin |
 
 ### LESSON — Lessons · `lessons.spec.js`, `lesson-edit-view.test.js`
 

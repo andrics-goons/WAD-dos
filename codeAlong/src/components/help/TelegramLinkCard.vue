@@ -3,7 +3,8 @@ import { onMounted, ref } from 'vue'
 import { useTelegramStore } from '@/stores/telegram'
 import { useToastStore } from '@/stores/toast'
 
-// Staff link Telegram here to get a message when a student asks for help in person.
+// Anyone can link Telegram here. Staff get a message when a student asks for help in person, and
+// the class digest; students get the digest's "You missed…" for a class they didn't join.
 // Link → open the bot and press Start → "Check" shows it's done.
 const telegram = useTelegramStore()
 const toast = useToastStore()
@@ -44,20 +45,21 @@ const unlink = () =>
 </script>
 
 <template>
-  <div class="ca-card h-100">
-    <h2 class="h3">Telegram</h2>
+  <div>
+    <h2 class="h3"><i class="bi bi-telegram" /> Telegram</h2>
 
     <template v-if="telegram.linked">
-      <p>
-        <i class="bi bi-check-circle-fill me-1" />Linked. You'll get a message here when a student
-        asks for help in person.
+      <p class="small mb-4">
+        <i class="bi bi-check-circle-fill me-1" />Linked. You'll get a message here about a class
+        you miss and, in a class you teach or help with, when a student asks for help in person.
       </p>
       <button class="ca-btn ca-btn--secondary" :disabled="busy" @click="unlink">Unlink</button>
     </template>
 
     <template v-else>
-      <p class="text-body-secondary">
-        Get a Telegram message when a student asks you to come to their seat.
+      <p class="text-body-secondary small mb-4">
+        Get a Telegram message about a class you miss, with where to start in the replay. In a class
+        you teach or help with, you'll also hear when a student asks you to come to their seat.
       </p>
       <button v-if="!link" class="ca-btn ca-btn--primary" :disabled="busy" @click="getLink">
         <i class="bi bi-telegram" />Link Telegram

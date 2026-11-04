@@ -67,6 +67,13 @@
   --bs-btn-active-bg: var(--ca-brand-active);
   --bs-btn-focus-shadow-rgb: 79, 70, 229;
 }
+/* sidebars and other pill navs: muted until active, then the light tint, not Bootstrap's blue */
+.nav-pills {
+  --bs-nav-link-color: var(--ca-text-muted);
+  --bs-nav-link-hover-color: var(--ca-text);
+  --bs-nav-pills-link-active-bg: var(--ca-brand-subtle);
+  --bs-nav-pills-link-active-color: var(--ca-brand);
+}
 .form-control:focus,
 .form-select:focus,
 .form-check-input:focus {

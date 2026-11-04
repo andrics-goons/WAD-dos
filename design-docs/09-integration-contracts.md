@@ -425,7 +425,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Replay | `timeline-checkpoint-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
 | Reports | `report-funnel`, `report-most-loaded`, `report-top-errors`, `btn-send-digest`, `digest-sent` |
 | Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login`, `btn-github-login`, `btn-role-student`, `btn-role-educator` (`/welcome`), `link-register`, `link-login` |
-| Profile | `input-profile-name`, `btn-save-name`, `input-current-password`, `input-new-password`, `btn-change-password`, `btn-logout`, `btn-connect-github`, `btn-disconnect-github`, `btn-delete-account`, `input-confirm-delete`, `ta-courses`, `github-username` |
+| Profile | `profile-chapter-<key>` (the sidebar: `profile`, `connections`), `chapter-<key>` (that chapter), `input-profile-name`, `btn-save-name`, `input-current-password`, `input-new-password`, `btn-change-password`, `btn-logout`, `btn-connect-github`, `btn-disconnect-github`, `btn-delete-account`, `input-confirm-delete`, `ta-courses`, `github-username` |
 | Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `input-user-search` |
 
 ---
