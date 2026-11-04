@@ -7,13 +7,13 @@ import { mapError } from './mapError'
 
 /**
  * Ended classes in every course I'm in (RLS), newest first. A class with no checkpoints has
- * nothing to step through, so it isn't listed.
+ * nothing to step through, so it isn't listed. lessonId lets the page group a lesson's classes.
  */
 export async function listReplays() {
   const { data, error } = await supabase
     .from('sessions')
     .select(
-      'id, course_id, checkpoint_seq, started_at, ended_at, lessons(title), courses(code, title, section, term)',
+      'id, course_id, lesson_id, checkpoint_seq, started_at, ended_at, lessons(title), courses(code, title, section, term)',
     )
     .eq('status', 'ended')
     .gt('checkpoint_seq', 0)
@@ -22,6 +22,7 @@ export async function listReplays() {
   return data.map((row) => ({
     id: row.id,
     courseId: row.course_id,
+    lessonId: row.lesson_id,
     checkpointCount: row.checkpoint_seq,
     startedAt: row.started_at,
     endedAt: row.ended_at,
