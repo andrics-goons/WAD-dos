@@ -31,6 +31,8 @@ const claimedByOther = computed(
 // The code: reloads when a follow-up points the request at a newer snapshot
 const studentFiles = ref(null)
 const checkpoint = ref(null)
+// what the student's code is compared with: the checkpoint, or the starter code before the first
+const baseline = ref([])
 const codeError = ref('')
 watch(
   () => props.request.snapshot_id,
@@ -38,10 +40,21 @@ watch(
     studentFiles.value = null
     codeError.value = ''
     try {
-      ;[studentFiles.value, checkpoint.value] = await Promise.all([
+      const [files, cp] = await Promise.all([
         help.studentFiles(snapshotId),
         help.checkpointFor(props.request.session_id, props.request.checkpoint_seq),
       ])
+      // if the starter code can't be had, the diff just shows everything, as before
+      let base = cp?.files ?? []
+      if (!cp) {
+        try {
+          base = await help.starterFiles()
+        } catch {
+          base = []
+        }
+      }
+      // set together, so the diff never shows against an empty baseline first
+      ;[studentFiles.value, checkpoint.value, baseline.value] = [files, cp, base]
     } catch (error) {
       codeError.value = error.message
     }
@@ -173,13 +186,28 @@ async function reply() {
 
     <!-- The code -->
     <section>
-      <h3 class="fs-6 mb-2">
-        Their code
-        <span class="fw-normal text-body-secondary">
-          <template v-if="checkpoint">compared with checkpoint {{ checkpoint.seq }}</template>
-          <template v-else-if="studentFiles">— asked before the first checkpoint</template>
-        </span>
-      </h3>
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <h3 class="fs-6 mb-0 me-auto">
+          Their code
+          <span class="fw-normal text-body-secondary">
+            <template v-if="checkpoint">compared with checkpoint {{ checkpoint.seq }}</template>
+            <template v-else-if="studentFiles"
+              >compared with the starter code (asked before the first checkpoint)</template
+            >
+          </span>
+        </h3>
+        <!-- their code in an editor, terminal and preview of your own, in a new tab (nothing is saved) -->
+        <RouterLink
+          v-if="studentFiles"
+          :to="{ name: 'help-code', params: { requestId: request.id } }"
+          target="_blank"
+          rel="noopener"
+          class="ca-btn ca-btn--secondary ca-btn--sm"
+          data-testid="btn-open-in-editor"
+        >
+          <i class="bi bi-box-arrow-up-right" />Open in editor
+        </RouterLink>
+      </div>
       <p v-if="codeError" class="text-danger small">Couldn't load the code: {{ codeError }}</p>
       <div v-else-if="!studentFiles" class="d-flex justify-content-center py-4">
         <span class="spinner-border text-primary">
@@ -189,9 +217,9 @@ async function reply() {
       <!-- red: in the checkpoint but not in their code · green: what they have instead -->
       <DiffView
         v-else
-        :before="checkpoint?.files ?? []"
+        :before="baseline"
         :after="studentFiles"
-        before-label="Checkpoint"
+        :before-label="checkpoint ? 'Checkpoint' : 'Starter code'"
         :after-label="`${request.student?.name ?? 'Student'}'s code`"
       />
     </section>

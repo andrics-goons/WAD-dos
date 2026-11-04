@@ -156,6 +156,22 @@ const routes = [
     meta: { auth: true, roles: STAFF, title: 'Help request', back: () => ({ label: 'Back' }) },
   },
   {
+    // a TA's own runnable copy of the student's code; opened in a new tab from the review panel
+    path: '/help/:requestId/code',
+    name: 'help-code',
+    component: () => import('@/views/HelpCodeView.vue'),
+    props: true,
+    meta: {
+      auth: true,
+      roles: STAFF,
+      title: "Student's code",
+      back: (route) => ({
+        label: 'Back to the request',
+        to: { name: 'help-review', params: { requestId: route.params.requestId } },
+      }),
+    },
+  },
+  {
     path: '/sessions/:id/report',
     name: 'session-report',
     component: () => import('@/views/ReportView.vue'),

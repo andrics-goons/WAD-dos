@@ -55,6 +55,16 @@ describe('help store', () => {
     expect(sessionStore.onChange).toHaveBeenCalledWith('help_requests', expect.any(Function))
   })
 
+  it("T-HELP-22: starterFiles loads the open class's lesson files, from the cache by hash", async () => {
+    const files = [{ path: 'index.html', content: 'start' }]
+    vi.mocked(loadFiles).mockResolvedValue(files)
+    sessionStore.session = { lesson_id: 'les-1', lesson: { files_hash: 'h1' } }
+    expect(await useHelpStore().starterFiles()).toEqual(files)
+    expect(loadFiles).toHaveBeenCalledWith('lesson', 'les-1', 'h1')
+    sessionStore.session = null
+    expect(await useHelpStore().starterFiles()).toEqual([]) // no class open: nothing to compare with
+  })
+
   it('a change to a request it has updates it in place and keeps the name', async () => {
     const help = useHelpStore()
     await help.open('s1')

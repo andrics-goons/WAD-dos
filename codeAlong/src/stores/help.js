@@ -95,6 +95,14 @@ export const useHelpStore = defineStore('help', () => {
     }
   }
 
+  // The lesson's starter files, from the class that's open. Before the first checkpoint a request
+  // is compared with these, so only what the student changed shows, not the whole project
+  async function starterFiles() {
+    const session = useSessionStore().session
+    if (!session) return []
+    return loadFiles('lesson', session.lesson_id, session.lesson.files_hash)
+  }
+
   return {
     requests,
     staffNames,
@@ -113,5 +121,6 @@ export const useHelpStore = defineStore('help', () => {
     reply,
     studentFiles,
     checkpointFor,
+    starterFiles,
   }
 })

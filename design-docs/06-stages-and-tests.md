@@ -388,6 +388,8 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-HELP-19 | Earlier replies survive a follow-up | E2E | Second reply is appended to `thread`; the first is still shown |
 | T-HELP-20 | The reply form's buttons are spaced below the reply box | Unit | On a claimed request, the row of Send reply / Pass / Resolved / Release has a gap (`mt-3`) under the textarea |
 | T-HELP-21 | The queue's Handled list can be folded away | Unit | The heading toggles it, the count stays visible, the waiting requests are never hidden, the choice is remembered on the device, and there is no heading when nothing has been handled |
+| T-HELP-22 | A request before the first checkpoint is compared with the starter code | Unit | The review panel's baseline is the lesson's starter files (labelled "Starter code"), so only files the student changed show; with a checkpoint it is still compared with that; if the starter code can't be loaded it falls back to the empty baseline |
+| T-HELP-23 | A TA can open a student's code in an editor of their own | Unit | **Open in editor** (once the code has loaded) links to `/help/:id/code` with `target="_blank"` and `rel="noopener"`; that page loads the snapshot into the editor, boots a WebContainer with it, and says nothing is saved; edits go to the running project but never to the cached original or to any save; a missing request shows not-found, a page that can't run WebContainers keeps the editor and says why, and leaving stops the workspace |
 
 ### TG — Telegram linking & webhook · `telegram.test.js`, `insights.spec.js`
 
