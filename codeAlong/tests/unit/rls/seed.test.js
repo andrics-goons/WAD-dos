@@ -263,6 +263,8 @@ describe.skipIf(!isSeeded)('seed.sql', () => {
         )
         .not('analysis->category', 'is', null)
       expect(requests.length).toBeGreaterThanOrEqual(9)
+      // the analyses that point at a blank line, or one the baseline has too
+      const wrong = []
       for (const r of requests) {
         const { file, line } = r.analysis.stuckAt
         // what the help review compares their code with: the checkpoint, or the starter code
@@ -274,12 +276,10 @@ describe.skipIf(!isSeeded)('seed.sql', () => {
           .maybeSingle()
         const baseline = (cp?.files ?? r.session.lesson.files).find((f) => f.path === file).content
         const theirs = r.snapshot.files.find((f) => f.path === file).content.split('\n')[line - 1]
-        expect(theirs?.trim(), `${r.analysis.summary} (${file}:${line})`).toBeTruthy()
-        expect(
-          baseline.split('\n').map((l) => l.trim()),
-          r.analysis.summary,
-        ).not.toContain(theirs.trim())
+        const same = baseline.split('\n').some((l) => l.trim() === theirs?.trim())
+        if (!theirs?.trim() || same) wrong.push(`${r.analysis.summary} (${file}:${line})`)
       }
+      expect(wrong).toEqual([])
     })
   })
 
