@@ -241,3 +241,48 @@ describe('LessonEditView', () => {
     expect(continueButton().text()).toBe('Continue') // nothing changed
   })
 })
+
+describe('T-LES-14: the prof can add, rename and delete starter files', () => {
+  const tree = () => wrapper.findComponent(FileTree)
+  const sent = () => api.updateLesson.mock.lastCall[1]
+
+  it('turns on the file tree, and a new file is saved with its language', async () => {
+    await open()
+    expect(tree().props('editable')).toBe(true)
+    tree().vm.$emit('create', 'src/components/ItemCard.vue')
+    await flushPromises()
+    await clickText('Save and continue')
+    expect(sent().files).toContainEqual({
+      path: 'src/components/ItemCard.vue',
+      language: 'vue',
+      content: '',
+    })
+  })
+
+  it('renaming the entry file takes the entry file with it', async () => {
+    await open()
+    tree().vm.$emit('rename', 'index.html', 'home.html')
+    await flushPromises()
+    await clickText('Save and continue')
+    expect(sent().entryFile).toBe('home.html')
+    expect(sent().files.map((f) => f.path)).toEqual(['home.html', 'src/app.js'])
+  })
+
+  it('asks before deleting a file, and Save sends the files without it', async () => {
+    await open()
+    tree().vm.$emit('delete', 'src/app.js')
+    await flushPromises()
+    expect(document.body.querySelector('.ca-modal').textContent).toContain('Delete src/app.js?')
+    await confirmModal()
+    await clickText('Save and continue')
+    expect(sent().files.map((f) => f.path)).toEqual(['index.html'])
+  })
+
+  it("won't delete the entry file, the page the app starts from", async () => {
+    await open()
+    tree().vm.$emit('delete', 'index.html')
+    await flushPromises()
+    expect(document.body.querySelector('.ca-modal')).toBeNull()
+    expect(useToastStore(pinia).messages.at(-1).text).toContain("can't be deleted")
+  })
+})
