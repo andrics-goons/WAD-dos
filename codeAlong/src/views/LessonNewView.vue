@@ -4,8 +4,9 @@
 // upload + parsing happen in the browser, create lesson saves through lessons.api.js
 // saving needs the lessons table and a real course id in the url
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import GithubImportTab from '@/components/lesson/GithubImportTab.vue'
+import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import { useLessonsStore } from '@/stores/lessons'
 import { useSessionStore } from '@/stores/session'
 import { useToastStore } from '@/stores/toast'
@@ -109,6 +110,29 @@ function next() {
   stage.value++
 }
 
+// Leaving once files are picked (on either step) would lose them, so ask first. This catches every
+// way out: Back to course, the navbar and the browser's Back. Closing or reloading the tab gets the
+// browser's own warning instead. Creating the lesson leaves on purpose, so it doesn't ask.
+const confirmLeave = ref(false)
+let leaveTo = null // where the prof was going
+let leaving = false // set once they've confirmed, or the lesson is created
+onBeforeRouteLeave((to) => {
+  if (leaving || !files.value.length) return true
+  leaveTo = to.fullPath
+  confirmLeave.value = true
+  return false
+})
+function leave() {
+  leaving = true
+  confirmLeave.value = false
+  router.push(leaveTo)
+}
+const warnOnClose = (event) => {
+  if (files.value.length && !leaving) event.preventDefault()
+}
+window.addEventListener('beforeunload', warnOnClose)
+onBeforeUnmount(() => window.removeEventListener('beforeunload', warnOnClose))
+
 async function create() {
   saving.value = true
   try {
@@ -122,6 +146,7 @@ async function create() {
       // Set by where the files came from, not by the tab that happens to be open now.
       source: githubSource.value ?? { type: 'upload' },
     })
+    leaving = true // saved: going to the editor or the class doesn't need asking
     if (startingClass) {
       await lessons.update(lesson.id, { status: 'ready' })
       const session = await sessions.start(lesson.id)
@@ -131,6 +156,7 @@ async function create() {
     toast.show("Lesson created. It's hidden from students until you make it visible", 'success')
     router.replace({ name: 'lesson-edit', params: { id: lesson.id } })
   } catch (err) {
+    leaving = false
     toast.show(err.message, 'danger', { title: "Couldn't create the lesson" })
   } finally {
     saving.value = false
@@ -446,13 +472,15 @@ async function onFolderPicked(event) {
       </div>
 
       <div class="d-flex justify-content-between gap-2 mt-3">
-        <button type="button" class="ca-btn" :disabled="stage === 1" @click="stage--">
+        <!-- only from the review step: on the first there's nowhere to go back to (Back to course is above) -->
+        <button v-if="stage > 1" type="button" class="ca-btn" @click="stage--">
           <i class="bi bi-arrow-left" />Back
         </button>
+        <!-- ms-auto keeps it on the right when Back isn't there -->
         <button
           v-if="stage < stages.length"
           type="button"
-          class="ca-btn ca-btn--primary"
+          class="ca-btn ca-btn--primary ms-auto"
           :disabled="!canContinue"
           @click="next"
         >
@@ -461,7 +489,7 @@ async function onFolderPicked(event) {
         <button
           v-else
           type="button"
-          class="ca-btn ca-btn--primary"
+          class="ca-btn ca-btn--primary ms-auto"
           :disabled="saving || !files.length"
           @click="create"
         >
@@ -470,6 +498,16 @@ async function onFolderPicked(event) {
         </button>
       </div>
     </div>
+    <ConfirmModal
+      v-model:open="confirmLeave"
+      title="Leave without creating the lesson?"
+      confirm-label="Leave"
+      cancel-label="Stay"
+      variant="danger"
+      @confirm="leave"
+    >
+      The files you picked won't be saved.
+    </ConfirmModal>
   </div>
 </template>
 
