@@ -254,6 +254,35 @@ describe.skipIf(!isSeeded)('seed.sql', () => {
     })
   })
 
+  describe('the AI analyses on seeded help requests', () => {
+    it('each points at a line of their code that the checkpoint they were on does not have', async () => {
+      const { data: requests } = await service
+        .from('help_requests')
+        .select(
+          'id, session_id, checkpoint_seq, analysis, snapshot:snapshots(files), session:sessions(lesson:lessons(files))',
+        )
+        .not('analysis->category', 'is', null)
+      expect(requests.length).toBeGreaterThanOrEqual(9)
+      for (const r of requests) {
+        const { file, line } = r.analysis.stuckAt
+        // what the help review compares their code with: the checkpoint, or the starter code
+        const { data: cp } = await service
+          .from('checkpoints')
+          .select('files')
+          .eq('session_id', r.session_id)
+          .eq('seq', r.checkpoint_seq)
+          .maybeSingle()
+        const baseline = (cp?.files ?? r.session.lesson.files).find((f) => f.path === file).content
+        const theirs = r.snapshot.files.find((f) => f.path === file).content.split('\n')[line - 1]
+        expect(theirs?.trim(), `${r.analysis.summary} (${file}:${line})`).toBeTruthy()
+        expect(
+          baseline.split('\n').map((l) => l.trim()),
+          r.analysis.summary,
+        ).not.toContain(theirs.trim())
+      }
+    })
+  })
+
   describe('who reads student code on the seeded data', () => {
     it("T-PRIV-02/03: a TA reads every student's code in the class (34 snapshots in Week 6)", async () => {
       const { data } = await ana.from('snapshots').select('reason').eq('session_id', PAST)

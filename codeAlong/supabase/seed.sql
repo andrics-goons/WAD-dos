@@ -859,12 +859,12 @@ select seed.help(5, 6, 3, 'help', seed.gradebook_bug(), 'The average column is b
                  'Your template passes s.score — the field in data.js is scores.', '2026-10-05 14:41+08', null,
                  seed.analysis('average() gets s.score, which is undefined',
                                'The table calls average(s.score), but each student in data.js has scores (plural), so average receives undefined and .reduce throws. The reference passes s.scores. A one-letter field name mismatch.',
-                               'typo', 3, 'src/App.vue', 34, 'high', '2026-10-05 14:41:12+08'));
+                               'typo', 3, 'src/App.vue', 37, 'high', '2026-10-05 14:41:12+08'));
 select seed.help(5, 23, 3, 'help', seed.gradebook_bug(), 'Cannot read properties of undefined?', 'replied', 1,
                  'Check the field name you pass to average — scores, with an s.', '2026-10-05 14:43+08', null,
                  seed.analysis('Wrong field name passed to average()',
                                'average(s.score) passes undefined because the data uses scores. Calling .reduce on undefined throws a TypeError, so no average shows. Matching the field name to data.js fixes it.',
-                               'typo', 3, 'src/App.vue', 34, 'high', '2026-10-05 14:43:09+08'));
+                               'typo', 3, 'src/App.vue', 37, 'high', '2026-10-05 14:43:09+08'));
 select seed.help(5, 21, 3, 'help', seed.gradebook_bug(), 'Can someone come over?', 'resolved', 2,
                  null, '2026-10-05 14:42+08', 'D2');
 
@@ -1034,6 +1034,14 @@ insert into public.snapshots (session_id, student_id, reason, files, created_at,
 values (seed.s(4), seed.u(8), 'before_catchup', seed.files_at('minicart', 2),
         now() - interval '6 minutes', now() - interval '6 minutes');
 
+-- Priya's code: { category } given to axios.get as its options instead of { params: { category } }
+create function seed.priya_files() returns jsonb language sql as $$
+    select seed.patched(seed.files_at('minicart', 2), 'src/App.vue',
+                        '{ params: { category: selectedCategory.value } }', '{ category: selectedCategory.value }')
+$$;
+update public.snapshots set files = seed.priya_files()
+ where session_id = seed.s(4) and student_id = seed.u(22) and reason = 'autosave';
+
 -- The help queue: every state a TA meets. Waiting first, oldest first.
 create function seed.live_help(
     p_student int, p_seq int, p_type text, p_files jsonb, p_message text, p_status text,
@@ -1058,12 +1066,13 @@ begin
     );
 end $$;
 
--- Priya: replied, then she followed up, so it's back in the queue for anyone ("last handled by Ben")
-select seed.live_help(22, 2, 'help', seed.files_at('minicart', 2), 'Picking a category doesn''t change the items',
+-- Priya: replied, then she followed up, so it's back in the queue for anyone ("last handled by Ben").
+-- She did add the category, as Ben said, but as axios's options instead of inside params
+select seed.live_help(22, 2, 'help', seed.priya_files(), 'Picking a category doesn''t change the items',
     'open', '9 minutes', null, null,
-    seed.analysis('The category is never sent with the items request',
-                  'loadItems calls /api/items without passing the selected category, so the server returns every item and the list never changes. The reference sends { params: { category } } with the request. They may think the server reads the dropdown itself.',
-                  'api-call', 2, 'src/App.vue', 18, 'medium', now() - interval '2 minutes'),
+    seed.analysis('The category is passed as an axios option, not a query parameter',
+                  'loadItems calls axios.get(''/api/items'', { category: selectedCategory.value }), but axios only sends what is inside params as the query string, so ?category= never reaches the server and it returns every item. The reference wraps it: { params: { category: selectedCategory.value } }. They added the category as the TA suggested, just one level too high.',
+                  'api-call', 2, 'src/App.vue', 23, 'high', now() - interval '2 minutes'),
     jsonb_build_array(
         jsonb_build_object('role', 'staff', 'author_id', seed.u(3), 'at', now() - interval '6 minutes',
                            'body', 'Check what you pass to axios.get — the API needs the category.'),
@@ -1075,7 +1084,7 @@ select seed.live_help(18, 3, 'help', seed.live_files('no_prop', 2), 'ItemCard sh
     'claimed', '5 minutes', 2, null,
     seed.analysis('ItemCard is rendered without its items prop',
                   'App.vue renders <ItemCard /> but never binds :items, so the component receives nothing to list. The reference passes :items="items". They may expect the child to see the parent''s variables automatically.',
-                  'missing-prop', 3, 'src/App.vue', 41, 'high', now() - interval '4 minutes'));
+                  'missing-prop', 3, 'src/App.vue', 57, 'high', now() - interval '4 minutes'));
 -- Faye: the AI couldn't analyse it
 select seed.live_help(9, 3, 'help', seed.live_files('no_prop', 2), 'ItemCard crashes when the page loads',
     'open', '3 minutes', null, null,
