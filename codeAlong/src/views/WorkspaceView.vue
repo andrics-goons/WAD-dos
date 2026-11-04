@@ -94,8 +94,30 @@
   const bootError = ref(isolated ? "" : "This page isn't cross-origin isolated, so the workspace can't run here.")
 
   const previewUrl = ref("")
-  // below xl: which of the editor and the preview is on screen
+  // when one pane shows at a time (below xl, or in full view): is it the preview?
   const showPreview = ref(false)
+  // xl and up: split view (editor and preview side by side) or full view (one at a time, swapped
+  // with the button in each pane header, like below xl). Remembered on this device
+  const VIEW_KEY = "codealong:workspace-view"
+  const fullView = ref((() => {
+    try {
+      return localStorage.getItem(VIEW_KEY) === "full"
+    } catch {
+      return false
+    }
+  })())
+  // from the editor's or the preview's button: going full, that pane is the one that stays
+  function toggleView(preview) {
+    fullView.value = !fullView.value
+    if (fullView.value) showPreview.value = preview
+    try {
+      localStorage.setItem(VIEW_KEY, fullView.value ? "full" : "split")
+    } catch {
+      // private window or blocked storage: it just isn't remembered
+    }
+  }
+  // the hidden pane: always below xl; from xl only in full view
+  const hiddenPane = computed(() => (fullView.value ? "d-none" : "d-none d-xl-block"))
   let stopWorkspace
   // set on unmount, so a boot that finishes after the user has left doesn't leave a listener behind
   let unmounted = false
@@ -185,11 +207,11 @@
         {{ bootError }} Try reloading the page.
       </div>
 
-      <!-- xl and up: editor and preview side by side. Below xl only one shows at a time and
-           the button in each pane header swaps them. d-none only hides the box, so the
-           terminal and the running preview survive the swap -->
+      <!-- xl and up: editor and preview side by side, unless the student picked full view. Below
+           xl (and in full view) only one shows at a time and the button in each pane header swaps
+           them. d-none only hides the box, so the terminal and the running preview survive -->
       <div class="workspace-layout">
-        <div class="workspace-box" :class="{ 'd-none d-xl-block': showPreview }">
+        <div class="workspace-box" :class="showPreview && hiddenPane">
           <EditorPanel
             :file-paths="workspaceStore.filePaths"
             v-model:selected-file="workspaceStore.selectedFile"
@@ -197,6 +219,9 @@
             :save-status="workspaceStore.saveStatus"
             :files-version="workspaceStore.filesVersion"
             :editable="loaded && sessionStore.isLive"
+            :switchable="fullView"
+            :view="fullView ? 'full' : 'split'"
+            @toggle-view="toggleView(false)"
             @show-preview="showPreview = true"
             @create-file="workspaceStore.createFile"
             @rename-file="workspaceStore.renameFile"
@@ -204,8 +229,14 @@
           />
         </div>
 
-        <div class="preview-box" :class="{ 'd-none d-xl-block': !showPreview }">
-          <PreviewPanel :preview-url="previewUrl" @show-editor="showPreview = false" />
+        <div class="preview-box" :class="!showPreview && hiddenPane">
+          <PreviewPanel
+            :preview-url="previewUrl"
+            :switchable="fullView"
+            :view="fullView ? 'full' : 'split'"
+            @toggle-view="toggleView(true)"
+            @show-editor="showPreview = false"
+          />
         </div>
       </div>
     </template>

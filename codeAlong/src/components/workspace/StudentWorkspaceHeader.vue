@@ -1,6 +1,7 @@
 <script setup>
-    // The lesson, the prof's latest checkpoint, and "My status" for it: a new checkpoint puts
-    // everyone back to In progress, and Done means "I'm caught up to it". "Load latest
+    // The lesson, the prof's latest checkpoint, and Done for it: one button that says "I'm caught
+    // up", and goes back to In progress when clicked again. A new checkpoint puts everyone back to
+    // In progress. "Load latest
     // checkpoint" asks the page to replace my code with it (the page confirms first).
     import HelpButton from "@/components/help/HelpButton.vue"
 
@@ -29,50 +30,39 @@
 
         <!-- below lg the buttons show only their icon (Load keeps a short label); the visually-hidden span keeps its name -->
         <div class="header-actions">
-            <!-- My status: the active class marks the selected option -->
-            <div class="status-group">
-                <span class="status-label d-none d-lg-inline">My status</span>
-                <div class="status-toggle">
-                    <button
-                        type="button"
-                        class="status-option status-option--in-progress"
-                        :class="{ active: !done }"
-                        :disabled="disabled"
-                        @click="done && emit('undo')"
-                    >
-                        <i class="bi bi-clock" />
-                        <span class="d-none d-lg-inline">In progress</span>
-                        <span class="visually-hidden d-lg-none">In progress</span>
-                    </button>
-                    <button
-                        type="button"
-                        class="status-option status-option--done"
-                        :class="{ active: done }"
-                        :disabled="disabled"
-                        data-testid="btn-done"
-                        @click="!done && emit('done')"
-                    >
-                        <i class="bi bi-check-circle" />
-                        <span class="d-none d-lg-inline">Done</span>
-                        <span class="visually-hidden d-lg-none">Done</span>
-                    </button>
-                </div>
-            </div>
-
-            <div class="divider d-none d-lg-block" />
+            <!-- Done: I'm caught up to the checkpoint. Green once clicked; clicking again goes
+                 back to In progress -->
+            <button
+                type="button"
+                class="ca-btn"
+                :class="done ? 'btn-done-on' : 'ca-btn--secondary'"
+                :disabled="disabled"
+                :title="done ? 'You\'re marked Done. Click to go back to In progress' : 'Tell the prof you\'ve caught up to this checkpoint'"
+                data-testid="btn-done"
+                @click="emit(done ? 'undo' : 'done')"
+            >
+                <i class="bi" :class="done ? 'bi-check-circle-fill' : 'bi-check-circle'" />
+                <!-- both labels share one cell, so the button stays as wide as "Mark done" -->
+                <span class="done-label d-none d-lg-inline-grid">
+                    <span :class="{ invisible: done }">Mark done</span>
+                    <span :class="{ invisible: !done }">Done</span>
+                </span>
+                <span class="visually-hidden d-lg-none">{{ done ? "Done" : "Mark done" }}</span>
+            </button>
 
             <button
                 type="button"
                 class="ca-btn"
-                :class="slowDown ? 'ca-btn--primary' : 'ca-btn--secondary'"
+                :class="slowDown ? 'btn-slow-on' : 'ca-btn--secondary'"
                 :disabled="disabled"
                 :title="slowDown ? 'You asked the prof to slow down. Click to take it back' : 'Ask the prof to slow down (anonymous)'"
                 data-testid="btn-slow-down"
                 @click="emit('slow-down')"
             >
                 <i class="bi bi-speedometer2" />
-                <span class="d-none d-lg-inline">{{ slowDown ? "Asked to slow down" : "Slow down" }}</span>
-                <span class="visually-hidden d-lg-none">{{ slowDown ? "Asked to slow down" : "Slow down" }}</span>
+                <!-- asked: the button turns soft orange, the label stays -->
+                <span class="d-none d-lg-inline">Slow down</span>
+                <span class="visually-hidden d-lg-none">Slow down</span>
             </button>
 
             <button
@@ -83,7 +73,7 @@
                 @click="emit('load-checkpoint')"
             >
                 <i class="bi bi-arrow-counterclockwise" />
-                <span class="d-none d-lg-inline">Load latest checkpoint</span>
+                <span class="d-none d-lg-inline">Load checkpoint</span>
                 <span class="d-lg-none">Load</span>
             </button>
             <HelpButton v-if="sessionId" :session-id="sessionId" :files="files" />
@@ -131,78 +121,30 @@
             gap: var(--ca-space-3);
         }
     }
+    .done-label > span {
+        grid-area: 1 / 1;
+    }
 
-    /* ── My status toggle ── */
-    .status-group {
-        display: flex;
-        align-items: center;
-        gap: var(--ca-space-3);
+    /* Done and Slow down when on: the soft state colours the dashboard's badges use (with their
+       dark-mode versions), a border in the full colour and a gentle glow of it */
+    .btn-done-on {
+        --btn-bg: var(--ca-state-done-bg);
+        --btn-bg-hover: var(--ca-state-done-bg);
+        --btn-fg: var(--ca-state-done-fg);
+        --btn-border: var(--ca-state-done);
+        box-shadow: 0 0 10px color-mix(in srgb, var(--ca-state-done) 35%, transparent);
     }
-    .status-label {
-        font-size: var(--ca-text-sm);
-        font-weight: 500;
+    .btn-slow-on {
+        --btn-bg: var(--ca-state-in_progress-bg);
+        --btn-bg-hover: var(--ca-state-in_progress-bg);
+        --btn-fg: var(--ca-state-in_progress-fg);
+        --btn-border: var(--ca-state-in_progress);
+        box-shadow: 0 0 10px color-mix(in srgb, var(--ca-state-in_progress) 35%, transparent);
     }
-    /* grey track the two options sit in */
-    .status-toggle {
-        display: inline-flex;
-        gap: var(--ca-space-1);
-        padding: var(--ca-space-1);
-        background: var(--ca-surface-muted);
-        border-radius: var(--ca-radius-lg);
-    }
-    .status-option {
-        display: inline-flex;
-        align-items: center;
-        gap: var(--ca-space-2);
-        min-height: 2.5rem;
-        padding: 0 var(--ca-space-3);
-        border: 1px solid transparent;
-        border-radius: var(--ca-radius);
-        background: transparent;
-        color: var(--ca-text-muted);
-        font-size: var(--ca-text-sm);
-        font-weight: 600;
-        white-space: nowrap;
-        cursor: pointer;
-        transition:
-            background-color 0.15s ease,
-            border-color 0.15s ease,
-            color 0.15s ease;
-    }
-    @media (min-width: 992px) {
-        .status-option {
-            padding: 0 var(--ca-space-4);
-        }
-    }
-    .status-option:hover {
-        color: var(--ca-text);
-    }
-    .status-option:focus-visible {
-        outline: none;
-        box-shadow: 0 0 0 3px var(--ca-brand-ring);
-    }
-    /* selected option takes its tile-state colours, so it matches the teacher's dashboard */
-    .status-option--in-progress.active {
-        background: var(--ca-state-in_progress-bg);
-        border-color: var(--ca-warning);
-        color: var(--ca-state-in_progress-fg);
-    }
-    .status-option--in-progress.active .bi {
-        color: var(--ca-state-in_progress);
-    }
-    .status-option--done.active {
-        background: var(--ca-state-done-bg);
-        border-color: var(--ca-state-done);
-        color: var(--ca-state-done-fg);
-    }
-    .status-option--done.active .bi {
+    .btn-done-on .bi {
         color: var(--ca-state-done);
     }
-
-    .divider {
-        width: 1px;
-        height: 2rem;
-        margin: 0 var(--ca-space-1);
-        background: var(--ca-border);
+    .btn-slow-on .bi {
+        color: var(--ca-state-in_progress);
     }
 </style>

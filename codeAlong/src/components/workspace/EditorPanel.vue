@@ -12,11 +12,12 @@
         filesVersion: { type: Number, default: 0 }, // goes up when every file is replaced (a checkpoint load)
         switchable: { type: Boolean, default: false }, // show the preview button at every size, e.g. the teach view
         editable: { type: Boolean, default: false }, // the file tree's New file / Rename / Delete
+        view: { type: String, default: null }, // 'split' or 'full' shows the view button (student workspace)
     })
 
     const emit = defineEmits([
         "update:selectedFile", "update:selectedCode", "show-preview",
-        "create-file", "rename-file", "delete-file",
+        "create-file", "rename-file", "delete-file", "toggle-view",
     ])
 
     // below md (phones) the file tree starts collapsed, so the editor gets the width
@@ -123,22 +124,44 @@
                 <div class="pane-header">
                     <span class="file-badge">{{ fileType }}</span>
                     <span>{{ selectedFile }}</span>
-                    <span class="ms-auto small text-nowrap" :class="saveLabel?.tone" data-testid="save-status">
-                        <template v-if="saveLabel"><i class="bi" :class="saveLabel.icon" /> {{ saveLabel.text }}</template>
+                    <!-- right after the file name, so it reads as that file's save state. The usual
+                         states are faded; a warning keeps its full colour so it's noticed -->
+                    <span class="small text-nowrap ms-2" :class="saveLabel?.tone ?? 'opacity-50'" data-testid="save-status">
+                        <template v-if="saveLabel">{{ saveLabel.text }} <i class="bi" :class="saveLabel.icon" /></template>
                     </span>
-                    <!-- below xl the preview isn't beside the editor, so this swaps to it (always, when switchable) -->
-                    <button
-                        class="toggle-btn"
-                        :class="{ 'd-xl-none': !switchable }"
-                        type="button"
-                        title="Show preview"
-                        @click="emit('show-preview')"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
-                            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/>
-                            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
-                        </svg>
-                    </button>
+                    <!-- the buttons on the right -->
+                    <div class="ms-auto d-flex align-items-center gap-3">
+                        <!-- below xl the preview isn't beside the editor, so this swaps to it (always, when switchable) -->
+                        <button
+                            class="toggle-btn"
+                            :class="{ 'd-xl-none': !switchable }"
+                            type="button"
+                            title="Show preview"
+                            @click="emit('show-preview')"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
+                                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/>
+                                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
+                            </svg>
+                        </button>
+                        <!-- the student workspace from xl: split view (side by side) or full view (one at a time) -->
+                        <button
+                            v-if="view"
+                            class="toggle-btn d-none d-xl-inline-flex"
+                            type="button"
+                            :title="view === 'full' ? 'Split view: editor and preview side by side' : 'Full view: one at a time, with the whole width'"
+                            data-testid="btn-toggle-view"
+                            @click="emit('toggle-view')"
+                        >
+                            <!-- svg like the other header buttons, so they line up -->
+                            <svg v-if="view === 'full'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-layout-split" viewBox="0 0 16 16">
+                                <path d="M0 3a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm8.5-1v12H14a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zm-1 0H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h5.5z"/>
+                            </svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrows-angle-expand" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 0 0-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707m4.344-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="pane-body">
                     <!-- :key remounts the editor when the file changes, or when every file was replaced

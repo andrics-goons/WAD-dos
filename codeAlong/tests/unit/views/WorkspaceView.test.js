@@ -75,4 +75,50 @@ describe("WorkspaceView", () => {
         await flushPromises()
         expect(stop).toHaveBeenCalledOnce()
     })
+
+    describe("split view and full view (xl and up)", () => {
+        const box = (wrapper, name) => wrapper.find(`.${name}`).classes()
+        // the button is in each pane header; either one swaps the view
+        const toggle = (wrapper, pane = "EditorPanel") => wrapper.findComponent({ name: pane }).vm.$emit("toggle-view")
+        beforeEach(() => localStorage.clear())
+
+        it("starts in split view: from xl the hidden pane still shows beside the editor", async () => {
+            const wrapper = mountView()
+            await flushPromises()
+            expect(box(wrapper, "preview-box")).toEqual(expect.arrayContaining(["d-none", "d-xl-block"]))
+            expect(wrapper.findComponent({ name: "PreviewPanel" }).attributes("switchable")).toBe("false")
+        })
+
+        it("full view hides the other pane at every size, and the pane buttons swap them", async () => {
+            const wrapper = mountView()
+            await flushPromises()
+            await toggle(wrapper)
+            expect(box(wrapper, "preview-box")).toContain("d-none")
+            expect(box(wrapper, "preview-box")).not.toContain("d-xl-block")
+            expect(box(wrapper, "workspace-box")).not.toContain("d-none")
+            expect(wrapper.findComponent({ name: "EditorPanel" }).attributes("switchable")).toBe("true")
+            expect(wrapper.findComponent({ name: "PreviewPanel" }).attributes("view")).toBe("full")
+            await toggle(wrapper, "PreviewPanel") // and back
+            expect(box(wrapper, "preview-box")).toContain("d-xl-block")
+        })
+
+        it("the expand button on a pane makes that pane the full one", async () => {
+            const wrapper = mountView()
+            await flushPromises()
+            await toggle(wrapper, "PreviewPanel")
+            expect(box(wrapper, "preview-box")).not.toContain("d-none")
+            expect(box(wrapper, "workspace-box")).toContain("d-none")
+            expect(box(wrapper, "workspace-box")).not.toContain("d-xl-block")
+        })
+
+        it("remembers the choice on this device", async () => {
+            const first = mountView()
+            await flushPromises()
+            await toggle(first)
+            first.unmount()
+            const again = mountView()
+            await flushPromises()
+            expect(box(again, "preview-box")).not.toContain("d-xl-block")
+        })
+    })
 })

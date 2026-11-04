@@ -34,6 +34,11 @@ describe("EditorPanel save status", () => {
         expect(status_.classes()).toContain(tone)
     })
 
+    it("fades the usual states, but never a warning", () => {
+        expect(statusOf(mountPanel("saved")).classes()).toContain("opacity-50")
+        expect(statusOf(mountPanel("retrying")).classes()).not.toContain("opacity-50")
+    })
+
     it("shows nothing before the code has loaded", () => {
         expect(statusOf(mountPanel(null)).text()).toBe("")
     })
@@ -101,5 +106,27 @@ describe("EditorPanel terminals", () => {
         expect(names(wrapper)).toEqual(["Terminal 1", "Terminal 3"])
         await addButton(wrapper).trigger("click")
         expect(names(wrapper)).toEqual(["Terminal 1", "Terminal 2", "Terminal 3"])
+    })
+})
+
+describe("EditorPanel view button", () => {
+    const viewButton = (wrapper) => wrapper.find('[data-testid="btn-toggle-view"]')
+    const mountWithView = (view) =>
+        mount(EditorPanel, {
+            props: { selectedFile: "index.html", view },
+            global: { stubs: { CodeEditor: true, FileTree: true, TerminalPanel: true } },
+        })
+
+    it("isn't there without a view (the teach view)", () => {
+        expect(viewButton(mountPanel("saved")).exists()).toBe(false)
+    })
+
+    it("shows from xl, asks the page to swap, and its icon says where it goes", async () => {
+        const wrapper = mountWithView("split")
+        expect(viewButton(wrapper).classes()).toEqual(expect.arrayContaining(["d-none", "d-xl-inline-flex"]))
+        expect(viewButton(wrapper).find(".bi-arrows-angle-expand").exists()).toBe(true)
+        await viewButton(wrapper).trigger("click")
+        expect(wrapper.emitted("toggle-view")).toHaveLength(1)
+        expect(viewButton(mountWithView("full")).find(".bi-layout-split").exists()).toBe(true)
     })
 })

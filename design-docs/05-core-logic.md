@@ -302,7 +302,7 @@ Rendered with Vue's normal escaping like every other user-entered string (T-VAL-
 The workspace keeps `{ doneSeq, lastError }` (`stores/status.js`) and upserts its `student_status` row **only when one of them changes**, throttled to `STATUS_WRITE_THROTTLE_MS` (2 s). A heartbeat touches `last_seen_at` every 30 s while the tab is visible (`document.visibilityState`), and once straight away when the student comes back to the tab. No keystrokes, no code — the table has no column for either.
 
 - **Opening the workspace** writes the row at once, which is the attendance record (`joined_at`). A refresh reads the row back first, so a Done stays done.
-- **"My status"** in the workspace header is about the prof's **latest checkpoint**: *Done* sets `done_seq` to its number ("I've caught up to it"), *In progress* clears it. Before any checkpoint, Done means "I've got the starter code running" (`done_seq = 0`). When the prof saves a new checkpoint the toggle reads *In progress* again — nothing is written; the database just compares `done_seq` with the new `checkpoint_seq`.
+- **The Done button** in the workspace header is about the prof's **latest checkpoint**: *Mark done* sets `done_seq` to its number ("I've caught up to it"), and clicking the green *Done* again (back to In progress) clears it. Before any checkpoint, Done means "I've got the starter code running" (`done_seq = 0`). When the prof saves a new checkpoint the button reads *Mark done* again — nothing is written; the database just compares `done_seq` with the new `checkpoint_seq`.
 - **Errors** go through `setError({ source, name, message, file, line })`, which adds `key` / `shapeKey` with `normalizeError()` and cuts the message to `ERROR_MESSAGE_MAX`; `clearError()` after a clean run. `reportError` in `stores/workspace.js` calls them with what the terminal's error reader (`shared/error-reader.js`) finds: build errors through `parseBuildError()`, runtime errors from the lesson's `ca-probe.js` through `parseRuntimeError()`. Every uploaded or imported lesson gets the probe (`shared/lesson-template.js`).
 - **After the class ends** the store stops writing (the table would refuse anyway).
 
@@ -414,12 +414,12 @@ export function normalizeError({ name = 'Error', message = '' }) {
 
 ---
 
-## 7. Catch-up ("Load latest checkpoint")
+## 7. Catch-up ("Load checkpoint")
 
 **Promise to the student:** you're told plainly that your code will be replaced, and you can download it first. Nothing else keeps it.
 
 ```
-Student clicks "Load latest checkpoint"   (disabled: no checkpoint yet · catch-up turned off · class ended)
+Student clicks "Load checkpoint"   (disabled: no checkpoint yet · catch-up turned off · class ended)
   1. CatchUpModal: "Your code will be replaced with Checkpoint 4 · Added the cart.
                     Anything you haven't downloaded will be lost."
        [Download my project (.zip)]  → downloadProject(): zips the workspace's files in the
