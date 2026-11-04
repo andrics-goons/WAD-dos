@@ -12,6 +12,8 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 // The Lessons tab of the course page. Lessons sit in one folder per week ("Week 6"), and opening a
 // folder shows its code files ("ICE", "Extra exercises"), each with the classes run from it.
 // Each file has its own Start new session, which starts a class from that file's code.
+// A course I've archived is read-only for me: its lessons and replays stay open, but nothing
+// is added, started, changed or joined until I restore it.
 // Owner: Ray Yien (started by Ying Qi as a working first version).
 const props = defineProps({ course: { type: Object, required: true } })
 
@@ -219,7 +221,7 @@ async function startClass(lesson) {
         placeholder="Search lessons"
       />
       <RouterLink
-        v-if="isProf"
+        v-if="isProf && !course.archived"
         :to="{ name: 'lesson-new', params: { id: course.id } }"
         class="ca-btn ca-btn--primary"
       >
@@ -258,7 +260,9 @@ async function startClass(lesson) {
         <template v-if="archivedCount && !showArchived">
           Tick "Show archived lessons" to see the {{ archivedCount }} archived.
         </template>
-        <template v-else-if="!search && isProf">Create a lesson from your starter code.</template>
+        <template v-else-if="!search && isProf && !course.archived"
+          >Create a lesson from your starter code.</template
+        >
       </EmptyState>
     </div>
     <ul v-else class="list-group">
@@ -291,7 +295,10 @@ async function startClass(lesson) {
                 STATUS[l.status].label
               }}</span>
 
-              <span v-if="isProf" class="ms-auto d-flex flex-wrap align-items-center gap-1">
+              <span
+                v-if="isProf && !course.archived"
+                class="ms-auto d-flex flex-wrap align-items-center gap-1"
+              >
                 <!-- any file not archived, taught before or not; while one of its classes is live,
                      Open class (in its list below) is the way in instead -->
                 <button
@@ -423,7 +430,7 @@ async function startClass(lesson) {
                 </span>
 
                 <span class="ms-auto d-flex gap-1">
-                  <template v-if="s.status === 'live'">
+                  <template v-if="s.status === 'live' && !course.archived">
                     <RouterLink
                       v-if="isProf"
                       :to="{ name: 'teach', params: { id: s.id } }"
@@ -446,7 +453,7 @@ async function startClass(lesson) {
                       Join
                     </RouterLink>
                   </template>
-                  <template v-else>
+                  <template v-else-if="s.status !== 'live'">
                     <RouterLink
                       :to="{ name: 'replay', params: { sessionId: s.id } }"
                       class="ca-btn ca-btn--secondary ca-btn--sm"

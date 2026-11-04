@@ -17,7 +17,7 @@ All names below are fictional — don't use classmates' names in submitted data.
 | 5 | Bea Koh | `bea@codealong.test` | student | Enrolled — second live laptop |
 | 6 | Chen Wei | `chen@codealong.test` | student | Enrolled — third live laptop |
 | 7–14 | Dana, Eli, Faye, Gus, Hana, Ivan, Jae, Kim | `<first>@codealong.test` | student | Enrolled — appear in the past session |
-| 15 | Zoe Ng | `zoe@codealong.test` | student | **Not** enrolled — for the "not in this course" check |
+| 15 | Zoe Ng | `zoe@codealong.test` | student | **Not** enrolled — joining CART42 enrols her (T-SESS-04) |
 | 16 | Prof Tan | `prof.tan@codealong.test` | prof | Owns a **different** course (IS216 G1) — proves profs can't see each other's courses (T-PLAT-14/15, T-INS-08) |
 | 17 | Ada Admin | `admin@codealong.test` | admin | The one admin account. Keep it to one: admins can read everything, including students' code |
 

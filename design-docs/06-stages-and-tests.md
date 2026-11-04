@@ -220,7 +220,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-SESS-01 | Prof starts session | E2E | Join code (6 chars, no 0/O/1/I/L) + QR visible |
 | T-SESS-02 | Start on a draft lesson | DB | `start_session` raises `CONFLICT` |
 | T-SESS-03 | Student joins via code input and via `/join/:code` | E2E | Lands in the workspace on the latest checkpoint (or "Starter code") |
-| T-SESS-04 | Non-enrolled user joins | E2E | "You're not in this course" |
+| T-SESS-04 | Non-enrolled user joins | E2E + DB | A student is enrolled in the course and lands in the workspace; a prof from another course gets "You're not in this course" |
 | T-SESS-05 | Wrong / ended code | E2E | "No live class with that code" |
 | T-SESS-06 | Checkpoint broadcast to 3 students | E2E | All 3 see the toast + the new checkpoint (and its title) within 2 s, and their status is back to In progress |
 | T-SESS-07 | Student reconnects (go offline → online) | E2E | Status re-read after reconnecting; checkpoint missed while offline is shown |
