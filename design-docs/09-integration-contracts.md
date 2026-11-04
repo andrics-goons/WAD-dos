@@ -423,7 +423,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Dashboard | `summary-done`, `slow-down-count`, `error-group-<index>`, `help-summary`, `help-summary-headline`, `help-summary-group-<index>`, `btn-refresh-help-summary` |
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up`, `btn-open-in-editor` (review panel, opens `/help/:id/code` in a new tab), `link-request-page` (the student's name in the queue's review panel, opens `/help/:id`), `help-analysis` and `help-analysis-failed` (the AI's analysis of the request in the review panel), `scratch-notice` (that page's "nothing is saved" notice), `btn-toggle-handled` and `handled-list` (the queue's Handled heading and list) |
 | Replay | `timeline-checkpoint-<seq>`, `diff-view`, `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
-| Reports | `report-funnel`, `report-most-loaded`, `report-top-errors`, `btn-send-digest`, `digest-sent` |
+| Reports | `report-funnel`, `report-most-loaded`, `report-stuck-on`, `btn-send-digest`, `digest-sent` |
 | Auth | `input-name`, `input-email`, `input-password`, `radio-role-student`, `radio-role-educator`, `btn-register`, `btn-login`, `btn-github-login`, `btn-role-student`, `btn-role-educator` (`/welcome`), `link-register`, `link-login` |
 | Profile | `input-profile-name`, `btn-save-name`, `input-current-password`, `input-new-password`, `btn-change-password`, `btn-logout`, `btn-connect-github`, `btn-disconnect-github`, `btn-delete-account`, `input-confirm-delete`, `ta-courses`, `github-username` |
 | Admin | `admin-user-row-<userId>`, `select-role-<userId>`, `input-user-search` |
