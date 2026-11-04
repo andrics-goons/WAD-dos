@@ -27,7 +27,15 @@ onMounted(async () => {
 })
 
 const isProf = computed(() => auth.role === 'prof')
-const recentCourses = computed(() => courses.courses.slice(0, 3))
+// Home shows 3 courses: the ones with a class live right now first (the one you're in), then the
+// rest newest first (the list comes that way, and sort keeps that order among equals)
+const SHOWN = 3
+const liveCourseIds = computed(() => new Set(live.value.map((s) => s.course_id)))
+const recentCourses = computed(() =>
+  [...courses.courses]
+    .sort((a, b) => liveCourseIds.value.has(b.id) - liveCourseIds.value.has(a.id))
+    .slice(0, SHOWN),
+)
 
 // my role in that class's course decides where its button goes
 const roleIn = (courseId) => courses.courses.find((c) => c.id === courseId)?.myRole
@@ -95,7 +103,12 @@ function classLink(s) {
       <section class="col-12 col-lg-5">
         <div class="d-flex align-items-center mb-3">
           <h2 class="fs-5 mb-0">My courses</h2>
-          <RouterLink :to="{ name: 'courses' }" class="ms-auto small">See all</RouterLink>
+          <!-- with more than are shown, the count says some are hidden -->
+          <RouterLink :to="{ name: 'courses' }" class="ms-auto small" data-testid="see-all-courses">
+            See all<template v-if="courses.courses.length > SHOWN">
+              ({{ courses.courses.length }})</template
+            >
+          </RouterLink>
         </div>
         <div v-if="!recentCourses.length" class="ca-surface">
           <EmptyState icon="bi-journal" title="No courses yet" compact>

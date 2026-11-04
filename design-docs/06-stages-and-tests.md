@@ -196,6 +196,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-23 | **Delete my account** | RLS + Unit | Only after typing DELETE; a student's rows go and the classes stay; a prof's courses and classes go, another prof's stay; logged out → `FORBIDDEN` |
 | T-PLAT-24 | **The owner removes a TA** | RLS + API | Only the owner, only a TA row (never themselves); the TA loses the course, a request they'd claimed goes back to `open`, and their account is `student` again unless they still TA elsewhere |
 | T-PLAT-25 | **A student leaves a course** | RLS + API | Only an enrolled student; their snapshots, progress, Slow down, help requests and notes in that course are gone and they lose the course and its replays; the classes, other students and their other courses are untouched |
+| T-PLAT-26 | Home's My courses puts a live class's course first | Unit | Of 3 shown, a course with a class live right now comes first even if it is the oldest, the rest newest first; "See all (n)" appears with more than 3 courses and a plain "See all" otherwise |
 
 ### LESSON — Lessons · `lessons.spec.js`, `lesson-edit-view.test.js`
 
