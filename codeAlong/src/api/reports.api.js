@@ -9,6 +9,8 @@ import { AppError, mapError } from './mapError'
  *   session  { id, status, startedAt, endedAt, lessonId, lessonTitle, courseLabel }
  *   report   the session_reports row, or null while the class is still live
  *   help     { total, leftOpen, medianWaitMinutes } from the class's help requests
+ *   stuck    [{ checkpointSeq, category, summary }]: the saved AI diagnosis of each help request
+ *            (design-docs/05 §8a), for "What students got stuck on". Requests with none are left out
  *   isProf   whether I own the course (only the prof sends the digest)
  */
 export async function getReport(sessionId) {
@@ -26,7 +28,7 @@ export async function getReport(sessionId) {
     supabase.from('session_reports').select('*').eq('session_id', sessionId).maybeSingle(),
     supabase
       .from('help_requests')
-      .select('status, thread, created_at, updated_at')
+      .select('status, thread, created_at, updated_at, checkpoint_seq, analysis')
       .eq('session_id', sessionId),
     supabase.rpc('is_course_prof', { cid: s.course_id }),
   ])
@@ -44,6 +46,13 @@ export async function getReport(sessionId) {
     },
     report: report.data,
     help: helpStats(requests.data),
+    stuck: requests.data
+      .filter((r) => r.analysis?.summary)
+      .map((r) => ({
+        checkpointSeq: r.checkpoint_seq,
+        category: r.analysis.category,
+        summary: r.analysis.summary,
+      })),
     isProf: prof.data === true,
   }
 }

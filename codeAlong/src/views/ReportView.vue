@@ -76,6 +76,23 @@ const stats = computed(() => {
 // the two checkpoints the most students needed the prof's code for
 const hardest = computed(() => topTwo('catchUps'))
 
+// What students got stuck on: the saved AI diagnosis of each help request, grouped like the live
+// "What the class is stuck on" panel (same checkpoint, same kind of mistake), biggest first. Built
+// from what's saved, so opening the report never calls the AI. A group's title is its first
+// student's diagnosis
+const stuckOn = computed(() => {
+  const groups = new Map()
+  for (const r of page.value.stuck) {
+    const key = `${r.checkpointSeq}|${r.category}`
+    if (!groups.has(key)) groups.set(key, { ...r, count: 0 })
+    groups.get(key).count++
+  }
+  const title = (seq) => report.value.checkpoints.find((c) => c.seq === seq)?.title
+  return [...groups.values()]
+    .sort((a, b) => b.count - a.count || a.checkpointSeq - b.checkpointSeq)
+    .map((g) => ({ ...g, where: checkpointLabel(g.checkpointSeq, title(g.checkpointSeq)) }))
+})
+
 // The staff message exactly as the digest function sends it (same shared formatter, same report),
 // so the preview can't drift from what goes out. It's Telegram HTML: shown as plain lines here,
 // with the <b> headings in bold
@@ -194,7 +211,7 @@ async function sendDigest() {
 
         <div class="row g-3">
           <!-- Funnel -->
-          <div class="col-12 col-lg-7">
+          <div class="col-12 col-lg-8">
             <div class="ca-surface" data-testid="report-funnel">
               <div
                 class="d-flex flex-wrap align-items-baseline justify-content-between column-gap-3 row-gap-1 px-3 py-2 border-bottom"
@@ -244,27 +261,27 @@ async function sendDigest() {
             </div>
           </div>
 
-          <!-- Top errors, then the digest under it -->
-          <div class="col-12 col-lg-5 d-flex flex-column gap-3">
-            <div class="ca-surface" data-testid="report-top-errors">
+          <!-- What students got stuck on, then the digest under it -->
+          <div class="col-12 col-lg-4 d-flex flex-column gap-3">
+            <div class="ca-surface" data-testid="report-stuck-on">
               <div
                 class="d-flex flex-wrap align-items-baseline justify-content-between column-gap-3 row-gap-1 px-3 py-2 border-bottom"
               >
-                <span class="fw-semibold">Top errors</span>
+                <span class="fw-semibold">What students got stuck on</span>
               </div>
-              <p v-if="!report.top_errors.length" class="px-3 py-3 mb-0 text-body-secondary">
-                Nobody hit an error. Nice.
+              <p v-if="!stuckOn.length" class="px-3 py-3 mb-0 text-body-secondary">
+                Nobody asked for help in this class.
               </p>
               <ul v-else class="list-group list-group-flush">
                 <li
-                  v-for="e in report.top_errors"
-                  :key="e.key"
+                  v-for="g in stuckOn"
+                  :key="`${g.checkpointSeq}|${g.category}`"
                   class="list-group-item d-flex gap-2"
                 >
-                  <span class="ca-pill ca-state--error align-self-start">{{ e.students }}</span>
+                  <span class="ca-pill ca-state--error align-self-start">{{ g.count }}</span>
                   <div class="overflow-hidden">
-                    <div class="ca-mono small text-break">{{ e.key }}</div>
-                    <div class="small text-body-secondary">{{ checkpointLabel(e.seq) }}</div>
+                    <div class="small fw-semibold">{{ g.summary }}</div>
+                    <div class="small text-body-secondary">{{ g.where }} · {{ g.category }}</div>
                   </div>
                 </li>
               </ul>

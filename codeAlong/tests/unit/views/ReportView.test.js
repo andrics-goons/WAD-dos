@@ -56,6 +56,12 @@ const page = (over = {}) => ({
   session: SESSION,
   report: structuredClone(REPORT), // a copy: sending the digest changes it
   help: { total: 4, leftOpen: 1, medianWaitMinutes: 3 },
+  // the saved AI diagnoses: 2 students with the same props mistake at checkpoint 2, 1 typo at 1
+  stuck: [
+    { checkpointSeq: 2, category: 'missing-prop', summary: 'Used items instead of props.items' },
+    { checkpointSeq: 1, category: 'typo', summary: 'Misspelt the component name' },
+    { checkpointSeq: 2, category: 'missing-prop', summary: 'items is not a prop' },
+  ],
   isProf: true,
   ...over,
 })
@@ -129,13 +135,24 @@ describe('ReportView', () => {
     expect(text).not.toMatch(/Most during|Highest during/)
   })
 
-  it('lists the top errors, with no recurring trouble spots', async () => {
+  it('T-INS-11: shows what students got stuck on from the help requests, grouped, biggest first', async () => {
     const wrapper = await open()
-    expect(wrapper.find('[data-testid="report-top-errors"]').text()).toContain(
-      'items is not defined',
-    )
+    const rows = wrapper.findAll('[data-testid="report-stuck-on"] li').map((li) => li.text())
+    expect(rows).toEqual([
+      '2Used items instead of props.itemsCheckpoint 2 · Emit add-to-cart · missing-prop',
+      '1Misspelt the component nameCheckpoint 1 · Starter runs · typo',
+    ])
+    // the Top errors panel is gone (the digest message keeps its own Top errors list)
+    expect(wrapper.find('[data-testid="report-top-errors"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('Recurring trouble')
     expect(store.trends).not.toHaveBeenCalled()
+  })
+
+  it('says so when nobody asked for help', async () => {
+    const wrapper = await open(page({ stuck: [] }))
+    expect(wrapper.find('[data-testid="report-stuck-on"]').text()).toContain(
+      'Nobody asked for help in this class',
+    )
   })
 
   it('previews the staff digest exactly as the digest function will send it', async () => {
