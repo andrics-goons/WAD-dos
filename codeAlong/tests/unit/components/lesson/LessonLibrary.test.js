@@ -119,3 +119,80 @@ describe('LessonLibrary', () => {
     expect(wrapper.text()).toContain('Every lesson is archived')
   })
 })
+
+describe('T-LES-12: the ✎ on a week folder moves its files to another week', () => {
+  const pencil = (wrapper, i = 0) =>
+    wrapper.findAll('button').filter((b) => b.text() === 'Change the week')[i]
+
+  it('moves every file in the week, archived ones included, and the folder follows', async () => {
+    fakes.lessons.push(lesson('Week 2 · Extra', 'archived', 2))
+    const wrapper = await show()
+    await pencil(wrapper, 1).trigger('click') // Week 2's
+    await wrapper.find('input[type="number"]').setValue(5)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(fakes.update.mock.calls).toEqual([
+      ['Week 2 · Ready one', { week: 5 }],
+      ['Week 2 · Extra', { week: 5 }],
+    ])
+    expect(names(wrapper)).toEqual(['Week 1', 'Week 5'])
+  })
+
+  it('refuses a week another folder already has, archived lessons included', async () => {
+    const wrapper = await show()
+    await pencil(wrapper, 1).trigger('click') // Week 2's
+    for (const used of [1, 3]) {
+      // Week 3 only has an archived lesson, hidden here, but the week is still taken
+      await wrapper.find('input[type="number"]').setValue(used)
+      await wrapper.find('form').trigger('submit')
+      expect(wrapper.text()).toContain(`Week ${used} already has lessons`)
+    }
+    expect(fakes.update).not.toHaveBeenCalled()
+    expect(names(wrapper)).toEqual(['Week 1']) // Week 2's name is the box being edited
+  })
+
+  it('changes nothing when the week is the same, or on Cancel', async () => {
+    const wrapper = await show()
+    await pencil(wrapper).trigger('click')
+    await wrapper.find('form').trigger('submit')
+    await pencil(wrapper).trigger('click')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === 'Cancel')
+      .trigger('click')
+    expect(fakes.update).not.toHaveBeenCalled()
+    expect(wrapper.find('form').exists()).toBe(false)
+  })
+
+  it('takes a typed week from 1 to 13, like the New lesson page', async () => {
+    const wrapper = await show()
+    await pencil(wrapper).trigger('click')
+    for (const bad of ['0', '14', '']) {
+      await wrapper.find('input[type="number"]').setValue(bad)
+      await wrapper.find('form').trigger('submit')
+      expect(wrapper.text()).toContain('Enter a week from 1 to 13')
+      expect(wrapper.find('input[type="number"]').classes()).toContain('ca-input--invalid')
+    }
+    expect(fakes.update).not.toHaveBeenCalled()
+  })
+
+  it('only the prof gets it', async () => {
+    expect(pencil(await show('ta'))).toBeUndefined()
+  })
+
+  it('gives the lessons in "No week" a week, starting from an empty box', async () => {
+    fakes.lessons = [lesson('Loose one', 'ready', null), lesson('Loose two', 'draft', null)]
+    const wrapper = await show()
+    expect(names(wrapper)).toEqual(['No week'])
+    await pencil(wrapper).trigger('click')
+    expect(wrapper.find('input[type="number"]').element.value).toBe('')
+    await wrapper.find('input[type="number"]').setValue(4)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(fakes.update.mock.calls).toEqual([
+      ['Loose one', { week: 4 }],
+      ['Loose two', { week: 4 }],
+    ])
+    expect(names(wrapper)).toEqual(['Week 4'])
+  })
+})
