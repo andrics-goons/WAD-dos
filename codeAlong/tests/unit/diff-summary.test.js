@@ -51,18 +51,16 @@ describe('diffSummary', () => {
     it(`surrounds the change with ${CONTEXT_LINES} lines of context`, () => {
       expect(file.hunks).toHaveLength(1)
       const [hunk] = file.hunks
-      expect(hunk).toMatchObject({ oldStart: 19, newStart: 19 })
+      expect(hunk).toMatchObject({ oldStart: 20, newStart: 20 })
       expect(hunk.lines.map((l) => l.type)).toEqual([
-        'context',
         'context',
         'context',
         'del',
         'add',
         'context',
         'context',
-        'context',
       ])
-      expect(hunk.lines[0]).toEqual({ type: 'context', text: 'line 19', oldLine: 19, newLine: 19 })
+      expect(hunk.lines[0]).toEqual({ type: 'context', text: 'line 20', oldLine: 20, newLine: 20 })
     })
   })
 
@@ -186,7 +184,7 @@ describe('diffSummary', () => {
         [f('a.js', text(numbered(7)))],
       ).files
       expect(file).toMatchObject({ added: 2, firstDiffLine: 6 })
-      expect(file.hunks[0]).toMatchObject({ oldStart: 3, newStart: 3 })
+      expect(file.hunks[0]).toMatchObject({ oldStart: 4, newStart: 4 })
       expect(file.hunks[0].lines.filter((l) => l.type === 'add').map((l) => l.newLine)).toEqual([
         6, 7,
       ])
@@ -204,8 +202,25 @@ describe('diffSummary', () => {
       const after = withLines(before, { 5: 'changed 5', [5 + 2 * CONTEXT_LINES + 2]: 'changed' })
       const [file] = diffSummary([f('a.js', text(before))], [f('a.js', text(after))]).files
       expect(file.hunks).toHaveLength(2)
-      expect(file.hunks.map((h) => h.newStart)).toEqual([2, 10])
+      expect(file.hunks.map((h) => h.newStart)).toEqual([3, 9])
       expect(file).toMatchObject({ added: 2, removed: 2, firstDiffLine: 5 })
+    })
+
+    it('T-REP-10: keeps every unchanged line it leaves out, so none can go missing', () => {
+      const before = numbered(30)
+      const after = withLines(before, { 10: 'changed 10', 20: 'changed 20' })
+      const [file] = diffSummary([f('a.js', text(before))], [f('a.js', text(after))]).files
+      const numbers = (rows) => rows.map((l) => l.newLine)
+      expect(numbers(file.hunks[0].hiddenBefore)).toEqual([1, 2, 3, 4, 5, 6, 7])
+      expect(numbers(file.hunks[1].hiddenBefore)).toEqual([13, 14, 15, 16, 17])
+      expect(numbers(file.hiddenAfter)).toEqual(Array.from({ length: 8 }, (_, i) => 23 + i))
+      // hidden and shown together are the whole file, in order, with nothing twice
+      const all = file.hunks
+        .flatMap((h) => [...h.hiddenBefore, ...h.lines])
+        .concat(file.hiddenAfter)
+      expect(numbers(all.filter((l) => l.type !== 'del'))).toEqual(
+        Array.from({ length: 30 }, (_, i) => i + 1),
+      )
     })
 
     it('does not run the context past either end of the file', () => {

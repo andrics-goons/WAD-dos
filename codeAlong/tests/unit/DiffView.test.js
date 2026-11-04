@@ -78,18 +78,40 @@ describe('DiffView', () => {
   })
 
   describe('stacked', () => {
-    it('T-REP-02: highlights exactly the changed lines, with 3 unchanged lines either side', () => {
+    it('T-REP-02: highlights exactly the changed lines, with 2 unchanged lines either side', () => {
       const code = codeLines(stacked(panel(mountDiff({ mode: 'unified' }), 'src/App.vue')))
       expect(code.filter((t) => t.startsWith('−'))).toEqual(['− <ItemCard :items="items" />'])
       expect(code.filter((t) => t.startsWith('+'))).toEqual(['+ <ItemCard :items="props.items" />'])
-      expect(code).toHaveLength(8)
+      expect(code).toHaveLength(6)
     })
 
     it('says which side + and − mean, and where unchanged lines are hidden', () => {
       const p = panel(mountDiff({ mode: 'unified' }), 'src/App.vue')
       expect(p.text()).toContain('− Your code')
       expect(p.text()).toContain('+ Checkpoint')
-      expect(p.text()).toContain('⋯ line 19')
+      expect(p.text()).toContain('Show 19 unchanged lines')
+    })
+
+    it('T-REP-10: shows a gap of hidden lines when asked, in place, and only that gap', async () => {
+      const wrapper = mountDiff({ mode: 'unified' })
+      const p = () => panel(wrapper, 'src/App.vue')
+      const gaps = () => p().findAll('[data-testid="diff-show-gap"]')
+      expect(gaps()).toHaveLength(2) // above the change, and below it
+      await gaps()[0].trigger('click')
+      expect(p().text()).not.toContain('Show 19 unchanged lines')
+      expect(gaps()).toHaveLength(1)
+      const code = codeLines(stacked(p()))
+      expect(code).toHaveLength(25)
+      expect(code[0].trim()).toBe('line 1')
+    })
+
+    it('T-REP-10: new code to compare starts with the lines hidden again', async () => {
+      const wrapper = mountDiff({ mode: 'unified' })
+      await panel(wrapper, 'src/App.vue')
+        .findAll('[data-testid="diff-show-gap"]')[0]
+        .trigger('click')
+      await wrapper.setProps({ before: [...attempt], after: [...checkpoint] })
+      expect(panel(wrapper, 'src/App.vue').text()).toContain('Show 19 unchanged lines')
     })
   })
 

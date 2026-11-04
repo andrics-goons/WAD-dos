@@ -3,7 +3,7 @@
 // Used by "What you missed", the replay and the TA's side-by-side review.
 //   <DiffView :before="myFiles" :after="checkpointFiles" before-label="Your code" after-label="Checkpoint" />
 // mode 'split' is side by side from sm up and stacked on phones; 'unified' is always stacked.
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { diffSummary } from '@shared/diff-summary.js'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { splitRows } from './diffRows.js'
@@ -26,8 +26,22 @@ const statusLabel = (file) =>
     removed: `Only in ${props.beforeLabel}`,
   })[file.status]
 
-// Line number shown above each hunk (a file that only exists before has no "after" numbers)
-const hunkStart = (file, hunk) => (file.status === 'removed' ? hunk.oldStart : hunk.newStart)
+// Unchanged lines stay hidden until asked for. Each block is a hunk with the gap above it, plus
+// one for whatever follows the last hunk. New files to compare start with everything hidden again.
+const shownGaps = ref(new Set())
+watch(files, () => (shownGaps.value = new Set()))
+const showGap = (key) => (shownGaps.value = new Set(shownGaps.value).add(key))
+function blocks(file) {
+  const block = (key, hidden, lines) =>
+    shownGaps.value.has(key)
+      ? { key, hiddenCount: 0, lines: [...hidden, ...lines] }
+      : { key, hiddenCount: hidden.length, lines }
+  return [
+    ...file.hunks.map((h, i) => block(`${file.path}:${i}`, h.hiddenBefore, h.lines)),
+    block(`${file.path}:end`, file.hiddenAfter, []),
+  ].filter((b) => b.hiddenCount || b.lines.length)
+}
+const gapLabel = (n) => `Show ${n} unchanged ${n === 1 ? 'line' : 'lines'}`
 
 // A + or − in front of each changed line, so the change shows without relying on colour
 const MARK = { add: '+ ', del: '− ', context: '  ' }
@@ -72,13 +86,20 @@ const sideBg = (line) => (line ? BG[line.type] : 'bg-body-secondary')
               <col class="diff-num" />
               <col />
             </colgroup>
-            <tbody v-for="(hunk, h) in file.hunks" :key="h">
-              <tr v-if="hunkStart(file, hunk) > 1">
-                <td colspan="2" class="px-3 bg-body-tertiary text-body-secondary">
-                  ⋯ line {{ hunkStart(file, hunk) }}
+            <tbody v-for="b in blocks(file)" :key="b.key">
+              <tr v-if="b.hiddenCount">
+                <td colspan="2" class="p-0 bg-body-tertiary">
+                  <button
+                    type="button"
+                    class="diff-gap btn btn-link btn-sm w-100 text-start text-decoration-none rounded-0 px-3"
+                    data-testid="diff-show-gap"
+                    @click="showGap(b.key)"
+                  >
+                    <i class="bi bi-arrows-expand me-1" />{{ gapLabel(b.hiddenCount) }}
+                  </button>
                 </td>
               </tr>
-              <tr v-for="(line, i) in hunk.lines" :key="i" :class="BG[line.type]">
+              <tr v-for="(line, i) in b.lines" :key="i" :class="BG[line.type]">
                 <td class="px-2 text-end align-top text-body-secondary user-select-none">
                   {{ line.newLine ?? line.oldLine }}
                 </td>
@@ -102,13 +123,20 @@ const sideBg = (line) => (line ? BG[line.type] : 'bg-body-secondary')
               <th colspan="2" class="px-3 py-1 fw-semibold border-start">{{ afterLabel }}</th>
             </tr>
           </thead>
-          <tbody v-for="(hunk, h) in file.hunks" :key="h">
-            <tr v-if="hunkStart(file, hunk) > 1">
-              <td colspan="4" class="px-3 bg-body-tertiary text-body-secondary">
-                ⋯ line {{ hunkStart(file, hunk) }}
+          <tbody v-for="b in blocks(file)" :key="b.key">
+            <tr v-if="b.hiddenCount">
+              <td colspan="4" class="p-0 bg-body-tertiary">
+                <button
+                  type="button"
+                  class="diff-gap btn btn-link btn-sm w-100 text-start text-decoration-none rounded-0 px-3"
+                  data-testid="diff-show-gap"
+                  @click="showGap(b.key)"
+                >
+                  <i class="bi bi-arrows-expand me-1" />{{ gapLabel(b.hiddenCount) }}
+                </button>
               </td>
             </tr>
-            <tr v-for="(row, i) in splitRows(hunk.lines)" :key="i">
+            <tr v-for="(row, i) in splitRows(b.lines)" :key="i">
               <td
                 class="px-2 text-end align-top text-body-secondary user-select-none"
                 :class="sideBg(row.left)"

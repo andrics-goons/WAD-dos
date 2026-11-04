@@ -427,6 +427,8 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-REP-07 | Non-member reads a replay | RLS | Zero checkpoints returned |
 | T-REP-08 | Student view of a replay | Unit | A student who joined can switch to their own code as the class ended (code viewer, download, preview, export); staff have no toggle; a student with nothing saved sees "No saved code" |
 | T-REP-09 | Preview warms up by itself | Unit | With `autostart` the preview installs and starts once there is code, reporting `installing` → `starting` → `ready`; below `md` it waits for Run preview |
+| T-REP-10 | Hidden unchanged lines can be shown | Unit | Each gap offers **Show N unchanged lines** and opens in place; hidden and shown rows together are the whole file; new code to compare starts hidden again |
+| T-REP-11 | Notes make room for the code | Unit + browser | **My notes** starts closed with the code wider, keeps a half-written note when closed, is remembered on the device, and opens from a note's search result; the timeline marks checkpoints with notes |
 
 ### GH — GitHub import/export · `github-export.test.js`, `replay.spec.js`
 
