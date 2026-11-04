@@ -18,6 +18,7 @@
 // Local only: no Supabase egress, and these are public npm packages, not anyone's code. Like the
 // file cache, IndexedDB is never relied on: a miss or a failed write just means a normal install.
 
+import { ref } from 'vue'
 import { idbDelete, idbGet, idbSet } from '@/cache/idb.js'
 
 // [{ key, savedAt, bytes, locks: { [file]: text } }], newest first; each set's node_modules is
@@ -51,6 +52,10 @@ const exists = async (webcontainer, path) => (await read(webcontainer, path)) !=
 // the lockfiles this tab put back, if it restored a set (forgetRestoredPackages removes them)
 let restoredLocks = null
 
+// Whether the project's packages are there (restored, or an install finished), so pnpm dev can
+// run without a pnpm i first. Shown as "Packages ready" in the terminal's header.
+export const packagesReady = ref(false)
+
 /** Which set of packages this project needs: a hash of its package.json, or null without one. */
 export async function packagesKey(webcontainer) {
   const pkg = await read(webcontainer, 'package.json')
@@ -65,6 +70,7 @@ export async function packagesKey(webcontainer) {
  */
 export async function restorePackages(webcontainer) {
   restoredLocks = null
+  packagesReady.value = false // a new boot: nothing's installed until it's put back
   try {
     const key = await packagesKey(webcontainer)
     if (key === null) return false
@@ -88,6 +94,7 @@ export async function restorePackages(webcontainer) {
     // used again: keep it ahead of older sets when the cache is trimmed
     const rest = index.filter((e) => e.key !== key)
     await idbSet(INDEX, [{ ...entry, savedAt: Date.now() }, ...rest])
+    packagesReady.value = true
     return true
   } catch (err) {
     console.warn("Couldn't restore the saved packages", err)
@@ -104,6 +111,7 @@ export async function forgetRestoredPackages(webcontainer) {
   if (!restoredLocks) return
   const locks = restoredLocks
   restoredLocks = null
+  packagesReady.value = false
   await webcontainer.fs.rm('node_modules', { recursive: true, force: true }).catch(() => {})
   for (const file of locks) await webcontainer.fs.rm(file, { force: true }).catch(() => {})
 }
@@ -170,7 +178,9 @@ export function watchInstalls(webcontainer, { quietMs = QUIET_MS } = {}) {
       const done = await Promise.all(
         DONE_MARKERS.map((m) => exists(webcontainer, `node_modules/${m}`)),
       )
-      if (!stopped && done.some(Boolean)) await savePackages(webcontainer)
+      if (stopped) return
+      packagesReady.value = done.some(Boolean) // false when node_modules was deleted
+      if (packagesReady.value) await savePackages(webcontainer)
     }, quietMs)
   }
   // only once node_modules exists: watching a missing folder fails inside the WebContainer

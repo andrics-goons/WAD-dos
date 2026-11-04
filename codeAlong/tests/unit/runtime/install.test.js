@@ -150,6 +150,31 @@ describe('the package cache', () => {
     expect(next.fs.rm).toHaveBeenCalledWith('node_modules', { recursive: true, force: true })
   })
 
+  it('T-SBX-31: "Packages ready" follows the packages: restored, cleared, a new boot, an install', async () => {
+    await installFinished(fakeContainer({ 'package.json': PKG, 'pnpm-lock.yaml': 'lock' }))
+    expect(install.packagesReady.value).toBe(true) // the install that was just saved
+    const next = fakeContainer({ 'package.json': PKG })
+    await install.restorePackages(next)
+    expect(install.packagesReady.value).toBe(true)
+    await install.forgetRestoredPackages(next) // a checkpoint changed package.json
+    expect(install.packagesReady.value).toBe(false)
+    await install.restorePackages(next)
+    await install.restorePackages(fakeContainer({ 'package.json': PKG2 })) // nothing saved for it
+    expect(install.packagesReady.value).toBe(false)
+  })
+
+  it('T-SBX-31: deleting node_modules takes "Packages ready" away', async () => {
+    await installFinished(fakeContainer({ 'package.json': PKG }))
+    const wc = fakeContainer({ 'package.json': PKG, 'node_modules/vue/index.js': 'x' })
+    const stop = install.watchInstalls(wc, { quietMs: 10 })
+    await vi.waitFor(() =>
+      expect(wc.fs.watch).toHaveBeenCalledWith('node_modules', expect.any(Function)),
+    )
+    wc.fire('node_modules', '.modules.yaml') // the marker's event, but there's no marker file
+    await vi.waitFor(() => expect(install.packagesReady.value).toBe(false))
+    stop()
+  })
+
   it('deleting node_modules is not mistaken for a finished install', async () => {
     const wc = fakeContainer({ 'package.json': PKG, 'node_modules/vue/index.js': 'x' })
     const stop = install.watchInstalls(wc, { quietMs: 10 })

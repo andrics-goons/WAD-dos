@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { mount } from "@vue/test-utils"
 import { nextTick } from "vue"
 import EditorPanel from "@/components/workspace/EditorPanel.vue"
+import { packagesReady } from "@/runtime/install"
 
 // jsdom has no matchMedia; the panel only uses it to start the file tree collapsed on phones
 vi.stubGlobal("matchMedia", () => ({ matches: false }))
@@ -14,6 +15,18 @@ const mountPanel = (saveStatus) =>
         global: { stubs: { CodeEditor: true, FileTree: true, TerminalPanel: true } },
     })
 const statusOf = (wrapper) => wrapper.find('[data-testid="save-status"]')
+
+describe("EditorPanel packages", () => {
+    it("T-SBX-31: says Packages ready in the terminal header only while they're there", async () => {
+        packagesReady.value = false
+        const wrapper = mountPanel("saved")
+        expect(wrapper.find('[data-testid="packages-ready"]').exists()).toBe(false)
+        packagesReady.value = true
+        await nextTick()
+        expect(wrapper.get('[data-testid="packages-ready"]').text()).toBe("Packages ready")
+        packagesReady.value = false
+    })
+})
 
 describe("EditorPanel save status", () => {
     it.each([
