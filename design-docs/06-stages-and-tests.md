@@ -393,6 +393,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-HELP-24 | The help request and editor pages have no Back button | Unit | Neither route has `meta.back`: the request page has its own Help queue button (and a Telegram link opens it with nothing behind it), and the editor page always opens in its own tab; the queue keeps its Exit live session |
 | T-HELP-25 | Back never loops between the request and the queue | Unit | The shell's Back steps back when its target is the previous page, and otherwise replaces this page with the target (no new history entry); so request, queue and editor in any order leave the queue's Back going Home, not to the request. The request page's "Help queue" button replaces too |
 | T-HELP-26 | The student's name in the queue opens the request's own page | Unit | In the queue's review panel the name links to `/help/:id` (title "Open this request on its own page"); on the request page itself it is plain text, not a link to itself |
+| T-HELP-27 | The request box lines up with the first request in the queue | Unit | From lg the right-hand box is pushed down by an invisible copy of the "Waiting" heading, so its top is level with the first card; below lg, where the columns stack, the copy is hidden and adds no gap |
 
 ### TG — Telegram linking & webhook · `telegram.test.js`, `insights.spec.js`
 

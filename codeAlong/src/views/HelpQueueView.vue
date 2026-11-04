@@ -175,6 +175,8 @@ async function claim(request) {
 
         <!-- The request being looked at -->
         <div class="col-12 col-lg-7 col-xl-8" :class="{ 'd-none d-lg-block': !selected }">
+          <!-- the same heading as the one beside it, unseen: it lines this box up with the first request -->
+          <h2 class="fs-6 mb-2 invisible d-none d-lg-block">Waiting</h2>
           <template v-if="selected">
             <button
               type="button"

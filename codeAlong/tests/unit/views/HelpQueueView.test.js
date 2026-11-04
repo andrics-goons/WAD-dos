@@ -80,6 +80,13 @@ describe('HelpQueueView Handled list', () => {
     expect(panel.props('linkName')).toBe(true)
   })
 
+  it('T-HELP-27: the request box is pushed down by an unseen copy of the Waiting heading, from lg only', async () => {
+    const wrapper = await show()
+    const spacer = wrapper.find('.col-lg-7 h2.invisible')
+    expect(spacer.text()).toBe('Waiting') // same text and size as the heading beside it
+    expect(spacer.classes()).toEqual(expect.arrayContaining(['d-none', 'd-lg-block'])) // stacked on phones: no gap
+  })
+
   it('no Handled heading at all when nothing has been handled', async () => {
     help.requests = [request('w1', 'open')]
     expect(toggle(await show()).exists()).toBe(false)
