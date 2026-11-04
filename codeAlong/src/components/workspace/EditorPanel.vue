@@ -3,7 +3,7 @@
     import CodeEditor from "./CodeEditor.vue"
     import FileTree from "./FileTree.vue"
     import TerminalPanel from "./TerminalPanel.vue"
-    import { packagesReady } from "@/runtime/install"
+    import { packagesState } from "@/runtime/install"
 
     const props = defineProps({
         filePaths: { type: Array, default: () => [] },
@@ -271,13 +271,20 @@
             >
                 <div class="pane-header">
                     <span>Terminal</span>
-                    <!-- faded like Saved: the packages are installed (or put back from this device) -->
+                    <!-- faded like Saved: whether the packages are installed (or put back from this
+                         device), and if not, what to type. Nothing while booting or with no package.json -->
                     <span
-                        v-if="packagesReady"
+                        v-if="packagesState === 'ready'"
                         class="small text-nowrap ms-2 opacity-50"
                         title="Installed, so pnpm dev can run straight away"
                         data-testid="packages-ready"
                     >Packages ready <i class="bi bi-box-seam" /></span>
+                    <span
+                        v-else-if="packagesState === 'missing'"
+                        class="small text-nowrap ms-2 opacity-50"
+                        title="The packages aren't installed yet: run pnpm i before pnpm dev"
+                        data-testid="packages-missing"
+                    >Run pnpm i <i class="bi bi-box" /></span>
                     <button
                         class="toggle-btn ms-auto"
                         type="button"

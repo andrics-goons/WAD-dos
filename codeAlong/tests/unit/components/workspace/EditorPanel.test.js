@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { mount } from "@vue/test-utils"
 import { nextTick } from "vue"
 import EditorPanel from "@/components/workspace/EditorPanel.vue"
-import { packagesReady } from "@/runtime/install"
+import { packagesState } from "@/runtime/install"
 
 // jsdom has no matchMedia; the panel only uses it to start the file tree collapsed on phones
 vi.stubGlobal("matchMedia", () => ({ matches: false }))
@@ -17,14 +17,20 @@ const mountPanel = (saveStatus) =>
 const statusOf = (wrapper) => wrapper.find('[data-testid="save-status"]')
 
 describe("EditorPanel packages", () => {
-    it("T-SBX-31: says Packages ready in the terminal header only while they're there", async () => {
-        packagesReady.value = false
+    it("T-SBX-31: the terminal header says Packages ready, or Run pnpm i, or nothing while unknown", async () => {
         const wrapper = mountPanel("saved")
-        expect(wrapper.find('[data-testid="packages-ready"]').exists()).toBe(false)
-        packagesReady.value = true
+        const label = () => wrapper.find(".terminal-pane .pane-header .small")
+        packagesState.value = null
+        await nextTick()
+        expect(label().exists()).toBe(false)
+        packagesState.value = "missing"
+        await nextTick()
+        expect(wrapper.get('[data-testid="packages-missing"]').text()).toBe("Run pnpm i")
+        packagesState.value = "ready"
         await nextTick()
         expect(wrapper.get('[data-testid="packages-ready"]').text()).toBe("Packages ready")
-        packagesReady.value = false
+        expect(wrapper.find('[data-testid="packages-missing"]').exists()).toBe(false)
+        packagesState.value = null
     })
 })
 

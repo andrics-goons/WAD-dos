@@ -52,9 +52,10 @@ const exists = async (webcontainer, path) => (await read(webcontainer, path)) !=
 // the lockfiles this tab put back, if it restored a set (forgetRestoredPackages removes them)
 let restoredLocks = null
 
-// Whether the project's packages are there (restored, or an install finished), so pnpm dev can
-// run without a pnpm i first. Shown as "Packages ready" in the terminal's header.
-export const packagesReady = ref(false)
+// Whether the project's packages are there, shown in the terminal's header: 'ready' (restored,
+// or an install finished, so pnpm dev can run straight away), 'missing' ("Run pnpm i"), or null
+// while it isn't known yet (booting) or there's nothing to install (no package.json)
+export const packagesState = ref(null)
 
 /** Which set of packages this project needs: a hash of its package.json, or null without one. */
 export async function packagesKey(webcontainer) {
@@ -64,13 +65,27 @@ export async function packagesKey(webcontainer) {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
+// pnpm (or npm) finished installing here: its last write is there
+async function installed(webcontainer) {
+  const done = DONE_MARKERS.map((m) => exists(webcontainer, `node_modules/${m}`))
+  return (await Promise.all(done)).some(Boolean)
+}
+
 /**
  * Put the saved packages back, right after the source files are mounted. Only for the same
  * package.json: returns true when they're back, false when pnpm has to install as usual.
  */
 export async function restorePackages(webcontainer) {
   restoredLocks = null
-  packagesReady.value = false // a new boot: nothing's installed until it's put back
+  packagesState.value = null // a new boot: not known until the cache has been looked at
+  if ((await read(webcontainer, 'package.json')) === null) return false // nothing to install
+  const restored = await putBack(webcontainer)
+  // not put back: still there from an earlier install in this tab, or the student has to install
+  packagesState.value = restored || (await installed(webcontainer)) ? 'ready' : 'missing'
+  return restored
+}
+
+async function putBack(webcontainer) {
   try {
     const key = await packagesKey(webcontainer)
     if (key === null) return false
@@ -94,7 +109,6 @@ export async function restorePackages(webcontainer) {
     // used again: keep it ahead of older sets when the cache is trimmed
     const rest = index.filter((e) => e.key !== key)
     await idbSet(INDEX, [{ ...entry, savedAt: Date.now() }, ...rest])
-    packagesReady.value = true
     return true
   } catch (err) {
     console.warn("Couldn't restore the saved packages", err)
@@ -111,7 +125,7 @@ export async function forgetRestoredPackages(webcontainer) {
   if (!restoredLocks) return
   const locks = restoredLocks
   restoredLocks = null
-  packagesReady.value = false
+  packagesState.value = 'missing'
   await webcontainer.fs.rm('node_modules', { recursive: true, force: true }).catch(() => {})
   for (const file of locks) await webcontainer.fs.rm(file, { force: true }).catch(() => {})
 }
@@ -175,12 +189,10 @@ export function watchInstalls(webcontainer, { quietMs = QUIET_MS } = {}) {
     clearTimeout(timer)
     timer = setTimeout(async () => {
       // the marker is also "changed" when node_modules is deleted: only save a finished install
-      const done = await Promise.all(
-        DONE_MARKERS.map((m) => exists(webcontainer, `node_modules/${m}`)),
-      )
+      const done = await installed(webcontainer)
       if (stopped) return
-      packagesReady.value = done.some(Boolean) // false when node_modules was deleted
-      if (packagesReady.value) await savePackages(webcontainer)
+      packagesState.value = done ? 'ready' : 'missing'
+      if (done) await savePackages(webcontainer)
     }, quietMs)
   }
   // only once node_modules exists: watching a missing folder fails inside the WebContainer
