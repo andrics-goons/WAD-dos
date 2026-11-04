@@ -33,6 +33,7 @@ function fakeContainer(files = {}) {
     },
     export: vi.fn(async () => new Uint8Array([1, 2, 3])),
     mount: vi.fn(async () => {}),
+    spawn: vi.fn(async () => ({ exit: Promise.resolve(0) })),
     fire: (path, name) => watchers[path]?.('rename', name),
   }
   return wc
@@ -102,6 +103,18 @@ describe('the package cache', () => {
     expect(bytesOf(bytes)).toEqual([1, 2, 3])
     expect(options).toEqual({ mountPoint: 'node_modules' })
     expect(next.fs.writeFile).toHaveBeenCalledWith('pnpm-lock.yaml', 'lock')
+  })
+
+  it('T-SBX-27: the restored commands are made runnable again, after the mount', async () => {
+    await installFinished(fakeContainer({ 'package.json': PKG }))
+    const next = fakeContainer({ 'package.json': PKG })
+    await install.restorePackages(next)
+    const [command, args] = next.spawn.mock.calls[0]
+    expect([command, args[0]]).toEqual(['node', '-e'])
+    expect(args[1]).toContain("chmodSync(dir + '/' + name, 0o755)")
+    expect(next.mount.mock.invocationCallOrder[0]).toBeLessThan(
+      next.spawn.mock.invocationCallOrder[0],
+    )
   })
 
   it("keeps the project's own lockfile when it brings one", async () => {

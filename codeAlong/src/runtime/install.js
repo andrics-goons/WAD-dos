@@ -29,6 +29,20 @@ const QUIET_MS = 3000 // wait this long after the install's last write before sa
 // what pnpm (and npm) write last, when an install has finished
 const DONE_MARKERS = ['.modules.yaml', '.package-lock.json']
 const LOCKFILES = ['pnpm-lock.yaml', 'package-lock.json']
+// The snapshot doesn't keep the executable bit, so without this pnpm dev fails with "spawn
+// concurrently EACCES" until a pnpm i links them again: every command in a .bin folder (the
+// project's and each package's own under .pnpm) is made runnable again. chmod follows the link.
+const CHMOD_BINS = `
+const fs = require('fs')
+const dirs = ['node_modules/.bin']
+try {
+  for (const d of fs.readdirSync('node_modules/.pnpm')) dirs.push('node_modules/.pnpm/' + d + '/node_modules/.bin')
+} catch {}
+for (const dir of dirs) {
+  let names = []
+  try { names = fs.readdirSync(dir) } catch {}
+  for (const name of names) try { fs.chmodSync(dir + '/' + name, 0o755) } catch {}
+}`
 
 const modulesKey = (key) => `packages:${key}:modules`
 const read = (webcontainer, path) => webcontainer.fs.readFile(path, 'utf-8').catch(() => null)
@@ -62,6 +76,8 @@ export async function restorePackages(webcontainer) {
     // a mount point has to exist already ("invalid mount point" otherwise, and nothing mounts)
     await webcontainer.fs.mkdir('node_modules', { recursive: true })
     await webcontainer.mount(modules, { mountPoint: 'node_modules' })
+    const chmod = await webcontainer.spawn('node', ['-e', CHMOD_BINS])
+    await chmod.exit
     // the lockfile that matches these packages, unless the project brought its own
     restoredLocks = []
     for (const [file, text] of Object.entries(entry.locks ?? {})) {
