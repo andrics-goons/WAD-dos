@@ -212,6 +212,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-LES-08 | An uploaded or imported project gets the error reporter (`addProbe`, [lesson-import-requirements](./lesson-import-requirements.md)) | Unit | `src/ca-probe.js` added, imported first by the entry script, `ca-errors` in `vite.config.js`, Vite 8 pins; running it twice changes nothing; a project it can't patch is rejected with a message |
 | T-LES-09 | Two lessons in one course with the same week | DB + Unit | Both are kept: a second insert, or moving a lesson into a week that already has one, succeeds (a week is a folder of lessons) |
 | T-LES-10 | Start new session on the lesson list | Unit | Every file that isn't archived shows Start new session, drafts and files taught before included, and it starts straight away; a file with a live class has none (Open class is in its list); week folders have no button |
+| T-LES-11 | Continue at the bottom of the lesson editor | Unit | The one button says Continue until something is edited, then Save and continue (no Save button in the header); with nothing changed it goes straight back to the course; with edits it saves first, then goes back; if saving fails it stays on the page with the edits and the error |
 | T-TODO-* | ~~TODO parser~~ | — | Removed with lesson steps |
 
 ### SESS — Live session engine · `live-session.spec.js`
