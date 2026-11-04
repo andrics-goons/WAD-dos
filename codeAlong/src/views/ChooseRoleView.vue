@@ -44,7 +44,9 @@ async function choose(role) {
 </script>
 
 <template>
-  <div class="ca-page">
+  <!-- v-if: after a logout (here or in another tab, or when the session ends) user is null for
+       a moment before the page changes, and auth.user.name below would throw -->
+  <div v-if="auth.user" class="ca-page">
     <div class="row justify-content-center">
       <div class="col-12 col-sm-10 col-md-8 col-lg-6">
         <div class="ca-card">

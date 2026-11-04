@@ -49,7 +49,9 @@ function classLink(s) {
 </script>
 
 <template>
-  <div class="ca-page">
+  <!-- v-if: after a logout (here or in another tab, or when the session ends) user is null for
+       a moment before the page changes, and auth.user.name below would throw -->
+  <div v-if="auth.user" class="ca-page">
     <div class="ca-page-header">
       <div>
         <div class="ca-eyebrow">{{ RoleLabel[auth.role] }}</div>

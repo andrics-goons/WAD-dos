@@ -64,6 +64,25 @@ describe('HomeView My courses', () => {
     expect(shown(wrapper).map((t) => t.match(/Course (\w)/)[1])).toEqual(['a', 'e', 'd'])
   })
 
+  it('renders nothing (instead of throwing) while the user is null after a sign-out', async () => {
+    const errors = []
+    const signedIn = auth.user
+    auth.user = null
+    try {
+      const wrapper = mount(HomeView, {
+        global: {
+          stubs: { RouterLink: { template: '<a><slot /></a>' } },
+          config: { errorHandler: (e) => errors.push(e) },
+        },
+      })
+      await flushPromises()
+      expect(errors).toEqual([])
+      expect(wrapper.find('h1').exists()).toBe(false)
+    } finally {
+      auth.user = signedIn
+    }
+  })
+
   it('with 3 or fewer, shows them all and a plain "See all"', async () => {
     const wrapper = await show({ all: ['c', 'b', 'a'] })
     expect(shown(wrapper)).toHaveLength(3)
