@@ -55,12 +55,28 @@
 </script>
 
 <template>
-    <div ref="terminalEl" class="terminal"></div>
+    <!-- the padding goes on this wrapper, not on the terminal's div: the fit addon measures that
+         div, and would count padding as room for text -->
+    <div class="terminal-wrap">
+        <div ref="terminalEl" class="terminal"></div>
+    </div>
 </template>
 
 <style scoped>
+    .terminal-wrap {
+        height: 100%;
+        width: 100%;
+        padding: 6px 10px;
+        background: var(--ca-ide-bg); /* the same as the terminal's own background */
+    }
     .terminal {
         height: 100%;
         width: 100%;
+    }
+    /* a thin scrollbar like VS Code's: xterm draws it 14px wide with an inline style, so this
+       needs !important (its colours are in the theme, in terminal.js) */
+    .terminal :deep(.xterm-scrollable-element > .scrollbar.vertical),
+    .terminal :deep(.xterm-scrollable-element > .scrollbar.vertical > .slider) {
+        width: 10px !important;
     }
 </style>
