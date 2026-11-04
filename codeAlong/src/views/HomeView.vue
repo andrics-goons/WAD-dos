@@ -27,18 +27,19 @@ onMounted(async () => {
 })
 
 const isProf = computed(() => auth.role === 'prof')
-// Home shows 3 courses: the ones with a class live right now first (the one you're in), then the
-// rest newest first (the list comes that way, and sort keeps that order among equals)
-const SHOWN = 3
-const liveCourseIds = computed(() => new Set(live.value.map((s) => s.course_id)))
-const recentCourses = computed(() =>
-  [...courses.courses]
-    .sort((a, b) => liveCourseIds.value.has(b.id) - liveCourseIds.value.has(a.id))
-    .slice(0, SHOWN),
-)
-
 // my role in that class's course decides where its button goes
 const roleIn = (courseId) => courses.courses.find((c) => c.id === courseId)?.myRole
+// my courses leave out the ones I've archived, so their classes don't show here either
+const shownLive = computed(() => live.value.filter((s) => roleIn(s.course_id)))
+
+// the 3 courses I most likely need: those with a live class first, then the newest
+const HOME_COURSES = 3
+const recentCourses = computed(() => {
+  const liveIds = new Set(shownLive.value.map((s) => s.course_id))
+  const withLive = courses.courses.filter((c) => liveIds.has(c.id))
+  const rest = courses.courses.filter((c) => !liveIds.has(c.id))
+  return [...withLive, ...rest].slice(0, HOME_COURSES)
+})
 function classLink(s) {
   const role = roleIn(s.course_id)
   if (role === 'prof') return { label: 'Open class', to: { name: 'teach', params: { id: s.id } } }
@@ -75,7 +76,7 @@ function classLink(s) {
       <!-- Live now -->
       <section class="col-12 col-lg-7">
         <h2 class="fs-5 mb-3">Live now</h2>
-        <div v-if="!live.length" class="ca-surface">
+        <div v-if="!shownLive.length" class="ca-surface">
           <EmptyState icon="bi-broadcast" title="No live classes" compact>
             <template v-if="isProf">Start one from a ready lesson on your course page.</template>
             <template v-else>When your class starts, it shows up here.</template>
@@ -83,7 +84,7 @@ function classLink(s) {
         </div>
         <ul v-else class="list-group">
           <li
-            v-for="s in live"
+            v-for="s in shownLive"
             :key="s.id"
             class="list-group-item d-flex flex-wrap align-items-center gap-2"
           >
@@ -107,7 +108,7 @@ function classLink(s) {
           <h2 class="fs-5 mb-0">My courses</h2>
           <!-- with more than are shown, the count says some are hidden -->
           <RouterLink :to="{ name: 'courses' }" class="ms-auto small" data-testid="see-all-courses">
-            See all<template v-if="courses.courses.length > SHOWN">
+            See all<template v-if="courses.courses.length > HOME_COURSES">
               ({{ courses.courses.length }})</template
             >
           </RouterLink>

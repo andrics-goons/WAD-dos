@@ -19,7 +19,7 @@ describe('Back on the help pages', () => {
     expect(route('help-code').meta.back).toBeUndefined()
   })
 
-  it("the help queue still has its Exit live session, which is the browser's back", () => {
-    expect(route('help-queue').meta.back()).toEqual({ label: 'Exit live session' })
+  it('the help queue has none: no back bar in a live class (the navbar leaves it)', () => {
+    expect(route('help-queue').meta.back).toBeUndefined()
   })
 })
