@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { mount, flushPromises } from "@vue/test-utils"
 import { createPinia, setActivePinia } from "pinia"
 import WorkspaceView from "@/views/WorkspaceView.vue"
+import { useToastStore } from "@/stores/toast"
 import { getWebContainer } from "@/runtime/webcontainer"
 import { startWorkspace } from "@/runtime/workspace"
 
@@ -119,6 +120,45 @@ describe("WorkspaceView", () => {
             const again = mountView()
             await flushPromises()
             expect(box(again, "preview-box")).not.toContain("d-xl-block")
+        })
+    })
+
+    describe("T-SBX-30: moving or renaming a file", () => {
+        const rename = (wrapper, from, to) =>
+            wrapper.findComponent({ name: "EditorPanel" }).vm.$emit("rename-file", from, to)
+        const FILES = [
+            { path: "src/App.vue", content: "import ItemCard from './components/ItemCard.vue'" },
+            { path: "src/components/ItemCard.vue", content: "<template />" },
+            { path: "README.md", content: "# Mini Cart" },
+        ]
+        // the page loads first (the fake load sets its own files), then the class's code is these
+        async function open() {
+            const wrapper = mountView()
+            await flushPromises()
+            store.files = FILES
+            store.renameFile = vi.fn(async () => {})
+            return wrapper
+        }
+
+        it("moves it, then warns which files still point at its old place", async () => {
+            const wrapper = await open()
+            await rename(wrapper, "src/components/ItemCard.vue", "src/ItemCard.vue")
+            await flushPromises()
+            expect(store.renameFile).toHaveBeenCalledWith("src/components/ItemCard.vue", "src/ItemCard.vue")
+            expect(useToastStore().messages.at(-1)).toMatchObject({
+                variant: "warning",
+                title: "ItemCard.vue moved",
+                text: expect.stringContaining("src/App.vue still points to ItemCard.vue"),
+            })
+        })
+
+        it("says nothing when no file uses it", async () => {
+            const wrapper = await open()
+            const before = useToastStore().messages.length
+            await rename(wrapper, "README.md", "docs/README.md")
+            await flushPromises()
+            expect(store.renameFile).toHaveBeenCalledWith("README.md", "docs/README.md")
+            expect(useToastStore().messages).toHaveLength(before)
         })
     })
 })

@@ -276,6 +276,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-SBX-16 | File tree create / rename / delete | E2E | Reflected in the container FS and in the next autosave |
 | T-SBX-17 | Unsupported browser | E2E | With isolation disabled, "The workspace needs Chrome or Edge" — not a blank pane |
 | T-SBX-29 | The file tree and the terminal can be resized | Unit | Dragging the handle beside the tree sets its width and the one above the terminal sets its height; both are kept on the device; the editor keeps at least 320px wide and 120px tall; a double-click on a handle goes back to the default; moving without holding a handle changes nothing |
+| T-SBX-30 | Files can be dragged into another folder | Unit | Dropping a file on a folder, on a file (its folder) or on the space under the tree (the top level) renames it there and opens that folder; its own folder isn't highlighted and dropping there does nothing; a name already there shows an error and moves nothing; dragging out a folder's last file asks first, and Cancel moves nothing; folders, read-only trees and drags from outside the tree don't move anything; moving or renaming a file another file imports shows a warning naming them, and no warning when nothing does |
 
 ### STAT — Status & derived state · `tile-state.test.js`, `dashboard.spec.js`
 

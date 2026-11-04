@@ -15,6 +15,7 @@
   import { checkpointLabel } from "@shared/checkpoint-label.js"
   import { useToastStore } from "@/stores/toast"
   import { downloadProject } from "@/utils/downloadProject.js"
+  import { importersOf } from "@/utils/imports.js"
 
   const props = defineProps({ id: { type: String, required: true } })
 
@@ -40,6 +41,19 @@
   )
   function downloadMine() {
     downloadProject(workspaceStore.files, sessionStore.session?.lesson.title ?? "project")
+  }
+  // Rename, or a file dragged to another folder: the files that point at it by its old path
+  // (an import, a src, a script in package.json) now point at nothing, so say which ones
+  async function renameFile(from, to) {
+    const importers = importersOf(workspaceStore.files, from)
+    await workspaceStore.renameFile(from, to)
+    if (!importers.length) return
+    const name = from.split("/").pop()
+    toast.show(
+      `${importers.join(", ")} still ${importers.length === 1 ? "points" : "point"} to ${name} at its old place. Update the path there, or the app won't build.`,
+      "warning",
+      { title: `${name} moved` },
+    )
   }
   // "Slow down": anonymous, so the prof only sees how many asked
   async function toggleSlowDown() {
@@ -224,7 +238,7 @@
             @toggle-view="toggleView(false)"
             @show-preview="showPreview = true"
             @create-file="workspaceStore.createFile"
-            @rename-file="workspaceStore.renameFile"
+            @rename-file="renameFile"
             @delete-file="deleting = $event"
           />
         </div>
