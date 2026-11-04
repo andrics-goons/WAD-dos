@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { importersOf } from '@/utils/imports.js'
+import { importersOf, moveWarning } from '@/utils/imports.js'
 
 const file = (path, content) => ({ path, content })
 const PROJECT = [
@@ -49,5 +49,17 @@ describe('importersOf', () => {
   it("doesn't take a longer name for this one", () => {
     const files = [file('src/App.vue', "import Card from './components/ItemCardList.vue'")]
     expect(importersOf(files, 'src/components/ItemCard.vue')).toEqual([])
+  })
+})
+
+describe('moveWarning', () => {
+  it('names the files that still point at the old place', () => {
+    const { title, message } = moveWarning(PROJECT, 'src/components/ItemCard.vue')
+    expect(title).toBe('ItemCard.vue moved')
+    expect(message).toContain('src/App.vue still points to ItemCard.vue at its old place')
+  })
+
+  it('is null when nothing refers to the file', () => {
+    expect(moveWarning([{ path: 'a.css', content: '' }], 'a.css')).toBeNull()
   })
 })

@@ -143,6 +143,31 @@ async function loadCheckpoint(cp = active.value) {
 const notesHere = computed(() =>
   notes.value.filter((n) => n.kind === NoteKind.NOTE && n.checkpointId === active.value?.id),
 )
+const notedCheckpoints = computed(() =>
+  notes.value.filter((n) => n.kind === NoteKind.NOTE).map((n) => n.checkpointId),
+)
+
+// My notes are closed until asked for, so the code gets the width. Remembered on this device;
+// a search result for a note opens them (?notes=open).
+const NOTES_KEY = 'codealong:replay-notes'
+const notesOpen = ref(
+  (() => {
+    if (route.query.notes === 'open') return true
+    try {
+      return localStorage.getItem(NOTES_KEY) === 'open'
+    } catch {
+      return false
+    }
+  })(),
+)
+function toggleNotes() {
+  notesOpen.value = !notesOpen.value
+  try {
+    localStorage.setItem(NOTES_KEY, notesOpen.value ? 'open' : 'closed')
+  } catch {
+    // private window or blocked storage: it just isn't remembered
+  }
+}
 
 // Runs one note change; done() lets the notes panel clear its text box only once it's saved,
 // so a failed save keeps what the student wrote
@@ -363,12 +388,27 @@ const repoSlug = (title) =>
 
       <div v-else class="row g-4">
         <aside class="col-12 col-lg-3">
-          <CheckpointTimeline :checkpoints="checkpoints" :active-seq="activeSeq" @select="select" />
+          <CheckpointTimeline
+            :checkpoints="checkpoints"
+            :active-seq="activeSeq"
+            :noted="notedCheckpoints"
+            @select="select"
+          />
         </aside>
 
-        <section class="col-12 col-lg-6">
+        <section class="col-12" :class="notesOpen ? 'col-lg-6' : 'col-lg-9'">
           <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
             <h2 class="fs-5 mb-0 me-auto">{{ checkpointLabel(active.seq, active.title) }}</h2>
+            <button
+              type="button"
+              class="ca-btn ca-btn--sm"
+              :class="notesOpen ? 'ca-btn--primary' : 'ca-btn--secondary'"
+              data-testid="btn-toggle-notes"
+              @click="toggleNotes"
+            >
+              <i class="bi bi-journal-text" />My notes
+              <template v-if="notesHere.length">({{ notesHere.length }})</template>
+            </button>
           </div>
           <ReplayTabs v-model="tab" :tabs="TABS">
             <div class="d-flex align-items-center gap-1">
@@ -442,7 +482,8 @@ const repoSlug = (title) =>
           />
         </section>
 
-        <aside class="col-12 col-lg-3">
+        <!-- v-show: closing it keeps a half-written note -->
+        <aside v-show="notesOpen" class="col-12 col-lg-3">
           <NotesPanel
             :notes="notesHere"
             :busy="saving"

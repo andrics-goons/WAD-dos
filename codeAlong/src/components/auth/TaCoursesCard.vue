@@ -1,12 +1,12 @@
 <script setup>
-// Profile page: the courses I'm a TA in. Being a TA is per course, so the Account card shows
+// Profile page: the courses I'm a TA in. Being a TA is per course, so the page shows
 // my account type (Student or Educator) and the courses are listed here.
 defineProps({ courses: { type: Array, required: true } }) // { id, title, code, section, term }
 </script>
 
 <template>
-  <div class="ca-card h-100" data-testid="ta-courses">
-    <h2 class="h3"><i class="bi bi-person-badge" /> Teaching assistant</h2>
+  <div data-testid="ta-courses">
+    <h2 class="h3">Teaching assistant</h2>
     <p class="text-body-secondary small">You help run these courses.</p>
     <ul class="list-group list-group-flush">
       <li v-for="c in courses" :key="c.id" class="list-group-item px-0">

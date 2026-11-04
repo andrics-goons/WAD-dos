@@ -12,7 +12,10 @@ const route = useRoute()
 const name = ref('')
 const email = ref('')
 const password = ref('')
-const role = ref(SignupRole.STUDENT)
+// the landing page's role cards link here with ?role=prof or ?role=student
+const role = ref(
+  route.query.role === SignupRole.EDUCATOR ? SignupRole.EDUCATOR : SignupRole.STUDENT,
+)
 
 const isSubmitting = ref(false)
 const errorMsg = ref('')

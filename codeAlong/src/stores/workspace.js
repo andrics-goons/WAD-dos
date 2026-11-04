@@ -105,7 +105,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         let timer = null
         const save = () => {
             clearTimeout(timer)
-            return idbSet(key, structuredClone(toRaw(files.value)))
+            // each file too: deleting one leaves reactive files in the list, which can't be cloned
+            return idbSet(key, structuredClone(toRaw(files.value).map(f => toRaw(f))))
         }
         saver = {
             autosave: () => {

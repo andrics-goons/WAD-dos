@@ -47,6 +47,9 @@ export interface ClassSummary {
 const MAX_GROUPS = 8
 const MAX_ITEMS_PER_GROUP = 5
 export const MAX_PROMPT_CHARS = 6000
+// the main mistake comes first in a root cause; the student's smaller slips after it would only
+// crowd out the other groups
+const MAX_ROOT_CAUSE_CHARS = 400
 
 export function groupAnalyses(rows: AnalysedRequest[]): Group[] {
   const byKey = new Map<string, Omit<Group, 'key'>>()
@@ -96,7 +99,10 @@ export function buildSummaryPrompt(groups: Group[], total: number): ChatMessage[
   const blocks = groups.map((g) => {
     const lines = g.items
       .slice(0, MAX_ITEMS_PER_GROUP)
-      .map((it) => `- ${it.summary}. ${it.rootCause}${it.where ? ` (${it.where})` : ''}`)
+      .map(
+        (it) =>
+          `- ${it.summary}. ${clamp(it.rootCause, MAX_ROOT_CAUSE_CHARS)}${it.where ? ` (${it.where})` : ''}`,
+      )
     const more =
       g.items.length > MAX_ITEMS_PER_GROUP
         ? [`- …and ${g.items.length - MAX_ITEMS_PER_GROUP} more like these`]

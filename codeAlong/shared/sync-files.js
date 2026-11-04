@@ -47,15 +47,22 @@ export async function contentHash(content) {
 const estimateBytes = (files) =>
   new TextEncoder().encode(JSON.stringify(files)).length + 6 * files.length
 
+// The files the database accepts, each with the language its path says: a new file has none yet,
+// and a renamed one can have the old one. Anything files_valid() would refuse is left out, since
+// one such file would make it refuse the whole save.
+export function storableFiles(tree) {
+  return tree
+    .filter((f) => languageOf(f.path) && isStorablePath(f.path) && !isSyncIgnored(f.path))
+    .map((f) => ({ path: f.path, language: languageOf(f.path), content: f.content }))
+}
+
 // Work out what autosave should send.
 //   tree    the editor's files, [{ path, content }]
 //   synced  { path: hash } from the last successful save ({} on a new device)
 // Returns { upsert, remove, hashes, tooLarge }: the changed files, the deleted paths, the new
 // `synced` map (keep it only once the save succeeds), and whether the project is over the limits.
 export async function planAutosave(tree, synced) {
-  const files = tree
-    .filter((f) => languageOf(f.path) && isStorablePath(f.path) && !isSyncIgnored(f.path))
-    .map((f) => ({ path: f.path, language: languageOf(f.path), content: f.content }))
+  const files = storableFiles(tree)
 
   const hashes = {}
   for (const f of files) hashes[f.path] = await contentHash(f.content)

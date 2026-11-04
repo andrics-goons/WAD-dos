@@ -1,4 +1,5 @@
 // @vitest-environment node
+import "fake-indexeddb/auto"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { createPinia, setActivePinia } from "pinia"
 import { useWorkspaceStore } from "@/stores/workspace.js"
@@ -8,6 +9,7 @@ import { findMyAutosave } from "@/api/files.api"
 import { loadFiles } from "@/cache/files.js"
 import { createAutosave } from "@/cache/autosave.js"
 import { forgetRestoredPackages } from "@/runtime/install"
+import { idbGet } from "@/cache/idb.js"
 
 vi.mock("@/runtime/webcontainer", () => ({ getWebContainer: vi.fn() }))
 vi.mock("@/runtime/install", () => ({ forgetRestoredPackages: vi.fn() }))
@@ -245,5 +247,29 @@ describe("the file tree's New file, Rename and Delete", () => {
         await store.createFile("notes.md")
         expect(store.filePaths).toContain("notes.md")
         expect(log).toHaveBeenCalled()
+    })
+})
+
+describe("T-SBX-32: the prof's draft keeps file changes", () => {
+    it("saves after a delete and a new file, so a reload doesn't bring the old files back", async () => {
+        vi.useRealTimers() // the in-memory IndexedDB runs on real timers
+        setActivePinia(createPinia())
+        getWebContainer.mockResolvedValue({ fs: { rm: vi.fn(), mkdir: vi.fn(), writeFile: vi.fn() } })
+        getSession.mockResolvedValue({
+            lesson_id: "l1",
+            latest_checkpoint: null,
+            lesson: { entry_file: "index.html", files_hash: "h" },
+        })
+        loadFiles.mockImplementation(async () => [
+            { path: "index.html", language: "html", content: "<p></p>" },
+            { path: "old.js", language: "js", content: "x" },
+        ])
+        const store = useWorkspaceStore()
+        await store.loadForTeaching("s1")
+        await store.deleteFile("old.js")
+        await store.createFile("new.js")
+        await store.close() // saves the draft
+        const draft = await idbGet("draft:u1:s1")
+        expect(draft.map(f => f.path)).toEqual(["index.html", "new.js"])
     })
 })

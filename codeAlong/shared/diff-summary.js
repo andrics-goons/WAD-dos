@@ -6,7 +6,7 @@
 import { diffLines } from 'diff'
 
 // How many unchanged lines to show around each change
-export const CONTEXT_LINES = 3
+export const CONTEXT_LINES = 2
 
 // Split file content into lines; a trailing newline doesn't create an extra empty line
 function splitLines(content) {
@@ -63,7 +63,11 @@ function buildRows(beforeLines, afterLines) {
   return rows
 }
 
-// Group the changed rows into hunks, each padded with CONTEXT_LINES of unchanged lines
+const plainRow = ({ type, text, oldLine, newLine }) => ({ type, text, oldLine, newLine })
+
+// Group the changed rows into hunks, each padded with CONTEXT_LINES of unchanged lines. The
+// unchanged lines left out are kept with them, so the view can show them on request:
+// hiddenBefore on each hunk, and whatever follows the last one in hiddenAfter.
 function buildHunks(rows) {
   const changed = rows.flatMap((row, i) => (row.type === 'context' ? [] : [i]))
 
@@ -75,19 +79,23 @@ function buildHunks(rows) {
     else ranges.push({ start: i, end: i })
   }
 
-  return ranges.map(({ start, end }) => {
-    const slice = rows.slice(
-      Math.max(0, start - CONTEXT_LINES),
-      Math.min(rows.length, end + CONTEXT_LINES + 1),
-    )
+  let shownTo = 0 // rows up to here are in a hunk, or hidden before one
+  const hunks = ranges.map(({ start, end }) => {
+    const from = Math.max(0, start - CONTEXT_LINES)
+    const to = Math.min(rows.length, end + CONTEXT_LINES + 1)
+    const slice = rows.slice(from, to)
     const first = slice[0]
+    const hiddenBefore = rows.slice(shownTo, from).map(plainRow)
+    shownTo = to
     return {
       // Starting line on each side (an added/deleted row only has a number on one side)
       oldStart: first.oldLine ?? first.oldPos + 1,
       newStart: first.newLine ?? first.newPos + 1,
-      lines: slice.map(({ type, text, oldLine, newLine }) => ({ type, text, oldLine, newLine })),
+      hiddenBefore,
+      lines: slice.map(plainRow),
     }
   })
+  return { hunks, hiddenAfter: rows.slice(shownTo).map(plainRow) }
 }
 
 // Diff one file; returns null when nothing meaningful changed
@@ -97,7 +105,7 @@ function summariseFile(path, before, after) {
 
   const rows =
     before === after ? [] : buildRows(before === undefined ? [] : splitLines(before), afterLines)
-  const hunks = buildHunks(rows)
+  const { hunks, hiddenAfter } = buildHunks(rows)
   // Only whitespace changed, so leave the file out (a missing or extra file is always shown)
   if (status === 'modified' && hunks.length === 0) return null
 
@@ -116,13 +124,14 @@ function summariseFile(path, before, after) {
     removed: rows.filter((row) => row.type === 'del').length,
     firstDiffLine,
     hunks,
+    hiddenAfter,
   }
 }
 
 // [{ path, content }] -> Map of path => content
 const byPath = (files) => new Map((files ?? []).map((f) => [f.path, f.content ?? '']))
 
-// Main entry point: returns { files: [{ path, status, added, removed, firstDiffLine, hunks }] }
+// Main entry point: returns { files: [{ path, status, added, removed, firstDiffLine, hunks, hiddenAfter }] }
 // status is 'modified', 'added' (only in after) or 'removed' (only in before)
 export function diffSummary(beforeFiles, afterFiles) {
   const before = byPath(beforeFiles)

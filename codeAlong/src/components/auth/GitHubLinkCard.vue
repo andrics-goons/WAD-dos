@@ -24,7 +24,7 @@ onMounted(async () => {
 async function connect() {
   busy.value = true
   try {
-    await auth.connectGitHub()
+    await auth.connectGitHub('/profile?chapter=connections')
   } catch (error) {
     toast.show(error.message, 'danger')
     busy.value = false
@@ -45,7 +45,7 @@ async function disconnect() {
 </script>
 
 <template>
-  <div class="ca-card h-100">
+  <div>
     <h2 class="h3"><i class="bi bi-github" /> GitHub</h2>
 
     <div v-if="loading" class="spinner-border spinner-border-sm text-primary">

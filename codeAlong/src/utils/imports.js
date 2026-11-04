@@ -21,3 +21,15 @@ export function importersOf(files, path) {
     .filter((f) => f.path !== path && (ref.test(f.content) || mentions(f)))
     .map((f) => f.path)
 }
+
+/** The warning for moving or renaming `path`, or null when nothing refers to it. */
+export function moveWarning(files, path) {
+  const importers = importersOf(files, path)
+  if (!importers.length) return null
+  const name = path.split('/').pop()
+  const verb = importers.length === 1 ? 'points' : 'point'
+  return {
+    title: `${name} moved`,
+    message: `${importers.join(', ')} still ${verb} to ${name} at its old place. Update the path there, or the app won't build.`,
+  }
+}
