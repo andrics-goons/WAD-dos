@@ -135,3 +135,40 @@ describe('HelpReviewPanel Open in editor', () => {
     })
   })
 })
+
+describe('HelpReviewPanel student name', () => {
+  const RouterLink = { props: ['to'], template: '<a><slot /></a>' }
+  async function show(props = {}) {
+    help.studentFiles.mockResolvedValue([])
+    help.checkpointFor.mockResolvedValue(null)
+    help.starterFiles.mockResolvedValue([])
+    const wrapper = mount(HelpReviewPanel, {
+      props: { request: claimed, myId: 'ana', canAct: true, ...props },
+      global: { stubs: { DiffView: true, RouterLink } },
+    })
+    await flushPromises()
+    return wrapper
+  }
+  const nameLink = (wrapper) => wrapper.find('[data-testid="link-request-page"]')
+
+  it('T-HELP-26: in the queue the name opens the request on its own page', async () => {
+    const wrapper = await show({ linkName: true })
+    expect(nameLink(wrapper).text()).toBe('Bea Koh')
+    expect(nameLink(wrapper).attributes('title')).toBe('Open this request on its own page')
+    expect(
+      wrapper
+        .findAllComponents(RouterLink)
+        .find((l) => l.props('to').name === 'help-review')
+        .props('to'),
+    ).toEqual({
+      name: 'help-review',
+      params: { requestId: 'r1' },
+    })
+  })
+
+  it('T-HELP-26: on the request page itself the name is plain text, not a link to itself', async () => {
+    const wrapper = await show()
+    expect(nameLink(wrapper).exists()).toBe(false)
+    expect(wrapper.find('h2').text()).toBe('Bea Koh')
+  })
+})

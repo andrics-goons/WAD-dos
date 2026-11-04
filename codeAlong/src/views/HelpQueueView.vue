@@ -188,6 +188,7 @@ async function claim(request) {
               :request="selected"
               :my-id="myId"
               :can-act="sessionStore.isStaff"
+              link-name
             />
           </template>
           <div v-else class="ca-surface">

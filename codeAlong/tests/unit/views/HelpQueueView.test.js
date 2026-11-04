@@ -72,6 +72,14 @@ describe('HelpQueueView Handled list', () => {
     expect(list(again).exists()).toBe(false)
   })
 
+  it('T-HELP-26: the review panel beside the list gets its name as a link to the request page', async () => {
+    const wrapper = await show()
+    await wrapper.find('[data-testid="help-card-w1"]').trigger('click')
+    const panel = wrapper.findComponent({ name: 'HelpReviewPanel' })
+    expect(panel.exists()).toBe(true)
+    expect(panel.props('linkName')).toBe(true)
+  })
+
   it('no Handled heading at all when nothing has been handled', async () => {
     help.requests = [request('w1', 'open')]
     expect(toggle(await show()).exists()).toBe(false)

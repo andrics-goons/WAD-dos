@@ -1,44 +1,25 @@
 // @vitest-environment jsdom
-// Where the Back button in the bar above a page leads (the route's meta.back)
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+// Which help pages have a Back button in the bar above them (the route's meta.back)
+import { describe, it, expect, vi } from 'vitest'
 
-// the router reads these stores for its guards; here only the help store's requests matter
-const help = vi.hoisted(() => ({ requests: [] }))
-vi.mock('@/stores/help', () => ({ useHelpStore: () => help }))
+// the router reads these stores for its guards; nothing here needs them to do anything
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ isAuthenticated: true }) }))
 vi.mock('@/stores/toast', () => ({ useToastStore: () => ({ show: vi.fn() }) }))
 
 import router from '@/router'
 
-const backFor = (name, params) =>
-  router
-    .getRoutes()
-    .find((r) => r.name === name)
-    .meta.back({ params })
-
-beforeEach(() => {
-  help.requests = []
-})
+const route = (name) => router.getRoutes().find((r) => r.name === name)
 
 describe('Back on the help pages', () => {
-  it('T-HELP-24: the help request page goes back to its class help queue once the request is loaded', () => {
-    help.requests = [{ id: 'r1', session_id: 's1' }]
-    expect(backFor('help-review', { requestId: 'r1' })).toEqual({
-      label: 'Back to the help queue',
-      to: { name: 'help-queue', params: { id: 's1' } },
-    })
+  it('T-HELP-24: the help request page has no Back: it has its own Help queue button, and a Telegram link opens it with nothing behind it', () => {
+    expect(route('help-review').meta.back).toBeUndefined()
   })
 
-  it("T-HELP-24: before it's loaded (a Telegram link has only the request id) it is the browser's back", () => {
-    expect(backFor('help-review', { requestId: 'r1' })).toEqual({ label: 'Back' })
-    help.requests = [{ id: 'other', session_id: 's9' }] // someone else's request isn't its class
-    expect(backFor('help-review', { requestId: 'r1' })).toEqual({ label: 'Back' })
+  it('T-HELP-24: the editor page has no Back either: it always opens in its own tab', () => {
+    expect(route('help-code').meta.back).toBeUndefined()
   })
 
-  it('the code page goes back to the request', () => {
-    expect(backFor('help-code', { requestId: 'r1' })).toEqual({
-      label: 'Back to the request',
-      to: { name: 'help-review', params: { requestId: 'r1' } },
-    })
+  it("the help queue still has its Exit live session, which is the browser's back", () => {
+    expect(route('help-queue').meta.back()).toEqual({ label: 'Exit live session' })
   })
 })

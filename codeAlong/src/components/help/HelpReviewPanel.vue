@@ -15,6 +15,7 @@ const props = defineProps({
   request: { type: Object, required: true }, // a row from the help store, so it stays live
   myId: { type: String, default: null },
   canAct: { type: Boolean, default: false }, // false for an admin looking in
+  linkName: { type: Boolean, default: false }, // the queue: the name opens this request's own page
 })
 
 const help = useHelpStore()
@@ -97,7 +98,18 @@ async function reply() {
     <!-- Who and what -->
     <section class="ca-card">
       <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-        <h2 class="fs-5 mb-0 me-auto">{{ request.student?.name ?? 'Student' }}</h2>
+        <h2 class="fs-5 mb-0 me-auto">
+          <RouterLink
+            v-if="linkName"
+            :to="{ name: 'help-review', params: { requestId: request.id } }"
+            class="link-body-emphasis link-underline-opacity-0 link-underline-opacity-100-hover"
+            title="Open this request on its own page"
+            data-testid="link-request-page"
+          >
+            {{ request.student?.name ?? 'Student' }}
+          </RouterLink>
+          <template v-else>{{ request.student?.name ?? 'Student' }}</template>
+        </h2>
         <HelpStatusPill :status="request.status" />
       </div>
       <p class="small text-body-secondary mb-3">
