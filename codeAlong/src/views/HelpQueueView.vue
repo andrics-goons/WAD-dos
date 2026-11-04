@@ -23,6 +23,27 @@ const loading = ref(true)
 const loadError = ref('')
 const selectedId = ref(null)
 
+// The Handled list can be folded away so a long class doesn't bury the queue. The count stays on
+// the heading, and the choice is kept on this device
+const HANDLED_KEY = 'codealong:help-handled-open'
+const handledOpen = ref(
+  (() => {
+    try {
+      return localStorage.getItem(HANDLED_KEY) !== 'closed'
+    } catch {
+      return true
+    }
+  })(),
+)
+function toggleHandled() {
+  handledOpen.value = !handledOpen.value
+  try {
+    localStorage.setItem(HANDLED_KEY, handledOpen.value ? 'open' : 'closed')
+  } catch {
+    // private window or blocked storage: it just isn't remembered
+  }
+}
+
 const waiting = computed(() => help.requests.filter(isActive))
 const handled = computed(() =>
   help.requests.filter((r) => !isActive(r) && r.status !== HelpStatus.CANCELLED).reverse(),
@@ -124,9 +145,20 @@ async function claim(request) {
 
           <template v-if="handled.length">
             <h2 class="fs-6 mb-2">
-              Handled <span class="text-body-secondary">({{ handled.length }})</span>
+              <!-- looks like the Waiting heading; the chevron says it folds -->
+              <button
+                type="button"
+                class="d-inline-flex align-items-center gap-2 p-0 border-0 bg-transparent text-body fw-medium"
+                data-testid="btn-toggle-handled"
+                @click="toggleHandled"
+              >
+                <span
+                  >Handled <span class="text-body-secondary">({{ handled.length }})</span></span
+                >
+                <i class="bi" :class="handledOpen ? 'bi-chevron-up' : 'bi-chevron-down'" />
+              </button>
             </h2>
-            <div class="d-grid gap-2">
+            <div v-if="handledOpen" class="d-grid gap-2" data-testid="handled-list">
               <HelpRequestCard
                 v-for="request in handled"
                 :key="request.id"

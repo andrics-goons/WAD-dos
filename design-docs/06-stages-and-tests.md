@@ -386,6 +386,8 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-HELP-17 | Follow-up on a `passed` / `resolved` / `cancelled` request | DB | `BAD_REQUEST` — only `replied` reopens |
 | T-HELP-18 | Another student follows up on someone else's request | RLS | `FORBIDDEN`, and no snapshot is left behind (the function rolls back) |
 | T-HELP-19 | Earlier replies survive a follow-up | E2E | Second reply is appended to `thread`; the first is still shown |
+| T-HELP-20 | The reply form's buttons are spaced below the reply box | Unit | On a claimed request, the row of Send reply / Pass / Resolved / Release has a gap (`mt-3`) under the textarea |
+| T-HELP-21 | The queue's Handled list can be folded away | Unit | The heading toggles it, the count stays visible, the waiting requests are never hidden, the choice is remembered on the device, and there is no heading when nothing has been handled |
 
 ### TG — Telegram linking & webhook · `telegram.test.js`, `insights.spec.js`
 

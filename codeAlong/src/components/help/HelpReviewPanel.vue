@@ -131,7 +131,7 @@ async function reply() {
             />
             <p v-if="replyError" class="ca-field-error">{{ replyError }}</p>
           </div>
-          <div class="d-flex flex-wrap gap-2">
+          <div class="d-flex flex-wrap gap-2 mt-3">
             <button
               type="submit"
               class="ca-btn ca-btn--primary"
