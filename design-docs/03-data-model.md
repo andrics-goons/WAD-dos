@@ -910,7 +910,7 @@ Each rule exists **twice**: a zod schema in `src/validators/` for the per-field 
 | Lesson | title, files, entry_file | 1–40 files; safe relative paths; no duplicate paths; `entry_file` exists; ≤ 200 KB | `files_valid()` + `octet_length` check + `entry_file_exists` constraint |
 | GitHub import | repo URL | `https://github.com/<owner>/<repo>[/tree/<ref>/<dir>]`; only `.html/.css/.js/.json/.md` | `github-import` function |
 | Start session | lesson_id | lesson `ready`, caller is the course prof | `start_session` RPC |
-| Join session | join_code | 6 chars; live session; caller is staff, enrolled, or a student or TA who is enrolled by it | `join_session` RPC |
+| Join session | join_code | 6 chars; live session; caller is a member | `join_session` RPC |
 | Checkpoint | files, title? | title ≤ 80 chars; session live; caller is the course prof | `save_checkpoint` RPC |
 | Status update | done_seq, error? | done_seq ≥ 0 or null; message ≤ 300; no code frame in a build error | `student_status` policy + check; T-PRIV-09 |
 | Help request | type, files | one active per type; seat required if in_person | partial unique index |

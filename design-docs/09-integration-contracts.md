@@ -367,7 +367,7 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `rpc('remove_course_staff')` | Andric | Course people page | `(p_course_id uuid, p_user_id uuid) → void` — owner only, TA rows only |
 | `rpc('remove_course_student')` | Andric | Course people page | `(p_course_id uuid, p_user_id uuid) → void` — owner only |
 | `rpc('start_session')` | Ying Qi | Teach view | `(p_lesson_id uuid) → session row` (includes `join_code`) |
-| `rpc('join_session')` | Ying Qi | Join view | `(p_join_code text) → { session_id, role }` — enrols a student or TA who isn't in the course yet; `FORBIDDEN` for anyone else outside it |
+| `rpc('join_session')` | Ying Qi | Join view | `(p_join_code text) → { session_id, role }` |
 | `rpc('save_checkpoint')` | Ying Qi | Teach view | `(p_session_id uuid, p_files jsonb, p_title text default null) → checkpoint row` — any time while live; title optional (≤ 80, blank → null); moves `sessions.checkpoint_seq`, which resets every student to in progress |
 | `rpc('end_session')` | Ying Qi | Teach view | `(p_session_id uuid) → session row` |
 | `rpc('announce')` | Karin | Teach view (Karin's `AnnounceInput`, embedded by Evan) | `(p_session_id uuid, p_text text \| null) → session row` — sets `sessions.announcement` and broadcasts `session:announce`; `null` clears |

@@ -54,8 +54,6 @@ onMounted(async () => {
 })
 
 // Edit or delete the course (owner), archive it from your own list (anyone)
-// A course I've archived is read-only for me until I restore it: no editing, sharing or people changes
-const canManage = computed(() => course.value?.isOwner && !course.value.archived)
 const editing = ref(false)
 const saving = ref(false)
 const editError = ref('')
@@ -136,13 +134,9 @@ async function copyLink() {
   }
 }
 
-// People: who's online in each live class. Students see the names per class; staff see a
-// dot beside each enrolled student who is online.
+// People (students): who's online in each live class. Staff have the enrolment list instead.
 const isStaff = computed(() => ['prof', 'ta'].includes(course.value?.myRole))
 const liveClasses = ref([])
-const onlineIds = computed(
-  () => new Set(liveClasses.value.flatMap((c) => c.people.map((p) => p.userId))),
-)
 let closeChannels = []
 function stopWatching() {
   closeChannels.forEach((close) => close())
@@ -150,7 +144,7 @@ function stopWatching() {
 }
 watch(tab, async (now) => {
   stopWatching()
-  if (now !== 'people') return
+  if (now !== 'people' || isStaff.value) return
   try {
     const sessions = await store.sessions(props.id)
     if (tab.value !== 'people') return
@@ -259,7 +253,7 @@ async function removeStudent() {
         <div class="d-flex flex-wrap align-items-center gap-2">
           <span v-if="course.archived" class="badge text-bg-secondary">Archived</span>
           <button
-            v-if="canManage"
+            v-if="course.isOwner"
             type="button"
             class="ca-btn ca-btn--secondary ca-btn--sm"
             @click="editing = !editing"
@@ -307,7 +301,7 @@ async function removeStudent() {
       </div>
 
       <CourseForm
-        v-if="editing && canManage"
+        v-if="editing"
         :course="course"
         submit-label="Save changes"
         :saving="saving"
@@ -317,7 +311,7 @@ async function removeStudent() {
       />
 
       <!-- Share enrolment (owner) -->
-      <section v-if="canManage" class="ca-card mb-4">
+      <section v-if="course.isOwner" class="ca-card mb-4">
         <div class="row g-4 align-items-center">
           <div class="col-12 col-md">
             <h2 class="fs-5 mb-1">Share enrolment</h2>
@@ -402,7 +396,7 @@ async function removeStudent() {
               >
                 {{ p.name }}
                 <button
-                  v-if="canManage"
+                  v-if="course.isOwner"
                   type="button"
                   class="ca-btn ca-btn--ghost ca-btn--sm"
                   data-testid="btn-remove-ta"
@@ -414,7 +408,7 @@ async function removeStudent() {
             </ul>
 
             <!-- the owner adds TAs by the email they signed up with -->
-            <form v-if="canManage" class="ca-field" @submit.prevent="addTa">
+            <form v-if="course.isOwner" class="ca-field" @submit.prevent="addTa">
               <label class="ca-label" for="ta-email">Add a TA by email</label>
               <div class="d-flex gap-2">
                 <input
@@ -462,16 +456,9 @@ async function removeStudent() {
                 :key="p.user_id"
                 class="list-group-item d-flex align-items-center justify-content-between"
               >
-                <span>
-                  {{ p.name }}
-                  <i
-                    v-if="onlineIds.has(p.user_id)"
-                    class="bi bi-circle-fill text-success small ms-1"
-                    title="Online in a live class"
-                  />
-                </span>
+                {{ p.name }}
                 <button
-                  v-if="canManage"
+                  v-if="course.isOwner"
                   type="button"
                   class="ca-btn ca-btn--ghost ca-btn--sm"
                   @click="toRemove = p"

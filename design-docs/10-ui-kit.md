@@ -404,7 +404,7 @@ Never hard-code `'in_progress'` or `200` when a constant exists. This file is a 
 
 ### BackButton
 
-Rendered once by `App.vue`, so **pages never add their own**. A route opts in with `meta.back`, a function returning `{ label, to? }`. The label says where it goes: "My courses", "All replays", "Back to course". With `to` it goes there; without, it returns to the previous page (Home, or Landing if logged out, when a link was opened directly). Main pages (Home, Courses, Replays, Join, Profile) and the live class pages (workspace, Teach, help queue) have no `meta.back`, so no button. After a form finishes, use `router.replace` so returning skips the form. In-page controls stay in the page, such as the lesson stepper's Back and the help queue's "Back to the queue" on phones.
+Rendered once by `App.vue`, so **pages never add their own**. A route opts in with `meta.back`, a function returning `{ label, to? }`. The label says where it goes: "My courses", "All replays", "Exit live session", "Back to course". With `to` it goes there; without, it returns to the previous page (Home, or Landing if logged out, when a link was opened directly). Main pages (Home, Courses, Replays, Join, Profile) have no `meta.back`, so no button. After a form finishes, use `router.replace` so returning skips the form. In-page controls stay in the page, such as the lesson stepper's Back and the help queue's "Back to the queue" on phones.
 
 ---
 

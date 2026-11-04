@@ -179,20 +179,16 @@ describe('archiving, removing and deleting', () => {
     expect((await coursesApi.listCourses({ includeArchived: true })).map((c) => c.id)).toContain(
       old.id,
     )
-    // read-only for me: its live classes won't open
-    await expect(coursesApi.assertNotArchived(old.id)).rejects.toMatchObject({ code: 'FORBIDDEN' })
 
-    // a student in the same course still has it in their list, and can still join
+    // a student in the same course still has it in their list
     await as(stu2)
     expect((await coursesApi.enrolWithCode(old.enrol_code)).id).toBe(old.id)
     const listed = await coursesApi.listCourses()
     expect(listed.find((c) => c.id === old.id).archived).toBe(false)
-    await expect(coursesApi.assertNotArchived(old.id)).resolves.toBeUndefined()
     await as(prof)
 
     await coursesApi.setArchived(old.id, false)
     expect((await coursesApi.listCourses()).map((c) => c.id)).toContain(old.id)
-    await expect(coursesApi.assertNotArchived(old.id)).resolves.toBeUndefined()
     await coursesApi.setArchived(old.id, true)
   })
 

@@ -24,9 +24,10 @@ test.describe('join page', () => {
     await expect(alex).toHaveURL(/\/s\/[^/]+\/code/)
   })
 
-  test('T-SESS-04: a student not in the course is enrolled by the join code', async ({ zoe }) => {
+  test('T-SESS-04: someone who is not in the course is turned away', async ({ zoe }) => {
     await joinWith(zoe, 'CART42')
-    await expect(zoe).toHaveURL(/\/s\/[^/]+\/code/)
+    await expect(zoe.getByText("You're not in this course")).toBeVisible()
+    await expect(zoe).toHaveURL(/\/join/)
   })
 
   test('T-SESS-05: a wrong code and an ended class both say there is no live class', async ({

@@ -30,6 +30,7 @@ const PROF = ['prof']
 const ADMIN = ['admin']
 
 const toMyCourses = () => ({ label: 'My courses', to: { name: 'courses' } })
+const exitClass = () => ({ label: 'Exit live session' })
 const toCourse = () => ({ label: 'Back to course' })
 
 const routes = [
@@ -145,7 +146,7 @@ const routes = [
     name: 'help-queue',
     component: () => import('@/views/HelpQueueView.vue'),
     props: true,
-    meta: { auth: true, roles: STAFF, title: 'Help queue' }, // no back bar in a live class
+    meta: { auth: true, roles: STAFF, title: 'Help queue', back: exitClass },
   },
   {
     path: '/help/:requestId',

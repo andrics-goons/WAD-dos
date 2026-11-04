@@ -99,17 +99,6 @@ export async function updateCourse(id, changes) {
   return data
 }
 
-/** Throws FORBIDDEN if I've archived this course: it's read-only for me until I restore it. */
-export async function assertNotArchived(courseId) {
-  if (archivedIds(await currentUser()).includes(courseId)) {
-    throw new AppError(
-      'FORBIDDEN',
-      "You've archived this course. Restore it from My courses to join its classes.",
-      { status: 403 },
-    )
-  }
-}
-
 /** Any member. Only moves the course in the caller's own list; nobody else is affected. */
 export async function setArchived(id, archived = true) {
   // the latest list from the server, in case it was changed on another device

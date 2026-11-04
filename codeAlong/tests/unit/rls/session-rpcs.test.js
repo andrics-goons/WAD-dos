@@ -200,32 +200,9 @@ describe('join_session', () => {
     }
   })
 
-  it('T-SESS-04: a student not in the course is enrolled by the join code, and joins', async () => {
-    const { data, error } = await outsider.client.rpc('join_session', {
-      p_join_code: session.join_code,
-    })
-    expect(error).toBeNull()
-    expect(data).toEqual({ session_id: session.id, role: 'student' })
-    const { data: enrolled } = await outsider.client
-      .from('course_students')
-      .select('course_id')
-      .eq('course_id', course.id)
-    expect(enrolled).toHaveLength(1)
-
-    // joining again is harmless
-    const again = await outsider.client.rpc('join_session', { p_join_code: session.join_code })
-    expect(again.data.role).toBe('student')
-  })
-
-  it("T-SESS-04: a prof from another course is told they're not in it", async () => {
-    const otherProf = await userClient({ name: 'Other Prof', role: 'prof' })
-    const { error } = await otherProf.client.rpc('join_session', { p_join_code: session.join_code })
+  it("T-SESS-04: someone not in the course is told they're not in it", async () => {
+    const { error } = await outsider.client.rpc('join_session', { p_join_code: session.join_code })
     expect(codeOf(error)).toBe('FORBIDDEN')
-    const { count } = await service
-      .from('course_students')
-      .select('user_id', { count: 'exact', head: true })
-      .eq('user_id', otherProf.id)
-    expect(count).toBe(0)
   })
 
   it('T-SESS-05: a wrong or ended code finds no live class', async () => {
