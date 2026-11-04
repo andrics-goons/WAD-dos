@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
+import { useHelpStore } from '@/stores/help'
 
 /**
  * Route meta
@@ -153,7 +154,21 @@ const routes = [
     name: 'help-review',
     component: () => import('@/views/HelpReviewView.vue'),
     props: true,
-    meta: { auth: true, roles: STAFF, title: 'Help request', back: () => ({ label: 'Back' }) },
+    meta: {
+      auth: true,
+      roles: STAFF,
+      title: 'Help request',
+      // the queue of the class it's from, which only the loaded request knows (a Telegram link
+      // has just the request id); until then it's the browser's back
+      back: (route) => {
+        const request = useHelpStore().requests.find((r) => r.id === route.params.requestId)
+        if (!request) return { label: 'Back' }
+        return {
+          label: 'Back to the help queue',
+          to: { name: 'help-queue', params: { id: request.session_id } },
+        }
+      },
+    },
   },
   {
     // a TA's own runnable copy of the student's code; opened in a new tab from the review panel

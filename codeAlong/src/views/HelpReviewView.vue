@@ -64,8 +64,10 @@ onBeforeUnmount(() => help.close())
           <div class="ca-eyebrow">Help request</div>
           <h1>{{ sessionStore.session?.lesson.title }}</h1>
         </div>
+        <!-- replace: the queue's own Back must not lead back to this page -->
         <RouterLink
           :to="{ name: 'help-queue', params: { id: request.session_id } }"
+          replace
           class="ca-btn ca-btn--secondary"
         >
           <i class="bi bi-list-ul" />Help queue
