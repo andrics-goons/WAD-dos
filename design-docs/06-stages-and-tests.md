@@ -306,6 +306,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-DASH-11 | **Slow down counts only students who are still here** | RLS | A flag from a student unseen for longer than the idle window (180 s, or the class's own) isn't counted, and counts again when they return; TAs read the same number; students get `null`; an ended class counts all |
 | T-DASH-12 | Leaving the class page takes my Slow down back | Unit | `statusStore.leave()` deletes my flag and stops the heartbeat; with no flag it sends nothing; a refused delete (class ended, offline) never throws |
 | T-DASH-13 | **The Students menu lists who is connected, by status** | Unit | `getClassSummary` gives each student's state and open/claimed help and check requests; the menu shows connected students only (one without a status row is In progress), each in one group (help, check, error, in progress, idle, done, in that order), and never says who asked to slow down; Present closes it |
+| T-DASH-14 | **Common errors says when errors haven't made a group yet** | Unit | With errors but no group, the panel reads "No common errors yet" with how many students and how many it takes (`errorGroupThreshold`: 2, or 10% of the class), never "No errors right now"; beside groups, a note counts students whose error nobody shares |
 
 ### ERRG — Error groups · `error-normalizer.test.js`, `group-errors.test.js`, `api/dashboard.api.test.js`
 

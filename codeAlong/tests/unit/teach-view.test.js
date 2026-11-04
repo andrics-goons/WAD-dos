@@ -503,6 +503,39 @@ describe('TeachView', () => {
       expect(done()).toContain('1') // only c
     })
 
+    it('T-DASH-14: one student with an error shows "No common errors yet", not "No errors right now"', async () => {
+      api.getClassSummary.mockResolvedValue(summary({ errors: [error('a')] }))
+      await open()
+      live.present = [{ userId: 'a' }, { userId: 'b' }]
+      await flushPromises()
+      expect(wrapper.find('[data-testid="error-group-0"]').exists()).toBe(false)
+      expect(wrapper.text()).toContain('No common errors yet')
+      expect(wrapper.text()).toContain('1 student has an error')
+    })
+
+    it('T-DASH-14: a group forms at 2 students, and an error nobody shares is noted beside it', async () => {
+      api.getClassSummary.mockResolvedValue(
+        summary({
+          errors: [
+            error('a'),
+            error('b'),
+            {
+              ...error('c'),
+              errorKey: 'TypeError: x is undefined',
+              errorShapeKey: 'TypeError: <id> is undefined',
+            },
+          ],
+        }),
+      )
+      await open()
+      live.present = [{ userId: 'a' }, { userId: 'b' }, { userId: 'c' }]
+      await flushPromises()
+      expect(wrapper.find('[data-testid="error-group-0"]').text()).toContain('itmes is not defined')
+      expect(wrapper.find('[data-testid="errors-waiting"]').text()).toContain(
+        '1 other student has an error nobody else shares yet',
+      )
+    })
+
     it('Common errors only counts students who are here', async () => {
       api.getClassSummary.mockResolvedValue(
         summary({ errors: [error('a'), error('b'), error('c')] }),

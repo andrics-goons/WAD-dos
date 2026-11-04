@@ -7,7 +7,7 @@
 import { computed, ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Limits } from '@shared/constants.js'
-import { groupErrors } from '@shared/error-normalizer.js'
+import { errorGroupThreshold, groupErrors } from '@shared/error-normalizer.js'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import EditorPanel from '@/components/workspace/EditorPanel.vue'
@@ -210,6 +210,14 @@ const roster = computed(() => {
 const errorGroups = computed(() =>
   groupErrors(summaryNow.value?.errors ?? [], { presentCount: live.present.length }),
 )
+// students here with an error that isn't in a group yet, so the panel can say so
+const errorsWaiting = computed(() => {
+  const inGroups = new Set(errorGroups.value.flatMap((g) => g.studentIds))
+  return new Set(
+    (summaryNow.value?.errors ?? []).map((e) => e.studentId).filter((id) => !inGroups.has(id)),
+  ).size
+})
+const errorsNeeded = computed(() => errorGroupThreshold(live.present.length))
 const savedAt = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
@@ -584,7 +592,11 @@ onBeforeUnmount(() => {
 
               <!-- what the class is stuck on: the live errors, then the help requests -->
               <HelpSummaryPanel :session-id="id">
-                <ErrorGroupList :groups="errorGroups" />
+                <ErrorGroupList
+                  :groups="errorGroups"
+                  :waiting="errorsWaiting"
+                  :need="errorsNeeded"
+                />
               </HelpSummaryPanel>
             </div>
           </div>
