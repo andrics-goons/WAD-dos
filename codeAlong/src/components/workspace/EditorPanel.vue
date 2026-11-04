@@ -24,6 +24,58 @@
     const collapsed = ref(window.matchMedia("(max-width: 767.98px)").matches)
     const terminalOpen = ref(true)
 
+    // The file tree's width and the terminal's height can be dragged with the handles between
+    // the panes (double-click one for the default size). Kept on this device; null = the default
+    const TREE_KEY = "codealong:tree-width"
+    const TERMINAL_KEY = "codealong:terminal-height"
+    function stored(key) {
+        try {
+            return Number(localStorage.getItem(key)) || null
+        } catch {
+            return null
+        }
+    }
+    function store(key, value) {
+        try {
+            if (value) localStorage.setItem(key, String(Math.round(value)))
+            else localStorage.removeItem(key)
+        } catch {
+            // private window or blocked storage: the size just isn't remembered
+        }
+    }
+    const treeWidth = ref(stored(TREE_KEY))
+    const terminalHeight = ref(stored(TERMINAL_KEY))
+    const panel = ref(null)
+    const mainPane = ref(null)
+    const dragging = ref(null) // "tree" or "terminal" while a handle is held
+    // keeps the editor usable: the tree can't squeeze it below 320px, nor the terminal below 120px
+    const clamp = (n, min, max) => Math.min(Math.max(n, min), Math.max(min, max))
+
+    function startDrag(which, event) {
+        event.preventDefault()
+        // the moves keep coming to the handle even over the editor
+        event.currentTarget.setPointerCapture?.(event.pointerId)
+        dragging.value = which
+    }
+    function onDrag(event) {
+        if (dragging.value === "tree") {
+            const box = panel.value.getBoundingClientRect()
+            treeWidth.value = clamp(event.clientX - box.left, 120, box.width - 320)
+        } else if (dragging.value === "terminal") {
+            const box = mainPane.value.getBoundingClientRect()
+            terminalHeight.value = clamp(box.bottom - event.clientY, 80, box.height - 120)
+        }
+    }
+    function endDrag() {
+        if (dragging.value === "tree") store(TREE_KEY, treeWidth.value)
+        if (dragging.value === "terminal") store(TERMINAL_KEY, terminalHeight.value)
+        dragging.value = null
+    }
+    function resetSize(which) {
+        if (which === "tree") store(TREE_KEY, (treeWidth.value = null))
+        else store(TERMINAL_KEY, (terminalHeight.value = null))
+    }
+
     // each terminal is its own shell using browser memory, so there's a limit
     const MAX_TERMINALS = 3
     const terminals = ref([1]) // the numbers of the open terminals, in list order
@@ -60,10 +112,15 @@
 </script>
 
 <template>
-    <div class="editor-panel">
+    <div ref="panel" class="editor-panel" :class="{ dragging, [`dragging-${dragging}`]: dragging }">
 
         <!-- Tree Pane (always full height, the terminal only sits under the editor) -->
-        <div class="pane tree-pane" :class="{ collapsed }">
+        <!-- its width is the dragged size, so it's the one style set here -->
+        <div
+            class="pane tree-pane"
+            :class="{ collapsed }"
+            :style="!collapsed && treeWidth ? { width: `${treeWidth}px` } : null"
+        >
             <!-- Pane Header -->
             <div class="pane-header">
                 <!-- Collapse widget button -->
@@ -115,8 +172,22 @@
 
         </div>
 
+        <!-- drag to resize the file tree -->
+        <div
+            v-show="!collapsed"
+            class="resize-handle resize-x"
+            :class="{ active: dragging === 'tree' }"
+            title="Drag to resize · double-click for the default size"
+            data-testid="resize-tree"
+            @pointerdown="startDrag('tree', $event)"
+            @pointermove="onDrag"
+            @pointerup="endDrag"
+            @pointercancel="endDrag"
+            @dblclick="resetSize('tree')"
+        />
+
         <!-- Right column: code editor on top, terminal underneath -->
-        <div class="pane main-pane">
+        <div ref="mainPane" class="pane main-pane">
 
             <!-- Code editor Pane -->
             <div class="pane editor-pane">
@@ -175,9 +246,28 @@
                 </div>
             </div>
 
+            <!-- drag to resize the terminal -->
+            <div
+                v-show="terminalOpen"
+                class="resize-handle resize-y"
+                :class="{ active: dragging === 'terminal' }"
+                title="Drag to resize · double-click for the default size"
+                data-testid="resize-terminal"
+                @pointerdown="startDrag('terminal', $event)"
+                @pointermove="onDrag"
+                @pointerup="endDrag"
+                @pointercancel="endDrag"
+                @dblclick="resetSize('terminal')"
+            />
+
             <!-- Terminal Pane -->
             <!-- v-show instead of v-if so hiding it doesn't kill the shell and lose its history -->
-            <div v-show="terminalOpen" class="pane terminal-pane">
+            <!-- its height is the dragged size, so it's the one style set here -->
+            <div
+                v-show="terminalOpen"
+                class="pane terminal-pane"
+                :style="terminalHeight ? { height: `${terminalHeight}px` } : null"
+            >
                 <div class="pane-header">
                     <span>Terminal</span>
                     <button
@@ -265,6 +355,39 @@
         height: 40%;
         flex-shrink: 0;
         border-top: 1px solid #181a1f;
+    }
+    /* the drag handles between the panes: a thin strip over the border, lit while you use it.
+       The negative margins let it sit on the border without taking any space */
+    .resize-handle {
+        position: relative;
+        z-index: 1;
+        flex-shrink: 0;
+        touch-action: none;
+        transition: background-color 0.15s ease;
+    }
+    .resize-x {
+        width: 5px;
+        margin: 0 -3px 0 -2px;
+        cursor: col-resize;
+    }
+    .resize-y {
+        height: 5px;
+        margin: -2px 0 -3px;
+        cursor: row-resize;
+    }
+    .resize-handle:hover,
+    .resize-handle.active {
+        background: #528bff;
+    }
+    /* no text selection while dragging, and the cursor stays the resize one over the editor */
+    .editor-panel.dragging {
+        user-select: none;
+    }
+    .editor-panel.dragging-tree {
+        cursor: col-resize;
+    }
+    .editor-panel.dragging-terminal {
+        cursor: row-resize;
     }
     .pane-header,
     .pane-footer {

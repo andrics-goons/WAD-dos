@@ -275,6 +275,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-SBX-15 | **Cache miss and eviction** | Unit | Changed hash refetches; a wiped store still loads correctly (cache, not source of truth) |
 | T-SBX-16 | File tree create / rename / delete | E2E | Reflected in the container FS and in the next autosave |
 | T-SBX-17 | Unsupported browser | E2E | With isolation disabled, "The workspace needs Chrome or Edge" — not a blank pane |
+| T-SBX-29 | The file tree and the terminal can be resized | Unit | Dragging the handle beside the tree sets its width and the one above the terminal sets its height; both are kept on the device; the editor keeps at least 320px wide and 120px tall; a double-click on a handle goes back to the default; moving without holding a handle changes nothing |
 
 ### STAT — Status & derived state · `tile-state.test.js`, `dashboard.spec.js`
 
