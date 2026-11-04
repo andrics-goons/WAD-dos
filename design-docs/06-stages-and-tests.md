@@ -215,6 +215,9 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-LES-09 | Two lessons in one course with the same week | DB + Unit | Both are kept: a second insert, or moving a lesson into a week that already has one, succeeds (a week is a folder of lessons) |
 | T-LES-10 | Start new session on the lesson list | Unit | Every file that isn't archived shows Start new session, drafts and files taught before included, and it starts straight away; a file with a live class has none (Open class is in its list); week folders have no button |
 | T-LES-11 | Continue at the bottom of the lesson editor | Unit | The one button says Continue until something is edited, then Save and continue (no Save button in the header); with nothing changed it goes straight back to the course; with edits it saves first, then goes back; if saving fails it stays on the page with the edits and the error |
+| T-LES-12 | ✎ on a week folder (and on "No week") gives its files another week | Unit | The prof types Week 1–13; every lesson in that folder moves (archived and search-hidden ones too); a week another folder already uses is refused ("Week N already has lessons"), so each folder keeps a unique week; "No week" starts from an empty box; same week or Cancel changes nothing; no ✎ for TAs |
+| T-LES-13 | Leaving New lesson after picking files | Unit | Back to course, the navbar or browser Back asks "Leave without creating the lesson?" (Stay / Leave), on either step; no files picked or Create lesson → no question; closing the tab gets the browser's own warning |
+| T-LES-14 | The prof adds, renames and deletes starter files | Unit | The lesson editor's file tree has New file / Rename / Delete; a new file is saved with its language; renaming the entry file moves `entry_file` with it; Delete asks first; the entry file can't be deleted |
 | T-TODO-* | ~~TODO parser~~ | — | Removed with lesson steps |
 
 ### SESS — Live session engine · `live-session.spec.js`
@@ -455,6 +458,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-INS-06 | Digest to staff and absent students | Unit | `test_outbox`: TA summary + messages only to linked, absent students |
 | T-INS-07 | Student reads a report | RLS | Zero rows |
 | T-INS-10 | Where in the lesson help and slow-downs peaked | DB + Unit | Each checkpoint has its own `slowDownPeak` (flags still up from earlier count); the page names the top two: "Highest during Checkpoint 2, followed by Checkpoint 4", and the same for help requests ("Most during …") |
+| T-INS-11 | What students got stuck on | Unit | The report lists the help requests' saved AI diagnoses grouped by checkpoint + category, biggest first, titled by the group's first diagnosis; "Nobody asked for help" when there were none; replaces the Top errors panel (the digest keeps its own list) |
 | T-INS-09 | Catch-ups counted per checkpoint | DB | Each "Load latest checkpoint" logs a `catch_up` row at the class's checkpoint; the report's `catchUps` counts the students (once each); `trouble` is unchanged by them |
 | T-INS-08 | **Trends stay inside one prof's courses** | DB | With two profs teaching a same-titled lesson, each prof's `lesson_trends` includes only their own sessions |
 

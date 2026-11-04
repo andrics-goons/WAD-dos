@@ -81,3 +81,19 @@ describe('LessonNewView title', () => {
     expect(wrapper.find('#title').element.value).toBe('Todo app')
   })
 })
+
+describe('LessonNewView steps', () => {
+  const button = (wrapper, label) => wrapper.findAll('button').find((b) => b.text().includes(label))
+
+  it('has no Back on the first step, only on the review step', async () => {
+    const wrapper = open()
+    expect(button(wrapper, 'Back')).toBeUndefined()
+
+    await pickFolder(wrapper, 'shop')
+    await button(wrapper, 'Next').trigger('click')
+    expect(button(wrapper, 'Back')).toBeDefined()
+
+    await button(wrapper, 'Back').trigger('click')
+    expect(button(wrapper, 'Back')).toBeUndefined() // back on the first step
+  })
+})

@@ -200,3 +200,26 @@ describe('FileTree drag and drop', () => {
     expect(wrapper.find('.drop-target').exists()).toBe(false)
   })
 })
+
+describe('FileTree New file button', () => {
+  it('a second click closes the name box instead of opening it again', async () => {
+    mountTree()
+    const button = wrapper.get('[title="New file"]')
+    await button.trigger('click')
+    expect(wrapper.find('.tree-input').exists()).toBe(true)
+    await button.trigger('click')
+    expect(wrapper.find('.tree-input').exists()).toBe(false)
+    expect(wrapper.emitted('create')).toBeUndefined()
+    await button.trigger('click') // and opens again after that
+    expect(wrapper.find('.tree-input').exists()).toBe(true)
+  })
+
+  it("doesn't take the focus from the name box when pressed", async () => {
+    mountTree()
+    const button = wrapper.get('[title="New file"]')
+    await button.trigger('click')
+    const down = new MouseEvent('mousedown', { cancelable: true })
+    button.element.dispatchEvent(down)
+    expect(down.defaultPrevented).toBe(true)
+  })
+})

@@ -63,19 +63,69 @@ const shownLessons = computed(() =>
       l.title.toLowerCase().includes(search.value.trim().toLowerCase()),
   ),
 )
-// one folder per week, in week order (listLessons sorts them); lessons with no week go last
+// one folder per week, in week order; lessons with no week go last
 const folders = computed(() => {
   const byWeek = new Map()
   for (const l of shownLessons.value) {
     if (!byWeek.has(l.week)) byWeek.set(l.week, [])
     byWeek.get(l.week).push(l)
   }
-  return [...byWeek].map(([week, files]) => ({
-    week,
-    name: week ? `Week ${week}` : 'No week',
-    files,
-  }))
+  return [...byWeek]
+    .sort(([a], [b]) => (a ?? Infinity) - (b ?? Infinity)) // a moved folder lands in its place
+    .map(([week, files]) => ({
+      week,
+      name: week ? `Week ${week}` : 'No week',
+      files,
+    }))
 })
+
+// the ✎ on a folder: give every file in it another week number, or a first one for "No week"
+// (the week is just a number on each lesson, so this changes that number). Each folder keeps
+// its own week: a week some other lesson already uses is refused, archived ones included
+const editing = ref(null) // the name of the folder whose ✎ is open ("Week 2", "No week")
+let editingFrom = null // that folder's week (null for "No week")
+const newWeek = ref(null) // typed in, like the Week box on the New lesson page
+const weekError = ref('')
+const movingWeek = ref(false)
+function editWeek(folder) {
+  editing.value = folder.name
+  editingFrom = folder.week
+  newWeek.value = folder.week // empty for "No week"
+  weekError.value = ''
+}
+async function moveWeek() {
+  const from = editingFrom
+  const to = newWeek.value
+  // the same rule as the lessons table: a whole week from 1 to 13
+  if (!Number.isInteger(to) || to < 1 || to > 13) {
+    weekError.value = 'Enter a week from 1 to 13'
+    return
+  }
+  if (to === from) {
+    editing.value = null
+    return
+  }
+  if (lessons.value.some((l) => l.week === to)) {
+    weekError.value = `Week ${to} already has lessons. Pick a week that isn't used yet`
+    return
+  }
+  movingWeek.value = true
+  // every file in the week, including archived ones and any a search is hiding
+  const moving = lessons.value.filter((l) => l.week === from)
+  try {
+    await Promise.all(moving.map((l) => lessonsStore.update(l.id, { week: to })))
+    lessons.value = lessons.value.map((l) => (l.week === from ? { ...l, week: to } : l))
+    opened.value[to] = opened.value[from]
+    editing.value = null
+    toast.show(`Moved to Week ${to}`, 'success')
+  } catch (error) {
+    // some may have moved: show what the database has now
+    lessons.value = await store.lessons(props.course.id)
+    toast.show(error.message, 'danger', { title: "Couldn't change the week" })
+  } finally {
+    movingWeek.value = false
+  }
+}
 // the folder already says the week, so "Week 6 · Mini Cart" shows as "Mini Cart"
 const fileName = (l) => l.title.replace(/^Week \d+\s*[·:-]\s*/i, '')
 const classesOf = (lesson) => sessions.value.filter((s) => s.lesson_id === lesson.id)
@@ -277,7 +327,41 @@ async function startClass(lesson) {
             {{ f.files.length }} {{ f.files.length === 1 ? 'file' : 'files' }}
           </button>
           <i class="bi bi-folder2" />
-          <span class="fw-semibold">{{ f.name }}</span>
+          <form
+            v-if="editing === f.name"
+            class="d-flex align-items-center gap-1"
+            novalidate
+            @submit.prevent="moveWeek"
+          >
+            <label class="small" :for="`week-${f.week}`">Week</label>
+            <input
+              :id="`week-${f.week}`"
+              v-model.number="newWeek"
+              class="ca-input week-input"
+              type="number"
+              min="1"
+              max="13"
+              :class="{ 'ca-input--invalid': weekError }"
+              @input="weekError = ''"
+            />
+            <button type="submit" class="ca-btn ca-btn--primary ca-btn--sm" :disabled="movingWeek">
+              Save
+            </button>
+            <button type="button" class="ca-btn ca-btn--sm" @click="editing = null">Cancel</button>
+            <span v-if="weekError" class="ca-field-error mb-0">{{ weekError }}</span>
+          </form>
+          <template v-else>
+            <span class="fw-semibold">{{ f.name }}</span>
+            <button
+              v-if="isProf && !course.archived"
+              type="button"
+              class="ca-btn ca-btn--ghost ca-btn--icon ca-btn--sm"
+              @click="editWeek(f)"
+            >
+              <i class="bi bi-pencil" />
+              <span class="visually-hidden">Change the week</span>
+            </button>
+          </template>
         </div>
 
         <!-- the dropdown: the folder's code files, each with the classes run from it -->
@@ -506,5 +590,11 @@ async function startClass(lesson) {
 /* same width whatever the count, so the lesson titles line up */
 .lesson-toggle {
   min-width: 6.5rem;
+}
+/* the week box on a folder: as tall as the small buttons next to it, wide enough for 2 digits */
+.week-input {
+  width: 4.5rem;
+  min-height: 2rem;
+  padding-block: 0;
 }
 </style>

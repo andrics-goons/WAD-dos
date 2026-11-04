@@ -78,6 +78,14 @@
         input?.focus()
     }
 
+    // The New file button opens the name box, and closes it again on a second click (like Esc).
+    // Its mousedown doesn't take the focus, or the box's blur would close it first and the click
+    // would open it straight back
+    function toggleNewFile() {
+        if (editing.value?.from === null) editing.value = null
+        else startEditing(null)
+    }
+
     // Why the database would refuse this name (autosave would quietly skip the file), or ""
     function nameProblem(path, from) {
         if (!path) return "Type a file name"
@@ -182,7 +190,7 @@
 <template>
     <div class="file-tree">
         <div v-if="editable" class="d-flex justify-content-end px-3 pt-1">
-            <button class="tree-action" type="button" title="New file" @click="startEditing(null)">
+            <button class="tree-action" type="button" title="New file" @mousedown.prevent @click="toggleNewFile">
                 <i class="bi bi-file-earmark-plus" />
             </button>
         </div>
@@ -295,6 +303,27 @@
         flex: 1;
         padding: 6px 0;
         overflow-y: auto;
+    }
+    /* a thin scrollbar like VS Code's Explorer (and the terminal's): no arrows, no track, a soft
+       grey thumb that brightens on hover. Chrome and Edge use the ::-webkit-scrollbar parts;
+       Firefox only has these two settings, so it gets its own thin bar in the same colour */
+    .tree-list::-webkit-scrollbar {
+        width: 10px;
+    }
+    .tree-list::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .tree-list::-webkit-scrollbar-thumb {
+        background: #79797966;
+    }
+    .tree-list::-webkit-scrollbar-thumb:hover {
+        background: #646464b3;
+    }
+    @supports not selector(::-webkit-scrollbar) {
+        .tree-list {
+            scrollbar-width: thin;
+            scrollbar-color: #79797966 transparent;
+        }
     }
     .tree-item {
         display: flex;

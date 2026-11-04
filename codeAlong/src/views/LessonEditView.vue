@@ -11,6 +11,8 @@ import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import CodeEditor from '@/components/workspace/CodeEditor.vue'
 import FileTree from '@/components/workspace/FileTree.vue'
+import { languageOf } from '@shared/sync-files.js'
+import { moveWarning } from '@/utils/imports.js'
 
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
@@ -33,6 +35,7 @@ const lessonChanges = computed(() => {
     if (value !== saved[field]) changes[field] = value
   }
   if (filesChanged.value) changes.files = files.value
+  if (entryFile.value !== lesson.value.entryFile) changes.entryFile = entryFile.value
   return changes
 })
 const dirty = computed(() => Object.keys(lessonChanges.value).length > 0)
@@ -47,6 +50,7 @@ const detailsOf = (l) => ({
 
 const files = ref([])
 const activeFile = ref('')
+const entryFile = ref('') // the page the app starts from; follows a rename
 const filePaths = computed(() => files.value.map((f) => f.path))
 
 // what the editor shows and edits: the open file's content
@@ -66,6 +70,7 @@ onMounted(async () => {
     lesson.value = l
     details.value = detailsOf(l)
     files.value = structuredClone(l.files)
+    entryFile.value = l.entryFile
     activeFile.value = l.entryFile ?? l.files[0]?.path ?? ''
   } catch (err) {
     loadError.value = err.message
@@ -73,6 +78,38 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+// The file tree's New file, Rename and Delete: the working copy changes, and Save sends it with
+// everything else. The language comes from the name (the database refuses a file without one)
+function createFile(path) {
+  files.value = [...files.value, { path, language: languageOf(path), content: '' }]
+  activeFile.value = path
+}
+function renameFile(from, to) {
+  // files that import it by its old path now point at nothing: the same warning as the teach view
+  // and the student workspace
+  const warning = moveWarning(files.value, from)
+  files.value = files.value.map((f) =>
+    f.path === from ? { ...f, path: to, language: languageOf(to) } : f,
+  )
+  if (activeFile.value === from) activeFile.value = to
+  if (entryFile.value === from) entryFile.value = to
+  if (warning) toast.show(warning.message, 'warning', { title: warning.title })
+}
+// Delete asks first; the entry file can't go, the lesson would have no page to start from
+const deletingFile = ref('')
+function askDelete(path) {
+  if (path === entryFile.value) {
+    toast.show(`${path} is the page the app starts from, so it can't be deleted.`, 'warning')
+    return
+  }
+  deletingFile.value = path
+}
+function deleteFile() {
+  files.value = files.value.filter((f) => f.path !== deletingFile.value)
+  if (activeFile.value === deletingFile.value) activeFile.value = entryFile.value
+  deletingFile.value = ''
+}
 
 // lesson details modal, written to details on done
 const detailsOpen = ref(false)
@@ -111,6 +148,7 @@ async function save() {
       ...lesson.value,
       ...detailsOf(updated),
       files: changes.files ?? lesson.value.files,
+      entryFile: changes.entryFile ?? lesson.value.entryFile,
     }
     toast.show('Lesson saved', 'success')
     return true
@@ -159,7 +197,14 @@ async function done() {
         </div>
         <div class="files-pane row g-0 flex-grow-1">
           <div class="col-5 col-md-4 col-lg-3 border-end">
-            <FileTree v-model:selected-file="activeFile" :file-paths="filePaths" />
+            <FileTree
+              v-model:selected-file="activeFile"
+              :file-paths="filePaths"
+              editable
+              @create="createFile"
+              @rename="renameFile"
+              @delete="askDelete"
+            />
           </div>
           <div class="col-7 col-md-8 col-lg-9 overflow-hidden">
             <!-- :key remounts the editor per file, it only reads its code when it mounts -->
@@ -190,6 +235,16 @@ async function done() {
       </div>
     </template>
 
+    <ConfirmModal
+      :open="!!deletingFile"
+      :title="`Delete ${deletingFile}?`"
+      confirm-label="Delete"
+      variant="danger"
+      @update:open="deletingFile = ''"
+      @confirm="deleteFile"
+    >
+      It's removed from the starter code when you save.
+    </ConfirmModal>
     <ConfirmModal
       v-model:open="detailsOpen"
       title="Lesson details"
