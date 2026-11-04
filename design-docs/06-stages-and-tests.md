@@ -197,6 +197,8 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-24 | **The owner removes a TA** | RLS + API | Only the owner, only a TA row (never themselves); the TA loses the course, a request they'd claimed goes back to `open`, and their account is `student` again unless they still TA elsewhere |
 | T-PLAT-25 | **A student leaves a course** | RLS + API | Only an enrolled student; their snapshots, progress, Slow down, help requests and notes in that course are gone and they lose the course and its replays; the classes, other students and their other courses are untouched |
 | T-PLAT-26 | Home's My courses puts a live class's course first | Unit | Of 3 shown, a course with a class live right now comes first even if it is the oldest, the rest newest first; "See all (n)" appears with more than 3 courses and a plain "See all" otherwise |
+| T-PLAT-27 | The profile page is split into chapters | Unit + browser | Profile shows first, the sidebar switches chapter and the URL follows, an unknown `?chapter=` falls back to Profile, what's half typed survives a switch, and connecting GitHub returns to Connections |
+| T-PLAT-28 | Everyone can connect GitHub and Telegram | Unit + browser | Both cards show in Connections for a student, a TA, a prof and an admin |
 
 ### LESSON — Lessons · `lessons.spec.js`, `lesson-edit-view.test.js`
 
@@ -278,6 +280,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-SBX-29 | The file tree and the terminal can be resized | Unit | Dragging the handle beside the tree sets its width and the one above the terminal sets its height; both are kept on the device; the editor keeps at least 320px wide and 120px tall; a double-click on a handle goes back to the default; moving without holding a handle changes nothing |
 | T-SBX-30 | Files can be dragged into another folder | Unit | Dropping a file on a folder, on a file (its folder) or on the space under the tree (the top level) renames it there and opens that folder; its own folder isn't highlighted and dropping there does nothing; a name already there shows an error and moves nothing; dragging out a folder's last file asks first, and Cancel moves nothing; folders, read-only trees and drags from outside the tree don't move anything; moving or renaming a file another file imports shows a warning naming them, and no warning when nothing does |
 | T-SBX-31 | The terminal says whether the packages are there | Unit + browser | "Packages ready" in the terminal's header once an install finishes, a reload puts the packages back, or they're still there from an earlier install in the tab; "Run pnpm i" when the boot finds none, a checkpoint's new `package.json` clears them, or `node_modules` is deleted; nothing while booting or with no `package.json` |
+| T-SBX-32 | The prof can add, move and delete files | Unit + browser | The Teach view's file tree is editable: New file, Rename, drag and Delete work as in the student workspace, with the same warning when another file imports the moved file and a confirmation before deleting; the next checkpoint carries the changes to students |
 
 ### STAT — Status & derived state · `tile-state.test.js`, `dashboard.spec.js`
 
@@ -424,6 +427,8 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-REP-07 | Non-member reads a replay | RLS | Zero checkpoints returned |
 | T-REP-08 | Student view of a replay | Unit | A student who joined can switch to their own code as the class ended (code viewer, download, preview, export); staff have no toggle; a student with nothing saved sees "No saved code" |
 | T-REP-09 | Preview warms up by itself | Unit | With `autostart` the preview installs and starts once there is code, reporting `installing` → `starting` → `ready`; below `md` it waits for Run preview |
+| T-REP-10 | Hidden unchanged lines can be shown | Unit | Each gap offers **Show N unchanged lines** and opens in place; hidden and shown rows together are the whole file; new code to compare starts hidden again |
+| T-REP-11 | Notes make room for the code | Unit + browser | **My notes** starts closed with the code wider, keeps a half-written note when closed, is remembered on the device, and opens from a note's search result; the timeline marks checkpoints with notes |
 
 ### GH — GitHub import/export · `github-export.test.js`, `replay.spec.js`
 

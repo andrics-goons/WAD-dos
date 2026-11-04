@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { storableFiles } from '@shared/sync-files.js'
 import { mapError } from './mapError'
 
 // The prof's saved code: as many as they like, whenever they like. Owner: Ying Qi.
@@ -12,7 +13,7 @@ import { mapError } from './mapError'
 export async function saveCheckpoint(sessionId, files, title = null) {
   const { data, error } = await supabase.rpc('save_checkpoint', {
     p_session_id: sessionId,
-    p_files: files,
+    p_files: storableFiles(files),
     p_title: title,
   })
   if (error) throw mapError(error)

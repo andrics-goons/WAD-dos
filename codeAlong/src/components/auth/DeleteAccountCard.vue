@@ -43,8 +43,8 @@ async function deleteAccount() {
 </script>
 
 <template>
-  <div class="ca-card h-100">
-    <h2 class="h3"><i class="bi bi-trash" /> Delete account</h2>
+  <div>
+    <h2 class="h3">Delete account</h2>
     <p class="text-body-secondary small mb-4">
       Removes your account and everything you've done in CodeAlong. This can't be undone.
     </p>

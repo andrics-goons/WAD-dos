@@ -111,6 +111,15 @@ describe('sessions.api + checkpoints.api', () => {
     expect(s.latest_checkpoint).toMatchObject({ seq: 1, title: 'Created the app' })
   })
 
+  it('T-SBX-32: a file the prof just added, with no language yet, can be saved', async () => {
+    const before = (await sessionsApi.getSession(session.id)).checkpoint_seq
+    const withNewFile = [...FILES, { path: 'src/Cart.vue', content: '' }]
+    await expect(checkpointsApi.saveCheckpoint(session.id, withNewFile)).resolves.toMatchObject({
+      seq: before + 1,
+    })
+    // later tests read the first checkpoint: this one only proves the save works
+  })
+
   it('a student joins with the code, then can download the checkpoint files', async () => {
     await as(stu)
     expect(await sessionsApi.joinSession(session.join_code)).toEqual({

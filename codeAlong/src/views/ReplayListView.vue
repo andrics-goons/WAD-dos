@@ -116,7 +116,11 @@ function clearSearch() {
         <RouterLink
           v-for="r in results"
           :key="`${r.kind}-${r.checkpointId}-${r.body}`"
-          :to="{ name: 'replay', params: { sessionId: r.sessionId }, query: { seq: r.seq } }"
+          :to="{
+            name: 'replay',
+            params: { sessionId: r.sessionId },
+            query: { seq: r.seq, ...(r.kind === 'note' ? { notes: 'open' } : {}) },
+          }"
           class="list-group-item list-group-item-action"
         >
           <div class="ca-eyebrow">

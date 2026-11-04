@@ -20,20 +20,26 @@ afterEach(() => wrapper?.unmount())
 const item = (seq) => wrapper.get(`[data-testid="timeline-checkpoint-${seq}"]`)
 
 describe('CheckpointTimeline', () => {
-  it('T-REP-01: lists the checkpoints in order with their labels', () => {
+  it('T-REP-01: lists the checkpoints in order, numbered, by title', () => {
     mountAt(1)
-    const labels = wrapper.findAll('button').map((b) => b.text())
-    expect(labels).toEqual([
-      'Checkpoint 1 · Render the list',
-      'Checkpoint 2',
-      'Checkpoint 3 · Add to cart',
-    ])
+    const dots = wrapper.findAll('.timeline-dot').map((d) => d.text())
+    const titles = wrapper.findAll('.timeline-title').map((t) => t.text())
+    expect(dots).toEqual(['1', '2', '3'])
+    expect(titles).toEqual(['Render the list', 'Checkpoint 2', 'Add to cart'])
+  })
+
+  it('T-REP-11: marks the checkpoints I have notes on', async () => {
+    mountAt(1)
+    expect(wrapper.find('[data-testid="timeline-noted"]').exists()).toBe(false)
+    await wrapper.setProps({ noted: ['b'] })
+    expect(item(2).find('[data-testid="timeline-noted"]').exists()).toBe(true)
+    expect(item(1).find('[data-testid="timeline-noted"]').exists()).toBe(false)
   })
 
   it('marks the active checkpoint', () => {
     mountAt(2)
-    expect(item(2).classes()).toContain('ca-btn--primary')
-    expect(item(1).classes()).toContain('ca-btn--secondary')
+    expect(item(2).classes()).toContain('active')
+    expect(item(1).classes()).not.toContain('active')
   })
 
   it('selects a checkpoint on click', async () => {
