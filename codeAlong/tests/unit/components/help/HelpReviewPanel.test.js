@@ -172,3 +172,50 @@ describe('HelpReviewPanel student name', () => {
     expect(wrapper.find('h2').text()).toBe('Bea Koh')
   })
 })
+
+describe('HelpReviewPanel AI analysis', () => {
+  async function show(request) {
+    help.studentFiles.mockResolvedValue([])
+    help.checkpointFor.mockResolvedValue(null)
+    help.starterFiles.mockResolvedValue([])
+    const wrapper = mount(HelpReviewPanel, {
+      props: { request, myId: 'ana', canAct: true },
+      global: { stubs: { DiffView: true } },
+    })
+    await flushPromises()
+    return wrapper
+  }
+
+  it('T-HELP-28: shows the AI analysis of the request, between the message and the reply box', async () => {
+    const wrapper = await show({
+      ...claimed,
+      analysis: {
+        summary: 'Missing :item on ItemCard',
+        rootCause: 'The card gets no item.',
+        category: 'missing-prop',
+        stuckAt: { checkpoint: 0, file: 'src/App.vue', line: 4 },
+        confidence: 'medium',
+      },
+    })
+    const text = wrapper.text()
+    expect(text).toContain('Missing :item on ItemCard')
+    expect(text.indexOf('Vite cannot find ItemCard?')).toBeLessThan(text.indexOf('AI analysis'))
+    expect(text.indexOf('AI analysis')).toBeLessThan(text.indexOf('Reply to Bea Koh'))
+  })
+
+  it('T-HELP-28: a request with no analysis yet shows nothing extra', async () => {
+    const wrapper = await show({ ...claimed, analysis: null })
+    expect(wrapper.text()).not.toContain('AI analysis')
+    expect(wrapper.find('[data-testid="help-analysis-failed"]').exists()).toBe(false)
+  })
+
+  it('T-HELP-28: the analysis appears by itself when it arrives on the live request', async () => {
+    const request = { ...claimed, analysis: null }
+    const wrapper = await show(request)
+    expect(wrapper.find('[data-testid="help-analysis"]').exists()).toBe(false)
+    await wrapper.setProps({
+      request: { ...request, analysis: { summary: 'S', rootCause: 'R', category: 'typo' } },
+    })
+    expect(wrapper.find('[data-testid="help-analysis"]').exists()).toBe(true)
+  })
+})

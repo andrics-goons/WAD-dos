@@ -6,6 +6,7 @@ import { useToastStore } from '@/stores/toast'
 import DiffView from '@/components/replay/DiffView.vue'
 import HelpStatusPill from './HelpStatusPill.vue'
 import HelpThread from './HelpThread.vue'
+import HelpAnalysis from './HelpAnalysis.vue'
 import { HELP_TYPE_LABEL } from './helpLabels.js'
 import { checkpointLabel } from '@shared/checkpoint-label.js'
 
@@ -121,6 +122,9 @@ async function reply() {
       </p>
 
       <HelpThread :request="request" :staff-names="help.staffNames" />
+
+      <!-- the AI's read on their code, once it's ready -->
+      <HelpAnalysis :analysis="request.analysis" />
 
       <!-- What the TA can do now -->
       <div v-if="canAct" class="mt-3">

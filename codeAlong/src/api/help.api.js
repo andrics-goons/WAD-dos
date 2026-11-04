@@ -6,8 +6,9 @@ import { mapError } from './mapError'
 // Every write is an RPC (the table has no insert/update policy). RLS decides what each
 // caller reads: staff get the session's queue, a student gets only their own requests.
 
+// analysis is the AI's diagnosis of a "help" request, written a few seconds after it's sent
 const REQUEST = `id, session_id, student_id, checkpoint_seq, type, snapshot_id, message, in_person, seat,
-  status, claimed_by, thread, follow_ups, telegram_notified_at, created_at, updated_at`
+  status, claimed_by, thread, follow_ups, analysis, telegram_notified_at, created_at, updated_at`
 
 // The student's name, for the queue card. The checkpoint they were on is checkpoint_seq.
 const REQUEST_WITH_CONTEXT = `${REQUEST}, student:profiles!help_requests_student_id_fkey(name)`
