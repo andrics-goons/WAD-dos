@@ -9,7 +9,15 @@ const route = useRoute()
 const router = useRouter()
 const back = computed(() => route.meta.back?.(route))
 
-const go = () => (back.value.to ? router.push(back.value.to) : goBack())
+// Back to a named page. If that is the page just before this one, step back to it. Otherwise
+// replace this page with it, so history doesn't pile up: pushing it left this page behind it, and
+// that page's own Back (the browser's) then came straight back here.
+function go() {
+  const to = back.value.to
+  if (!to) return goBack()
+  if (window.history.state?.back === router.resolve(to).fullPath) router.back()
+  else router.replace(to)
+}
 </script>
 
 <template>

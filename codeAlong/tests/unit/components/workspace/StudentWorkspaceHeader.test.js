@@ -12,7 +12,12 @@ const mountHeader = (props = {}) =>
     },
   })
 const doneButton = (wrapper) => wrapper.find('[data-testid="btn-done"]')
-const inProgress = (wrapper) => wrapper.find('.status-option--in-progress')
+// the label showing from lg (both sit in one cell; the other is invisible, keeping the width)
+const doneLabel = (wrapper) =>
+  doneButton(wrapper)
+    .findAll('.done-label > span')
+    .find((s) => !s.classes().includes('invisible'))
+    .text()
 
 describe('StudentWorkspaceHeader', () => {
   it("shows the lesson and the prof's latest checkpoint", () => {
@@ -23,21 +28,31 @@ describe('StudentWorkspaceHeader', () => {
     )
   })
 
-  it("Done says I've caught up to the checkpoint; once it is, In progress undoes it", async () => {
+  it("one Done button: Mark done says I've caught up; once Done, clicking it goes back to In progress", async () => {
     const wrapper = mountHeader()
-    expect(inProgress(wrapper).classes()).toContain('active')
+    expect(doneLabel(wrapper)).toBe('Mark done')
+    expect(doneButton(wrapper).classes()).toContain('ca-btn--secondary')
     await doneButton(wrapper).trigger('click')
     expect(wrapper.emitted('done')).toHaveLength(1)
 
     await wrapper.setProps({ done: true })
-    expect(doneButton(wrapper).classes()).toContain('active')
-    await doneButton(wrapper).trigger('click') // already done: nothing to send
-    expect(wrapper.emitted('done')).toHaveLength(1)
-    await inProgress(wrapper).trigger('click')
+    expect(doneLabel(wrapper)).toBe('Done')
+    expect(doneButton(wrapper).classes()).toContain('btn-done-on')
+    await doneButton(wrapper).trigger('click')
     expect(wrapper.emitted('undo')).toHaveLength(1)
+    expect(wrapper.emitted('done')).toHaveLength(1) // not sent again
   })
 
-  it('Load latest checkpoint asks the page to catch up, only when there is one the prof allows', async () => {
+  it('Done keeps the width of Mark done: both labels are always there, one invisible', async () => {
+    const wrapper = mountHeader()
+    const labels = () => doneButton(wrapper).findAll('.done-label > span')
+    expect(labels().map((s) => s.text())).toEqual(['Mark done', 'Done'])
+    await wrapper.setProps({ done: true })
+    expect(labels().map((s) => s.text())).toEqual(['Mark done', 'Done'])
+    expect(labels()[0].classes()).toContain('invisible')
+  })
+
+  it('Load checkpoint asks the page to catch up, only when there is one the prof allows', async () => {
     const load = (wrapper) => wrapper.find('[data-testid="btn-load-checkpoint"]')
     expect(load(mountHeader()).attributes('disabled')).toBeDefined()
     const wrapper = mountHeader({ canLoadCheckpoint: true })
@@ -55,14 +70,13 @@ describe('StudentWorkspaceHeader', () => {
     await slow(wrapper).trigger('click')
     expect(wrapper.emitted('slow-down')).toHaveLength(1)
     await wrapper.setProps({ slowDown: true })
-    expect(slow(wrapper).text()).toContain('Asked to slow down')
-    expect(slow(wrapper).classes()).toContain('ca-btn--primary')
+    expect(slow(wrapper).classes()).toContain('btn-slow-on') // soft orange; the label stays
+    expect(slow(wrapper).find('.d-lg-inline').text()).toBe('Slow down')
     expect(slow(mountHeader({ disabled: true })).attributes('disabled')).toBeDefined()
   })
 
   it("can't be changed while loading or after the class has ended", () => {
     const wrapper = mountHeader({ disabled: true })
     expect(doneButton(wrapper).attributes('disabled')).toBeDefined()
-    expect(inProgress(wrapper).attributes('disabled')).toBeDefined()
   })
 })

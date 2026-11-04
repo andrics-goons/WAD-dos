@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, beforeEach } from "vitest"
 import { mount } from "@vue/test-utils"
+import { nextTick } from "vue"
 import EditorPanel from "@/components/workspace/EditorPanel.vue"
+import { packagesState } from "@/runtime/install"
 
 // jsdom has no matchMedia; the panel only uses it to start the file tree collapsed on phones
 vi.stubGlobal("matchMedia", () => ({ matches: false }))
@@ -13,6 +15,24 @@ const mountPanel = (saveStatus) =>
         global: { stubs: { CodeEditor: true, FileTree: true, TerminalPanel: true } },
     })
 const statusOf = (wrapper) => wrapper.find('[data-testid="save-status"]')
+
+describe("EditorPanel packages", () => {
+    it("T-SBX-31: the terminal header says Packages ready, or Run pnpm i, or nothing while unknown", async () => {
+        const wrapper = mountPanel("saved")
+        const label = () => wrapper.find(".terminal-pane .pane-header .small")
+        packagesState.value = null
+        await nextTick()
+        expect(label().exists()).toBe(false)
+        packagesState.value = "missing"
+        await nextTick()
+        expect(wrapper.get('[data-testid="packages-missing"]').text()).toBe("Run pnpm i")
+        packagesState.value = "ready"
+        await nextTick()
+        expect(wrapper.get('[data-testid="packages-ready"]').text()).toBe("Packages ready")
+        expect(wrapper.find('[data-testid="packages-missing"]').exists()).toBe(false)
+        packagesState.value = null
+    })
+})
 
 describe("EditorPanel save status", () => {
     it.each([
@@ -32,6 +52,11 @@ describe("EditorPanel save status", () => {
         const status_ = statusOf(mountPanel(status))
         expect(status_.text()).toBe(text)
         expect(status_.classes()).toContain(tone)
+    })
+
+    it("fades the usual states, but never a warning", () => {
+        expect(statusOf(mountPanel("saved")).classes()).toContain("opacity-50")
+        expect(statusOf(mountPanel("retrying")).classes()).not.toContain("opacity-50")
     })
 
     it("shows nothing before the code has loaded", () => {
@@ -101,5 +126,91 @@ describe("EditorPanel terminals", () => {
         expect(names(wrapper)).toEqual(["Terminal 1", "Terminal 3"])
         await addButton(wrapper).trigger("click")
         expect(names(wrapper)).toEqual(["Terminal 1", "Terminal 2", "Terminal 3"])
+    })
+})
+
+describe("EditorPanel view button", () => {
+    const viewButton = (wrapper) => wrapper.find('[data-testid="btn-toggle-view"]')
+    const mountWithView = (view) =>
+        mount(EditorPanel, {
+            props: { selectedFile: "index.html", view },
+            global: { stubs: { CodeEditor: true, FileTree: true, TerminalPanel: true } },
+        })
+
+    it("isn't there without a view (the teach view)", () => {
+        expect(viewButton(mountPanel("saved")).exists()).toBe(false)
+    })
+
+    it("shows from xl, asks the page to swap, and its icon says where it goes", async () => {
+        const wrapper = mountWithView("split")
+        expect(viewButton(wrapper).classes()).toEqual(expect.arrayContaining(["d-none", "d-xl-inline-flex"]))
+        expect(viewButton(wrapper).find(".bi-arrows-angle-expand").exists()).toBe(true)
+        await viewButton(wrapper).trigger("click")
+        expect(wrapper.emitted("toggle-view")).toHaveLength(1)
+        expect(viewButton(mountWithView("full")).find(".bi-layout-split").exists()).toBe(true)
+    })
+})
+
+describe("T-SBX-29: EditorPanel resizing", () => {
+    // jsdom lays nothing out, so give the panel and the right-hand column a size
+    const box = (el, rect) => (el.getBoundingClientRect = () => ({ left: 0, top: 0, ...rect }))
+    function mountSized() {
+        const wrapper = mountPanel("saved")
+        box(wrapper.find(".editor-panel").element, { width: 1000, height: 600, right: 1000, bottom: 600 })
+        box(wrapper.find(".main-pane").element, { width: 720, height: 600, right: 1000, bottom: 600 })
+        return wrapper
+    }
+    // jsdom has no PointerEvent, and won't let a test set clientX on one: build the events whole
+    const fire = (handle, type, init = {}) =>
+        handle.element.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, ...init }))
+    async function drag(handle, to) {
+        fire(handle, "pointerdown")
+        fire(handle, "pointermove", to)
+        fire(handle, "pointerup")
+        await nextTick()
+    }
+    const tree = (wrapper) => wrapper.find(".tree-pane").element.style.width
+    const terminal = (wrapper) => wrapper.find(".terminal-pane").element.style.height
+    beforeEach(() => localStorage.clear())
+
+    it("dragging the handle beside the file tree sets its width, and it's remembered", async () => {
+        const wrapper = mountSized()
+        expect(tree(wrapper)).toBe("") // the default until it's dragged
+        await drag(wrapper.find('[data-testid="resize-tree"]'), { clientX: 360 })
+        expect(tree(wrapper)).toBe("360px")
+        expect(localStorage.getItem("codealong:tree-width")).toBe("360")
+        expect(tree(mountSized())).toBe("360px") // a new panel starts at the same width
+    })
+
+    it("dragging the handle above the terminal sets its height", async () => {
+        const wrapper = mountSized()
+        await drag(wrapper.find('[data-testid="resize-terminal"]'), { clientY: 350 })
+        expect(terminal(wrapper)).toBe("250px") // from the pointer to the bottom of the column
+        expect(localStorage.getItem("codealong:terminal-height")).toBe("250")
+    })
+
+    it("never lets the tree or the terminal squeeze the editor away", async () => {
+        const wrapper = mountSized()
+        await drag(wrapper.find('[data-testid="resize-tree"]'), { clientX: 990 })
+        expect(tree(wrapper)).toBe("680px") // leaves the editor 320px
+        await drag(wrapper.find('[data-testid="resize-tree"]'), { clientX: 10 })
+        expect(tree(wrapper)).toBe("120px")
+        await drag(wrapper.find('[data-testid="resize-terminal"]'), { clientY: 5 })
+        expect(terminal(wrapper)).toBe("480px") // leaves the editor 120px
+    })
+
+    it("a double-click on a handle goes back to the default size", async () => {
+        const wrapper = mountSized()
+        await drag(wrapper.find('[data-testid="resize-tree"]'), { clientX: 400 })
+        await wrapper.find('[data-testid="resize-tree"]').trigger("dblclick")
+        expect(tree(wrapper)).toBe("")
+        expect(localStorage.getItem("codealong:tree-width")).toBeNull()
+    })
+
+    it("moving without holding a handle changes nothing", async () => {
+        const wrapper = mountSized()
+        fire(wrapper.find('[data-testid="resize-tree"]'), "pointermove", { clientX: 500 })
+        await nextTick()
+        expect(tree(wrapper)).toBe("")
     })
 })

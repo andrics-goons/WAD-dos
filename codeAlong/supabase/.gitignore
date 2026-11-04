@@ -1,6 +1,8 @@
 # Supabase
 .branches
 .temp
+# queries saved in Studio's SQL editor (they can hold keys, like the Vault setup)
+snippets
 
 # dotenvx
 .env.keys

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupErrors, normalizeError } from '../../shared/error-normalizer.js'
+import { errorGroupThreshold, groupErrors, normalizeError } from '../../shared/error-normalizer.js'
 
 // fake student tile with the same fields the dashboard will get from session_tiles
 let nextId = 1
@@ -130,5 +130,14 @@ describe('groupErrors', () => {
       tile({ name: 'SyntaxError', message: 'Unexpected token', source: 'build' }),
     ]
     expect(groupErrors(tiles)[0].source).toBe('build')
+  })
+})
+
+describe('errorGroupThreshold', () => {
+  it('is 2 students, or 10% of the class when that is more', () => {
+    expect(errorGroupThreshold(0)).toBe(2)
+    expect(errorGroupThreshold(15)).toBe(2)
+    expect(errorGroupThreshold(24)).toBe(3)
+    expect(errorGroupThreshold(100)).toBe(10)
   })
 })

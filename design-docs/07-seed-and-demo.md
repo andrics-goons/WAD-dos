@@ -2,7 +2,7 @@
 
 ## Seed Data
 
-`supabase/seed.sql` (applied by `pnpm db:reset`) gives every teammate, every test and the markers the same starting point: users → course → lesson → past session (with checkpoints, statuses, help requests, notes, report). It is **idempotent by construction** — `db:reset` re-creates the schema from the migrations before seeding, so there is no clear-up step to get wrong.
+`supabase/seed.sql` (applied by `pnpm db:reset`) gives every teammate, every test and the markers the same starting point, and is built to **show every feature** without setting anything up: a class of 23 with two TAs, lessons across five weeks, two past classes with full replays and reports, and one class live right now. It is **idempotent by construction** — `db:reset` re-creates the schema from the migrations before seeding, so there is no clear-up step to get wrong.
 
 All names below are fictional — don't use classmates' names in submitted data.
 
@@ -10,30 +10,48 @@ All names below are fictional — don't use classmates' names in submitted data.
 
 | # | Name | Email | Role | Notes |
 |---|---|---|---|---|
-| 1 | Prof Lee | `prof@codealong.test` | prof | Owns IS216 G2; Telegram linked in demo env |
-| 2 | Ana Lim | `ta.ana@codealong.test` | ta | Staff of IS216 G2 |
-| 3 | Ben Ong | `ta.ben@codealong.test` | ta | Staff of IS216 G2 |
-| 4 | Alex Tan | `alex@codealong.test` | student | Enrolled — used for the live demo |
+| 1 | Prof Lee | `prof@codealong.test` | prof | Owns IS216 G2 and four other courses; Telegram linked in demo env |
+| 2 | Ana Lim | `ta.ana@codealong.test` | ta | TA of IS216 G2 (and last term's) |
+| 3 | Ben Ong | `ta.ben@codealong.test` | ta | TA of IS216 G2 and IS216 G3 |
+| 4 | Alex Tan | `alex@codealong.test` | student | Enrolled in IS216 G2 and IS113 G1 — used for the live demo |
 | 5 | Bea Koh | `bea@codealong.test` | student | Enrolled — second live laptop |
 | 6 | Chen Wei | `chen@codealong.test` | student | Enrolled — third live laptop |
-| 7–14 | Dana, Eli, Faye, Gus, Hana, Ivan, Jae, Kim | `<first>@codealong.test` | student | Enrolled — appear in the past session |
-| 15 | Zoe Ng | `zoe@codealong.test` | student | **Not** enrolled — for the "not in this course" check |
-| 16 | Prof Tan | `prof.tan@codealong.test` | prof | Owns a **different** course (IS216 G1) — proves profs can't see each other's courses (T-PLAT-14/15, T-INS-08) |
+| 7–14 | Dana, Eli, Faye, Gus, Hana, Ivan, Jae, Kim | `<first>@codealong.test` | student | Enrolled in IS216 G2 |
+| 15 | Zoe Ng | `zoe@codealong.test` | student | **Not** enrolled — for the "not in this course" check; joining CART42 enrols her (T-SESS-04) |
+| 16 | Prof Tan | `prof.tan@codealong.test` | prof | Owns a **different** course (IS216 G1) — proves profs can't see each other's courses (T-PLAT-14/15, T-INS-08) — and is a **TA** in Prof Lee's IS113 G1, so a prof's Profile shows TA courses too |
 | 17 | Ada Admin | `admin@codealong.test` | admin | The one admin account. Keep it to one: admins can read everything, including students' code |
+| 18–29 | Lucas Goh, Mei Ling, Nadia Rahman, Omar Aziz, Priya Nair, Quinn Teo, Rachel Lim, Sam Lee, Tara Wong, Uma Das, Victor Chua, Wen Hui | `<first>@codealong.test` (`wenhui@`) | student | Enrolled in IS216 G2 |
 
 > These credentials go in the README (the briefing asks for any username/password details there). Passwords are hashed by Supabase Auth — we never store or hash a password ourselves.
 
-### Seed course
+### Seed courses
 
 | Code | Title | Term | Section | Enrol code | Staff | Students |
 |---|---|---|---|---|---|---|
-| IS216 | Web Application Development II | AY2026/27 T1 | G2 | `WAD2G2` | Prof Lee, Ana, Ben | Alex … Kim (11) |
+| IS216 | Web Application Development II | AY2026/27 T1 | G2 | `WAD2G2` | Prof Lee, Ana, Ben | **23**: Alex … Kim and Lucas … Wen Hui |
+| IS113 | Web Application Development I | AY2026/27 T1 | G1 | `WAD1G1` | Prof Lee, **Prof Tan (TA)** | Alex, Bea, Lucas, Mei |
+| IS216 | Web Application Development II | AY2026/27 T1 | G3 | `WAD2G3` | Prof Lee, Ben | Sam, Tara, Uma — no lessons yet (the empty state) |
+| IS442 | Object-Oriented Programming | AY2026/27 T1 | G1 | `OOP442` | Prof Lee | none |
+| IS216 | Web Application Development II | AY2025/26 T1 | G2 | `WADG25` | Prof Lee, Ana | archived; holds one past report so "recurring trouble across terms" has data |
+| IS216 | Web Application Development II | AY2026/27 T1 | G1 | `TANWAD` | Prof Tan | belongs to **Prof Tan**: Prof Lee must never see it, and his trends must never count it |
 
-A second course, **IS216 G2 · AY2025/26 T1** (archived, enrol code `WADG25`, Prof Lee + Ana), holds one past session of the same lesson so "recurring trouble checkpoints across terms" has data.
+IS216 G2 is the **oldest** of Prof Lee's four active courses. Home lists three, newest first, so it only stays on Home because it has a class live right now (a live class's course goes first), and "See all (4)" says there are more.
 
-A third course, **IS216 G1 · AY2026/27 T1** (enrol code `TANWAD`), belongs to **Prof Tan** and holds one past session of a same-titled Mini Cart lesson. It exists to prove the per-prof boundary: Prof Lee must never see it, and Prof Lee's trends must never count its sessions.
+### Seed lessons in IS216 G2
 
-### Seed lesson: "Week 6 · Mini Cart" (status `ready`)
+| Week | Lesson | Status | Taught | Shows |
+|:---:|---|---|---|---|
+| 3 | Hello Vue (old) | `archived` | — | The "Show archived" toggle |
+| 4 | Counter & Lists | `ready` | never | **Start new session** on a fresh lesson; Delete still allowed |
+| 5 | **Grade Book** | `ready` | 5 Oct (`GRADE5`) | A full replay and report (below) |
+| 6 | **Mini Cart** | `ready` | 12 Oct (`MNCART`) and **live now** (`CART42`) | A replay, a report, and the live class; two classes in one lesson on the Replays page; Delete greyed out |
+| 6 | Cart extras | `ready` | — | A second file in the Week 6 folder |
+| 7 | Checkout Form | `draft` | — | Hidden from students until switched on |
+| — | Practice sandbox | `ready` | — | The "No week" folder |
+
+Every lesson is a real project the workspace boots and runs. **Grade Book** (Week 5) is a one-page Vue app over a local class list (`src/data.js`) with five TODOs: rows with `v-for`, a search box with `v-model` and `computed`, each student's average, the class average, and highlighting anyone below 50. Its trouble spot is checkpoint 3, where students pass `s.score` instead of `s.scores` (`TypeError: Cannot read properties of undefined (reading 'reduce')`). The Week 3, 4 and sandbox lessons are small one-page projects built from the same setup.
+
+### The Mini Cart project (Week 6)
 
 Now a **real Vite + Vue project**, not three CDN files. This is forced by dropping the mock API: TODOs 2 and 8 need something to call, and students get a real Node server, so the lesson ships its own.
 
@@ -76,19 +94,21 @@ Two things this changes:
 - **`localStorage` in step 7 now just works.** The old lesson needed our in-memory shim because an opaque-origin iframe throws on `localStorage`. The WebContainer preview is served from a real origin, so the shim is gone.
 - **Step 3 is where build errors show up.** A half-finished SFC import fails to compile, so the tile turns red with `source: 'build'` before the student has even run anything — a new and genuinely useful signal for the prof.
 
-### Seed past session (ended, current term)
+### Seed past classes (ended, current term)
 
-`MNCART`, Sunday 12 Oct 2026 14:00–15:35. Checkpoint *k* lands at 14:00 + 10*k* min; each student marks it Done a few minutes later.
+Two classes in IS216 G2 with **full replays**: every checkpoint's real code, everyone's history and last autosave (so a student's view of the replay shows their own code, and an absent student sees "No saved code"), help requests, notes and slow-down events. **Their reports are built from that history by `build_session_report`**, the same function the app runs when a class ends, so the numbers always agree with the data.
 
-| Data | Contents | Demonstrates |
+| | `GRADE5` · Week 5 · Grade Book | `MNCART` · Week 6 · Mini Cart |
 |---|---|---|
-| 8 checkpoints | Saved every 10 minutes, each with the title Prof Lee typed ("Categories load on mount"…). **Each is the real code at that point**: the starter with TODOs 1…*k* solved, so replay shows the project growing | Replay, GitHub export |
-| 11 `student_status` rows + `status_history` | 8 click Done on checkpoint 8; **6 hit `ReferenceError: items is not defined` on checkpoint 4** (`items` instead of `props.items`); **3 never catch up after checkpoint 6** and end in progress. Each checkpoint resets everyone to in progress; history is written exactly as the triggers would have, with real timestamps | Insights funnel, checkpoint 4 as top trouble spot |
-| 18 snapshots | Everyone's autosave, 2 `before_catchup` (Eli, Ivan), 5 `help_request` | Privacy: a TA sees only the 5 sent ones |
-| 5 help requests | 2 passed checks, 2 replied helps on the checkpoint 4 bug, 1 in-person resolved (Gus, seat C14) | Help history in replay |
-| 4 notes | Alex's notes on checkpoints 4 and 7 | Notes + search |
-| 12 `slow_down_events` | Three asking to slow down at once around checkpoint 4, three again near the end | `slow_down_peak` = 3 |
-| `session_reports` row | Literal counts matching the history above, per the [05 §10](./05-core-logic.md#10-insights-report) definitions, per checkpoint: checkpoint 4 trouble 0.236 (top), checkpoint 7 drop-off 3. `seed.test.js` checks them against the history | Report page renders immediately |
+| When | Mon 5 Oct 2026 14:00–15:15; checkpoint *k* at 14:00 + 12*k* min | Mon 12 Oct 2026 14:00–15:35; checkpoint *k* at 14:00 + 10*k* min |
+| Checkpoints | 5, each the real code with TODOs 1…*k* solved | 8, likewise |
+| Attendance | 21 of 23 (Sam and Wen Hui absent) | 20 of 23 (Uma, Victor and Wen Hui absent) |
+| The trouble spot | **7** hit the `s.score` mistake on checkpoint 3; 3 of them get past it by loading checkpoint 3 | **9** hit `ReferenceError: items is not defined` on checkpoint 4 (`items` for `props.items`); 4 of them get past it by loading checkpoint 4 |
+| Drop-off | 3 never reach checkpoint 5; 2 of them load the latest checkpoint (a catch-up) | 4 never reach checkpoints 7–8; 3 of them catch up |
+| Help | 2 passed checks, 2 replied helps on the checkpoint 3 bug (with AI analyses), 1 resolved in person at seat D2 | 3 passed checks, 3 replied helps on the checkpoint 4 bug (with AI analyses), 1 resolved in person at seat C14 |
+| Notes | Alex (checkpoint 3), Mei (checkpoint 4) | Alex (checkpoints 4 and 7), Bea, and Prof Lee's own private note on checkpoint 4 |
+| Snapshots | 21 autosaves, 5 from before a catch-up, 5 sent for help | 20 autosaves, 7 from before a catch-up, 7 sent for help — a TA reads only these, never another class's |
+| Report | Checkpoint 3 the top trouble spot, and where most needed the prof's code; drop-off 3 at checkpoint 5 | Checkpoint 4 the top trouble spot, and where most needed the prof's code; drop-off 4 at checkpoint 7; slow-down peak 4 |
 
 ### Seed older reports (for trends)
 
@@ -97,20 +117,24 @@ Two things this changes:
 | `MNCT25`, Oct 2025 | IS216 G2 · AY2025/26 T1 (archived), Prof Lee | 24 of 27 joined; **checkpoint 4 top trouble again** | "Recurring trouble across terms" has something to find |
 | `TANMCT`, Oct 2026 | IS216 G1 · AY2026/27 T1, Prof Tan | 30 of 32 joined; checkpoint 2 top trouble | Must **never** appear in Prof Lee's reports or trends (T-INS-08) |
 
-These two have report rows only — no checkpoints or history — because a report is counts only.
+These two have report rows only (literal counts) — no checkpoints or history — because a report is counts only.
 
-### Seed live session — `CART42`
+### Seed live class — `CART42`
 
-The seed leaves one class running in IS216 G2: 3 titled checkpoints, an announcement, and five students mid-class.
+Week 6 · Mini Cart, running in IS216 G2 on checkpoint 3 (3 titled checkpoints, started 25 minutes before the reset), with an announcement. **21 of the 23 are in** (Uma and Wen Hui aren't):
 
-| Student | `done_seq` (latest is 3) | Tile |
-|---|:---:|---|
-| Alex, Eli | 3 | `done` |
-| Chen | 2 | `in_progress` — and has tapped **Slow down** (staff see `slow_down_count = 1`) |
-| Bea | 2 | `error`, `source: 'build'` — mistyped the `ItemCard` import; her help request is **open** in the queue |
-| Dana | 1 | `in_progress` |
+| State | Students | What it's for |
+|---|---|---|
+| Done on 3 | Alex, Eli, Kim, Nadia, Omar, Quinn, Sam, Tara (8) | Eli loaded the latest checkpoint once (a catch-up, with his old code kept) |
+| In progress (done on 2) | Chen, Hana, Jae, Lucas, Priya (5) | Chen, Lucas and Priya have tapped **Slow down** (staff see `slow_down_count = 3`, never who) |
+| Idle (done on 1) | Dana, Rachel (2) | Last seen 70 minutes ago, past the class's idle window |
+| Error | Bea, Gus, Victor (3) · Faye, Mei (2) · Ivan (1) | The `ItemCard` import typo in two spellings (`Itemcard`, `itemcard` — one shape, so Common errors shows the variants) · a missing `:items` prop · one typo (`categries`) nobody else has ("1 other student has an error nobody else shares yet") |
 
-The live session's `idleAfterSec` is **3600**, not 180, so the tiles stay un-idle for an hour after `pnpm db:reset`; after that they all show `idle`. **End it or reset before recording the demo**, which starts its own session.
+**The help queue has every state a TA meets:** Priya's request is back in the queue after a reply and a follow-up ("last handled by Ben"); Lucas's is claimed by Ana; Gus's and Bea's are the same import mistake, so **What the class is stuck on** groups them; Faye's AI analysis failed; Nadia's is a Check my work; Mei asked in person (seat B7) and hers is still being analysed; and below them a passed check (Omar), a resolved in-person request (Hana, seat A3) and one Jae took back. Every help request has the **AI analysis** a TA sees on it.
+
+The prof's dashboard counts **only the students connected right now** (Done X of N, the Students panel, Common errors), so those numbers fill in as students log in; the statuses, help queue and help summary are there from the start.
+
+The live class's `idleAfterSec` is **3600**, not 180, so its students stay "here" for an hour after `pnpm db:reset`; after that they all show `idle`. **End it or reset before recording the demo**, which starts its own session.
 
 ### How `seed.sql` is built
 
@@ -119,15 +143,14 @@ The live session's `idleAfterSec` is **3600**, not 180, so the tiles stay un-idl
 | Part | How |
 |---|---|
 | Accounts | Inserted into `auth.users` **and `auth.identities`** with `crypt('pass1234', gen_salt('bf'))` — the same bcrypt Supabase Auth uses. The token columns are set to `''`, not null; Supabase Auth can't log in a user whose tokens are null. The `on_auth_user_created` trigger makes each profile; one `update` then sets the roles |
-| Fixed ids | Grouped by table, readable: users `…0000-0000000000NN` (NN = the # above), courses `…0001-…N`, lessons `…0002-…N`, sessions `…0004-…N` |
-| Starter files | **Copied from Dylan's `src/stores/seed/miniCartSeed.js`**, the same project the workspace boots — one source for both. If that project changes, re-copy the list |
+| Fixed ids | Grouped by table, readable: users `…0000-0000000000NN` (NN = the # above), courses `…0001-…N`, lessons `…0002-…N`, sessions `…0004-…N`, through `seed.u(n)`, `seed.c(n)`, `seed.l(n)`, `seed.s(n)`. The ids, emails and join codes from the first seed are unchanged, because the E2E tests use them |
+| Starter files | Mini Cart is **copied from Dylan's `src/stores/seed/miniCartSeed.js`**, the same project the workspace boots — one source for both. Grade Book shares its Vite setup and `ca-probe.js`. If a project changes, re-copy it |
 | Checkpoint code | A table of patches (checkpoint, file, exact text → replacement). The code at checkpoint *k* = the starter with patches 1…*k* applied. **A patch whose text is missing raises an error**, so a change to the starter breaks the seed loudly instead of seeding wrong code |
-| The reports | Plain `insert`s of literal counts. The past session's match its history, and `seed.test.js` checks that they still do |
+| The past classes | A roster per class (when each student joined, how fast they click Done, who hits the mistake and who loads the checkpoint to get past it, who gets stuck, who catches up at the end) turned into `status_history` exactly as the triggers would have written it, with the class's own timestamps. Their reports are then built by **`build_session_report`**; only the two older ones are literal counts |
+| The live class | Inserted through the triggers, so its history is stamped now(). Its errors use the exact keys `shared/error-normalizer.js` makes |
 | Helpers | Built in a scratch `seed` schema that the file drops at the end |
 
-`tests/unit/rls/seed.test.js` checks it all (T-SEED-02/03 plus the privacy rules on the seeded data). It skips itself when the database hasn't been seeded.
-
-> **Still to do — `pnpm seed:generate`.** The plan was to generate the reports with the real builder. It now exists (`build_session_report`, in SQL), but the seeded reports are still written out by hand. A small Node script should check the seed against it.
+`tests/unit/rls/seed.test.js` checks it all (T-SEED-02/03, the reports against their history, the live class's states and help queue, plus the privacy rules on the seeded data). It skips itself when the database hasn't been seeded.
 
 ---
 
@@ -185,7 +208,7 @@ Every member presents the part they built (check your section's rule on who must
 
 | Step | Action | What to show |
 |:---:|---|---|
-| 11 | Alex clicks **Load latest checkpoint** → **Download my project** → **Replace my code** | The warning, the .zip, then the prof's code in his editor |
+| 11 | Alex clicks **Load checkpoint** → **Download my project** → **Replace my code** | The warning, the .zip, then the prof's code in his editor |
 | 12 | Alex taps **Done** | Tile turns **green** on the prof's screen |
 | 13 | Alex restores his old attempt to compare, then switches back | Nothing lost |
 | 14 | Resize to 375 px and rotate | Workspace switches to tabs; bottom bar stays usable |

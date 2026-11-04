@@ -30,7 +30,6 @@ const PROF = ['prof']
 const ADMIN = ['admin']
 
 const toMyCourses = () => ({ label: 'My courses', to: { name: 'courses' } })
-const exitClass = () => ({ label: 'Exit live session' })
 const toCourse = () => ({ label: 'Back to course' })
 
 const routes = [
@@ -146,14 +145,25 @@ const routes = [
     name: 'help-queue',
     component: () => import('@/views/HelpQueueView.vue'),
     props: true,
-    meta: { auth: true, roles: STAFF, title: 'Help queue', back: exitClass },
+    meta: { auth: true, roles: STAFF, title: 'Help queue' }, // no back bar in a live class
   },
   {
     path: '/help/:requestId',
     name: 'help-review',
     component: () => import('@/views/HelpReviewView.vue'),
     props: true,
-    meta: { auth: true, roles: STAFF, title: 'Help request', back: () => ({ label: 'Back' }) },
+    // no meta.back: the page has its own "Help queue" button, and it is often opened straight from
+    // a Telegram link, with no page behind it
+    meta: { auth: true, roles: STAFF, title: 'Help request' },
+  },
+  {
+    // a TA's own runnable copy of the student's code. It always opens in a new tab from the review
+    // panel, so there is nothing behind it to go back to (and no meta.back): the tab is closed
+    path: '/help/:requestId/code',
+    name: 'help-code',
+    component: () => import('@/views/HelpCodeView.vue'),
+    props: true,
+    meta: { auth: true, roles: STAFF, title: "Student's code" },
   },
   {
     path: '/sessions/:id/report',

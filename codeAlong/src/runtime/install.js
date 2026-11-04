@@ -18,6 +18,7 @@
 // Local only: no Supabase egress, and these are public npm packages, not anyone's code. Like the
 // file cache, IndexedDB is never relied on: a miss or a failed write just means a normal install.
 
+import { ref } from 'vue'
 import { idbDelete, idbGet, idbSet } from '@/cache/idb.js'
 
 // [{ key, savedAt, bytes, locks: { [file]: text } }], newest first; each set's node_modules is
@@ -29,6 +30,20 @@ const QUIET_MS = 3000 // wait this long after the install's last write before sa
 // what pnpm (and npm) write last, when an install has finished
 const DONE_MARKERS = ['.modules.yaml', '.package-lock.json']
 const LOCKFILES = ['pnpm-lock.yaml', 'package-lock.json']
+// The snapshot doesn't keep the executable bit, so without this pnpm dev fails with "spawn
+// concurrently EACCES" until a pnpm i links them again: every command in a .bin folder (the
+// project's and each package's own under .pnpm) is made runnable again. chmod follows the link.
+const CHMOD_BINS = `
+const fs = require('fs')
+const dirs = ['node_modules/.bin']
+try {
+  for (const d of fs.readdirSync('node_modules/.pnpm')) dirs.push('node_modules/.pnpm/' + d + '/node_modules/.bin')
+} catch {}
+for (const dir of dirs) {
+  let names = []
+  try { names = fs.readdirSync(dir) } catch {}
+  for (const name of names) try { fs.chmodSync(dir + '/' + name, 0o755) } catch {}
+}`
 
 const modulesKey = (key) => `packages:${key}:modules`
 const read = (webcontainer, path) => webcontainer.fs.readFile(path, 'utf-8').catch(() => null)
@@ -36,6 +51,11 @@ const exists = async (webcontainer, path) => (await read(webcontainer, path)) !=
 
 // the lockfiles this tab put back, if it restored a set (forgetRestoredPackages removes them)
 let restoredLocks = null
+
+// Whether the project's packages are there, shown in the terminal's header: 'ready' (restored,
+// or an install finished, so pnpm dev can run straight away), 'missing' ("Run pnpm i"), or null
+// while it isn't known yet (booting) or there's nothing to install (no package.json)
+export const packagesState = ref(null)
 
 /** Which set of packages this project needs: a hash of its package.json, or null without one. */
 export async function packagesKey(webcontainer) {
@@ -45,12 +65,27 @@ export async function packagesKey(webcontainer) {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
+// pnpm (or npm) finished installing here: its last write is there
+async function installed(webcontainer) {
+  const done = DONE_MARKERS.map((m) => exists(webcontainer, `node_modules/${m}`))
+  return (await Promise.all(done)).some(Boolean)
+}
+
 /**
  * Put the saved packages back, right after the source files are mounted. Only for the same
  * package.json: returns true when they're back, false when pnpm has to install as usual.
  */
 export async function restorePackages(webcontainer) {
   restoredLocks = null
+  packagesState.value = null // a new boot: not known until the cache has been looked at
+  if ((await read(webcontainer, 'package.json')) === null) return false // nothing to install
+  const restored = await putBack(webcontainer)
+  // not put back: still there from an earlier install in this tab, or the student has to install
+  packagesState.value = restored || (await installed(webcontainer)) ? 'ready' : 'missing'
+  return restored
+}
+
+async function putBack(webcontainer) {
   try {
     const key = await packagesKey(webcontainer)
     if (key === null) return false
@@ -62,6 +97,8 @@ export async function restorePackages(webcontainer) {
     // a mount point has to exist already ("invalid mount point" otherwise, and nothing mounts)
     await webcontainer.fs.mkdir('node_modules', { recursive: true })
     await webcontainer.mount(modules, { mountPoint: 'node_modules' })
+    const chmod = await webcontainer.spawn('node', ['-e', CHMOD_BINS])
+    await chmod.exit
     // the lockfile that matches these packages, unless the project brought its own
     restoredLocks = []
     for (const [file, text] of Object.entries(entry.locks ?? {})) {
@@ -88,6 +125,7 @@ export async function forgetRestoredPackages(webcontainer) {
   if (!restoredLocks) return
   const locks = restoredLocks
   restoredLocks = null
+  packagesState.value = 'missing'
   await webcontainer.fs.rm('node_modules', { recursive: true, force: true }).catch(() => {})
   for (const file of locks) await webcontainer.fs.rm(file, { force: true }).catch(() => {})
 }
@@ -151,10 +189,10 @@ export function watchInstalls(webcontainer, { quietMs = QUIET_MS } = {}) {
     clearTimeout(timer)
     timer = setTimeout(async () => {
       // the marker is also "changed" when node_modules is deleted: only save a finished install
-      const done = await Promise.all(
-        DONE_MARKERS.map((m) => exists(webcontainer, `node_modules/${m}`)),
-      )
-      if (!stopped && done.some(Boolean)) await savePackages(webcontainer)
+      const done = await installed(webcontainer)
+      if (stopped) return
+      packagesState.value = done ? 'ready' : 'missing'
+      if (done) await savePackages(webcontainer)
     }, quietMs)
   }
   // only once node_modules exists: watching a missing folder fails inside the WebContainer

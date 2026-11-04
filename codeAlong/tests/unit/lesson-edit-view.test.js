@@ -13,9 +13,10 @@ const api = vi.hoisted(() => ({
 vi.mock('@/api/lessons.api', () => api)
 
 const replace = vi.hoisted(() => vi.fn())
+const push = vi.hoisted(() => vi.fn())
 vi.mock('vue-router', async (original) => ({
   ...(await original()),
-  useRouter: () => ({ replace }),
+  useRouter: () => ({ replace, push }),
 }))
 
 import LessonEditView from '@/views/LessonEditView.vue'
@@ -81,8 +82,8 @@ async function fill(id, value) {
   el.dispatchEvent(new Event('input'))
   await flushPromises()
 }
-// buttons are found by their name, the way a person finds them
-const saveButton = () => wrapper.findAll('button').find((b) => b.text().trim().startsWith('Sav'))
+// the one button at the bottom: Continue, or Save and continue once something is edited
+const continueButton = () => wrapper.find('[data-testid="btn-lesson-done"]')
 beforeEach(() => {
   vi.clearAllMocks()
   api.updateLesson.mockImplementation(async (_, changes) => lesson(changes))
@@ -114,7 +115,7 @@ describe('LessonEditView', () => {
     await open()
     wrapper.findComponent(CodeEditor).vm.$emit('update:selectedCode', '<!-- TODO 1: Build it -->\n')
     await flushPromises()
-    await clickText('Save')
+    await clickText('Save and continue')
     expect(api.updateLesson).toHaveBeenCalledWith('les-1', {
       files: [
         { path: 'index.html', language: 'html', content: '<!-- TODO 1: Build it -->\n' },
@@ -134,17 +135,62 @@ describe('LessonEditView', () => {
     expect(wrapper.text()).toContain('Lesson not found')
   })
 
-  it('keeps save off until something changes', async () => {
+  it('T-LES-11: the bottom button says Continue until something is edited, then Save and continue', async () => {
     await open()
-    expect(saveButton().attributes('disabled')).toBeDefined()
+    expect(continueButton().text()).toBe('Continue')
+    wrapper.findComponent(CodeEditor).vm.$emit('update:selectedCode', '<p>new</p>\n')
+    await flushPromises()
+    expect(continueButton().text()).toBe('Save and continue')
   })
 
-  it('Save sends only what changed, never the status', async () => {
+  it('T-LES-11: there is no Save button in the header', async () => {
+    await open()
+    expect(wrapper.findAll('button').map((b) => b.text().trim())).not.toContain('Save')
+    expect(wrapper.findAll('button').map((b) => b.text().trim())).not.toContain('Saved')
+  })
+
+  it('Save and continue sends only what changed, never the status', async () => {
     await open()
     wrapper.findComponent(CodeEditor).vm.$emit('update:selectedCode', '<p>new</p>\n')
     await flushPromises()
-    await clickText('Save')
+    await clickText('Save and continue')
     expect(api.updateLesson).toHaveBeenCalledWith('les-1', { files: expect.any(Array) })
+  })
+
+  describe('T-LES-11: Continue at the bottom of the page', () => {
+    const done = () => wrapper.find('[data-testid="btn-lesson-done"]')
+    const toCourse = { name: 'course', params: { id: 'course-1' } }
+    beforeEach(() => push.mockClear())
+
+    it('with nothing changed, goes straight back to the course', async () => {
+      await open()
+      await done().trigger('click')
+      await flushPromises()
+      expect(api.updateLesson).not.toHaveBeenCalled()
+      expect(push).toHaveBeenCalledWith(toCourse)
+    })
+
+    it('with edits, saves them first and then goes back', async () => {
+      await open()
+      api.updateLesson.mockResolvedValue(lesson())
+      wrapper.findComponent(CodeEditor).vm.$emit('update:selectedCode', '<p>new</p>\n')
+      await flushPromises()
+      await done().trigger('click')
+      await flushPromises()
+      expect(api.updateLesson).toHaveBeenCalledTimes(1)
+      expect(push).toHaveBeenCalledWith(toCourse)
+    })
+
+    it('if saving fails, stays on the page with the edits and the error', async () => {
+      await open()
+      api.updateLesson.mockRejectedValue(new AppError('INTERNAL', 'Something went wrong'))
+      wrapper.findComponent(CodeEditor).vm.$emit('update:selectedCode', '<p>new</p>\n')
+      await flushPromises()
+      await done().trigger('click')
+      await flushPromises()
+      expect(push).not.toHaveBeenCalled()
+      expect(useToastStore(pinia).messages.at(-1)).toMatchObject({ variant: 'danger' })
+    })
   })
 
   it('has no visibility, archive or delete: those are in the ⋯ menu on the course page', async () => {
@@ -160,13 +206,14 @@ describe('LessonEditView', () => {
     await open()
     wrapper.findComponent(CodeEditor).vm.$emit('update:selectedCode', '<p>new</p>\n')
     await flushPromises()
-    await clickText('Save')
+    await clickText('Save and continue')
     expect(useToastStore(pinia).messages.at(-1)).toMatchObject({
       variant: 'danger',
       text: expect.stringContaining('Too many files'),
     })
-    // the unsaved change is kept so nothing is lost
-    expect(saveButton().attributes('disabled')).toBeUndefined()
+    // the unsaved change is kept so nothing is lost: it still offers to save
+    expect(continueButton().text()).toBe('Save and continue')
+    expect(continueButton().attributes('disabled')).toBeUndefined()
   })
 
   it('saves edited lesson details', async () => {
@@ -177,7 +224,7 @@ describe('LessonEditView', () => {
     await fill('lesson-description', 'Now with checkout')
     await confirmModal()
     expect(wrapper.text()).toContain('Week 7 · Mini Cart v2')
-    await clickText('Save')
+    await clickText('Save and continue')
     expect(api.updateLesson).toHaveBeenCalledWith('les-1', {
       title: 'Week 7 · Mini Cart v2',
       week: 7,
@@ -191,6 +238,6 @@ describe('LessonEditView', () => {
     await fill('lesson-title', '  ')
     await confirmModal()
     expect(inBody('#lesson-title')).not.toBeNull() // still open
-    expect(saveButton().attributes('disabled')).toBeDefined()
+    expect(continueButton().text()).toBe('Continue') // nothing changed
   })
 })

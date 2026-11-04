@@ -23,6 +23,27 @@ const loading = ref(true)
 const loadError = ref('')
 const selectedId = ref(null)
 
+// The Handled list can be folded away so a long class doesn't bury the queue. The count stays on
+// the heading, and the choice is kept on this device
+const HANDLED_KEY = 'codealong:help-handled-open'
+const handledOpen = ref(
+  (() => {
+    try {
+      return localStorage.getItem(HANDLED_KEY) !== 'closed'
+    } catch {
+      return true
+    }
+  })(),
+)
+function toggleHandled() {
+  handledOpen.value = !handledOpen.value
+  try {
+    localStorage.setItem(HANDLED_KEY, handledOpen.value ? 'open' : 'closed')
+  } catch {
+    // private window or blocked storage: it just isn't remembered
+  }
+}
+
 const waiting = computed(() => help.requests.filter(isActive))
 const handled = computed(() =>
   help.requests.filter((r) => !isActive(r) && r.status !== HelpStatus.CANCELLED).reverse(),
@@ -124,9 +145,20 @@ async function claim(request) {
 
           <template v-if="handled.length">
             <h2 class="fs-6 mb-2">
-              Handled <span class="text-body-secondary">({{ handled.length }})</span>
+              <!-- looks like the Waiting heading; the chevron says it folds -->
+              <button
+                type="button"
+                class="d-inline-flex align-items-center gap-2 p-0 border-0 bg-transparent text-body fw-medium"
+                data-testid="btn-toggle-handled"
+                @click="toggleHandled"
+              >
+                <span
+                  >Handled <span class="text-body-secondary">({{ handled.length }})</span></span
+                >
+                <i class="bi" :class="handledOpen ? 'bi-chevron-up' : 'bi-chevron-down'" />
+              </button>
             </h2>
-            <div class="d-grid gap-2">
+            <div v-if="handledOpen" class="d-grid gap-2" data-testid="handled-list">
               <HelpRequestCard
                 v-for="request in handled"
                 :key="request.id"
@@ -143,6 +175,8 @@ async function claim(request) {
 
         <!-- The request being looked at -->
         <div class="col-12 col-lg-7 col-xl-8" :class="{ 'd-none d-lg-block': !selected }">
+          <!-- the same heading as the one beside it, unseen: it lines this box up with the first request -->
+          <h2 class="fs-6 mb-2 invisible d-none d-lg-block">Waiting</h2>
           <template v-if="selected">
             <button
               type="button"
@@ -156,6 +190,7 @@ async function claim(request) {
               :request="selected"
               :my-id="myId"
               :can-act="sessionStore.isStaff"
+              link-name
             />
           </template>
           <div v-else class="ca-surface">

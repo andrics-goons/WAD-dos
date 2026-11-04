@@ -2,6 +2,7 @@
   import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
   import EditorPanel from "@/components/workspace/EditorPanel.vue"
   import PreviewPanel from "@/components/workspace/PreviewPanel.vue"
+  import WorkspaceLayout from "@/components/workspace/WorkspaceLayout.vue"
   import StudentWorkspaceHeader from "@/components/workspace/StudentWorkspaceHeader.vue"
   import CatchUpModal from "@/components/workspace/CatchUpModal.vue"
   import AnnouncementBanner from "@/components/session/AnnouncementBanner.vue"
@@ -15,6 +16,7 @@
   import { checkpointLabel } from "@shared/checkpoint-label.js"
   import { useToastStore } from "@/stores/toast"
   import { downloadProject } from "@/utils/downloadProject.js"
+  import { importersOf } from "@/utils/imports.js"
 
   const props = defineProps({ id: { type: String, required: true } })
 
@@ -40,6 +42,19 @@
   )
   function downloadMine() {
     downloadProject(workspaceStore.files, sessionStore.session?.lesson.title ?? "project")
+  }
+  // Rename, or a file dragged to another folder: the files that point at it by its old path
+  // (an import, a src, a script in package.json) now point at nothing, so say which ones
+  async function renameFile(from, to) {
+    const importers = importersOf(workspaceStore.files, from)
+    await workspaceStore.renameFile(from, to)
+    if (!importers.length) return
+    const name = from.split("/").pop()
+    toast.show(
+      `${importers.join(", ")} still ${importers.length === 1 ? "points" : "point"} to ${name} at its old place. Update the path there, or the app won't build.`,
+      "warning",
+      { title: `${name} moved` },
+    )
   }
   // "Slow down": anonymous, so the prof only sees how many asked
   async function toggleSlowDown() {
@@ -94,8 +109,6 @@
   const bootError = ref(isolated ? "" : "This page isn't cross-origin isolated, so the workspace can't run here.")
 
   const previewUrl = ref("")
-  // below xl: which of the editor and the preview is on screen
-  const showPreview = ref(false)
   let stopWorkspace
   // set on unmount, so a boot that finishes after the user has left doesn't leave a listener behind
   let unmounted = false
@@ -185,11 +198,9 @@
         {{ bootError }} Try reloading the page.
       </div>
 
-      <!-- xl and up: editor and preview side by side. Below xl only one shows at a time and
-           the button in each pane header swaps them. d-none only hides the box, so the
-           terminal and the running preview survive the swap -->
-      <div class="workspace-layout">
-        <div class="workspace-box" :class="{ 'd-none d-xl-block': showPreview }">
+      <!-- editor and preview, split or full view (WorkspaceLayout, shared with the TA's copy) -->
+      <WorkspaceLayout>
+        <template #editor="{ pane, toggleView, swap }">
           <EditorPanel
             :file-paths="workspaceStore.filePaths"
             v-model:selected-file="workspaceStore.selectedFile"
@@ -197,17 +208,23 @@
             :save-status="workspaceStore.saveStatus"
             :files-version="workspaceStore.filesVersion"
             :editable="loaded && sessionStore.isLive"
-            @show-preview="showPreview = true"
+            v-bind="pane"
+            @toggle-view="toggleView"
+            @show-preview="swap"
             @create-file="workspaceStore.createFile"
-            @rename-file="workspaceStore.renameFile"
+            @rename-file="renameFile"
             @delete-file="deleting = $event"
           />
-        </div>
-
-        <div class="preview-box" :class="{ 'd-none d-xl-block': !showPreview }">
-          <PreviewPanel :preview-url="previewUrl" @show-editor="showPreview = false" />
-        </div>
-      </div>
+        </template>
+        <template #preview="{ pane, toggleView, swap }">
+          <PreviewPanel
+            :preview-url="previewUrl"
+            v-bind="pane"
+            @toggle-view="toggleView"
+            @show-editor="swap"
+          />
+        </template>
+      </WorkspaceLayout>
     </template>
   </div>
 
@@ -218,22 +235,5 @@
         display: flex;
         flex-direction: column;
         padding: 0 var(--ca-space-3) var(--ca-space-3);
-    }
-    /* fills whatever height is left under the heading */
-    .workspace-layout {
-        display: flex;
-        gap: var(--ca-space-3);
-        flex: 1;
-        min-height: 0;
-    }
-    .workspace-box,
-    .preview-box {
-        flex: 1 1 0;
-        min-width: 0;
-    }
-    /* overflow: hidden clips the editor panel's square corners to the rounded border */
-    .workspace-box {
-        border-radius: var(--ca-radius);
-        overflow: hidden;
     }
 </style>

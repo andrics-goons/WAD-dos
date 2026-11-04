@@ -51,6 +51,11 @@ export function normalizeError({ name, message } = {}) {
 //
 // The whole class works towards the same checkpoint, so groups are by mistake alone.
 
+/** How many students must share a mistake before it shows as a group: min, or 10% of the class. */
+export function errorGroupThreshold(presentCount, min = Limits.ERROR_GROUP_MIN) {
+  return Math.max(min, Math.ceil(presentCount * 0.1))
+}
+
 export function groupErrors(
   tiles,
   { min = Limits.ERROR_GROUP_MIN, presentCount = tiles.length } = {},
@@ -79,7 +84,7 @@ export function groupErrors(
   }
 
   // need at least min students, or 10% of the class if that's more
-  const threshold = Math.max(min, Math.ceil(presentCount * 0.1))
+  const threshold = errorGroupThreshold(presentCount, min)
 
   const groups = []
   for (const variants of byShape.values()) {

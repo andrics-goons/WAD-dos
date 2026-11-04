@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { mount, flushPromises } from "@vue/test-utils"
 import { createPinia, setActivePinia } from "pinia"
 import WorkspaceView from "@/views/WorkspaceView.vue"
+import { useToastStore } from "@/stores/toast"
 import { getWebContainer } from "@/runtime/webcontainer"
 import { startWorkspace } from "@/runtime/workspace"
 
@@ -74,5 +75,90 @@ describe("WorkspaceView", () => {
         starting.resolve(stop)
         await flushPromises()
         expect(stop).toHaveBeenCalledOnce()
+    })
+
+    describe("split view and full view (xl and up)", () => {
+        const box = (wrapper, name) => wrapper.find(`.${name}`).classes()
+        // the button is in each pane header; either one swaps the view
+        const toggle = (wrapper, pane = "EditorPanel") => wrapper.findComponent({ name: pane }).vm.$emit("toggle-view")
+        beforeEach(() => localStorage.clear())
+
+        it("starts in split view: from xl the hidden pane still shows beside the editor", async () => {
+            const wrapper = mountView()
+            await flushPromises()
+            expect(box(wrapper, "preview-box")).toEqual(expect.arrayContaining(["d-none", "d-xl-block"]))
+            expect(wrapper.findComponent({ name: "PreviewPanel" }).attributes("switchable")).toBe("false")
+        })
+
+        it("full view hides the other pane at every size, and the pane buttons swap them", async () => {
+            const wrapper = mountView()
+            await flushPromises()
+            await toggle(wrapper)
+            // gone below xl, folded away from xl (pane-hidden eases it out instead of snapping)
+            expect(box(wrapper, "preview-box")).toEqual(expect.arrayContaining(["d-none", "pane-hidden"]))
+            expect(box(wrapper, "workspace-box")).not.toContain("d-none")
+            expect(wrapper.findComponent({ name: "EditorPanel" }).attributes("switchable")).toBe("true")
+            expect(wrapper.findComponent({ name: "PreviewPanel" }).attributes("view")).toBe("full")
+            await toggle(wrapper, "PreviewPanel") // and back
+            expect(box(wrapper, "preview-box")).toContain("d-xl-block")
+            expect(box(wrapper, "preview-box")).not.toContain("pane-hidden")
+        })
+
+        it("the expand button on a pane makes that pane the full one", async () => {
+            const wrapper = mountView()
+            await flushPromises()
+            await toggle(wrapper, "PreviewPanel")
+            expect(box(wrapper, "preview-box")).not.toContain("d-none")
+            expect(box(wrapper, "workspace-box")).toEqual(expect.arrayContaining(["d-none", "pane-hidden"]))
+        })
+
+        it("remembers the choice on this device", async () => {
+            const first = mountView()
+            await flushPromises()
+            await toggle(first)
+            first.unmount()
+            const again = mountView()
+            await flushPromises()
+            expect(box(again, "preview-box")).toContain("pane-hidden")
+        })
+    })
+
+    describe("T-SBX-30: moving or renaming a file", () => {
+        const rename = (wrapper, from, to) =>
+            wrapper.findComponent({ name: "EditorPanel" }).vm.$emit("rename-file", from, to)
+        const FILES = [
+            { path: "src/App.vue", content: "import ItemCard from './components/ItemCard.vue'" },
+            { path: "src/components/ItemCard.vue", content: "<template />" },
+            { path: "README.md", content: "# Mini Cart" },
+        ]
+        // the page loads first (the fake load sets its own files), then the class's code is these
+        async function open() {
+            const wrapper = mountView()
+            await flushPromises()
+            store.files = FILES
+            store.renameFile = vi.fn(async () => {})
+            return wrapper
+        }
+
+        it("moves it, then warns which files still point at its old place", async () => {
+            const wrapper = await open()
+            await rename(wrapper, "src/components/ItemCard.vue", "src/ItemCard.vue")
+            await flushPromises()
+            expect(store.renameFile).toHaveBeenCalledWith("src/components/ItemCard.vue", "src/ItemCard.vue")
+            expect(useToastStore().messages.at(-1)).toMatchObject({
+                variant: "warning",
+                title: "ItemCard.vue moved",
+                text: expect.stringContaining("src/App.vue still points to ItemCard.vue"),
+            })
+        })
+
+        it("says nothing when no file uses it", async () => {
+            const wrapper = await open()
+            const before = useToastStore().messages.length
+            await rename(wrapper, "README.md", "docs/README.md")
+            await flushPromises()
+            expect(store.renameFile).toHaveBeenCalledWith("README.md", "docs/README.md")
+            expect(useToastStore().messages).toHaveLength(before)
+        })
     })
 })

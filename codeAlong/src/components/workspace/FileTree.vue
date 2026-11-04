@@ -1,6 +1,7 @@
 <script setup>
     import { ref, computed, nextTick } from "vue"
     import { languageOf, isStorablePath, isSyncIgnored } from "@shared/sync-files.js"
+    import ConfirmModal from "@/components/ui/ConfirmModal.vue"
 
     const props = defineProps({
         filePaths: { type: Array, default: () => [] },
@@ -113,6 +114,69 @@
 
     // the last file can't go: an empty project can't be saved, so it would come back on refresh
     const canDelete = computed(() => visiblePaths.value.length > 1)
+
+    // Drag a file onto a folder (or onto a file in it) to move it there, or onto the empty space
+    // below the list for the top level. Only files, and only in an editable tree. A move is a
+    // rename to the new folder, so it gets the same checks; the browser's drag and drop is
+    // desktop only, so on a touch screen Rename is still the way to move a file.
+    const dragged = ref(null) // the path being dragged
+    const dropFolder = ref(null) // where it would go: a folder's path, "" for the top level
+    const moveError = ref("")
+    let moveErrorTimer = null
+
+    const folderOf = (path) => path.split("/").slice(0, -1).join("/")
+    // a folder row is where its files go; a file row means "next to this file"
+    const targetOf = (row) => (row.isFolder ? row.path : folderOf(row.path))
+
+    function onDragStart(row, event) {
+        if (!props.editable || row.isFolder) return
+        dragged.value = row.path
+        event.dataTransfer?.setData("text/plain", row.path)
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = "move"
+    }
+    function onDragOver(folder, event) {
+        if (dragged.value === null) return // not one of our files (a file from the desktop, say)
+        event.preventDefault() // lets it drop here
+        // its own folder is no move at all, so nothing lights up
+        dropFolder.value = folder === folderOf(dragged.value) ? null : folder
+    }
+    function onDragEnd() {
+        dragged.value = null
+        dropFolder.value = null
+    }
+    function onDrop(folder) {
+        const from = dragged.value
+        onDragEnd()
+        if (from === null) return
+        const name = from.split("/").pop()
+        const to = folder ? `${folder}/${name}` : name
+        if (to === from) return
+        const error = nameProblem(to, from)
+        if (error) {
+            moveError.value = `Can't move ${name} there: ${error}`
+            clearTimeout(moveErrorTimer)
+            moveErrorTimer = setTimeout(() => (moveError.value = ""), 5000)
+            return
+        }
+        moveError.value = ""
+        // a folder only exists through its files, so moving its last one out makes it disappear
+        const left = folderOf(from)
+        const emptied = left && !visiblePaths.value.some(p => p !== from && p.startsWith(`${left}/`))
+        if (emptied) pendingMove.value = { from, to, folder, left }
+        else move(from, to, folder)
+    }
+
+    // a move that would empty a folder waits here for the pop-up's OK
+    const pendingMove = ref(null) // { from, to, folder, left }
+    function move(from, to, folder) {
+        if (folder) collapsedFolders.value.delete(folder) // show where it went
+        emit("rename", from, to)
+    }
+    function confirmMove() {
+        const { from, to, folder } = pendingMove.value
+        pendingMove.value = null
+        move(from, to, folder)
+    }
 </script>
 
 <template>
@@ -135,7 +199,17 @@
             <p v-if="editing.error" class="ca-field-error mb-0">{{ editing.error }}</p>
         </form>
 
-        <div class="tree-list">
+        <!-- why a drop didn't move the file -->
+        <p v-if="moveError" class="ca-field-error px-3 mb-0" data-testid="move-error">{{ moveError }}</p>
+
+        <!-- the empty space below the rows is the top level -->
+        <div
+            class="tree-list"
+            :class="{ 'drop-root': dropFolder === '' }"
+            data-testid="tree-root"
+            @dragover="onDragOver('', $event)"
+            @drop.prevent="onDrop(dropFolder ?? '')"
+        >
             <template v-for="row in rows" :key="row.path">
                 <form
                     v-if="editing && editing.from === row.path"
@@ -154,9 +228,18 @@
                 <div
                     v-else
                     class="tree-item"
-                    :class="{ active: row.path === selectedFile }"
+                    :class="{
+                        active: row.path === selectedFile,
+                        'drop-target': row.isFolder && dropFolder === row.path,
+                        dragging: dragged === row.path,
+                    }"
                     :title="row.path"
+                    :draggable="editable && !row.isFolder"
                     @click="onRowClick(row)"
+                    @dragstart="onDragStart(row, $event)"
+                    @dragend="onDragEnd"
+                    @dragover.stop="onDragOver(targetOf(row), $event)"
+                    @drop.stop.prevent="onDrop(targetOf(row))"
                 >
                     <!-- one indent per folder level -->
                     <span v-for="d in row.depth" :key="d" class="tree-indent" />
@@ -184,6 +267,17 @@
                 </div>
             </template>
         </div>
+
+        <ConfirmModal
+            :open="pendingMove !== null"
+            :title="`Move ${pendingMove?.from.split('/').pop()}?`"
+            confirm-label="Move"
+            @update:open="pendingMove = null"
+            @confirm="confirmMove"
+        >
+            It's the last file in {{ pendingMove?.left }}, so that folder will disappear. To put a file back
+            in it later, rename the file to the full path, like {{ pendingMove?.from }}.
+        </ConfirmModal>
     </div>
 </template>
 
@@ -237,6 +331,18 @@
     }
     .tree-action:hover {
         color: var(--ca-ide-text);
+    }
+    /* drag and drop: the folder it would go into, the top level, and the file being moved */
+    .tree-item.drop-target {
+        background: var(--ca-ide-raised);
+        color: var(--ca-ide-text);
+        box-shadow: inset 0 0 0 1px var(--ca-ide-accent);
+    }
+    .tree-list.drop-root {
+        box-shadow: inset 0 0 0 1px var(--ca-ide-accent);
+    }
+    .tree-item.dragging {
+        opacity: 0.5;
     }
     .tree-input {
         width: 100%;

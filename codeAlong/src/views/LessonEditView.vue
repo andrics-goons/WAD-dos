@@ -4,6 +4,7 @@
 // There are no steps: the prof saves checkpoints whenever they like during class.
 // changes stay on the page until save, then go to the db together
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useLessonsStore } from '@/stores/lessons'
 import { useToastStore } from '@/stores/toast'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
@@ -12,6 +13,7 @@ import CodeEditor from '@/components/workspace/CodeEditor.vue'
 import FileTree from '@/components/workspace/FileTree.vue'
 
 const props = defineProps({ id: { type: String, required: true } })
+const router = useRouter()
 const lessons = useLessonsStore()
 const toast = useToastStore()
 
@@ -98,6 +100,7 @@ function finishDetails() {
 // save
 
 const saving = ref(false)
+// true when it went through (so Done knows it can leave)
 async function save() {
   saving.value = true
   try {
@@ -110,12 +113,21 @@ async function save() {
       files: changes.files ?? lesson.value.files,
     }
     toast.show('Lesson saved', 'success')
+    return true
   } catch (err) {
     // keep the prof's edits on the page so they can fix it and try again
     toast.show(err.message, 'danger', { title: "Couldn't save the lesson" })
+    return false
   } finally {
     saving.value = false
   }
+}
+
+// Continue, at the bottom where a long file tree ends: save what's pending and go back to the
+// course. If the save fails the prof stays, with their edits and the error
+async function done() {
+  if (dirty.value && !(await save())) return
+  router.push({ name: 'course', params: { id: lesson.value.courseId } })
 }
 </script>
 
@@ -136,15 +148,6 @@ async function save() {
         <div class="d-flex flex-wrap align-items-center gap-2">
           <button type="button" class="ca-btn ca-btn--sm" @click="startDetails">
             <i class="bi bi-pencil" />Edit Details
-          </button>
-          <button
-            type="button"
-            class="ca-btn ca-btn--primary ca-btn--sm"
-            :disabled="!dirty || saving"
-            @click="save"
-          >
-            <span v-if="saving" class="spinner-border spinner-border-sm" />
-            <i v-else class="bi bi-check-lg" />{{ saving ? 'Saving…' : dirty ? 'Save' : 'Saved' }}
           </button>
         </div>
       </div>
@@ -168,6 +171,23 @@ async function save() {
           </div>
         </div>
       </section>
+
+      <!-- the one way to finish, under the files: it saves what changed, if anything, then goes
+           back to the course -->
+      <div class="d-flex justify-content-end mt-3">
+        <button
+          type="button"
+          class="ca-btn ca-btn--primary"
+          :disabled="saving"
+          data-testid="btn-lesson-done"
+          @click="done"
+        >
+          <span v-if="saving" class="spinner-border spinner-border-sm" />
+          <i v-else class="bi bi-check-lg" />{{
+            saving ? 'Saving…' : dirty ? 'Save and continue' : 'Continue'
+          }}
+        </button>
+      </div>
     </template>
 
     <ConfirmModal

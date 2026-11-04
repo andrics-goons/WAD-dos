@@ -5,9 +5,10 @@
         // url the webcontainer's dev server gives us, empty until it's ready
         previewUrl: { type: String, default: "" },
         switchable: { type: Boolean, default: false }, // show the code button at every size, e.g. the teach view
+        view: { type: String, default: null }, // 'split' or 'full' shows the view button (student workspace)
     })
 
-    const emit = defineEmits(["show-editor"])
+    const emit = defineEmits(["show-editor", "toggle-view"])
 
     const poppedOut = ref(false)
 
@@ -53,6 +54,23 @@
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-code-slash" viewBox="0 0 16 16">
                         <path d="M10.478 1.647a.5.5 0 1 0-.956-.294l-4 13a.5.5 0 0 0 .956.294zM4.854 4.146a.5.5 0 0 1 0 .708L1.707 8l3.147 3.146a.5.5 0 0 1-.708.708l-3.5-3.5a.5.5 0 0 1 0-.708l3.5-3.5a.5.5 0 0 1 .708 0m6.292 0a.5.5 0 0 0 0 .708L14.293 8l-3.147 3.146a.5.5 0 0 0 .708.708l3.5-3.5a.5.5 0 0 0 0-.708l-3.5-3.5a.5.5 0 0 0-.708 0"/>
+                    </svg>
+                </button>
+                <!-- the student workspace from xl: split view (side by side) or full view (one at a time) -->
+                <button
+                    v-if="view"
+                    class="toggle-btn d-none d-xl-inline-flex"
+                    type="button"
+                    :title="view === 'full' ? 'Split view: editor and preview side by side' : 'Full view: one at a time, with the whole width'"
+                    data-testid="btn-toggle-view"
+                    @click="emit('toggle-view')"
+                >
+                    <!-- svg like the other header buttons, so they line up -->
+                    <svg v-if="view === 'full'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-layout-split" viewBox="0 0 16 16">
+                        <path d="M0 3a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm8.5-1v12H14a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zm-1 0H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h5.5z"/>
+                    </svg>
+                    <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrows-angle-expand" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 0 0-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707m4.344-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707"/>
                     </svg>
                 </button>
             </div>

@@ -227,6 +227,8 @@ workspace boots    → same package.json? mount it back into node_modules + writ
 | **The lockfile is part of a set** | pnpm writes it into the project, but it's never synced (`SYNC_IGNORE`), so a reload loses it. Without it pnpm re-resolves every package and the WebContainer's own pnpm hook fails with "Invalid package" |
 | **Exact match only** | A different `package.json` restores nothing; pnpm installs as before. Topping up an older set doesn't work here (measured: the WebContainer's pnpm re-downloads everything anyway, or fails), so a clean install is the simple, safe path |
 | **Changing packages later** | In a tab that installed for itself, pnpm still has its store, so `pnpm add` / a changed checkpoint only fetches what's new (measured: 1 download, 0.8 s). A **restored** tab has no store — it lives at `/home/.local/share/pnpm/store`, outside the project, and `mount` can't reach it — so when **Load latest checkpoint** changes `package.json` there, `forgetRestoredPackages` clears the restored packages and the next `pnpm i` is a clean one |
+| **Executable bit** | The binary snapshot drops it (the commands `.bin` links to come back `644`), so `pnpm dev` failed with `spawn concurrently EACCES` until a `pnpm i` relinked them. After the mount, a short `node -e` makes every command in `node_modules/.bin` and each `.pnpm/*/node_modules/.bin` `755` again |
+| **"Packages ready" / "Run pnpm i"** | `packagesState` (a Vue `ref` in `install.js`) is `'ready'` once a set is restored, an install finishes, or `node_modules` is still there from an earlier install in the tab; `'missing'` when the boot finds none, `forgetRestoredPackages` clears them, or `node_modules` is deleted; `null` (nothing shown) while booting and for a project with no `package.json`. The editor panel shows it, faded, in the terminal's header, so a student or TA knows whether to run `pnpm i` first |
 | **Size** | ~65 MB per Vite + Vue set; the **2 most recently used** sets are kept (`packages:index`, each set's snapshot in `packages:<key>:modules`). Chrome refuses one IndexedDB value over ~128 MB, so a set over 120 MB isn't saved, and the index is only written once the snapshot is |
 | **Eviction / failure** | Same as any cache: a miss, a refused write or a failed mount just means a normal install, never broken state |
 | **Offline** | Packages being there means `pnpm i` / `pnpm dev` need no registry. Reloading the page offline still can't work: `WebContainer.boot()` downloads its runtime from StackBlitz |
@@ -302,7 +304,7 @@ Rendered with Vue's normal escaping like every other user-entered string (T-VAL-
 The workspace keeps `{ doneSeq, lastError }` (`stores/status.js`) and upserts its `student_status` row **only when one of them changes**, throttled to `STATUS_WRITE_THROTTLE_MS` (2 s). A heartbeat touches `last_seen_at` every 30 s while the tab is visible (`document.visibilityState`), and once straight away when the student comes back to the tab. No keystrokes, no code — the table has no column for either.
 
 - **Opening the workspace** writes the row at once, which is the attendance record (`joined_at`). A refresh reads the row back first, so a Done stays done.
-- **"My status"** in the workspace header is about the prof's **latest checkpoint**: *Done* sets `done_seq` to its number ("I've caught up to it"), *In progress* clears it. Before any checkpoint, Done means "I've got the starter code running" (`done_seq = 0`). When the prof saves a new checkpoint the toggle reads *In progress* again — nothing is written; the database just compares `done_seq` with the new `checkpoint_seq`.
+- **The Done button** in the workspace header is about the prof's **latest checkpoint**: *Mark done* sets `done_seq` to its number ("I've caught up to it"), and clicking the green *Done* again (back to In progress) clears it. Before any checkpoint, Done means "I've got the starter code running" (`done_seq = 0`). When the prof saves a new checkpoint the button reads *Mark done* again — nothing is written; the database just compares `done_seq` with the new `checkpoint_seq`.
 - **Errors** go through `setError({ source, name, message, file, line })`, which adds `key` / `shapeKey` with `normalizeError()` and cuts the message to `ERROR_MESSAGE_MAX`; `clearError()` after a clean run. `reportError` in `stores/workspace.js` calls them with what the terminal's error reader (`shared/error-reader.js`) finds: build errors through `parseBuildError()`, runtime errors from the lesson's `ca-probe.js` through `parseRuntimeError()`. Every uploaded or imported lesson gets the probe (`shared/lesson-template.js`).
 - **After the class ends** the store stops writing (the table would refuse anyway).
 
@@ -414,12 +416,12 @@ export function normalizeError({ name = 'Error', message = '' }) {
 
 ---
 
-## 7. Catch-up ("Load latest checkpoint")
+## 7. Catch-up ("Load checkpoint")
 
 **Promise to the student:** you're told plainly that your code will be replaced, and you can download it first. Nothing else keeps it.
 
 ```
-Student clicks "Load latest checkpoint"   (disabled: no checkpoint yet · catch-up turned off · class ended)
+Student clicks "Load checkpoint"   (disabled: no checkpoint yet · catch-up turned off · class ended)
   1. CatchUpModal: "Your code will be replaced with Checkpoint 4 · Added the cart.
                     Anything you haven't downloaded will be lost."
        [Download my project (.zip)]  → downloadProject(): zips the workspace's files in the

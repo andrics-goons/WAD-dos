@@ -33,6 +33,7 @@ function fakeContainer(files = {}) {
     },
     export: vi.fn(async () => new Uint8Array([1, 2, 3])),
     mount: vi.fn(async () => {}),
+    spawn: vi.fn(async () => ({ exit: Promise.resolve(0) })),
     fire: (path, name) => watchers[path]?.('rename', name),
   }
   return wc
@@ -104,6 +105,18 @@ describe('the package cache', () => {
     expect(next.fs.writeFile).toHaveBeenCalledWith('pnpm-lock.yaml', 'lock')
   })
 
+  it('T-SBX-27: the restored commands are made runnable again, after the mount', async () => {
+    await installFinished(fakeContainer({ 'package.json': PKG }))
+    const next = fakeContainer({ 'package.json': PKG })
+    await install.restorePackages(next)
+    const [command, args] = next.spawn.mock.calls[0]
+    expect([command, args[0]]).toEqual(['node', '-e'])
+    expect(args[1]).toContain("chmodSync(dir + '/' + name, 0o755)")
+    expect(next.mount.mock.invocationCallOrder[0]).toBeLessThan(
+      next.spawn.mock.invocationCallOrder[0],
+    )
+  })
+
   it("keeps the project's own lockfile when it brings one", async () => {
     await installFinished(fakeContainer({ 'package.json': PKG, 'pnpm-lock.yaml': 'old' }))
     const next = fakeContainer({ 'package.json': PKG, 'pnpm-lock.yaml': 'mine' })
@@ -135,6 +148,48 @@ describe('the package cache', () => {
     await install.savePackages(next) // pnpm i: "Already up to date", .modules.yaml rewritten
     await install.forgetRestoredPackages(next)
     expect(next.fs.rm).toHaveBeenCalledWith('node_modules', { recursive: true, force: true })
+  })
+
+  it('T-SBX-31: the terminal header follows the packages: restored, cleared, a new boot, an install', async () => {
+    const state = () => install.packagesState.value
+    const empty = fakeContainer({ 'package.json': PKG })
+    await install.restorePackages(empty) // nothing saved yet
+    expect(state()).toBe('missing')
+    await installFinished(fakeContainer({ 'package.json': PKG, 'pnpm-lock.yaml': 'lock' }))
+    expect(state()).toBe('ready') // the install that was just saved
+    const next = fakeContainer({ 'package.json': PKG })
+    await install.restorePackages(next)
+    expect(state()).toBe('ready')
+    await install.forgetRestoredPackages(next) // a checkpoint changed package.json
+    expect(state()).toBe('missing')
+    await install.restorePackages(fakeContainer({ 'package.json': PKG2 })) // nothing saved for it
+    expect(state()).toBe('missing')
+  })
+
+  it('T-SBX-31: nothing is said with no package.json, or while the cache is being looked at', async () => {
+    const booting = install.restorePackages(fakeContainer({ 'package.json': PKG }))
+    expect(install.packagesState.value).toBe(null)
+    await booting
+    await install.restorePackages(fakeContainer({ 'index.html': '<p></p>' }))
+    expect(install.packagesState.value).toBe(null)
+  })
+
+  it('T-SBX-31: packages installed earlier in this tab count as ready on the next boot', async () => {
+    const wc = fakeContainer({ 'package.json': PKG2, 'node_modules/.modules.yaml': 'done' })
+    expect(await install.restorePackages(wc)).toBe(false) // nothing saved for it
+    expect(install.packagesState.value).toBe('ready')
+  })
+
+  it('T-SBX-31: deleting node_modules says to run pnpm i again', async () => {
+    await installFinished(fakeContainer({ 'package.json': PKG }))
+    const wc = fakeContainer({ 'package.json': PKG, 'node_modules/vue/index.js': 'x' })
+    const stop = install.watchInstalls(wc, { quietMs: 10 })
+    await vi.waitFor(() =>
+      expect(wc.fs.watch).toHaveBeenCalledWith('node_modules', expect.any(Function)),
+    )
+    wc.fire('node_modules', '.modules.yaml') // the marker's event, but there's no marker file
+    await vi.waitFor(() => expect(install.packagesState.value).toBe('missing'))
+    stop()
   })
 
   it('deleting node_modules is not mistaken for a finished install', async () => {

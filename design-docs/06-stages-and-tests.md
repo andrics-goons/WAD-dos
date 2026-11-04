@@ -196,6 +196,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-23 | **Delete my account** | RLS + Unit | Only after typing DELETE; a student's rows go and the classes stay; a prof's courses and classes go, another prof's stay; logged out → `FORBIDDEN` |
 | T-PLAT-24 | **The owner removes a TA** | RLS + API | Only the owner, only a TA row (never themselves); the TA loses the course, a request they'd claimed goes back to `open`, and their account is `student` again unless they still TA elsewhere |
 | T-PLAT-25 | **A student leaves a course** | RLS + API | Only an enrolled student; their snapshots, progress, Slow down, help requests and notes in that course are gone and they lose the course and its replays; the classes, other students and their other courses are untouched |
+| T-PLAT-26 | Home's My courses puts a live class's course first | Unit | Of 3 shown, a course with a class live right now comes first even if it is the oldest, the rest newest first; "See all (n)" appears with more than 3 courses and a plain "See all" otherwise |
 
 ### LESSON — Lessons · `lessons.spec.js`, `lesson-edit-view.test.js`
 
@@ -211,6 +212,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-LES-08 | An uploaded or imported project gets the error reporter (`addProbe`, [lesson-import-requirements](./lesson-import-requirements.md)) | Unit | `src/ca-probe.js` added, imported first by the entry script, `ca-errors` in `vite.config.js`, Vite 8 pins; running it twice changes nothing; a project it can't patch is rejected with a message |
 | T-LES-09 | Two lessons in one course with the same week | DB + Unit | Both are kept: a second insert, or moving a lesson into a week that already has one, succeeds (a week is a folder of lessons) |
 | T-LES-10 | Start new session on the lesson list | Unit | Every file that isn't archived shows Start new session, drafts and files taught before included, and it starts straight away; a file with a live class has none (Open class is in its list); week folders have no button |
+| T-LES-11 | Continue at the bottom of the lesson editor | Unit | The one button says Continue until something is edited, then Save and continue (no Save button in the header); with nothing changed it goes straight back to the course; with edits it saves first, then goes back; if saving fails it stays on the page with the edits and the error |
 | T-TODO-* | ~~TODO parser~~ | — | Removed with lesson steps |
 
 ### SESS — Live session engine · `live-session.spec.js`
@@ -220,7 +222,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-SESS-01 | Prof starts session | E2E | Join code (6 chars, no 0/O/1/I/L) + QR visible |
 | T-SESS-02 | Start on a draft lesson | DB | `start_session` raises `CONFLICT` |
 | T-SESS-03 | Student joins via code input and via `/join/:code` | E2E | Lands in the workspace on the latest checkpoint (or "Starter code") |
-| T-SESS-04 | Non-enrolled user joins | E2E | "You're not in this course" |
+| T-SESS-04 | Non-enrolled user joins | E2E + DB | A student is enrolled in the course and lands in the workspace; a prof from another course gets "You're not in this course" |
 | T-SESS-05 | Wrong / ended code | E2E | "No live class with that code" |
 | T-SESS-06 | Checkpoint broadcast to 3 students | E2E | All 3 see the toast + the new checkpoint (and its title) within 2 s, and their status is back to In progress |
 | T-SESS-07 | Student reconnects (go offline → online) | E2E | Status re-read after reconnecting; checkpoint missed while offline is shown |
@@ -265,7 +267,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-SBX-24 | **Multiple terminals** | Unit | Starts with one; + adds up to 3, using the lowest free number; switching keeps every terminal mounted; closing the one on screen shows the first; the last can't be closed |
 | T-SBX-25 | A hidden terminal isn't refitted | Unit | A zero-width resize doesn't call `fit()`, so a server running in another terminal keeps its width |
 | T-SBX-26 | Packages are saved after an install | Unit | Once pnpm writes `.modules.yaml`, `node_modules` (minus `.vite`/`.cache`) and the lockfile go to IndexedDB under a hash of `package.json`; never mid-install, never when `node_modules` is just deleted |
-| T-SBX-27 | **A reload gets the packages back** | Unit + browser | Same `package.json` → `node_modules` and the lockfile are restored; `pnpm i` says "Already up to date" (~0.6 s, was ~16 s) and `pnpm dev` starts |
+| T-SBX-27 | **A reload gets the packages back** | Unit + browser | Same `package.json` → `node_modules` and the lockfile are restored; `pnpm i` says "Already up to date" (~0.6 s, was ~16 s) and `pnpm dev` starts, even without a `pnpm i` first (the restored commands are made executable again, or it fails with `spawn concurrently EACCES`) |
 | T-SBX-28 | Changed packages install cleanly | Unit + browser | A different `package.json` restores nothing; in a restored tab, a checkpoint that changes `package.json` clears the restored packages so `pnpm i` succeeds; only the 2 most recently used sets are kept |
 | T-SBX-12 | Done disabled while the last run has an error | E2E | Button disabled with reason (runtime **or** build) |
 | T-SBX-13 | **`SYNC_IGNORE` respected** | DB | After an install, no saved row contains a `node_modules/`, `dist/` or `.vite/` path |
@@ -273,6 +275,9 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-SBX-15 | **Cache miss and eviction** | Unit | Changed hash refetches; a wiped store still loads correctly (cache, not source of truth) |
 | T-SBX-16 | File tree create / rename / delete | E2E | Reflected in the container FS and in the next autosave |
 | T-SBX-17 | Unsupported browser | E2E | With isolation disabled, "The workspace needs Chrome or Edge" — not a blank pane |
+| T-SBX-29 | The file tree and the terminal can be resized | Unit | Dragging the handle beside the tree sets its width and the one above the terminal sets its height; both are kept on the device; the editor keeps at least 320px wide and 120px tall; a double-click on a handle goes back to the default; moving without holding a handle changes nothing |
+| T-SBX-30 | Files can be dragged into another folder | Unit | Dropping a file on a folder, on a file (its folder) or on the space under the tree (the top level) renames it there and opens that folder; its own folder isn't highlighted and dropping there does nothing; a name already there shows an error and moves nothing; dragging out a folder's last file asks first, and Cancel moves nothing; folders, read-only trees and drags from outside the tree don't move anything; moving or renaming a file another file imports shows a warning naming them, and no warning when nothing does |
+| T-SBX-31 | The terminal says whether the packages are there | Unit + browser | "Packages ready" in the terminal's header once an install finishes, a reload puts the packages back, or they're still there from an earlier install in the tab; "Run pnpm i" when the boot finds none, a checkpoint's new `package.json` clears them, or `node_modules` is deleted; nothing while booting or with no `package.json` |
 
 ### STAT — Status & derived state · `tile-state.test.js`, `dashboard.spec.js`
 
@@ -306,6 +311,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-DASH-11 | **Slow down counts only students who are still here** | RLS | A flag from a student unseen for longer than the idle window (180 s, or the class's own) isn't counted, and counts again when they return; TAs read the same number; students get `null`; an ended class counts all |
 | T-DASH-12 | Leaving the class page takes my Slow down back | Unit | `statusStore.leave()` deletes my flag and stops the heartbeat; with no flag it sends nothing; a refused delete (class ended, offline) never throws |
 | T-DASH-13 | **The Students menu lists who is connected, by status** | Unit | `getClassSummary` gives each student's state and open/claimed help and check requests; the menu shows connected students only (one without a status row is In progress), each in one group (help, check, error, in progress, idle, done, in that order), and never says who asked to slow down; Present closes it |
+| T-DASH-14 | **Common errors says when errors haven't made a group yet** | Unit | With errors but no group, the panel reads "No common errors yet" with how many students and how many it takes (`errorGroupThreshold`: 2, or 10% of the class), never "No errors right now"; beside groups, a note counts students whose error nobody shares |
 
 ### ERRG — Error groups · `error-normalizer.test.js`, `group-errors.test.js`, `api/dashboard.api.test.js`
 
@@ -383,6 +389,16 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-HELP-17 | Follow-up on a `passed` / `resolved` / `cancelled` request | DB | `BAD_REQUEST` — only `replied` reopens |
 | T-HELP-18 | Another student follows up on someone else's request | RLS | `FORBIDDEN`, and no snapshot is left behind (the function rolls back) |
 | T-HELP-19 | Earlier replies survive a follow-up | E2E | Second reply is appended to `thread`; the first is still shown |
+| T-HELP-20 | The reply form's buttons are spaced below the reply box | Unit | On a claimed request, the row of Send reply / Pass / Resolved / Release has a gap (`mt-3`) under the textarea |
+| T-HELP-21 | The queue's Handled list can be folded away | Unit | The heading toggles it, the count stays visible, the waiting requests are never hidden, the choice is remembered on the device, and there is no heading when nothing has been handled |
+| T-HELP-22 | A request before the first checkpoint is compared with the starter code | Unit | The review panel's baseline is the lesson's starter files (labelled "Starter code"), so only files the student changed show; with a checkpoint it is still compared with that; if the starter code can't be loaded it falls back to the empty baseline |
+| T-HELP-23 | A TA can open a student's code in an editor of their own | Unit | **Open in editor** (once the code has loaded) links to `/help/:id/code` with `target="_blank"` and `rel="noopener"`; that page loads the snapshot into the editor, boots a WebContainer with it, and says nothing is saved; edits go to the running project but never to the cached original or to any save; a missing request shows not-found, a page that can't run WebContainers keeps the editor and says why, and leaving stops the workspace |
+| T-HELP-24 | The help request and editor pages have no Back button | Unit | Neither route has `meta.back`: the request page has its own Help queue button (and a Telegram link opens it with nothing behind it), and the editor page always opens in its own tab; the queue has none either, like every live class page |
+| T-HELP-25 | Back never loops between the request and the queue | Unit | The shell's Back steps back when its target is the previous page, and otherwise replaces this page with the target (no new history entry); so request, queue and editor in any order leave the queue's Back going Home, not to the request. The request page's "Help queue" button replaces too |
+| T-HELP-26 | The student's name in the queue opens the request's own page | Unit | In the queue's review panel the name links to `/help/:id` (title "Open this request on its own page"); on the request page itself it is plain text, not a link to itself |
+| T-HELP-27 | The request box lines up with the first request in the queue | Unit | From lg the right-hand box is pushed down by an invisible copy of the "Waiting" heading, so its top is level with the first card; below lg, where the columns stack, the copy is hidden and adds no gap |
+| T-HELP-28 | TAs see the AI's analysis of a help request | Unit | The review panel (queue and request page) shows the analysis between the message and the reply box: summary, why, readable category, where they are stuck (checkpoint · file:line) and confidence; nothing before it is ready; it appears by itself when it arrives; a failed one shows only "couldn't analyse this one", never the reason |
+| T-HELP-29 | The TA's editor page has split and full view | Unit | As in the student workspace: from xl it starts side by side, the expand button on a pane shows only that pane, the other folding away over 0.3 s instead of snapping (the code / eye button swaps them, the same way), and the choice is remembered on the device with the same key as the workspace |
 
 ### TG — Telegram linking & webhook · `telegram.test.js`, `insights.spec.js`
 

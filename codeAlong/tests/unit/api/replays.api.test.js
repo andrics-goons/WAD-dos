@@ -100,6 +100,7 @@ describe('listReplays', () => {
     expect(mine).toHaveLength(1)
     expect(mine[0]).toMatchObject({
       id: ended.id,
+      lessonId: ended.lesson_id, // the page groups a lesson's classes by it
       lessonTitle: 'Week 6 · Mini Cart',
       checkpointCount: 2,
       course: { code: 'IS216', section: 'G7' },

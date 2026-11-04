@@ -3,6 +3,7 @@
     import CodeEditor from "./CodeEditor.vue"
     import FileTree from "./FileTree.vue"
     import TerminalPanel from "./TerminalPanel.vue"
+    import { packagesState } from "@/runtime/install"
 
     const props = defineProps({
         filePaths: { type: Array, default: () => [] },
@@ -12,16 +13,69 @@
         filesVersion: { type: Number, default: 0 }, // goes up when every file is replaced (a checkpoint load)
         switchable: { type: Boolean, default: false }, // show the preview button at every size, e.g. the teach view
         editable: { type: Boolean, default: false }, // the file tree's New file / Rename / Delete
+        view: { type: String, default: null }, // 'split' or 'full' shows the view button (student workspace)
     })
 
     const emit = defineEmits([
         "update:selectedFile", "update:selectedCode", "show-preview",
-        "create-file", "rename-file", "delete-file",
+        "create-file", "rename-file", "delete-file", "toggle-view",
     ])
 
     // below md (phones) the file tree starts collapsed, so the editor gets the width
     const collapsed = ref(window.matchMedia("(max-width: 767.98px)").matches)
     const terminalOpen = ref(true)
+
+    // The file tree's width and the terminal's height can be dragged with the handles between
+    // the panes (double-click one for the default size). Kept on this device; null = the default
+    const TREE_KEY = "codealong:tree-width"
+    const TERMINAL_KEY = "codealong:terminal-height"
+    function stored(key) {
+        try {
+            return Number(localStorage.getItem(key)) || null
+        } catch {
+            return null
+        }
+    }
+    function store(key, value) {
+        try {
+            if (value) localStorage.setItem(key, String(Math.round(value)))
+            else localStorage.removeItem(key)
+        } catch {
+            // private window or blocked storage: the size just isn't remembered
+        }
+    }
+    const treeWidth = ref(stored(TREE_KEY))
+    const terminalHeight = ref(stored(TERMINAL_KEY))
+    const panel = ref(null)
+    const mainPane = ref(null)
+    const dragging = ref(null) // "tree" or "terminal" while a handle is held
+    // keeps the editor usable: the tree can't squeeze it below 320px, nor the terminal below 120px
+    const clamp = (n, min, max) => Math.min(Math.max(n, min), Math.max(min, max))
+
+    function startDrag(which, event) {
+        event.preventDefault()
+        // the moves keep coming to the handle even over the editor
+        event.currentTarget.setPointerCapture?.(event.pointerId)
+        dragging.value = which
+    }
+    function onDrag(event) {
+        if (dragging.value === "tree") {
+            const box = panel.value.getBoundingClientRect()
+            treeWidth.value = clamp(event.clientX - box.left, 120, box.width - 320)
+        } else if (dragging.value === "terminal") {
+            const box = mainPane.value.getBoundingClientRect()
+            terminalHeight.value = clamp(box.bottom - event.clientY, 80, box.height - 120)
+        }
+    }
+    function endDrag() {
+        if (dragging.value === "tree") store(TREE_KEY, treeWidth.value)
+        if (dragging.value === "terminal") store(TERMINAL_KEY, terminalHeight.value)
+        dragging.value = null
+    }
+    function resetSize(which) {
+        if (which === "tree") store(TREE_KEY, (treeWidth.value = null))
+        else store(TERMINAL_KEY, (terminalHeight.value = null))
+    }
 
     // each terminal is its own shell using browser memory, so there's a limit
     const MAX_TERMINALS = 3
@@ -59,10 +113,15 @@
 </script>
 
 <template>
-    <div class="editor-panel">
+    <div ref="panel" class="editor-panel" :class="{ dragging, [`dragging-${dragging}`]: dragging }">
 
         <!-- Tree Pane (always full height, the terminal only sits under the editor) -->
-        <div class="pane tree-pane" :class="{ collapsed }">
+        <!-- its width is the dragged size, so it's the one style set here -->
+        <div
+            class="pane tree-pane"
+            :class="{ collapsed }"
+            :style="!collapsed && treeWidth ? { width: `${treeWidth}px` } : null"
+        >
             <!-- Pane Header -->
             <div class="pane-header">
                 <!-- Collapse widget button -->
@@ -114,8 +173,22 @@
 
         </div>
 
+        <!-- drag to resize the file tree -->
+        <div
+            v-show="!collapsed"
+            class="resize-handle resize-x"
+            :class="{ active: dragging === 'tree' }"
+            title="Drag to resize · double-click for the default size"
+            data-testid="resize-tree"
+            @pointerdown="startDrag('tree', $event)"
+            @pointermove="onDrag"
+            @pointerup="endDrag"
+            @pointercancel="endDrag"
+            @dblclick="resetSize('tree')"
+        />
+
         <!-- Right column: code editor on top, terminal underneath -->
-        <div class="pane main-pane">
+        <div ref="mainPane" class="pane main-pane">
 
             <!-- Code editor Pane -->
             <div class="pane editor-pane">
@@ -123,22 +196,44 @@
                 <div class="pane-header">
                     <span class="file-badge">{{ fileType }}</span>
                     <span>{{ selectedFile }}</span>
-                    <span class="ms-auto small text-nowrap" :class="saveLabel?.tone" data-testid="save-status">
-                        <template v-if="saveLabel"><i class="bi" :class="saveLabel.icon" /> {{ saveLabel.text }}</template>
+                    <!-- right after the file name, so it reads as that file's save state. The usual
+                         states are faded; a warning keeps its full colour so it's noticed -->
+                    <span class="small text-nowrap ms-2" :class="saveLabel?.tone ?? 'opacity-50'" data-testid="save-status">
+                        <template v-if="saveLabel">{{ saveLabel.text }} <i class="bi" :class="saveLabel.icon" /></template>
                     </span>
-                    <!-- below xl the preview isn't beside the editor, so this swaps to it (always, when switchable) -->
-                    <button
-                        class="toggle-btn"
-                        :class="{ 'd-xl-none': !switchable }"
-                        type="button"
-                        title="Show preview"
-                        @click="emit('show-preview')"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
-                            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/>
-                            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
-                        </svg>
-                    </button>
+                    <!-- the buttons on the right -->
+                    <div class="ms-auto d-flex align-items-center gap-3">
+                        <!-- below xl the preview isn't beside the editor, so this swaps to it (always, when switchable) -->
+                        <button
+                            class="toggle-btn"
+                            :class="{ 'd-xl-none': !switchable }"
+                            type="button"
+                            title="Show preview"
+                            @click="emit('show-preview')"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
+                                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/>
+                                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
+                            </svg>
+                        </button>
+                        <!-- the student workspace from xl: split view (side by side) or full view (one at a time) -->
+                        <button
+                            v-if="view"
+                            class="toggle-btn d-none d-xl-inline-flex"
+                            type="button"
+                            :title="view === 'full' ? 'Split view: editor and preview side by side' : 'Full view: one at a time, with the whole width'"
+                            data-testid="btn-toggle-view"
+                            @click="emit('toggle-view')"
+                        >
+                            <!-- svg like the other header buttons, so they line up -->
+                            <svg v-if="view === 'full'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-layout-split" viewBox="0 0 16 16">
+                                <path d="M0 3a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm8.5-1v12H14a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zm-1 0H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h5.5z"/>
+                            </svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrows-angle-expand" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 0 0-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707m4.344-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="pane-body">
                     <!-- :key remounts the editor when the file changes, or when every file was replaced
@@ -152,11 +247,44 @@
                 </div>
             </div>
 
+            <!-- drag to resize the terminal -->
+            <div
+                v-show="terminalOpen"
+                class="resize-handle resize-y"
+                :class="{ active: dragging === 'terminal' }"
+                title="Drag to resize · double-click for the default size"
+                data-testid="resize-terminal"
+                @pointerdown="startDrag('terminal', $event)"
+                @pointermove="onDrag"
+                @pointerup="endDrag"
+                @pointercancel="endDrag"
+                @dblclick="resetSize('terminal')"
+            />
+
             <!-- Terminal Pane -->
             <!-- v-show instead of v-if so hiding it doesn't kill the shell and lose its history -->
-            <div v-show="terminalOpen" class="pane terminal-pane">
+            <!-- its height is the dragged size, so it's the one style set here -->
+            <div
+                v-show="terminalOpen"
+                class="pane terminal-pane"
+                :style="terminalHeight ? { height: `${terminalHeight}px` } : null"
+            >
                 <div class="pane-header">
                     <span>Terminal</span>
+                    <!-- faded like Saved: whether the packages are installed (or put back from this
+                         device), and if not, what to type. Nothing while booting or with no package.json -->
+                    <span
+                        v-if="packagesState === 'ready'"
+                        class="small text-nowrap ms-2 opacity-50"
+                        title="Installed, so pnpm dev can run straight away"
+                        data-testid="packages-ready"
+                    >Packages ready <i class="bi bi-box-seam" /></span>
+                    <span
+                        v-else-if="packagesState === 'missing'"
+                        class="small text-nowrap ms-2 opacity-50"
+                        title="The packages aren't installed yet: run pnpm i before pnpm dev"
+                        data-testid="packages-missing"
+                    >Run pnpm i <i class="bi bi-box" /></span>
                     <button
                         class="toggle-btn ms-auto"
                         type="button"
@@ -242,6 +370,39 @@
         height: 40%;
         flex-shrink: 0;
         border-top: 1px solid #181a1f;
+    }
+    /* the drag handles between the panes: a thin strip over the border, lit while you use it.
+       The negative margins let it sit on the border without taking any space */
+    .resize-handle {
+        position: relative;
+        z-index: 1;
+        flex-shrink: 0;
+        touch-action: none;
+        transition: background-color 0.15s ease;
+    }
+    .resize-x {
+        width: 5px;
+        margin: 0 -3px 0 -2px;
+        cursor: col-resize;
+    }
+    .resize-y {
+        height: 5px;
+        margin: -2px 0 -3px;
+        cursor: row-resize;
+    }
+    .resize-handle:hover,
+    .resize-handle.active {
+        background: #528bff;
+    }
+    /* no text selection while dragging, and the cursor stays the resize one over the editor */
+    .editor-panel.dragging {
+        user-select: none;
+    }
+    .editor-panel.dragging-tree {
+        cursor: col-resize;
+    }
+    .editor-panel.dragging-terminal {
+        cursor: row-resize;
     }
     .pane-header,
     .pane-footer {

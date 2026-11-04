@@ -1,7 +1,14 @@
 <script setup>
 import EmptyState from '@/components/ui/EmptyState.vue'
 
-defineProps({ groups: { type: Array, required: true } })
+// waiting: students who have an error that no group has reached its size for yet, and need: how
+// many students it takes. Without them an empty list would say "No errors right now" while a
+// student's error is sitting there (issue #77)
+defineProps({
+  groups: { type: Array, required: true },
+  waiting: { type: Number, default: 0 },
+  need: { type: Number, default: 2 },
+})
 </script>
 
 <template>
@@ -28,6 +35,19 @@ defineProps({ groups: { type: Array, required: true } })
         </div>
       </li>
     </ul>
+    <EmptyState v-else-if="waiting" icon="bi-hourglass-split" title="No common errors yet" compact>
+      {{ waiting === 1 ? '1 student has an error' : `${waiting} students have errors` }}, but a
+      mistake shows here once {{ need }} students share it.
+    </EmptyState>
     <EmptyState v-else icon="bi-emoji-smile" title="No errors right now" compact />
+    <!-- some groups, and other students whose error nobody else shares yet -->
+    <p
+      v-if="groups.length && waiting"
+      class="small text-body-secondary px-3 py-2 mb-0 border-top"
+      data-testid="errors-waiting"
+    >
+      {{ waiting === 1 ? '1 other student has' : `${waiting} other students have` }} an error nobody
+      else shares yet.
+    </p>
   </section>
 </template>
