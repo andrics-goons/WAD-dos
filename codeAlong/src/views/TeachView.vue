@@ -24,6 +24,7 @@ import ErrorGroupList from '@/components/dashboard/ErrorGroupList.vue'
 import HelpSummaryPanel from '@/components/dashboard/HelpSummaryPanel.vue'
 import JoinCodeCard from '@/components/session/JoinCodeCard.vue'
 import { checkpointLabel } from '@shared/checkpoint-label.js'
+import { moveWarning } from '@/utils/imports.js'
 import { useDashboardStore } from '@/stores/dashboard'
 
 const props = defineProps({ id: { type: String, required: true } })
@@ -224,6 +225,19 @@ const savedAt = (iso) =>
 // save what's in the editor as the next checkpoint. Every student goes back to In progress
 const checkpointTitle = ref('')
 const saving = ref(false)
+// The file tree's New file, Rename (or drag) and Delete, as in the student workspace. They change
+// the prof's own draft; students get them with the next checkpoint
+async function renameFile(from, to) {
+  const warning = moveWarning(workspaceStore.files, from)
+  await workspaceStore.renameFile(from, to)
+  if (warning) toast.show(warning.message, 'warning', { title: warning.title })
+}
+const deleting = ref('')
+function deleteFile() {
+  workspaceStore.deleteFile(deleting.value)
+  deleting.value = ''
+}
+
 async function saveCheckpoint() {
   saving.value = true
   // the number before saving: the channel may move it on before the save returns
@@ -521,8 +535,12 @@ onBeforeUnmount(() => {
                     v-model:selected-code="workspaceStore.selectedCode"
                     :file-paths="workspaceStore.filePaths"
                     :files-version="workspaceStore.filesVersion"
+                    editable
                     switchable
                     @show-preview="editorView = 'preview'"
+                    @create-file="workspaceStore.createFile"
+                    @rename-file="renameFile"
+                    @delete-file="deleting = $event"
                   />
                 </div>
                 <div v-show="editorView === 'preview'" class="editor-box">
@@ -603,6 +621,18 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </template>
+
+    <ConfirmModal
+      :open="!!deleting"
+      :title="`Delete ${deleting}?`"
+      confirm-label="Delete"
+      variant="danger"
+      @update:open="deleting = ''"
+      @confirm="deleteFile"
+    >
+      It's removed from your code. Students keep it until your next checkpoint, and checkpoints
+      you've already saved still have it.
+    </ConfirmModal>
 
     <ConfirmModal
       v-model:open="confirmEnd"

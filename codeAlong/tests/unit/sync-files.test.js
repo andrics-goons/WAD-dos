@@ -7,6 +7,7 @@ import {
   languageOf,
   contentHash,
   planAutosave,
+  storableFiles,
 } from '../../shared/sync-files.js'
 
 const f = (path, content) => ({ path, content })
@@ -70,6 +71,30 @@ describe('languageOf', () => {
     ['Makefile', null],
   ])('%s → %s', (path, expected) => {
     expect(languageOf(path)).toBe(expected)
+  })
+})
+
+describe('storableFiles', () => {
+  it('T-SBX-32: gives a new file its language, and a renamed one the language of its new name', () => {
+    expect(
+      storableFiles([
+        { path: 'src/Cart.vue', content: '' },
+        { path: 'src/renamed.vue', language: 'js', content: 'x' },
+      ]),
+    ).toEqual([
+      { path: 'src/Cart.vue', language: 'vue', content: '' },
+      { path: 'src/renamed.vue', language: 'vue', content: 'x' },
+    ])
+  })
+
+  it('leaves out what the database would refuse', () => {
+    const paths = storableFiles([
+      { path: 'node_modules/vue/index.js', content: '' },
+      { path: 'my notes.js', content: '' },
+      { path: 'logo.png', content: '' },
+      { path: 'index.html', content: '' },
+    ]).map((f) => f.path)
+    expect(paths).toEqual(['index.html'])
   })
 })
 

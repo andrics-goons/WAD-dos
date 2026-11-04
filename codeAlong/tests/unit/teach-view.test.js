@@ -647,6 +647,60 @@ describe('TeachView', () => {
     })
   })
 
+  describe('T-SBX-32: the prof can add, move and delete files', () => {
+    const editor = () => wrapper.findComponent({ name: 'EditorPanel' })
+    const emitFrom = async (event, ...args) => {
+      editor().vm.$emit(event, ...args)
+      await flushPromises()
+    }
+    beforeEach(async () => {
+      await open(session(), { isolated: true })
+      Object.assign(workspace, {
+        createFile: vi.fn(),
+        renameFile: vi.fn(async () => {}),
+        deleteFile: vi.fn(),
+      })
+    })
+
+    it('the file tree can be edited', () => {
+      expect(editor().attributes('editable')).toBe('true')
+    })
+
+    it('a new file goes into the workspace', async () => {
+      await emitFrom('create-file', 'src/Cart.vue')
+      expect(workspace.createFile).toHaveBeenCalledWith('src/Cart.vue')
+    })
+
+    it('moving a file another file imports warns, as in the student workspace', async () => {
+      workspace.files = [
+        { path: 'src/App.vue', content: "import ItemCard from './components/ItemCard.vue'" },
+        { path: 'src/components/ItemCard.vue', content: '' },
+      ]
+      await emitFrom('rename-file', 'src/components/ItemCard.vue', 'src/ItemCard.vue')
+      expect(workspace.renameFile).toHaveBeenCalledWith(
+        'src/components/ItemCard.vue',
+        'src/ItemCard.vue',
+      )
+      expect(lastToast().title).toBe('ItemCard.vue moved')
+      expect(lastToast().text).toContain('src/App.vue still points to ItemCard.vue')
+    })
+
+    it('moving a file nothing imports says nothing', async () => {
+      await emitFrom('rename-file', 'index.html', 'public/index.html')
+      expect(workspace.renameFile).toHaveBeenCalled()
+      expect(lastToast()).toBeUndefined()
+    })
+
+    it('deleting asks first', async () => {
+      await emitFrom('delete-file', 'index.html')
+      expect(workspace.deleteFile).not.toHaveBeenCalled()
+      expect(document.body.querySelector('.ca-modal').textContent).toContain('Delete index.html?')
+      await confirmModal()
+      expect(workspace.deleteFile).toHaveBeenCalledWith('index.html')
+      expect(document.body.querySelector('.ca-modal')).toBeNull()
+    })
+  })
+
   it('closes the class when leaving', async () => {
     await open()
     wrapper.unmount()
