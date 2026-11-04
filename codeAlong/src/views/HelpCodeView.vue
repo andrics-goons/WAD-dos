@@ -9,6 +9,7 @@ import { debounceByPath, writeToContainer } from '@/runtime/sync'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import EditorPanel from '@/components/workspace/EditorPanel.vue'
 import PreviewPanel from '@/components/workspace/PreviewPanel.vue'
+import WorkspaceLayout from '@/components/workspace/WorkspaceLayout.vue'
 
 // A TA's own copy of a student's code, to run and poke at (issue #69): the editor, terminal and
 // preview the student has, loaded with what they sent with their help request. It opens in a new
@@ -51,8 +52,6 @@ const bootError = ref(
   isolated ? '' : "This page isn't cross-origin isolated, so the code can't run here.",
 )
 const previewUrl = ref('')
-// below xl only one of the editor and the preview shows; the button in each header swaps them
-const showPreview = ref(false)
 let stopWorkspace
 // set on unmount, so a boot that finishes after leaving doesn't leave a listener behind
 let unmounted = false
@@ -132,22 +131,27 @@ onBeforeUnmount(() => {
       <!-- boot failed: keep the editor so the code can still be read, but say why nothing runs -->
       <div v-if="bootError" class="alert alert-danger">{{ bootError }}</div>
 
-      <!-- xl and up: editor and preview side by side. Below xl only one shows at a time and the
-           button in each pane header swaps them. d-none only hides the box, so the terminal
-           and the running preview survive the swap -->
-      <div class="workspace-layout">
-        <div class="workspace-box" :class="{ 'd-none d-xl-block': showPreview }">
+      <!-- editor and preview, split or full view: the same layout as the student workspace -->
+      <WorkspaceLayout>
+        <template #editor="{ pane, toggleView, swap }">
           <EditorPanel
             v-model:selected-file="selectedFile"
             v-model:selected-code="selectedCode"
             :file-paths="filePaths"
-            @show-preview="showPreview = true"
+            v-bind="pane"
+            @toggle-view="toggleView"
+            @show-preview="swap"
           />
-        </div>
-        <div class="preview-box" :class="{ 'd-none d-xl-block': !showPreview }">
-          <PreviewPanel :preview-url="previewUrl" @show-editor="showPreview = false" />
-        </div>
-      </div>
+        </template>
+        <template #preview="{ pane, toggleView, swap }">
+          <PreviewPanel
+            :preview-url="previewUrl"
+            v-bind="pane"
+            @toggle-view="toggleView"
+            @show-editor="swap"
+          />
+        </template>
+      </WorkspaceLayout>
     </template>
   </div>
 </template>
@@ -157,22 +161,5 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   padding: 0 var(--ca-space-3) var(--ca-space-3);
-}
-/* fills whatever height is left under the heading */
-.workspace-layout {
-  display: flex;
-  gap: var(--ca-space-3);
-  flex: 1;
-  min-height: 0;
-}
-.workspace-box,
-.preview-box {
-  flex: 1 1 0;
-  min-width: 0;
-}
-/* overflow: hidden clips the editor panel's square corners to the rounded border */
-.workspace-box {
-  border-radius: var(--ca-radius);
-  overflow: hidden;
 }
 </style>

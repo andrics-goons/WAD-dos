@@ -94,13 +94,14 @@ describe("WorkspaceView", () => {
             const wrapper = mountView()
             await flushPromises()
             await toggle(wrapper)
-            expect(box(wrapper, "preview-box")).toContain("d-none")
-            expect(box(wrapper, "preview-box")).not.toContain("d-xl-block")
+            // gone below xl, folded away from xl (pane-hidden eases it out instead of snapping)
+            expect(box(wrapper, "preview-box")).toEqual(expect.arrayContaining(["d-none", "pane-hidden"]))
             expect(box(wrapper, "workspace-box")).not.toContain("d-none")
             expect(wrapper.findComponent({ name: "EditorPanel" }).attributes("switchable")).toBe("true")
             expect(wrapper.findComponent({ name: "PreviewPanel" }).attributes("view")).toBe("full")
             await toggle(wrapper, "PreviewPanel") // and back
             expect(box(wrapper, "preview-box")).toContain("d-xl-block")
+            expect(box(wrapper, "preview-box")).not.toContain("pane-hidden")
         })
 
         it("the expand button on a pane makes that pane the full one", async () => {
@@ -108,8 +109,7 @@ describe("WorkspaceView", () => {
             await flushPromises()
             await toggle(wrapper, "PreviewPanel")
             expect(box(wrapper, "preview-box")).not.toContain("d-none")
-            expect(box(wrapper, "workspace-box")).toContain("d-none")
-            expect(box(wrapper, "workspace-box")).not.toContain("d-xl-block")
+            expect(box(wrapper, "workspace-box")).toEqual(expect.arrayContaining(["d-none", "pane-hidden"]))
         })
 
         it("remembers the choice on this device", async () => {
@@ -119,7 +119,7 @@ describe("WorkspaceView", () => {
             first.unmount()
             const again = mountView()
             await flushPromises()
-            expect(box(again, "preview-box")).not.toContain("d-xl-block")
+            expect(box(again, "preview-box")).toContain("pane-hidden")
         })
     })
 

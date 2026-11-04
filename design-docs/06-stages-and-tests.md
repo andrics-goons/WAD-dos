@@ -398,6 +398,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-HELP-26 | The student's name in the queue opens the request's own page | Unit | In the queue's review panel the name links to `/help/:id` (title "Open this request on its own page"); on the request page itself it is plain text, not a link to itself |
 | T-HELP-27 | The request box lines up with the first request in the queue | Unit | From lg the right-hand box is pushed down by an invisible copy of the "Waiting" heading, so its top is level with the first card; below lg, where the columns stack, the copy is hidden and adds no gap |
 | T-HELP-28 | TAs see the AI's analysis of a help request | Unit | The review panel (queue and request page) shows the analysis between the message and the reply box: summary, why, readable category, where they are stuck (checkpoint · file:line) and confidence; nothing before it is ready; it appears by itself when it arrives; a failed one shows only "couldn't analyse this one", never the reason |
+| T-HELP-29 | The TA's editor page has split and full view | Unit | As in the student workspace: from xl it starts side by side, the expand button on a pane shows only that pane, the other folding away over 0.3 s instead of snapping (the code / eye button swaps them, the same way), and the choice is remembered on the device with the same key as the workspace |
 
 ### TG — Telegram linking & webhook · `telegram.test.js`, `insights.spec.js`
 

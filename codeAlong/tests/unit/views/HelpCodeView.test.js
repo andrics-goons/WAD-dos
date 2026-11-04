@@ -126,3 +126,38 @@ describe('HelpCodeView', () => {
     expect(help.close).toHaveBeenCalled()
   })
 })
+
+describe('HelpCodeView split view and full view (xl and up)', () => {
+  const box = (name) => wrapper.find(`.${name}`).classes()
+  // the button is in each pane header; either one swaps the view
+  const toggle = (pane = 'EditorPanel') =>
+    wrapper.findComponent({ name: pane }).vm.$emit('toggle-view')
+  beforeEach(() => localStorage.clear())
+
+  it('T-HELP-29: starts in split view: from xl the preview shows beside the editor', async () => {
+    await open()
+    expect(box('preview-box')).toEqual(expect.arrayContaining(['d-none', 'd-xl-block']))
+    expect(editor().attributes('view')).toBe('split')
+  })
+
+  it('T-HELP-29: full view shows one pane at every size, and the pane buttons swap them', async () => {
+    await open()
+    await toggle('PreviewPanel') // the preview's expand button: the preview is the one that stays
+    // gone below xl, folded away from xl (pane-hidden eases it out instead of snapping)
+    expect(box('workspace-box')).toEqual(expect.arrayContaining(['d-none', 'pane-hidden']))
+    expect(box('preview-box')).not.toContain('d-none')
+    expect(box('preview-box')).not.toContain('pane-hidden')
+    expect(editor().attributes('switchable')).toBe('true')
+    await toggle() // back to split: from xl the editor shows beside it again
+    expect(box('workspace-box')).toEqual(expect.arrayContaining(['d-none', 'd-xl-block']))
+    expect(box('workspace-box')).not.toContain('pane-hidden')
+  })
+
+  it("T-HELP-29: shares the student workspace's remembered choice on this device", async () => {
+    localStorage.setItem('codealong:workspace-view', 'full')
+    await open()
+    expect(editor().attributes('view')).toBe('full')
+    await toggle()
+    expect(localStorage.getItem('codealong:workspace-view')).toBe('split')
+  })
+})

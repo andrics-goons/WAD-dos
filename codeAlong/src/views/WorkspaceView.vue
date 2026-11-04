@@ -2,6 +2,7 @@
   import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
   import EditorPanel from "@/components/workspace/EditorPanel.vue"
   import PreviewPanel from "@/components/workspace/PreviewPanel.vue"
+  import WorkspaceLayout from "@/components/workspace/WorkspaceLayout.vue"
   import StudentWorkspaceHeader from "@/components/workspace/StudentWorkspaceHeader.vue"
   import CatchUpModal from "@/components/workspace/CatchUpModal.vue"
   import AnnouncementBanner from "@/components/session/AnnouncementBanner.vue"
@@ -108,30 +109,6 @@
   const bootError = ref(isolated ? "" : "This page isn't cross-origin isolated, so the workspace can't run here.")
 
   const previewUrl = ref("")
-  // when one pane shows at a time (below xl, or in full view): is it the preview?
-  const showPreview = ref(false)
-  // xl and up: split view (editor and preview side by side) or full view (one at a time, swapped
-  // with the button in each pane header, like below xl). Remembered on this device
-  const VIEW_KEY = "codealong:workspace-view"
-  const fullView = ref((() => {
-    try {
-      return localStorage.getItem(VIEW_KEY) === "full"
-    } catch {
-      return false
-    }
-  })())
-  // from the editor's or the preview's button: going full, that pane is the one that stays
-  function toggleView(preview) {
-    fullView.value = !fullView.value
-    if (fullView.value) showPreview.value = preview
-    try {
-      localStorage.setItem(VIEW_KEY, fullView.value ? "full" : "split")
-    } catch {
-      // private window or blocked storage: it just isn't remembered
-    }
-  }
-  // the hidden pane: always below xl; from xl only in full view
-  const hiddenPane = computed(() => (fullView.value ? "d-none" : "d-none d-xl-block"))
   let stopWorkspace
   // set on unmount, so a boot that finishes after the user has left doesn't leave a listener behind
   let unmounted = false
@@ -221,11 +198,9 @@
         {{ bootError }} Try reloading the page.
       </div>
 
-      <!-- xl and up: editor and preview side by side, unless the student picked full view. Below
-           xl (and in full view) only one shows at a time and the button in each pane header swaps
-           them. d-none only hides the box, so the terminal and the running preview survive -->
-      <div class="workspace-layout">
-        <div class="workspace-box" :class="showPreview && hiddenPane">
+      <!-- editor and preview, split or full view (WorkspaceLayout, shared with the TA's copy) -->
+      <WorkspaceLayout>
+        <template #editor="{ pane, toggleView, swap }">
           <EditorPanel
             :file-paths="workspaceStore.filePaths"
             v-model:selected-file="workspaceStore.selectedFile"
@@ -233,26 +208,23 @@
             :save-status="workspaceStore.saveStatus"
             :files-version="workspaceStore.filesVersion"
             :editable="loaded && sessionStore.isLive"
-            :switchable="fullView"
-            :view="fullView ? 'full' : 'split'"
-            @toggle-view="toggleView(false)"
-            @show-preview="showPreview = true"
+            v-bind="pane"
+            @toggle-view="toggleView"
+            @show-preview="swap"
             @create-file="workspaceStore.createFile"
             @rename-file="renameFile"
             @delete-file="deleting = $event"
           />
-        </div>
-
-        <div class="preview-box" :class="!showPreview && hiddenPane">
+        </template>
+        <template #preview="{ pane, toggleView, swap }">
           <PreviewPanel
             :preview-url="previewUrl"
-            :switchable="fullView"
-            :view="fullView ? 'full' : 'split'"
-            @toggle-view="toggleView(true)"
-            @show-editor="showPreview = false"
+            v-bind="pane"
+            @toggle-view="toggleView"
+            @show-editor="swap"
           />
-        </div>
-      </div>
+        </template>
+      </WorkspaceLayout>
     </template>
   </div>
 
@@ -263,22 +235,5 @@
         display: flex;
         flex-direction: column;
         padding: 0 var(--ca-space-3) var(--ca-space-3);
-    }
-    /* fills whatever height is left under the heading */
-    .workspace-layout {
-        display: flex;
-        gap: var(--ca-space-3);
-        flex: 1;
-        min-height: 0;
-    }
-    .workspace-box,
-    .preview-box {
-        flex: 1 1 0;
-        min-width: 0;
-    }
-    /* overflow: hidden clips the editor panel's square corners to the rounded border */
-    .workspace-box {
-        border-radius: var(--ca-radius);
-        overflow: hidden;
     }
 </style>
