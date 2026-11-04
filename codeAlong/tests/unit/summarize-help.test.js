@@ -71,6 +71,14 @@ describe('buildSummaryPrompt', () => {
     )
   })
 
+  it('T-AIH-23 keeps only the start of a long root cause, so one request cannot crowd out the rest', () => {
+    const long = req(4, 'typo')
+    long.analysis.rootCause = `The main mistake. ${'y'.repeat(1500)}`
+    const [, user] = buildSummaryPrompt(groupAnalyses([long]), 1)
+    expect(user.content).toContain('The main mistake.')
+    expect(user.content).not.toContain('y'.repeat(401))
+  })
+
   it('stays under the size cap with many requests', () => {
     const many = Array.from({ length: 300 }, (_, i) =>
       req(1 + (i % 8), `cat${i % 9}`, 'x'.repeat(150)),

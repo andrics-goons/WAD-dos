@@ -343,6 +343,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-AIH-20 | No error: only the files that differ from the reference are sent | Unit | A changed file reaches the model however many unchanged files there are |
 | T-AIH-21 | No error and code identical to the reference | Unit | Prompt says so; the model is told not to invent a mistake |
 | T-AIH-22 | Files left out of the prompt | Unit | Listed by name, so the model never assumes they're missing |
+| T-AIH-23 | Every mistake is asked for | Unit + live | The prompt asks for every mistake and for malformed markup even with no error; `summary`, `category` and `stuckAt` follow the most important one, and `rootCause` keeps up to 1,500 characters so the others aren't cut off; the class summary's prompt only takes the first 400, so one long request can't crowd out the other groups |
 | T-AIH-10 | Class summary grouping (`summarize-help.test.js`) | Unit | Students counted per `(checkpoint, category)` in code, biggest first |
 | T-AIH-11 | Prompt 2 | Unit | Each group's key and count listed; diagnoses treated as data |
 | T-AIH-12 | Prompt 2 reply | Unit | Model words on our groups; counts unchanged; skipped group keeps plain text |

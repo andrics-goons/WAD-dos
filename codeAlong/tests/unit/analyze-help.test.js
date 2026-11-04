@@ -89,6 +89,13 @@ describe('buildPrompt', () => {
     expect(user.content).toContain(':item="item"') // from the checkpoint
   })
 
+  it('T-AIH-23 asks for every mistake, and for malformed markup even with no error', () => {
+    const [system] = buildPrompt(ctx())
+    expect(system.content).toMatch(/find every mistake, not just the biggest/)
+    expect(system.content).toMatch(/malformed tags and attributes even when no error was reported/)
+    expect(system.content).toMatch(/each other mistake, however small, naming its file and line/)
+  })
+
   it('T-AIH-02 drops comment lines (they can hold names) but keeps the TODO', () => {
     const [, user] = buildPrompt(ctx())
     expect(user.content).not.toContain('Alex Tan')
@@ -231,6 +238,13 @@ describe('parseAnalysis', () => {
     expect(a.confidence).toBe('medium')
     expect(a.rootCause).not.toContain('```')
     expect(a.stuckAt).toEqual({ checkpoint: 3, file: null, line: null })
+  })
+
+  it('T-AIH-23 keeps a root cause long enough to list the other mistakes, within a limit', () => {
+    const parse = (rootCause) =>
+      parseAnalysis(JSON.stringify({ summary: 'x', rootCause, category: 'typo' }), ctx()).rootCause
+    expect(parse('y'.repeat(1400))).toHaveLength(1400)
+    expect(parse('y'.repeat(2000))).toHaveLength(1500)
   })
 
   it('throws when the reply is not JSON or misses the root cause', () => {
