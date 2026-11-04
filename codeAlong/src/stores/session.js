@@ -3,8 +3,10 @@ import { defineStore } from 'pinia'
 import { RtEvent } from '@shared/constants.js'
 import * as sessionsApi from '@/api/sessions.api'
 import * as checkpointsApi from '@/api/checkpoints.api'
+import { assertNotArchived } from '@/api/courses.api'
 import { openSessionChannel } from '@/api/sessionChannel.api'
 import { useAuthStore } from '@/stores/auth'
+import { useCoursesStore } from '@/stores/courses'
 
 // The live class you're in: its details, the latest checkpoint, who's here, and the connection.
 // Pages call open(id) on arrival and close() on leave; the live channel keeps it current.
@@ -24,12 +26,18 @@ export const useSessionStore = defineStore('session', () => {
 
   // A prof starts a class, a student joins one — both return the session id to open.
   const start = (lessonId) => sessionsApi.startSession(lessonId)
-  const join = (joinCode) => sessionsApi.joinSession(joinCode)
+  async function join(joinCode) {
+    const joined = await sessionsApi.joinSession(joinCode)
+    // joining can enrol me in the course, so my course list loads again next time it's shown
+    useCoursesStore().loaded = false
+    return joined
+  }
 
   async function open(id) {
     close()
     const auth = useAuthStore()
     const [loaded] = await Promise.all([sessionsApi.getSession(id), auth.ensureLoaded()])
+    await assertNotArchived(loaded.course_id) // a course I've archived is read-only for me
     session.value = loaded
     connectedBefore = false
 
