@@ -1,7 +1,7 @@
 <script setup>
-// My notes on one checkpoint of a replay: add, edit, delete. Only I can see them.
-// The page does the saving; this checks the text first, so a blank note never reaches the server.
-// The text box only clears (or the edit closes) once the page calls done(), after the save
+// my notes on one checkpoint of a replay: add, edit, delete. only I can see them.
+// the page does the saving; this checks the text first, so a blank note never reaches the server.
+// the text box only clears (or the edit closes) once the page calls done(), after the save
 // worked, so a failed save keeps what was written.
 //   <NotesPanel :notes="notesHere" :busy="saving" @add="addNote" @save="saveNote" @remove="removeNote" />
 import { ref } from 'vue'

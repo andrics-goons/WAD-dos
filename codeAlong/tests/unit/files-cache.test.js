@@ -1,4 +1,4 @@
-// Unit tests for src/cache/files.js — when it uses the cached copy and when it downloads.
+// unit tests for src/cache/files.js: when it uses the cached copy and when it downloads.
 // IndexedDB and the Supabase calls are mocked, so no Supabase is needed.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 

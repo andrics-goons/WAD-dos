@@ -1,7 +1,7 @@
 <script setup>
-// lesson editor: the starter files the class begins from, plus the lesson's details. Visibility,
+// lesson editor: the starter files the class begins from, plus the lesson's details. visibility,
 // archiving and deleting are in the lesson's ⋯ menu on the course page.
-// There are no steps: the prof saves checkpoints whenever they like during class.
+// there are no steps: the prof saves checkpoints whenever they like during class.
 // changes stay on the page until save, then go to the db together
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -79,8 +79,8 @@ onMounted(async () => {
   }
 })
 
-// The file tree's New file, Rename and Delete: the working copy changes, and Save sends it with
-// everything else. The language comes from the name (the database refuses a file without one)
+// the file tree's New file, Rename and Delete: the working copy changes, and Save sends it with
+// everything else. the language comes from the name (the database refuses a file without one)
 function createFile(path) {
   files.value = [...files.value, { path, language: languageForPath(path), content: '' }]
   activeFile.value = path
@@ -96,7 +96,7 @@ function renameFile(from, to) {
   if (entryFile.value === from) entryFile.value = to
   if (warning) toast.show(warning.message, 'warning', { title: warning.title })
 }
-// Delete asks first; the entry file can't go, the lesson would have no page to start from
+// delete asks first; the entry file can't go, the lesson would have no page to start from
 const deletingFile = ref('')
 function askDelete(path) {
   if (path === entryFile.value) {
@@ -161,8 +161,8 @@ async function save() {
   }
 }
 
-// Continue, at the bottom where a long file tree ends: save what's pending and go back to the
-// course. If the save fails the prof stays, with their edits and the error
+// continue, at the bottom where a long file tree ends: save what's pending and go back to the
+// course. if the save fails the prof stays, with their edits and the error
 async function done() {
   if (dirty.value && !(await save())) return
   router.push({ name: 'course', params: { id: lesson.value.courseId } })
@@ -190,7 +190,7 @@ async function done() {
         </div>
       </div>
 
-      <!-- Light page, dark code panel: .ca-ide on just this section (UI guide, tokens.css) -->
+      <!-- light page, dark code panel: .ca-ide on just this section (UI guide, tokens.css) -->
       <section class="ca-surface ca-ide d-flex flex-column" data-bs-theme="dark">
         <div class="px-3 py-2 border-bottom">
           <h2 class="h6 mb-0">Starter files</h2>

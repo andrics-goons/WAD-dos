@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process'
 
-// Runs once before the specs. The specs need Docker and the local Supabase stack, and the
-// in-person Telegram ping needs the Vault pair (design-docs/03, "In-person ping"), which
-// `supabase db reset` wipes. Failing here gives a clear message instead of a timeout.
-// The functions server answers (even 401) before each function's worker has booted, so the
-// first database trigger to call one can get a 503 BOOT_ERROR and the ping is lost. Call each
+// runs once before the specs. the specs need Docker and the local Supabase stack, and the
+// in-person Telegram ping needs the Vault pair, which
+// `supabase db reset` wipes. failing here gives a clear message instead of a timeout.
+// the functions server answers (even 401) before each function's worker has booted, so the
+// first database trigger to call one can get a 503 BOOT_ERROR and the ping is lost. call each
 // one until it gives a real answer. Playwright starts the servers before this runs.
 async function warmUpFunctions(serviceKey) {
   for (const name of ['telegram-notify', 'analyze-help', 'digest', 'summarize-help']) {
@@ -41,7 +41,7 @@ export default async function globalSetup() {
   }
   const serviceKey = status.match(/^SERVICE_ROLE_KEY="(.*)"$/m)?.[1]
 
-  // The database reaches the Edge Functions through the host, not localhost.
+  // the database reaches the Edge Functions through the host, not localhost.
   const sql = `
     delete from vault.secrets where name in ('project_url', 'service_role_key');
     select vault.create_secret('http://host.docker.internal:54321', 'project_url');

@@ -1,6 +1,6 @@
 <script setup>
-// Right after "Continue with GitHub" makes a new account: GitHub sends no role, so they pick
-// one here, once. The router sends every new GitHub account here first, then on to returnTo.
+// right after "Continue with GitHub" makes a new account: GitHub sends no role, so they pick
+// one here, once. the router sends every new GitHub account here first, then on to returnTo.
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { SignupRole } from '@shared/constants'

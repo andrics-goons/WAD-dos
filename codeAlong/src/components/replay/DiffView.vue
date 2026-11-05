@@ -1,6 +1,6 @@
 <script setup>
-// Shows the difference between two versions of a project's files, one panel per changed file.
-// Used by "What you missed", the replay and the TA's side-by-side review.
+// shows the difference between two versions of a project's files, one panel per changed file.
+// used by "What you missed", the replay and the TA's side-by-side review.
 //   <DiffView :before="myFiles" :after="checkpointFiles" before-label="Your code" after-label="Checkpoint" />
 // mode 'split' is side by side from sm up and stacked on phones; 'unified' is always stacked.
 import { computed, ref, watch } from 'vue'
@@ -19,7 +19,7 @@ const props = defineProps({
 
 const files = computed(() => diffSummary(props.before, props.after).files)
 
-// What happened to a file, in this view's words
+// what happened to a file, in this view's words
 const statusLabel = (file) =>
   ({
     modified: 'Changed',
@@ -27,8 +27,8 @@ const statusLabel = (file) =>
     removed: `Only in ${props.beforeLabel}`,
   })[file.status]
 
-// Unchanged lines stay hidden until asked for, and can be hidden again. Each block is a hunk with
-// the gap above it, plus one for whatever follows the last hunk. New files to compare start with
+// unchanged lines stay hidden until asked for, and can be hidden again. each block is a hunk with
+// the gap above it, plus one for whatever follows the last hunk. new files to compare start with
 // everything hidden again.
 const shownGaps = ref(new Set())
 watch(files, () => (shownGaps.value = new Set()))
@@ -53,7 +53,7 @@ function blocks(file) {
 const MARK = { add: '+ ', del: '− ', context: '  ' }
 const BG = { add: 'bg-success-subtle', del: 'bg-danger-subtle', context: '' }
 
-// Side by side: the text and colour of one side of a row (grey when that side has no line)
+// side by side: the text and colour of one side of a row (grey when that side has no line)
 const sideText = (line) => (line ? MARK[line.type] + line.text : '')
 const sideBg = (line) => (line ? BG[line.type] : 'bg-body-secondary')
 </script>
@@ -81,7 +81,7 @@ const sideBg = (line) => (line ? BG[line.type] : 'bg-body-secondary')
       <p v-if="!file.hunks.length" class="px-3 py-1 mb-0 small text-body-secondary">Empty file</p>
 
       <template v-else>
-        <!-- Stacked: always when mode is 'unified', and on phones -->
+        <!-- stacked: always when mode is 'unified', and on phones -->
         <div :class="{ 'd-sm-none': mode === 'split' }">
           <p class="px-3 py-1 mb-0 small">
             <span class="text-danger-emphasis me-3">− {{ beforeLabel }}</span>
@@ -110,7 +110,7 @@ const sideBg = (line) => (line ? BG[line.type] : 'bg-body-secondary')
           </table>
         </div>
 
-        <!-- Side by side, from sm up -->
+        <!-- side by side, from sm up -->
         <table v-if="mode === 'split'" class="diff-table w-100 ca-mono small d-none d-sm-table">
           <colgroup>
             <col class="diff-num" />
@@ -156,7 +156,7 @@ const sideBg = (line) => (line ? BG[line.type] : 'bg-body-secondary')
 </template>
 
 <style scoped>
-/* Fixed columns, and code that keeps its indentation but wraps, so nothing scrolls sideways */
+/* fixed columns, and code that keeps its indentation but wraps, so nothing scrolls sideways */
 .diff-table {
   table-layout: fixed;
 }

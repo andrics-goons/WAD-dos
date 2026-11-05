@@ -1,7 +1,7 @@
 <script setup>
-// The "Import from GitHub" tab of New lesson: paste a repo link, get its starter files.
-// The prof's own GitHub reads the repo, so they connect GitHub first; it comes back to this tab.
-// Emits `imported` with { files, entryFile, source }, which the page handles like an upload.
+// the "Import from GitHub" tab of New lesson: paste a repo link, get its starter files.
+// the prof's own GitHub reads the repo, so they connect GitHub first; it comes back to this tab.
+// emits `imported` with { files, entryFile, source }, which the page handles like an upload.
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'

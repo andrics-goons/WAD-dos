@@ -4,10 +4,10 @@ import { getWebContainer, toFileSystemTree } from '@/runtime/webcontainer'
 import { usePreviewNav } from '@/runtime/previewNav.js'
 import { appFolder } from '@shared/lesson-template.js'
 
-// The replay's read-only preview (design-docs/06 T-REP-03): runs one checkpoint's code in the
-// WebContainer the workspace uses, so you see the app as it was at that step. Nothing is saved.
-// The first install takes a minute or so, so with `autostart` it begins as soon as there's code to
-// run, while the reader looks at the diff; otherwise it waits for Run preview. Small screens always
+// the replay's read-only preview: runs one checkpoint's code in the
+// WebContainer the workspace uses, so you see the app as it was at that step. nothing is saved.
+// the first install takes a minute or so, so with `autostart` it begins as soon as there's code to
+// run, while the reader looks at the diff; otherwise it waits for Run preview. small screens always
 // wait: they hide the preview behind a tab, and a phone shouldn't start a Node install unasked.
 const props = defineProps({
   files: { type: Array, required: true }, // the checkpoint's [{ path, content }]
@@ -23,13 +23,13 @@ const DIR = 'replay'
 const isVite = (port) => port >= 5173 && port <= 5179
 
 const state = ref('idle') // idle → installing → starting → ready, or error
-// Back, Forward and Reload, like a browser's, for the app's own pages
+// back, forward and reload, like a browser's, for the app's own pages
 const { frame, frameKey, canGoBack, canGoForward, back, forward, reload } = usePreviewNav()
 const url = ref('')
 const error = ref('')
 watch(state, (now) => emit('state', now))
 
-// Progress while it starts. The three steps are real; how far through each one is, is real for
+// progress while it starts. the three steps are real; how far through each one is, is real for
 // the install (pnpm reports "resolved 45 … added 15") and an estimate from the elapsed time for the
 // rest, so the bar always moves and never goes backwards.
 const STEPS = ['Preparing the sandbox', 'Installing packages', 'Starting the app']
@@ -103,7 +103,7 @@ function fail(message) {
   error.value = message
 }
 
-// Puts `files` in DIR. Vite reloads changed files by itself; new packages need an install and
+// puts `files` in DIR. Vite reloads changed files by itself; new packages need an install and
 // a fresh dev server.
 async function show(files) {
   const keep = new Set(files.map((f) => f.path))
@@ -144,7 +144,7 @@ async function start() {
   error.value = ''
   state.value = 'installing'
   startClock()
-  // Try again starts over: no server, nothing shown, nothing installed
+  // try again starts over: no server, nothing shown, nothing installed
   devServer?.kill()
   devServer = null
   offReady?.()

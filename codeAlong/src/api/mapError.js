@@ -1,7 +1,7 @@
-// Error mapping for supabase errors
+// error mapping for supabase errors
 import { LimitCode } from '@shared/constants.js'
 
-// Told about every LIMIT_REACHED error (a database usage limit), so the limits store can
+// told about every LIMIT_REACHED error (a database usage limit), so the limits store can
 // open the pop-up however the page that hit it handles the error
 const limitListeners = new Set()
 export function onLimitReached(fn) {
@@ -72,7 +72,7 @@ export function mapError(error) {
   if (!error) return null
   if (error instanceof AppError) return error
 
-  // 1. Your own RPCs: raise exception 'CODE|message' using errcode = 'P0001'
+  // 1. your own RPCs: raise exception 'CODE|message' using errcode = 'P0001'
   if (error.code === 'P0001' && error.message?.includes('|')) {
     const [code, ...rest] = error.message.split('|')
     const appError = new AppError(code, rest.join('|'), {
@@ -83,14 +83,14 @@ export function mapError(error) {
     return appError
   }
 
-  // 2. Known Supabase Auth and Postgres codes
+  // 2. known Supabase Auth and Postgres codes
   const known = AUTH[error.code] ?? DB[error.code]
   if (known) {
     const [code, message] = known
     return new AppError(code, message, { status: STATUS[code], cause: error })
   }
 
-  // 3. Couldn't reach Supabase at all
+  // 3. couldn't reach Supabase at all
   if (/failed to fetch/i.test(error.message ?? '')) {
     return new AppError('UPSTREAM_UNAVAILABLE', "Can't reach the server — check your connection", {
       status: 502,
@@ -98,7 +98,7 @@ export function mapError(error) {
     })
   }
 
-  // 4. Anything else: never show raw database text to a user
+  // 4. anything else: never show raw database text to a user
   console.error('Unmapped error:', error)
   return new AppError('INTERNAL', 'Something went wrong', { cause: error })
 }

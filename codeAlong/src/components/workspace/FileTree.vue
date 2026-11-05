@@ -68,7 +68,7 @@
         else emit("update:selectedFile", row.path)
     }
 
-    // The name box for a new file (from: null) or a rename (from: the old path). A full path
+    // the name box for a new file (from: null) or a rename (from: the old path). A full path
     // like "src/components/Cart.vue" puts the file in that folder, making it if needed.
     const editing = ref(null) // { from, value, error }
     let input = null
@@ -79,15 +79,15 @@
         input?.focus()
     }
 
-    // The New file button opens the name box, and closes it again on a second click (like Esc).
-    // Its mousedown doesn't take the focus, or the box's blur would close it first and the click
+    // the New file button opens the name box, and closes it again on a second click (like Esc).
+    // its mousedown doesn't take the focus, or the box's blur would close it first and the click
     // would open it straight back
     function toggleNewFile() {
         if (editing.value?.from === null) editing.value = null
         else startEditing(null)
     }
 
-    // Why the database would refuse this name (autosave would quietly skip the file), or ""
+    // why the database would refuse this name (autosave would quietly skip the file), or ""
     function nameProblem(path, from) {
         if (!path) return "Type a file name"
         if (!isStorablePath(path)) return "Use only letters, numbers, - _ . and /"
@@ -114,7 +114,7 @@
         else if (path !== from) emit("rename", from, path)
     }
 
-    // Clicking away keeps what was typed (like pressing Enter); an untouched box just closes
+    // clicking away keeps what was typed (like pressing Enter); an untouched box just closes
     function onBlur() {
         if (!editing.value) return // Esc already closed it
         if (editing.value.value.trim() === (editing.value.from ?? "")) editing.value = null
@@ -124,8 +124,8 @@
     // the last file can't go: an empty project can't be saved, so it would come back on refresh
     const canDelete = computed(() => visiblePaths.value.length > 1)
 
-    // Drag a file onto a folder (or onto a file in it) to move it there, or onto the empty space
-    // below the list for the top level. Only files, and only in an editable tree. A move is a
+    // drag a file onto a folder (or onto a file in it) to move it there, or onto the empty space
+    // below the list for the top level. only files, and only in an editable tree. A move is a
     // rename to the new folder, so it gets the same checks; the browser's drag and drop is
     // desktop only, so on a touch screen Rename is still the way to move a file.
     const dragged = ref(null) // the path being dragged

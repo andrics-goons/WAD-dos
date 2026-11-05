@@ -1,15 +1,14 @@
-// Converts a prof's project folder into the flat `files` list stored in lessons.files
-// (design-docs/03-data-model.md "Shared Shape: files"):
+// converts a prof's project folder into the flat `files` list stored in lessons.files:
 //
 //   [{ path: 'src/App.vue', language: 'vue', content: '...' }]
 //
-// Pure function: the caller (upload tab, or the github-import function) reads the file text
-// and hands over { path, content } entries. Nothing here touches the DOM or the network.
+// pure function: the caller (upload tab, or the github-import function) reads the file text
+// and hands over { path, content } entries. nothing here touches the DOM or the network.
 
 import { Limits } from './constants.js'
 import { addProbe } from './lesson-template.js'
 
-// Anything else (images, .ts, .env ...) fails files_valid() in the database, so it is skipped here.
+// anything else (images, .ts, .env ...) fails files_valid() in the database, so it is skipped here.
 const LANGUAGE_BY_EXT = Object.freeze({
   html: 'html',
   htm: 'html',
@@ -41,7 +40,7 @@ function globToRegExp(glob) {
 }
 const IGNORE_RES = Limits.SYNC_IGNORE.map(globToRegExp)
 
-/** True when the path, or any folder-suffix of it, matches SYNC_IGNORE (so nested node_modules/ too). */
+/** true when the path, or any folder-suffix of it, matches SYNC_IGNORE (so nested node_modules/ too). */
 export function isIgnored(path) {
   const parts = path.split('/')
   for (let i = 0; i < parts.length; i++) {

@@ -3,13 +3,13 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { goBack } from '@/router'
 
-// The back button on sub-pages, in the same spot. App.vue renders it once, so pages don't add their
+// the back button on sub-pages, in the same spot. app.vue renders it once, so pages don't add their
 // own. A route's meta.back gives its label and where it goes; main pages have none, so show no button.
 const route = useRoute()
 const router = useRouter()
 const back = computed(() => route.meta.back?.(route))
 
-// Back to a named page. If that is the page just before this one, step back to it. Otherwise
+// back to a named page. if that is the page just before this one, step back to it. otherwise
 // replace this page with it, so history doesn't pile up: pushing it left this page behind it, and
 // that page's own Back (the browser's) then came straight back here.
 function go() {

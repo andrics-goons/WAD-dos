@@ -11,7 +11,7 @@ import LeaveCourseModal from '@/components/course/LeaveCourseModal.vue'
 import LessonLibrary from '@/components/lesson/LessonLibrary.vue'
 import CourseForm from '@/components/course/CourseForm.vue'
 
-// One course: its lessons (each with its classes) and its people. The owner also gets the enrol link.
+// one course: its lessons (each with its classes) and its people. the owner also gets the enrol link.
 const props = defineProps({ id: { type: String, required: true } })
 
 const store = useCourseStore()
@@ -53,7 +53,7 @@ onMounted(async () => {
   }
 })
 
-// Edit or delete the course (owner), archive it from your own list (anyone)
+// edit or delete the course (owner), archive it from your own list (anyone)
 // A course I've archived is read-only for me until I restore it: no editing, sharing or people changes
 const canManage = computed(() => course.value?.isOwner && !course.value.archived)
 const editing = ref(false)
@@ -121,7 +121,7 @@ async function setArchived(archived) {
   }
 }
 
-// Share enrolment (owner)
+// share enrolment (owner)
 const shareLink = computed(() => course.value && store.shareLink(course.value.enrol_code))
 const qr = ref('')
 async function makeQr() {
@@ -136,7 +136,7 @@ async function copyLink() {
   }
 }
 
-// People: who's online in each live class. Students see the names per class; staff see a
+// people: who's online in each live class. students see the names per class; staff see a
 // dot beside each enrolled student who is online.
 const isStaff = computed(() => [Role.PROF, Role.TA].includes(course.value?.myRole))
 const liveClasses = ref([])
@@ -166,7 +166,7 @@ watch(tab, async (now) => {
 })
 onBeforeUnmount(stopWatching)
 
-// People (owner): add or remove a TA, remove a student
+// people (owner): add or remove a TA, remove a student
 const taEmail = ref('')
 const addingTa = ref(false)
 const taError = ref('')
@@ -219,14 +219,14 @@ async function removeStudent() {
 
 <template>
   <div class="ca-page">
-    <!-- Loading -->
+    <!-- loading -->
     <div v-if="loading" class="d-flex justify-content-center py-5">
       <span class="spinner-border text-primary">
         <span class="visually-hidden">Loading the course…</span>
       </span>
     </div>
 
-    <!-- Not found / couldn't load -->
+    <!-- not found / couldn't load -->
     <div v-else-if="loadError" class="ca-surface">
       <EmptyState
         :icon="loadError === 'not-found' ? 'bi-journal-x' : 'bi-exclamation-triangle'"
@@ -316,7 +316,7 @@ async function removeStudent() {
         @cancel="editing = false"
       />
 
-      <!-- Share enrolment (owner) -->
+      <!-- share enrolment (owner) -->
       <section v-if="canManage" class="ca-card mb-4">
         <div class="row g-4 align-items-center">
           <div class="col-12 col-md">
@@ -359,7 +359,7 @@ async function removeStudent() {
         </div>
       </section>
 
-      <!-- Tabs -->
+      <!-- tabs -->
       <ul class="nav nav-tabs mb-3">
         <li v-for="t in tabs" :key="t.key" class="nav-item">
           <button
@@ -373,10 +373,10 @@ async function removeStudent() {
         </li>
       </ul>
 
-      <!-- Lessons and their classes (Ray Yien's) -->
+      <!-- lessons and their classes -->
       <LessonLibrary v-if="tab === 'lessons'" :course="course" />
 
-      <!-- People -->
+      <!-- people -->
       <section v-else class="row g-3">
         <div class="col-12 col-lg-6">
           <div class="ca-card h-100">

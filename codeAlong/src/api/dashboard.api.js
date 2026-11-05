@@ -2,20 +2,20 @@ import { supabase } from '@/lib/supabase'
 import { mapError } from './mapError'
 import { invoke } from './invoke'
 
-// Prof dashboard calls for the Teach view (design-docs/04, "Dashboard").
+// prof dashboard calls for the Teach view.
 
 /**
- * The summary card: what students clicked, as numbers only.
+ * the summary card: what students clicked, as numbers only.
  *   total     students in the class (their status rows)
  *   done      clicked Done on the latest checkpoint, even if they hit an error since
- *   slowDown  asked the prof to slow down (only ever a count, see 09 §5)
+ *   slowDown  asked the prof to slow down (only ever a count)
  *   help      open or claimed "Ask for help" requests
  *   check     open or claimed "Check my work" requests
  *   students  [{ studentId, name, done, state, help, check }] for everyone in the class: the Teach view
  *             counts only the students connected right now, and lists them by status in its
  *             Students menu (state is session_tiles' done / in_progress / error / idle; help and
  *             check say they have an open or claimed request of that type)
- * Staff only; RLS gives anyone else zero rows, so every count is 0.
+ * staff only; RLS gives anyone else zero rows, so every count is 0.
  */
 export async function getClassSummary(sessionId) {
   const [tiles, summary, requests] = await Promise.all([
@@ -58,9 +58,9 @@ export async function getClassSummary(sessionId) {
 }
 
 /**
- * What the class is stuck on right now: the LLM analyses of the session's open help requests,
- * grouped and summarised by the summarize-help Edge Function (design-docs/05 §8a, part 2).
- * Staff only; anyone else gets FORBIDDEN.
+ * what the class is stuck on right now: the LLM analyses of the session's open help requests,
+ * grouped and summarised by the summarize-help Edge Function.
+ * staff only; anyone else gets FORBIDDEN.
  */
 export async function getHelpSummary(sessionId) {
   return invoke('summarize-help', { sessionId })

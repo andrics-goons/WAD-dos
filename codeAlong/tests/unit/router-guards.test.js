@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Who may open which page: the router's guard (meta: auth, guest, roles)
+// who may open which page: the router's guard (meta: auth, guest, roles)
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const auth = vi.hoisted(() => ({}))

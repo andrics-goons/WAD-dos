@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 
-// The course fields, for creating a course (CoursesView) and editing one (CourseView).
+// the course fields, for creating a course (CoursesView) and editing one (CourseView).
 const props = defineProps({
   course: { type: Object, default: null }, // the course being edited; empty for a new one
   submitLabel: { type: String, required: true },
@@ -10,7 +10,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['save', 'cancel'])
 
-// the term is stored as one string, e.g. "AY2026/27 T1"
+// the term is stored as one string, like "AY2026/27 T1"
 const [ay = '', termNo = ''] = props.course?.term.split(' ') ?? []
 const form = ref({
   code: props.course?.code ?? '',
@@ -20,8 +20,8 @@ const form = ref({
   section: props.course?.section ?? '',
 })
 
-// This academic year and the next, e.g. AY2026/27 and AY2027/28. A new AY starts in August.
-// When editing an older course, its own year stays in the list.
+// this academic year and the next, like AY2026/27 and AY2027/28. A new AY starts in August.
+// when editing an older course, its own year stays in the list.
 const now = new Date()
 const firstYear = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1
 const academicYears = computed(() => {
@@ -34,7 +34,7 @@ const codeError = ref('')
 
 function save() {
   const { code, title, section } = form.value
-  // e.g. IS216: starts with a letter, ends with a number
+  // like IS216: starts with a letter, ends with a number
   if (!/^[a-z].*\d$/i.test(code.trim())) {
     codeError.value = 'Invalid course code format'
     return

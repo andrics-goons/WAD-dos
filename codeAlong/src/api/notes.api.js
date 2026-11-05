@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { mapError } from './mapError'
 
-// My notes and bookmarks on a replay, each anchored to a checkpoint. Owner: Ray Yien.
+// my notes and bookmarks on a replay, each anchored to a checkpoint.
 // RLS keeps them private to their author, and user_id defaults to the login, so it's never sent.
 // A note needs text (VALIDATION_FAILED if blank, up to 2000 characters); a bookmark has none.
 
@@ -17,7 +17,7 @@ const toNote = (row) => ({
   updatedAt: row.updated_at,
 })
 
-/** My notes and bookmarks in one class, oldest first. */
+/** my notes and bookmarks in one class, oldest first. */
 export async function listNotes(sessionId) {
   const { data, error } = await supabase
     .from('notes')
@@ -39,7 +39,7 @@ export async function createNote({ sessionId, checkpointId, kind, body = null })
   return toNote(data)
 }
 
-/** Change a note's text. */
+/** change a note's text. */
 export async function updateNote(id, body) {
   const { data, error } = await supabase
     .from('notes')

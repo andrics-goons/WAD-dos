@@ -1,5 +1,5 @@
 <script setup>
-// A project's files, read-only: pick a file, read its code. For the student's own code on the replay.
+// A project's files, read-only: pick a file, read its code. for the student's own code on the replay.
 //   <CodeViewer :files="myFiles" />
 import { computed, ref, watch } from 'vue'
 import EmptyState from '@/components/ui/EmptyState.vue'

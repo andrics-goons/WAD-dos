@@ -1,5 +1,5 @@
 <script setup>
-// Profile page: delete my account for good. A prof's courses go with it, for every student in
+// profile page: delete my account for good. A prof's courses go with it, for every student in
 // them, so the pop-up says so and asks them to type DELETE first.
 import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'

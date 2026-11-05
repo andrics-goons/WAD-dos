@@ -1,5 +1,5 @@
-// The package cache (src/runtime/install.js): node_modules and the lockfile saved to IndexedDB
-// after an install, put back on boot. Runs against an in-memory IndexedDB and a fake WebContainer.
+// the package cache (src/runtime/install.js): node_modules and the lockfile saved to IndexedDB
+// after an install, put back on boot. runs against an in-memory IndexedDB and a fake WebContainer.
 import 'fake-indexeddb/auto'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 

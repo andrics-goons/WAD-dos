@@ -10,8 +10,8 @@ import HelpAnalysis from './HelpAnalysis.vue'
 import { HELP_TYPE_LABEL } from './helpLabels.js'
 import { checkpointLabel } from '@shared/checkpoint-label.js'
 
-// One request, for the TA: the conversation, what to do with it, and the student's code
-// against the prof's checkpoint they were working towards. Used by the queue and the /help/:id page.
+// one request, for the TA: the conversation, what to do with it, and the student's code
+// against the prof's checkpoint they were working towards. used by the queue and the /help/:id page.
 const props = defineProps({
   request: { type: Object, required: true }, // a row from the help store, so it stays live
   myId: { type: String, default: null },
@@ -30,7 +30,7 @@ const claimedByOther = computed(
   () => props.request.status === HelpStatus.CLAIMED && props.request.claimed_by !== props.myId,
 )
 
-// The code: reloads when a follow-up points the request at a newer snapshot
+// the code: reloads when a follow-up points the request at a newer snapshot
 const studentFiles = ref(null)
 const checkpoint = ref(null)
 // what the student's code is compared with: the checkpoint, or the starter code before the first
@@ -64,7 +64,7 @@ watch(
   { immediate: true },
 )
 
-// Actions
+// actions
 const replyText = ref('')
 const replyError = ref('')
 const busy = ref(false)
@@ -96,7 +96,7 @@ async function reply() {
 
 <template>
   <div class="d-grid gap-3">
-    <!-- Who and what -->
+    <!-- who and what -->
     <section class="ca-card">
       <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
         <h2 class="fs-5 mb-0 me-auto">
@@ -126,7 +126,7 @@ async function reply() {
       <!-- the AI's read on their code, once it's ready -->
       <HelpAnalysis :analysis="request.analysis" />
 
-      <!-- What the TA can do now -->
+      <!-- what the TA can do now -->
       <div v-if="canAct" class="mt-3">
         <button
           v-if="isOpen"
@@ -200,7 +200,7 @@ async function reply() {
       </div>
     </section>
 
-    <!-- The code -->
+    <!-- the code -->
     <section>
       <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <h3 class="fs-6 mb-0 me-auto">

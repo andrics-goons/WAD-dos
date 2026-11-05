@@ -1,6 +1,6 @@
 <script setup>
-// The row standing in for unchanged lines in a diff table: "Show 12 unchanged lines" while they're
-// folded away, "Hide 12 unchanged lines" once shown. Used by both the unified and the split table.
+// the row standing in for unchanged lines in a diff table: "Show 12 unchanged lines" while they're
+// folded away, "Hide 12 unchanged lines" once shown. used by both the unified and the split table.
 defineProps({
   hidden: { type: Number, default: 0 }, // lines folded away
   shown: { type: Number, default: 0 }, // lines unfolded by Show

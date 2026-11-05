@@ -11,8 +11,8 @@ afterAll(async () => {
   await cleanup()
 })
 
-// The outbox is how mocked Edge Functions record what they would have sent.
-// It must be writable and readable ONLY with the service-role key.
+// the outbox is how mocked Edge Functions record what they would have sent.
+// it must be writable and readable ONLY with the service-role key.
 describe('test_outbox', () => {
   let student, admin
   beforeAll(async () => {

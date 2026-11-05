@@ -1,5 +1,5 @@
-// Entry point for github-export: wires the real clients into handler.ts.
-// Reads the class as the caller (their own token), so RLS decides what they may export.
+// entry point for github-export: wires the real clients into handler.ts.
+// reads the class as the caller (their own token), so RLS decides what they may export.
 import { isMockMode } from '../_shared/outbox.ts'
 import { liveGithub, mockGithub } from '../_shared/github.ts'
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts'

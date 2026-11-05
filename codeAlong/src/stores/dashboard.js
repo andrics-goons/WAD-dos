@@ -4,13 +4,13 @@ import { Limits, LimitCode } from '@shared/constants.js'
 import * as dashboardApi from '@/api/dashboard.api'
 import { useLimitStore } from '@/stores/limits'
 
-// The prof dashboard's data: the class summary card and the help summary (design-docs/05 §8a, part 2).
+// the prof dashboard's data: the class summary card and the help summary.
 export const useDashboardStore = defineStore('dashboard', () => {
   const helpSummary = ref(null)
   const loadingHelpSummary = ref(false)
   const helpSummaryError = ref(null)
 
-  // Runs the summary pipeline: when the dashboard loads and when the prof presses Refresh
+  // runs the summary pipeline: when the dashboard loads and when the prof presses Refresh
   async function loadHelpSummary(sessionId) {
     loadingHelpSummary.value = true
     helpSummaryError.value = null

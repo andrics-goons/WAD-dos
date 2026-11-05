@@ -2,7 +2,7 @@ import { Limits } from "./constants.js"
 
 // the first line of a Vite error
 // creates a regex object to help with checking if its a start of an error
-// ERROR_LABEL is everything in front of the message, e.g. "9:18:41 PM [vite] (client) Pre-transform error: "
+// ERROR_LABEL is everything in front of the message, like "9:18:41 PM [vite] (client) Pre-transform error: "
 // Vite 8 adds "(client)", and says "Pre-transform error" when the page loads or "Internal server error" when a file is requested
 // exported so error-reader.js spots errors with the same regex this file removes
 export const ERROR_LABEL = /^.*?\[vite\] (?:\([\w-]+\) )?(?:Internal server error|Pre-transform error):\s*/
@@ -28,7 +28,7 @@ export function parseBuildError (text) {
     const match = fileLine?.match(/File:\s*(\S+?)(?::(\d+)(?::\d+)?)?\s*$/)
     let file = match?.[1] ?? null
     if (file) {
-        // drop vite's "?vue&type=script" ending, then make the path start at the project, e.g. "src/App.vue"
+        // drop vite's "?vue&type=script" ending, then make the path start at the project, like "src/App.vue"
         file = file.split("?")[0]
         const src = file.indexOf("/src/")
         file = src >= 0 ? file.slice(src + 1) : file.replace(/^\/+/, "")

@@ -1,13 +1,13 @@
 <script setup>
     import { ref, onMounted, onBeforeUnmount } from "vue"
-    // Function that creates xterm instance 
+    // function that creates xterm instance
     import { createTerminal } from "@/runtime/terminal.js"
-    // Connects the terminal to a shell inside the WebContainer
+    // connects the terminal to a shell inside the WebContainer
     import { connectShell } from "@/runtime/shell.js"
     import { getWebContainer } from "@/runtime/webcontainer.js"
     import { useWorkspaceStore } from "@/stores/workspace"
 
-    // Creating terminal element
+    // creating terminal element
     const terminalEl = ref(null)
 
     let term
@@ -20,7 +20,7 @@
 
     const workspaceStore = useWorkspaceStore()
 
-    // On mounted, create the xterm instance, attach it to the page, then connect it to the shell
+    // on mounted, create the xterm instance, attach it to the page, then connect it to the shell
     onMounted(async () => {
         // create a fresh terminal for this component connect it to the div
         const created = createTerminal(terminalEl.value)
@@ -45,7 +45,7 @@
         }
     })
 
-    // Before unmount, clean up so leaving the page doesn't leave a terminal or shell running
+    // before unmount, clean up so leaving the page doesn't leave a terminal or shell running
     onBeforeUnmount(() => {
         unmounted = true
         resizeObserver?.disconnect()

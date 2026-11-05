@@ -12,7 +12,7 @@ import LeaveCourseModal from '@/components/course/LeaveCourseModal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import CourseForm from '@/components/course/CourseForm.vue'
 
-// My courses: one card per course. Educators can create a course here;
+// my courses: one card per course. educators can create a course here;
 // students and TAs go to /enrol to join one with a code.
 const auth = useAuthStore()
 const courses = useCoursesStore()
@@ -36,7 +36,7 @@ onMounted(async () => {
   }
 })
 
-// New course form (educators only). It has its own address, so the My courses button closes it.
+// new course form (educators only). it has its own address, so the My courses button closes it.
 const showForm = computed(() => isProf.value && !!route.query.new)
 const saving = ref(false)
 const formError = ref('')
@@ -46,7 +46,7 @@ function closeForm() {
   router.replace({ name: 'courses' })
 }
 
-// Clicking a course card opens it, unless you were selecting text (e.g. to copy the enrol code)
+// clicking a course card opens it, unless you were selecting text (like to copy the enrol code)
 function openCourse(course) {
   if (window.getSelection().toString()) return
   router.push({ name: 'course', params: { id: course.id } })
@@ -66,11 +66,11 @@ async function createCourse(fields) {
   }
 }
 
-// The courses you've archived are off the main list; you can still open and restore them
+// the courses you've archived are off the main list; you can still open and restore them
 const courseStore = useCourseStore()
 
-// The ⋯ menu on each card: archive it from my list (anyone), or delete it (the owner, until a
-// class has run in it). One menu open at a time; a click anywhere else closes it.
+// the ⋯ menu on each card: archive it from my list (anyone), or delete it (the owner, until a
+// class has run in it). one menu open at a time; a click anywhere else closes it.
 const menuFor = ref(null) // the course id whose menu is open
 function toggleMenu(course) {
   menuFor.value = menuFor.value === course.id ? null : course.id
@@ -194,7 +194,7 @@ async function toggleArchived() {
       </RouterLink>
     </div>
 
-    <!-- New course (educators) -->
+    <!-- new course (educators) -->
     <CourseForm
       v-if="showForm"
       submit-label="Create course"
@@ -204,21 +204,21 @@ async function toggleArchived() {
       @cancel="closeForm"
     />
 
-    <!-- Loading (the list is hidden while the form is open) -->
+    <!-- loading (the list is hidden while the form is open) -->
     <div v-else-if="loading" class="d-flex justify-content-center py-5">
       <span class="spinner-border text-primary">
         <span class="visually-hidden">Loading your courses…</span>
       </span>
     </div>
 
-    <!-- Couldn't load -->
+    <!-- couldn't load -->
     <div v-else-if="loadError" class="ca-surface">
       <EmptyState icon="bi-exclamation-triangle" title="Couldn't load your courses">
         {{ loadError }}
       </EmptyState>
     </div>
 
-    <!-- No courses yet -->
+    <!-- no courses yet -->
     <div v-else-if="!courses.courses.length" class="ca-surface">
       <EmptyState icon="bi-journal" title="No courses yet">
         <template v-if="isProf">Create your first course to start adding lessons.</template>

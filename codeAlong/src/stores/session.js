@@ -8,11 +8,11 @@ import { openSessionChannel } from '@/api/sessionChannel.api'
 import { useAuthStore } from '@/stores/auth'
 import { useCoursesStore } from '@/stores/courses'
 
-// The live class you're in: its details, the latest checkpoint, who's here, and the connection.
-// Pages call open(id) on arrival and close() on leave; the live channel keeps it current.
+// the live class you're in: its details, the latest checkpoint, who's here, and the connection.
+// pages call open(id) on arrival and close() on leave; the live channel keeps it current.
 export const useSessionStore = defineStore('session', () => {
   const session = ref(null)
-  const connection = ref('offline') // 'live' | 'reconnecting' | 'offline' — for the connection pill
+  const connection = ref('offline') // 'live' | 'reconnecting' | 'offline', for the connection pill
   const present = ref([]) // staff only: [{ userId, name }] of students here right now
   let closeChannel = null
   let connectedBefore = false
@@ -25,7 +25,7 @@ export const useSessionStore = defineStore('session', () => {
   const isLive = computed(() => session.value?.status === SessionStatus.LIVE)
   const isStaff = computed(() => session.value?.role === 'staff')
 
-  // A prof starts a class, a student joins one — both return the session id to open.
+  // A prof starts a class, a student joins one. both return the session id to open.
   const start = (lessonId) => sessionsApi.startSession(lessonId)
   async function join(joinCode) {
     const joined = await sessionsApi.joinSession(joinCode)
@@ -70,7 +70,7 @@ export const useSessionStore = defineStore('session', () => {
           session.value.spotlight = null
         },
       },
-      // staff: every student's status (the dashboard). Everyone: help requests — staff get the
+      // staff: every student's status (the dashboard). everyone: help requests, staff get the
       // whole queue, a student only their own (the tables' rules decide).
       changes: {
         ...(isStaff.value && { student_status: onStatusRow }),
@@ -89,7 +89,7 @@ export const useSessionStore = defineStore('session', () => {
     return session.value
   }
 
-  // Every student's heartbeat rewrites their row every 30 s. One that only moves last_seen_at
+  // every student's heartbeat rewrites their row every 30 s. one that only moves last_seen_at
   // changes nothing on the dashboard (its 10 s poll catches who has gone idle), so it isn't passed on.
   // A delete (a student left the course) arrives as an empty row and always is.
   function onStatusRow(row) {
@@ -105,8 +105,8 @@ export const useSessionStore = defineStore('session', () => {
     for (const handler of rowListeners[table]) handler(row)
   }
 
-  // For other parts of the page that need row changes in this class, e.g. the dashboard:
-  //   const stop = sessionStore.onChange('student_status', (row) => …)   — call stop() on leave
+  // for other parts of the page that need row changes in this class, like the dashboard:
+  //   const stop = sessionStore.onChange('student_status', (row) => …), then call stop() on leave
   function onChange(table, handler) {
     rowListeners[table].add(handler)
     return () => rowListeners[table].delete(handler)
@@ -121,7 +121,7 @@ export const useSessionStore = defineStore('session', () => {
     connection.value = 'offline'
   }
 
-  // Prof actions. The channel brings the result back to everyone, this tab included.
+  // prof actions. the channel brings the result back to everyone, this tab included.
   const saveCheckpoint = (files, title) =>
     checkpointsApi.saveCheckpoint(session.value.id, files, title)
 
@@ -139,7 +139,7 @@ export const useSessionStore = defineStore('session', () => {
     session.value.ended_at = ended.ended_at
   }
 
-  // Takes the class id, so a page that hasn't opened the class can still announce. No text clears it.
+  // takes the class id, so a page that hasn't opened the class can still announce. no text clears it.
   const announce = (sessionId, text) => sessionsApi.announce(sessionId, text)
 
   return {

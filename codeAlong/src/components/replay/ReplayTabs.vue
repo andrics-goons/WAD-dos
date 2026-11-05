@@ -1,6 +1,6 @@
 <script setup>
-// The tabs above a replay's code: switch between the code and the running app, so the page
-// doesn't scroll on past a long diff to reach the preview. What's put inside goes at the right-hand
+// the tabs above a replay's code: switch between the code and the running app, so the page
+// doesn't scroll on past a long diff to reach the preview. what's put inside goes at the right-hand
 // end, or on a line of its own where the tabs leave no room.
 //   <ReplayTabs v-model="tab" :tabs="TABS"> …buttons… </ReplayTabs>
 defineProps({

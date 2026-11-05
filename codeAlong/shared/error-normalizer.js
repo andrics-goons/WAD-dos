@@ -1,9 +1,9 @@
-// turns an error into labels that identify the mistake (design-docs/05-core-logic.md §6)
+// turns an error into labels that identify the mistake
 // runs in the student's browser before their status is saved, so it must be quick and always give the same answer
 //
 //   normalizeError({ name, message }) -> { key, shapeKey }
-//     key       the exact mistake, e.g. "ReferenceError: items is not defined"
-//     shapeKey  the kind of mistake, e.g. "ReferenceError: <id> is not defined"
+//     key       the exact mistake, like "ReferenceError: items is not defined"
+//     shapeKey  the kind of mistake, like "ReferenceError: <id> is not defined"
 
 const MAX_LENGTH = 200
 

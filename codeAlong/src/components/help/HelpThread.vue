@@ -1,8 +1,8 @@
 <script setup>
 import { computed } from 'vue'
 
-// The conversation on a request: the student's opening message, then every reply and
-// follow-up in order. Text only — the code is shown separately.
+// the conversation on a request: the student's opening message, then every reply and
+// follow-up in order. text only, the code is shown separately.
 const props = defineProps({
   request: { type: Object, required: true },
   staffNames: { type: Object, default: () => ({}) },

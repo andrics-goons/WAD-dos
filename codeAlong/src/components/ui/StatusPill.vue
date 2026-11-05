@@ -2,8 +2,8 @@
 import { computed } from 'vue'
 import { tileStateMeta } from './tileStates.js'
 
-// The coloured label for a student's state (Done, Error, Behind…), with an icon and text.
-// Use this everywhere a state is shown so they all look the same.
+// the coloured label for a student's state (Done, Error, Behind…), with an icon and text.
+// use this everywhere a state is shown so they all look the same.
 const props = defineProps({
   state: { type: String, required: true }, // e.g. 'done', 'error'
   size: { type: String, default: 'md', validator: (v) => ['sm', 'md'].includes(v) },

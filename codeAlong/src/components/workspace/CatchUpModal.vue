@@ -1,5 +1,5 @@
 <script setup>
-    // "Load latest checkpoint" asks first (design-docs/05 §7): loading replaces the student's
+    // "Load latest checkpoint" asks first: loading replaces the student's
     // code with the prof's, and nothing keeps the old code, so they can download it first.
     import ConfirmModal from "@/components/ui/ConfirmModal.vue"
     import { checkpointLabel } from "@shared/checkpoint-label.js"

@@ -1,5 +1,5 @@
-// Entry point for the class summary. verify_jwt stays on, and every read uses the caller's
-// own JWT, so RLS applies exactly as it does in the app. Only the test outbox uses the
+// entry point for the class summary. verify_jwt stays on, and every read uses the caller's
+// own JWT, so RLS applies exactly as it does in the app. only the test outbox uses the
 // service role (mock mode writes there).
 import { createGroqClient } from '../_shared/groq.ts'
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts'

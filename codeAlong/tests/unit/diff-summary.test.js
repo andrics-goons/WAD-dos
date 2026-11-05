@@ -1,21 +1,21 @@
-// Unit tests for shared/diff-summary.js, used by the replay and the TA's side-by-side
+// unit tests for shared/diff-summary.js, used by the replay and the TA's side-by-side
 import { describe, it, expect } from 'vitest'
 import { diffSummary } from '../../shared/diff-summary.js'
 
-// One file in the jsonb `files` shape
+// one file in the jsonb `files` shape
 const f = (path, content, language = 'js') => ({ path, language, content })
 
-// ['line 1', 'line 2', …] — easy to tell apart, easy to point at
+// ['line 1', 'line 2', …]: easy to tell apart, easy to point at
 const numbered = (n) => Array.from({ length: n }, (_, i) => `line ${i + 1}`)
 const text = (lines) => `${lines.join('\n')}\n`
 
-// Copy of `lines` with some 1-based line numbers replaced
+// copy of `lines` with some 1-based line numbers replaced
 const withLines = (lines, changes) =>
   lines.map((line, i) => (i + 1 in changes ? changes[i + 1] : line))
 
 describe('diffSummary', () => {
   describe('one checkpoint against the next', () => {
-    // The Mini Cart step 4 mistake: `items` where the checkpoint has `props.items`
+    // the Mini Cart step 4 mistake: `items` where the checkpoint has `props.items`
     const checkpoint = withLines(numbered(30), { 22: '    <ItemCard :items="props.items" />' })
     const attempt = withLines(checkpoint, { 22: '    <ItemCard :items="items" />' })
     const [file] = diffSummary(
@@ -31,7 +31,7 @@ describe('diffSummary', () => {
     })
   })
 
-  // Formatting differences shouldn't show up as changes
+  // formatting differences shouldn't show up as changes
   describe('whitespace-only changes are ignored', () => {
     it('ignores indentation and trailing spaces', () => {
       const before = '<template>\n  <div>{{ total }}</div>\n</template>\n'
@@ -46,12 +46,12 @@ describe('diffSummary', () => {
     it('still reports the real change when whitespace changed too', () => {
       const [file] = diffSummary([f('a.js', 'a\n  b\nc\n')], [f('a.js', 'a\nb\nC\n')]).files
       expect(file).toMatchObject({ added: 1, removed: 1, firstDiffLine: 3 })
-      // Unchanged lines are shown as the checkpoint has them, since that is what gets loaded
+      // unchanged lines are shown as the checkpoint has them, since that is what gets loaded
       expect(file.hunks[0].lines[1]).toEqual({ type: 'context', text: 'b', oldLine: 2, newLine: 2 })
     })
   })
 
-  // Added / removed / unchanged files, and the order they come back in
+  // added / removed / unchanged files, and the order they come back in
   describe('which files are listed', () => {
     it('reports a file the student is missing as added', () => {
       const [file] = diffSummary(
@@ -76,7 +76,7 @@ describe('diffSummary', () => {
     })
   })
 
-  // Line numbers at the edges, and how nearby changes are grouped into hunks
+  // line numbers at the edges, and how nearby changes are grouped into hunks
   describe('line numbers and hunks', () => {
     it('points a pure deletion at the line now standing where it was', () => {
       const before = numbered(10)

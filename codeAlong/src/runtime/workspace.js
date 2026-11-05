@@ -7,7 +7,7 @@ export async function startWorkspace(webcontainer, files, onServerReady) {
     await webcontainer.mount(toFileSystemTree(files))
 
     // put back the packages saved on this device after an earlier install (src/runtime/install.js),
-    // then save them again whenever an install finishes. Watching starts after the restore, so
+    // then save them again whenever an install finishes. watching starts after the restore, so
     // restoring doesn't count as an install
     await restorePackages(webcontainer)
     const stopWatching = watchInstalls(webcontainer)

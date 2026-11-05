@@ -1,6 +1,6 @@
 // GitHub REST client for github-import and github-export.
 //   live: real API calls, with the user's own GitHub token (import and export)
-//   mock (EXTERNAL_APIS=mock): no network. Each call is recorded in test_outbox, never with a
+//   mock (EXTERNAL_APIS=mock): no network. each call is recorded in test_outbox, never with a
 //   token, and answered with a small made-up repo or fake ids, so tests never touch GitHub.
 
 import { recordOutbox, shouldMockFail, type EnvReader, type OutboxClient } from './outbox.ts'
@@ -41,7 +41,7 @@ export function liveGithub(fetchFn: typeof fetch, token: string): Github {
   }
 }
 
-// The repo every mock import returns: a tiny Vite lesson with two TODO steps, complete enough
+// the repo every mock import returns: a tiny Vite lesson with two TODO steps, complete enough
 // for New lesson to add the error reporter to it
 const MOCK_REPO = [
   {

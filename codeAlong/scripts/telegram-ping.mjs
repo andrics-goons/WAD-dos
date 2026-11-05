@@ -1,11 +1,11 @@
-// Manual Telegram smoke test (not part of the app). Run from codeAlong/:
+// manual Telegram smoke test (not part of the app). run from codeAlong/:
 //
 //   node --env-file=.env.telegram.local scripts/telegram-ping.mjs chat-id
 //       lists the chats that have messaged your bot, so you can find your TELEGRAM_CHAT_ID
 //   node --env-file=.env.telegram.local scripts/telegram-ping.mjs ping
 //       sends a sample in-person help ping to TELEGRAM_CHAT_ID
 //
-// .env.telegram.local holds TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID. It is git-ignored
+// .env.telegram.local holds TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID. it is git-ignored
 // (*.local) and must never be committed or put in a VITE_ variable, which would ship to the browser.
 import process from 'node:process'
 import { createTelegramSender, formatInPersonPing, sendWithRetry } from '../shared/telegram.js'

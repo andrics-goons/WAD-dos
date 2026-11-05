@@ -1,14 +1,14 @@
 <script setup>
     import { computed, ref } from "vue"
 
-    // The editor and the preview side by side, shared by the student workspace and the TA's copy
-    // of a student's code (/help/:id/code). From xl it's split view (side by side) or full view
+    // the editor and the preview side by side, shared by the student workspace and the TA's copy
+    // of a student's code (/help/:id/code). from xl it's split view (side by side) or full view
     // (one at a time), picked with the expand / split button in either pane's header and kept on
-    // this device. Below xl, and in full view, one shows at a time and the code / eye button in
-    // each header swaps them. Nothing is unmounted, so the terminal and the running preview
+    // this device. below xl, and in full view, one shows at a time and the code / eye button in
+    // each header swaps them. nothing is unmounted, so the terminal and the running preview
     // survive every change.
     //
-    // Each slot gets what its panel needs: <EditorPanel v-bind="pane" @toggle-view="toggleView"
+    // each slot gets what its panel needs: <EditorPanel v-bind="pane" @toggle-view="toggleView"
     // @show-preview="swap" /> (switchable and view are EditorPanel's and PreviewPanel's props)
 
     // when one pane shows at a time (below xl, or in full view): is it the preview?
@@ -58,7 +58,7 @@
         flex: 1;
         min-height: 0;
     }
-    /* Full view from xl: like the Teach view's Present, the other pane narrows to nothing and
+    /* full view from xl: like the Teach view's Present, the other pane narrows to nothing and
        fades while this one widens, instead of snapping */
     .workspace-box,
     .preview-box {

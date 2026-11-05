@@ -1,4 +1,4 @@
-// Entry point for the after-class digest. verify_jwt stays on. Whether the caller may send it
+// entry point for the after-class digest. verify_jwt stays on. whether the caller may send it
 // (they own the course) is checked with their own JWT, so RLS and the helper functions decide
 // exactly as in the app. Telegram chat ids aren't readable by the prof, so the recipients are
 // read with the service role.

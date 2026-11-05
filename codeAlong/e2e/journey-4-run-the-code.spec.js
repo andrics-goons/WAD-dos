@@ -9,8 +9,8 @@ import {
   typeAtEnd,
 } from './classroom'
 
-// Journey 4: a student runs the project in the browser, makes a mistake, and the prof sees it on
-// the dashboard without being told. This one really installs the packages from the npm registry,
+// journey 4: a student runs the project in the browser, makes a mistake, and the prof sees it on
+// the dashboard without being told. this one really installs the packages from the npm registry,
 // so it needs the network and takes the longest.
 const room = classroom()
 

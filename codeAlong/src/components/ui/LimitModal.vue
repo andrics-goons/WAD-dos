@@ -2,8 +2,8 @@
 import { nextTick, ref, watch } from 'vue'
 import { useLimitStore } from '@/stores/limits'
 
-// The pop-up for a usage limit: the site-wide LLM limit, too many lessons in a course, or
-// storage used up. Mounted once in App.vue; the limits store opens it.
+// the pop-up for a usage limit: the site-wide LLM limit, too many lessons in a course, or
+// storage used up. mounted once in App.vue; the limits store opens it.
 const limits = useLimitStore()
 const okBtn = ref(null)
 

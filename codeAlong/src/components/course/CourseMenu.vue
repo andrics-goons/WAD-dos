@@ -2,10 +2,10 @@
 import { ref, watch } from 'vue'
 import { Role } from '@shared/constants.js'
 
-// The ⋯ menu on a course in My courses (the cards and the archived list):
+// the ⋯ menu on a course in My courses (the cards and the archived list):
 //   Archive (or Restore, once archived) · Leave course (a student) · Delete (the owner, until a
 //   class has run in the course; after that it's greyed out, and the ? says why).
-// The page decides which menu is open (one at a time) and what each choice does.
+// the page decides which menu is open (one at a time) and what each choice does.
 //   <CourseMenu :course="c" :open="menuFor === c.id" @toggle="toggleMenu(c)" @archive="…" />
 const props = defineProps({
   course: { type: Object, required: true }, // from listCourses: code, myRole, isOwner, hasClasses, archived

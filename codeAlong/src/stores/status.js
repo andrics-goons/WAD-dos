@@ -12,11 +12,11 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import { useSessionStore } from '@/stores/session'
 
-// What the prof's dashboard knows about me in this class (design-docs/05 §4): which checkpoint
+// what the prof's dashboard knows about me in this class: which checkpoint
 // I've clicked Done on and my latest error. A new checkpoint makes me In progress again
-// (the database compares doneSeq with the latest), so nothing here resets. Never my code: the table has no column for it.
-// My row is written when either changes (at most once every 2 s) and every 30 s while the tab
-// is visible, so the dashboard can tell I'm still here. The database works out my tile state.
+// (the database compares doneSeq with the latest), so nothing here resets. never my code: the table has no column for it.
+// my row is written when either changes (at most once every 2 s) and every 30 s while the tab
+// is visible, so the dashboard can tell I'm still here. the database works out my tile state.
 export const useStatusStore = defineStore('status', () => {
   const doneSeq = ref(null) // the checkpoint I clicked Done on (0 = the starter code), or null
   const error = ref(null)
@@ -29,7 +29,7 @@ export const useStatusStore = defineStore('status', () => {
   let waiting = null // a write held back by the 2 s throttle
   let lastWrite = 0
 
-  // Opening the workspace: read my row (a refresh keeps my progress), then write it, which
+  // opening the workspace: read my row (a refresh keeps my progress), then write it, which
   // records my attendance the first time
   async function start(id) {
     stop()
@@ -55,8 +55,8 @@ export const useStatusStore = defineStore('status', () => {
     heartbeat = waiting = sessionId = null
   }
 
-  // Leaving the class page (Home, another class, Exit): stop reporting, and take back my Slow down
-  // so it stops counting for a class I'm no longer in. If that can't be sent (the class has ended,
+  // leaving the class page (Home, another class, Exit): stop reporting, and take back my Slow down
+  // so it stops counting for a class I'm no longer in. if that can't be sent (the class has ended,
   // or no connection) the database stops counting me once I've not been seen for a few minutes.
   // A refresh or a closed tab runs none of this: the same few minutes cover them.
   async function leave() {
@@ -73,7 +73,7 @@ export const useStatusStore = defineStore('status', () => {
     }
   }
 
-  // Back on the tab after being away: say I'm here straight away, not at the next heartbeat
+  // back on the tab after being away: say I'm here straight away, not at the next heartbeat
   const onVisible = () => document.visibilityState === 'visible' && write()
 
   async function write() {
@@ -103,7 +103,7 @@ export const useStatusStore = defineStore('status', () => {
   }
 
   // "Done" on the prof's latest checkpoint, and undoing it ("In progress" again).
-  // Done also takes back my "Slow down": I've caught up, and a flag I forgot about would keep
+  // done also takes back my "Slow down": I've caught up, and a flag I forgot about would keep
   // the prof's count high. I can raise it again any time
   function markDone(seq) {
     doneSeq.value = seq
@@ -118,7 +118,7 @@ export const useStatusStore = defineStore('status', () => {
   }
 
   // I loaded the prof's latest checkpoint: the report counts it as a catch-up at that checkpoint.
-  // Logged, not thrown: my code has already been replaced, which is what the student cares about
+  // logged, not thrown: my code has already been replaced, which is what the student cares about
   async function recordCatchUp() {
     if (!sessionId || !useSessionStore().isLive) return
     catchUps.value++
@@ -129,8 +129,8 @@ export const useStatusStore = defineStore('status', () => {
     }
   }
 
-  // From the preview or the dev server: { source: 'runtime' | 'build', name, message, file, line }.
-  // Build errors must have their code frame stripped before they get here (design-docs/05 §1).
+  // from the preview or the dev server: { source: 'runtime' | 'build', name, message, file, line }.
+  // build errors must have their code frame stripped before they get here.
   function setError({ source, name, message, file = null, line = null }) {
     const { key, shapeKey } = normalizeError({ name, message })
     if (error.value?.key === key) return // the same error again: nothing new for the dashboard
@@ -154,7 +154,7 @@ export const useStatusStore = defineStore('status', () => {
     changed()
   }
 
-  // "Slow down" on or off. Shown straight away; put back if the database refuses (e.g. the
+  // "Slow down" on or off. shown straight away; put back if the database refuses (like the
   // class has just ended), and the caller shows why.
   async function toggleSlowDown() {
     const on = !slowDown.value

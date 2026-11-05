@@ -23,8 +23,8 @@ export async function logout() {
 }
 
 /**
- * Delete my account for good. A prof's courses go with it, with every class in them.
- * Then forget the session on this browser: the account behind it no longer exists.
+ * delete my account for good. A prof's courses go with it, with every class in them.
+ * then forget the session on this browser: the account behind it no longer exists.
  */
 export async function deleteAccount() {
   const { error } = await supabase.rpc('delete_my_account')
@@ -56,7 +56,7 @@ export async function getCurrentUser() {
 }
 
 /**
- * Right after a GitHub sign-up: be a student or an educator ('student' | 'prof'). Once only,
+ * right after a GitHub sign-up: be a student or an educator ('student' | 'prof'). once only,
  * before joining any course; CONFLICT after that.
  */
 export async function chooseRole(role) {
@@ -65,8 +65,8 @@ export async function chooseRole(role) {
 }
 
 /**
- * Change your display name. Only `name`: the profiles policy refuses any change to `role`.
- * VALIDATION_FAILED unless it is 2–60 characters. Returns { id, name, role }.
+ * change your display name. only `name`: the profiles policy refuses any change to `role`.
+ * VALIDATION_FAILED unless it is 2–60 characters. returns { id, name, role }.
  */
 export async function updateProfile({ name }) {
   const {
@@ -85,7 +85,7 @@ export async function updateProfile({ name }) {
 }
 
 /**
- * Change your password. The current one is checked first, so someone at an unlocked,
+ * change your password. the current one is checked first, so someone at an unlocked,
  * logged-in laptop can't change it. VALIDATION_FAILED if the new one is too weak or the
  * same as before.
  */
@@ -116,16 +116,16 @@ export async function changePassword({ currentPassword, newPassword }) {
 }
 
 /**
- * Run callback(event, session) on every auth change — in this tab and, through supabase-js's
- * cross-tab sync, in other tabs too (e.g. 'SIGNED_OUT' when another tab logs out).
- * Returns { data: { subscription } }; call subscription.unsubscribe() to stop.
+ * run callback(event, session) on every auth change, in this tab and, through supabase-js's
+ * cross-tab sync, in other tabs too (like 'SIGNED_OUT' when another tab logs out).
+ * returns { data: { subscription } }; call subscription.unsubscribe() to stop.
  */
 export function onAuthChange(callback) {
   return supabase.auth.onAuthStateChange((event, session) => callback(event, session))
 }
 
 // --- GitHub ------------------------------------------------------------------------
-// Supabase Auth does the OAuth dance with GitHub. Both calls below leave this page for
+// Supabase Auth does the OAuth dance with GitHub. both calls below leave this page for
 // GitHub and come back to `returnTo` signed in (or linked); supabase-js reads the session
 // from the URL when the app loads again.
 
@@ -141,7 +141,7 @@ export async function signInWithGitHub(returnTo = '/home') {
 }
 
 /**
- * The GitHub account linked to mine: { username, canDisconnect }, or null if there isn't one.
+ * the GitHub account linked to mine: { username, canDisconnect }, or null if there isn't one.
  * canDisconnect is false when GitHub is my only way to log in.
  */
 export async function getGitHubLink() {
@@ -157,8 +157,8 @@ export async function getGitHubLink() {
 
 /**
  * "Connect GitHub" (profile page, GitHub import, replay export): gets a GitHub token on my
- * session, with the repo access that exporting a replay needs (design-docs/05 §11).
- * Not linked yet: links GitHub to the account I'm logged in with. Already linked (the token
+ * session, with the repo access that exporting a replay needs.
+ * not linked yet: links GitHub to the account I'm logged in with. already linked (the token
  * goes when I log in with a password, or expires): signs in through it again, which lands on
  * this same account, since Supabase refuses to link a GitHub that's already linked.
  */
@@ -173,7 +173,7 @@ export async function connectGitHub(returnTo = '/profile') {
   if (error) throw mapError(error)
 }
 
-/** Unlink GitHub. Refused by Supabase if it's my only way to log in. */
+/** Unlink GitHub. refused by Supabase if it's my only way to log in. */
 export async function disconnectGitHub() {
   const { data, error } = await supabase.auth.getUserIdentities()
   if (error) throw mapError(error)

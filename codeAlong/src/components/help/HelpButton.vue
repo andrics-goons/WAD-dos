@@ -2,9 +2,9 @@
 import { ref } from 'vue'
 import StudentHelpPanel from '@/components/help/StudentHelpPanel.vue'
 
-// The workspace's Help button. It opens a pop-up with Check my work, Ask for help and the
-// status of my requests. The panel stays mounted while the pop-up is closed, so a TA's reply
-// is still received. Props are passed straight to the panel.
+// the workspace's Help button. it opens a pop-up with Check my work, Ask for help and the
+// status of my requests. the panel stays mounted while the pop-up is closed, so a TA's reply
+// is still received. props are passed straight to the panel.
 defineProps({
   sessionId: { type: String, required: true },
   files: { type: Array, required: true },

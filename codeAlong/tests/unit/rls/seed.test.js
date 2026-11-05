@@ -1,6 +1,6 @@
 // @vitest-environment node
-// Checks supabase/seed.sql: the accounts the demo and the E2E tests sign in as work, and the seeded
-// student code is private. Skipped when the database hasn't been seeded (run
+// checks supabase/seed.sql: the accounts the demo and the E2E tests sign in as work, and the seeded
+// student code is private. skipped when the database hasn't been seeded (run
 // `pnpm exec supabase db reset` first).
 import { describe, it, expect } from 'vitest'
 import { anonClient, service } from './_helpers.js'

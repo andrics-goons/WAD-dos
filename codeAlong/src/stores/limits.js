@@ -3,8 +3,8 @@ import { defineStore } from 'pinia'
 import { LimitCode } from '@shared/constants.js'
 import { onLimitReached } from '@/api/mapError'
 
-// The limit pop-up (LimitModal): the site-wide LLM limit, or a database limit (lessons per
-// course, storage). The same limit pops up at most once a minute, so autosave retrying or a
+// the limit pop-up (LimitModal): the site-wide LLM limit, or a database limit (lessons per
+// course, storage). the same limit pops up at most once a minute, so autosave retrying or a
 // dashboard refreshing doesn't keep opening it.
 const REPEAT_AFTER_MS = 60_000
 const TITLES = { [LimitCode.LLM]: 'LLM call limit reached', [LimitCode.USAGE]: 'Limit reached' }

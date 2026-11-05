@@ -1,5 +1,5 @@
-// Pure Telegram helpers shared by the Edge Functions (Deno) and the unit tests (Vitest).
-// No DOM, no Deno, no direct network: anything that talks to Telegram takes an injected `send`.
+// pure Telegram helpers shared by the Edge Functions (Deno) and the unit tests (Vitest).
+// no DOM, no Deno, no direct network: anything that talks to Telegram takes an injected `send`.
 
 import { checkpointLabel } from './checkpoint-label.js'
 
@@ -10,7 +10,7 @@ export function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>]/g, (ch) => HTML_ESCAPES[ch])
 }
 
-// Webhook auth: Telegram echoes the secret_token we registered in this header.
+// webhook auth: Telegram echoes the secret_token we registered in this header.
 export function isValidWebhookSecret(headerValue, expected) {
   if (!expected || typeof headerValue !== 'string' || headerValue.length !== expected.length) {
     return false
@@ -36,7 +36,7 @@ export function checkLinkCode(profile, code, now = Date.now()) {
   return Number.isFinite(expiresAt) && expiresAt > now ? 'ok' : 'expired'
 }
 
-// The in-person help ping (layout from design-docs/05 §8). Every user-supplied field is escaped.
+// the in-person help ping. every user-supplied field is escaped.
 export function formatInPersonPing({
   courseLabel,
   lessonTitle,
@@ -57,8 +57,8 @@ export function formatInPersonPing({
   return lines.join('\n')
 }
 
-// The `count` checkpoints with the most of `field` (e.g. the trouble score, design-docs/05 §10),
-// most first; a tie goes to the earlier one. Only checkpoints where it happened at all
+// the `count` checkpoints with the most of `field` (like the trouble score),
+// most first; a tie goes to the earlier one. only checkpoints where it happened at all
 export function topCheckpoints(report, field, count) {
   return [...(report.checkpoints ?? [])]
     .filter((c) => c[field] > 0)
@@ -66,8 +66,8 @@ export function topCheckpoints(report, field, count) {
     .slice(0, count)
 }
 
-// The after-class digest for the course's staff (design-docs/05 §10): attendance, where the
-// class struggled, the top errors and any help requests nobody finished. Counts only.
+// the after-class digest for the course's staff: attendance, where the
+// class struggled, the top errors and any help requests nobody finished. counts only.
 export function formatStaffDigest({ courseLabel, lessonTitle, report, openHelp, link }) {
   const where = [courseLabel, lessonTitle].filter(Boolean).map(escapeHtml).join(' · ')
   const { joined, enrolled } = report.attendance
@@ -92,7 +92,7 @@ export function formatStaffDigest({ courseLabel, lessonTitle, report, openHelp, 
   return lines.join('\n')
 }
 
-// For enrolled students who didn't join: what they missed and where to start in the replay
+// for enrolled students who didn't join: what they missed and where to start in the replay
 export function formatAbsentDigest({ lessonTitle, report, link }) {
   const [worst] = topCheckpoints(report, 'trouble', 1)
   const lines = [`You missed <b>${escapeHtml(lessonTitle)}</b>.`]
@@ -105,9 +105,9 @@ export function formatAbsentDigest({ lessonTitle, report, link }) {
   return lines.join('\n')
 }
 
-// Live sender for Telegram's sendMessage, with fetch injected so tests never hit the network.
-// Returns { ok, status, retryAfter? } and never throws, so a Telegram outage cannot fail the
-// caller. The token is only ever used to build the URL; it is never logged or returned.
+// live sender for Telegram's sendMessage, with fetch injected so tests never hit the network.
+// returns { ok, status, retryAfter? } and never throws, so a Telegram outage cannot fail the
+// caller. the token is only ever used to build the URL; it is never logged or returned.
 export function createTelegramSender(fetchFn, token) {
   return async (chatId, html) => {
     try {
@@ -142,8 +142,8 @@ export const BOT_REPLIES = Object.freeze({
   help: 'Link your account from your CodeAlong profile, then send /start &lt;code&gt;. /stop unlinks.',
 })
 
-// Calls send(chatId, html) -> { ok, status, retryAfter? }. On a 429, waits
-// retry_after seconds and retries once (T-TG-04). The caller records the result, so a
+// calls send(chatId, html) -> { ok, status, retryAfter? }. on a 429, waits
+// retry_after seconds and retries once (T-TG-04). the caller records the result, so a
 // Telegram outage never fails the student's request.
 export async function sendWithRetry(send, chatId, html, sleep = defaultSleep) {
   let result = await send(chatId, html)

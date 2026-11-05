@@ -1,5 +1,5 @@
-// Service-role Supabase client for Edge Functions. It bypasses RLS, so it must only ever be
-// used inside a function, after the function has checked who is calling. The key is injected
+// service-role Supabase client for Edge Functions. it bypasses RLS, so it must only ever be
+// used inside a function, after the function has checked who is calling. the key is injected
 // by Supabase at runtime and never leaves the function.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 

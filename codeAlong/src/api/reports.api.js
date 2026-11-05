@@ -3,16 +3,16 @@ import { AppError, mapError } from './mapError'
 import { invoke } from './invoke'
 import { Fn } from '@shared/constants.js'
 
-// The end-of-class report (design-docs/04, "Reports & digests"). Owner: Andric.
-// The report row is built by the database when the prof ends the class; staff read it here.
+// the end-of-class report.
+// the report row is built by the database when the prof ends the class; staff read it here.
 
 /**
- * Everything the report page shows for one class, or NOT_FOUND if it isn't yours to see.
+ * everything the report page shows for one class, or NOT_FOUND if it isn't yours to see.
  *   session  { id, status, startedAt, endedAt, lessonId, lessonTitle, courseLabel }
  *   report   the session_reports row, or null while the class is still live
  *   help     { total, leftOpen, medianWaitMinutes } from the class's help requests
- *   stuck    [{ checkpointSeq, category, summary }]: the saved AI diagnosis of each help request
- *            (design-docs/05 §8a), for "What students got stuck on". Requests with none are left out
+ *   stuck    [{ checkpointSeq, category, summary }]: the saved AI diagnosis of each help request,
+ *            for "What students got stuck on". requests with none are left out
  *   isProf   whether I own the course (only the prof sends the digest)
  */
 export async function getReport(sessionId) {
@@ -68,7 +68,7 @@ export async function getReport(sessionId) {
 }
 
 // How long students waited for a TA: from asking to the first staff reply, or to being passed
-// or resolved when there was no written reply. Requests nobody handled don't count.
+// or resolved when there was no written reply. requests nobody handled don't count.
 export function helpStats(requests) {
   const waits = requests
     .map((r) => {
@@ -101,8 +101,8 @@ export async function lessonTrends(lessonId) {
 }
 
 /**
- * Prof only, once per class: Telegram the summary to the course's staff and tell absent
- * students where to start. Returns { sent, failed, staff, absent }.
+ * prof only, once per class: Telegram the summary to the course's staff and tell absent
+ * students where to start. returns { sent, failed, staff, absent }.
  */
 export async function sendDigest(sessionId) {
   return invoke(Fn.DIGEST, { sessionId })

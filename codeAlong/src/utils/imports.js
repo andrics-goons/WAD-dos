@@ -1,13 +1,13 @@
-// Which files point at a file by name, so moving or renaming it would break them: an import
+// which files point at a file by name, so moving or renaming it would break them: an import
 // (`import ItemCard from './components/ItemCard.vue'`, `import './style.css'`, a dynamic
 // `import('./x')`), a `require('./x')`, a `new URL('./data.json', import.meta.url)`, an HTML
 // `src="/src/main.js"`, or the whole path in a .json file (package.json's "node server/api.js"; a
-// path in a code comment or the .md docs is only words). It goes by the file's name, not by
+// path in a code comment or the .md docs is only words). it goes by the file's name, not by
 // resolving paths, so it errs towards warning: `./ItemCard` (no extension) counts too.
 
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-/** The paths of the files (other than `path` itself) that refer to `path`, in their order. */
+/** the paths of the files (other than `path` itself) that refer to `path`, in their order. */
 export function importersOf(files, path) {
   const name = path.split('/').pop()
   const stem = name.replace(/\.(js|vue)$/, '') // Vite resolves these without the extension
@@ -22,7 +22,7 @@ export function importersOf(files, path) {
     .map((f) => f.path)
 }
 
-/** The warning for moving or renaming `path`, or null when nothing refers to it. */
+/** the warning for moving or renaming `path`, or null when nothing refers to it. */
 export function moveWarning(files, path) {
   const importers = importersOf(files, path)
   if (!importers.length) return null

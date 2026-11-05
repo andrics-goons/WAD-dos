@@ -6,8 +6,8 @@ import { useCoursesStore } from '@/stores/courses'
 import { useHomeStore } from '@/stores/home'
 import EmptyState from '@/components/ui/EmptyState.vue'
 
-// Where you land once logged in: classes that are live right now and your courses. Joining with a
-// code is the navbar's "Join a class". The public landing page (/) sends logged-in users here.
+// where you land once logged in: classes that are live right now and your courses. joining with a
+// code is the navbar's "Join a class". the public landing page (/) sends logged-in users here.
 const auth = useAuthStore()
 const courses = useCoursesStore()
 const store = useHomeStore()
@@ -73,7 +73,7 @@ function classLink(s) {
     </div>
 
     <div v-else class="row g-4">
-      <!-- Live now -->
+      <!-- live now -->
       <section class="col-12 col-lg-7">
         <h2 class="fs-4 fw-semibold mb-3">Live now</h2>
         <div v-if="!shownLive.length" class="ca-surface">
@@ -100,7 +100,7 @@ function classLink(s) {
         </ul>
       </section>
 
-      <!-- My courses -->
+      <!-- my courses -->
       <section class="col-12 col-lg-5">
         <div class="d-flex align-items-center mb-3">
           <h2 class="fs-4 fw-semibold mb-0">My courses</h2>

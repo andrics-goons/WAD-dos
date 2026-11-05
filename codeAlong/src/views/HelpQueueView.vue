@@ -10,8 +10,8 @@ import HelpRequestCard from '@/components/help/HelpRequestCard.vue'
 import HelpReviewPanel from '@/components/help/HelpReviewPanel.vue'
 import { isActive } from '@/components/help/helpLabels.js'
 
-// The TA's page for a live class: requests oldest first on the left, the one being looked
-// at on the right. Below lg the list and the request take turns.
+// the TA's page for a live class: requests oldest first on the left, the one being looked
+// at on the right. below lg the list and the request take turns.
 const props = defineProps({ id: { type: String, required: true } })
 
 const help = useHelpStore()
@@ -23,7 +23,7 @@ const loading = ref(true)
 const loadError = ref('')
 const selectedId = ref(null)
 
-// The Handled list can be folded away so a long class doesn't bury the queue. The count stays on
+// the Handled list can be folded away so a long class doesn't bury the queue. the count stays on
 // the heading, and the choice is kept on this device
 const HANDLED_KEY = 'codealong:help-handled-open'
 const handledOpen = ref(
@@ -56,7 +56,7 @@ const selected = computed(
 )
 const myId = computed(() => auth.user?.id ?? null)
 
-// The waiting times count up without a request changing
+// the waiting times count up without a request changing
 const now = ref(Date.now())
 const ticker = setInterval(() => (now.value = Date.now()), 30_000)
 
@@ -87,14 +87,14 @@ async function claim(request) {
 
 <template>
   <div class="ca-page">
-    <!-- Loading -->
+    <!-- loading -->
     <div v-if="loading" class="d-flex justify-content-center py-5">
       <span class="spinner-border text-primary">
         <span class="visually-hidden">Loading the queue…</span>
       </span>
     </div>
 
-    <!-- Not found (or not your class) / couldn't load -->
+    <!-- not found (or not your class) / couldn't load -->
     <div v-else-if="loadError" class="ca-surface">
       <EmptyState
         :icon="loadError === 'not-found' ? 'bi-question-circle' : 'bi-exclamation-triangle'"
@@ -123,7 +123,7 @@ async function claim(request) {
       </header>
 
       <div class="row g-3">
-        <!-- The queue -->
+        <!-- the queue -->
         <div class="col-12 col-lg-5 col-xl-4" :class="{ 'd-none d-lg-block': selected }">
           <h2 class="fs-6 mb-2">
             Waiting <span class="text-body-secondary">({{ waiting.length }})</span>
@@ -178,7 +178,7 @@ async function claim(request) {
           </template>
         </div>
 
-        <!-- The request being looked at -->
+        <!-- the request being looked at -->
         <div class="col-12 col-lg-7 col-xl-8" :class="{ 'd-none d-lg-block': !selected }">
           <!-- the same heading as the one beside it, unseen: it lines this box up with the first request -->
           <h2 class="fs-6 mb-2 invisible d-none d-lg-block">Waiting</h2>

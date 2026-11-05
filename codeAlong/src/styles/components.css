@@ -1,11 +1,11 @@
-/* Our buttons, form fields and panels. Everything starts with ca- so it never
-   clashes with other code. Examples of each one are on /_kit. */
+/* our buttons, form fields and panels. everything starts with ca- so it never
+   clashes with other code. examples of each one are on /_kit. */
 
-/* Buttons: <button class="ca-btn ca-btn--primary">Save</button>
-   Each button has four "settings" (--btn-bg, --btn-fg …). The styles below only read them,
-   so a variant like --primary just changes the settings — hover/focus come for free. */
+/* buttons: <button class="ca-btn ca-btn--primary">Save</button>
+   each button has four "settings" (--btn-bg, --btn-fg …). the styles below only read them,
+   so a variant like --primary just changes the settings, hover/focus come for free. */
 .ca-btn {
-  /* the settings — default is a plain white button */
+  /* the settings, default is a plain white button */
   --btn-bg: var(--ca-surface);
   --btn-bg-hover: var(--ca-surface-muted);
   --btn-fg: var(--ca-text);
@@ -46,7 +46,7 @@
   cursor: not-allowed;
 }
 
-/* Variants — each one only changes the settings */
+/* variants: each one only changes the settings */
 .ca-btn--primary {
   --btn-bg: var(--ca-brand);
   --btn-bg-hover: var(--ca-brand-hover);
@@ -117,8 +117,8 @@
   width: 2rem;
 }
 
-/* Form fields: wrap each one in .ca-field, with .ca-label and .ca-input inside.
-   Mark a wrong field with the ca-input--invalid class — it turns red. */
+/* form fields: wrap each one in .ca-field, with .ca-label and .ca-input inside.
+   mark a wrong field with the ca-input--invalid class, it turns red. */
 .ca-field {
   display: flex;
   flex-direction: column;
@@ -192,7 +192,7 @@ select.ca-input {
   color: #fca5a5;
 }
 
-/* Panels: .ca-surface is a plain white box, .ca-card is the same with padding inside */
+/* panels: .ca-surface is a plain white box, .ca-card is the same with padding inside */
 .ca-surface {
   background: var(--ca-surface);
   border: 1px solid var(--ca-border);
@@ -212,7 +212,7 @@ select.ca-input {
   }
 }
 
-/* Student states: add ca-state--done (or error, in_progress…) to any element, then use
+/* student states: add ca-state--done (or error, in_progress…) to any element, then use
    (ca-state--behind is no longer a student state; the help pills use it as their blue.)
    var(--state), var(--state-bg) and var(--state-fg) for its colours. */
 .ca-state--done {
@@ -277,7 +277,7 @@ select.ca-input {
   font-size: 1.5rem;
 }
 
-/* Join code boxes: square-ish, shrinking a little on small phones */
+/* join code boxes: square-ish, shrinking a little on small phones */
 .ca-join-box {
   flex: 0 1 3rem;
   min-width: 0;
@@ -287,7 +287,7 @@ select.ca-input {
   font-size: var(--ca-text-xl);
 }
 
-/* Navbar */
+/* navbar */
 .ca-navbar {
   z-index: var(--ca-z-navbar);
   height: var(--ca-navbar-height);
@@ -329,8 +329,8 @@ select.ca-input {
   text-transform: uppercase;
 }
 /* phones: the links drop down under the bar · tablets and up: in a row on the right */
-/* Phones: the links are a panel that slides in from the right, under the bar, with the profile
-   at its bottom (its menu opens upwards). Tablets and up: always in a row. */
+/* phones: the links are a panel that slides in from the right, under the bar, with the profile
+   at its bottom (its menu opens upwards). tablets and up: always in a row. */
 .ca-navbar__links {
   position: fixed;
   top: var(--ca-navbar-height);
@@ -430,7 +430,7 @@ select.ca-input {
   box-shadow: var(--ca-shadow-lg);
 }
 
-/* Toasts: phones full width at the bottom · bigger screens bottom-right */
+/* toasts: phones full width at the bottom · bigger screens bottom-right */
 .ca-toasts {
   position: fixed;
   z-index: var(--ca-z-toast);
@@ -474,8 +474,8 @@ select.ca-input {
   font-size: 1.1rem;
 }
 
-/* Thin dark scrollbars for the dark code areas (file tree, editor, terminal list), like VS Code's:
-   no arrows, no track, a soft grey thumb that brightens on hover. Add ca-ide-scroll to the box
+/* thin dark scrollbars for the dark code areas (file tree, editor, terminal list), like VS Code's:
+   no arrows, no track, a soft grey thumb that brightens on hover. add ca-ide-scroll to the box
    that scrolls, or to the editor's wrapper (CodeMirror makes its own scroller inside).
    Chrome and Edge use the ::-webkit-scrollbar parts; Firefox only has the two settings below. */
 .ca-ide-scroll::-webkit-scrollbar,
@@ -505,7 +505,7 @@ select.ca-input {
   }
 }
 
-/* Fade in/out for pop-ups: <Transition name="ca-fade"> */
+/* fade in/out for pop-ups: <Transition name="ca-fade"> */
 .ca-fade-enter-active,
 .ca-fade-leave-active {
   transition: opacity 0.15s ease;

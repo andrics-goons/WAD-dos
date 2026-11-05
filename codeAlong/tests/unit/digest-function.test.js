@@ -1,5 +1,5 @@
-// The after-class digest Edge Function (supabase/functions/digest), with its database, the
-// outbox and Telegram faked. Mock mode writes each message to the outbox instead of sending.
+// the after-class digest Edge Function (supabase/functions/digest), with its database, the
+// outbox and Telegram faked. mock mode writes each message to the outbox instead of sending.
 import { describe, it, expect, vi } from 'vitest'
 import { handleDigest } from '../../supabase/functions/digest/handler.ts'
 

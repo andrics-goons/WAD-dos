@@ -1,8 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { AppError, mapError } from './mapError'
 
-// Linking my Telegram account, for the card on the profile page.
-// Contract: design-docs/04-pages-routes-and-events.md ("Auth & profile").
+// linking my Telegram account, for the card on the profile page.
 
 async function currentUserId() {
   const {
@@ -12,14 +11,14 @@ async function currentUserId() {
   return user.id
 }
 
-/** A one-time link that opens the bot and sends it my code. Works for 10 minutes. */
+/** A one-time link that opens the bot and sends it my code. works for 10 minutes. */
 export async function issueLinkCode() {
   const { data, error } = await supabase.rpc('issue_telegram_link_code')
   if (error) throw mapError(error)
   return data
 }
 
-/** Has the bot saved my chat id yet? */
+/** has the bot saved my chat id yet? */
 export async function isLinked() {
   const { data, error } = await supabase
     .from('profiles')
@@ -30,7 +29,7 @@ export async function isLinked() {
   return data.telegram_chat_id !== null
 }
 
-/** Stop getting messages. The bot's /stop does the same. */
+/** stop getting messages. the bot's /stop does the same. */
 export async function unlink() {
   const { error } = await supabase
     .from('profiles')

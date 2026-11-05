@@ -1,4 +1,4 @@
-// Unit tests for github-import: shared/github.js helpers and the Edge Function handler,
+// unit tests for github-import: shared/github.js helpers and the Edge Function handler,
 // with a fake GitHub (no network) and the mock-mode client that writes test_outbox.
 import { describe, it, expect, vi } from 'vitest'
 import { importCandidates } from '../../shared/github.js'

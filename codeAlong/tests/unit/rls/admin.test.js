@@ -1,5 +1,5 @@
 // @vitest-environment node
-// The admin layer on the live local stack: listing users, changing roles, the read-only
+// the admin layer on the live local stack: listing users, changing roles, the read-only
 // rule (admins can't act inside a course) and the policy sweep.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { userClient, makeAdmin, service, cleanup } from './_helpers.js'

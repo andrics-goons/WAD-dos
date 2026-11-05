@@ -1,8 +1,8 @@
-// Shared setup for RLS tests. Not a test file itself (Vitest only runs *.test.js).
+// shared setup for RLS tests. not a test file itself (Vitest only runs *.test.js).
 import { execSync } from 'node:child_process'
 import { createClient } from '@supabase/supabase-js'
 
-// Read the URL and keys from the running local stack, so tests always match it and
+// read the URL and keys from the running local stack, so tests always match it and
 // the service-role key never has to be written into a file.
 function readLocalStack() {
   let out
@@ -28,10 +28,10 @@ const stack = readLocalStack()
 const noSession = { auth: { persistSession: false, autoRefreshToken: false } }
 const PASSWORD = 'pass1234'
 
-/** An ordinary visitor: every query goes through RLS. */
+/** an ordinary visitor: every query goes through RLS. */
 export const anonClient = () => createClient(stack.url, stack.anonKey, noSession)
 
-/** Bypasses RLS. Test setup and verification only — never in app code. */
+/** bypasses RLS. test setup and verification only, never in app code. */
 export const service = createClient(stack.url, stack.serviceKey, noSession)
 
 // A random id, not a timestamp: Vitest runs test files in parallel, and two files
@@ -39,11 +39,11 @@ export const service = createClient(stack.url, stack.serviceKey, noSession)
 export const uniqueEmail = (tag) => `${tag}-${crypto.randomUUID()}@codealong.test`
 
 const created = []
-/** Register a user created outside createUser (e.g. a real signUp) for cleanup. */
+/** register a user created outside createUser (like a real signUp) for cleanup. */
 export const track = (id) => created.push(id)
 
 /**
- * Create an account through the same on_auth_user_created trigger that sign-up uses,
+ * create an account through the same on_auth_user_created trigger that sign-up uses,
  * without spending one of the local auth rate limit's 30 sign-ups per 5 minutes.
  * `role` is passed as sign-up metadata exactly as register() sends it.
  */
@@ -76,7 +76,7 @@ export async function userClient(opts) {
   return { ...user, client: await signInAs(user) }
 }
 
-/** What is really stored, read past RLS. */
+/** what is really stored, read past RLS. */
 export async function profileOf(id) {
   const { data, error } = await service
     .from('profiles')
@@ -87,15 +87,15 @@ export async function profileOf(id) {
   return data
 }
 
-/** The only way to make an admin: as the database owner, like seed.sql or Studio. */
+/** the only way to make an admin: as the database owner, like seed.sql or Studio. */
 export async function makeAdmin(id) {
   const { error } = await service.from('profiles').update({ role: 'admin' }).eq('id', id)
   if (error) throw error
 }
 
 /**
- * Messages the Edge Functions "sent" in EXTERNAL_APIS=mock mode, oldest first.
- * Pass `since` (an id from a previous read) to see only what arrived after it.
+ * messages the Edge Functions "sent" in EXTERNAL_APIS=mock mode, oldest first.
+ * pass `since` (an id from a previous read) to see only what arrived after it.
  */
 export async function readOutbox(channel, { since = 0 } = {}) {
   const { data, error } = await service
@@ -108,7 +108,7 @@ export async function readOutbox(channel, { since = 0 } = {}) {
   return data
 }
 
-/** The newest outbox id right now — read it before acting, pass it to readOutbox as `since`. */
+/** the newest outbox id right now. read it before acting, pass it to readOutbox as `since`. */
 export async function outboxMark() {
   const { data, error } = await service
     .from('test_outbox')
@@ -119,7 +119,7 @@ export async function outboxMark() {
   return data[0]?.id ?? 0
 }
 
-/** Delete every user this file created; their profiles cascade. Call in afterAll. */
+/** delete every user this file created; their profiles cascade. call in afterAll. */
 export async function cleanup() {
   for (const id of created.splice(0)) await service.auth.admin.deleteUser(id)
 }

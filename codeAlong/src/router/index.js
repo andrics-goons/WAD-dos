@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 
 /**
- * Route meta
+ * route meta
  *   auth:  true   → must be signed in; otherwise → /login?returnTo=<path>
  *   roles: [...]  → account role (profiles.role) must be in this list; otherwise toast + /courses.
  *                   Admins pass every role check: they can read everything, and the RPCs
@@ -12,18 +12,17 @@ import { useToastStore } from '@/stores/toast'
  *   guest: true   → only for signed-out visitors; signed-in users go to /home
  *   title:        → appended to the document title
  *   back:         → (route) => { label, to? } for the back button (components/ui/BackButton.vue).
- *                   Without `to` it returns to the previous page. Main pages have none.
+ *                   Without `to` it returns to the previous page. main pages have none.
  *
- * These guards are UX, not security. The browser talks to Postgres directly, so the
+ * these guards are UX, not security. the browser talks to Postgres directly, so the
  * real boundary is Row Level Security: a student who hand-navigates to another
- * course's session gets zero rows back, not someone else's data. Course membership
- * is therefore never checked here — every view must render an empty / not-found
+ * course's session gets zero rows back, not someone else's data. course membership
+ * is therefore never checked here. every view must render an empty / not-found
  * state for "the row exists but isn't yours".
- * See design-docs/04-pages-routes-and-events.md and 09-integration-contracts.md §4.
  *
- * Deployment: these are history-mode routes on a static host. vercel.json rewrites
- * every path to index.html, or a refresh on /s/:id/code — and the /join/:code link
- * printed in the QR code — would 404 before Vue ever loads.
+ * deployment: these are history-mode routes on a static host. vercel.json rewrites
+ * every path to index.html, or a refresh on /s/:id/code (and the /join/:code link
+ * printed in the QR code) would 404 before Vue ever loads.
  */
 const STAFF = ['prof', 'ta']
 const PROF = ['prof']
@@ -80,7 +79,7 @@ const routes = [
     meta: { auth: true, title: 'Course', back: toMyCourses },
   },
   {
-    // One record for both /join and /join/:code. The QR code links to /join/<code>,
+    // One record for both /join and /join/:code. the QR code links to /join/<code>,
     // which pre-fills the code boxes and auto-submits.
     path: '/join/:code?',
     name: 'join',
@@ -90,7 +89,7 @@ const routes = [
   },
   {
     // Join a COURSE (once per term). /enrol shows a code box; /enrol/<code> is the
-    // shareable link / QR the prof hands out — it pre-fills the box and auto-submits.
+    // shareable link / QR the prof hands out. it pre-fills the box and auto-submits.
     // Not the same as /join, which joins one live class inside a course.
     path: '/enrol/:code?',
     name: 'enrol',
@@ -157,7 +156,7 @@ const routes = [
     meta: { auth: true, roles: STAFF, title: 'Help request' },
   },
   {
-    // a TA's own runnable copy of the student's code. It always opens in a new tab from the review
+    // a TA's own runnable copy of the student's code. it always opens in a new tab from the review
     // panel, so there is nothing behind it to go back to (and no meta.back): the tab is closed
     path: '/help/:requestId/code',
     name: 'help-code',
@@ -239,12 +238,12 @@ const router = createRouter({
   },
 })
 
-// Who may open a page (meta: auth, guest, roles). Exported for its tests
+// Who may open a page (meta: auth, guest, roles). exported for its tests
 export async function guard(to) {
   const auth = useAuthStore()
 
   // supabase-js restores the session from localStorage asynchronously, so the first
-  // guarded navigation (e.g. a refresh on /s/:id/code) must wait for it.
+  // guarded navigation (like a refresh on /s/:id/code) must wait for it.
   if (!auth.loaded) await auth.ensureLoaded()
 
   if (to.meta.guest && auth.isAuthenticated) {
@@ -281,13 +280,13 @@ router.afterEach((to) => {
 
 // Each page's code is its own file, downloaded the first time it's opened. A deploy renames those
 // files and removes the old ones, so a tab opened before it asks for files that are gone and the
-// navigation would fail without a word. Then the page is loaded fresh, which gets the new deploy.
+// navigation would fail without a word. then the page is loaded fresh, which gets the new deploy.
 // Only once per page (kept for this tab), so a file that's really broken can't reload forever.
 const reloadKey = (path) => `codealong:reloaded:${path}`
 const PAGE_DOWNLOAD_FAILED =
   /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i
 
-/** What happens when a navigation throws. Exported for its tests. */
+/** What happens when a navigation throws. exported for its tests. */
 export function onNavigationError(error, to) {
   if (PAGE_DOWNLOAD_FAILED.test(error?.message ?? '') && to) {
     let tried = true // without storage, never reload: it couldn't stop a loop
@@ -311,7 +310,7 @@ export function onNavigationError(error, to) {
 }
 router.onError(onNavigationError)
 
-// The page you came from. A link opened directly has none, so go to the starting page instead.
+// the page you came from. A link opened directly has none, so go to the starting page instead.
 export function goBack() {
   if (window.history.state?.back) router.back()
   else router.push({ name: useAuthStore().isAuthenticated ? 'home' : 'landing' })

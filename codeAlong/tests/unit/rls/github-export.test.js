@@ -1,7 +1,7 @@
 // @vitest-environment node
-// T-GH-06: an export never leaves the user's GitHub token in our database (design-docs/05 §11).
-// Runs the real export handler against the local stack, reading the class as the prof like
-// index.ts does, with the mock GitHub writing test_outbox as EXTERNAL_APIS=mock would. Then
+// T-GH-06: an export never leaves the user's GitHub token in our database.
+// runs the real export handler against the local stack, reading the class as the prof like
+// index.ts does, with the mock GitHub writing test_outbox as EXTERNAL_APIS=mock would. then
 // dumps every row of every public table and looks for the token.
 import { execSync } from 'node:child_process'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
@@ -60,7 +60,7 @@ afterAll(async () => {
   await cleanup()
 })
 
-// The same reads as github-export/index.ts, as the prof
+// the same reads as github-export/index.ts, as the prof
 async function loadExport(req, sessionId) {
   const { data: s } = await prof.client
     .from('sessions')

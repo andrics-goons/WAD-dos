@@ -3,7 +3,7 @@ import { Fn } from '@shared/constants.js'
 import { AppError } from './mapError'
 import { invoke } from './invoke'
 
-// GitHub import (New lesson) and export (replay) — design-docs/05 §11.
+// GitHub import (New lesson) and export (replay).
 
 // Supabase Auth keeps GitHub's token on the session after signing in to GitHub (connectGitHub()
 // in auth.api.js); it goes to the function for one call and is never stored by us. Supabase drops
@@ -18,7 +18,7 @@ async function githubToken() {
   return session.provider_token
 }
 
-/** Whether this browser holds a GitHub sign-in right now, so pages can offer Connect up front */
+/** whether this browser holds a GitHub sign-in right now, so pages can offer Connect up front */
 export async function hasGithubToken() {
   const {
     data: { session },
@@ -32,7 +32,7 @@ export async function importFromGithub(repoUrl) {
 }
 
 /**
- * Copy a class's checkpoints to a new repo on my GitHub, one commit per checkpoint: { repoUrl }.
+ * copy a class's checkpoints to a new repo on my GitHub, one commit per checkpoint: { repoUrl }.
  * `mine`: my own final code as a single commit instead.
  */
 export async function exportToGithub(sessionId, repoName, isPrivate, mine = false) {

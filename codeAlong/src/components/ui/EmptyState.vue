@@ -1,6 +1,6 @@
 <script setup>
-// The "nothing here" screen — for empty lists, missing pages, or data you can't see.
-// Put the description inside it, and any buttons in <template #actions>.
+// the "nothing here" screen, for empty lists, missing pages, or data you can't see.
+// put the description inside it, and any buttons in <template #actions>.
 defineProps({
   icon: { type: String, default: 'bi-inbox' },
   title: { type: String, required: true },

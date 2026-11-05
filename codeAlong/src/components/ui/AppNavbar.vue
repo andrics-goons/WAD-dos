@@ -3,9 +3,9 @@ import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
-// The top bar on every page. On phones the links fold into a ☰ panel that slides in from the
+// the top bar on every page. on phones the links fold into a ☰ panel that slides in from the
 // right, with the profile at its bottom.
-// The #status slot is where live indicators (like the connection pill) go.
+// the #status slot is where live indicators (like the connection pill) go.
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
@@ -65,7 +65,7 @@ async function signOut() {
 
       <!-- phones: slides in from the right when ☰ is tapped · tablets and up: always in a row -->
       <div class="ca-navbar__links" :class="{ 'is-open': menuOpen }">
-        <!-- Home, Courses and Replays all need a login, so they only show once you're logged in -->
+        <!-- home, Courses and Replays all need a login, so they only show once you're logged in -->
         <template v-if="auth.isAuthenticated">
           <RouterLink
             v-for="l in links"

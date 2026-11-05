@@ -1,7 +1,7 @@
 // github-export: copies a class's checkpoints into a new repo on the user's own GitHub, one
-// commit per checkpoint, so the history shows how the code was built (design-docs/05 §11).
+// commit per checkpoint, so the history shows how the code was built.
 //   { sessionId, repoName, private, providerToken } -> { repoUrl }
-// providerToken is the user's GitHub token from Supabase Auth (linkIdentity). It is used for
+// providerToken is the user's GitHub token from Supabase Auth (linkIdentity). it is used for
 // these calls only and never stored or logged.
 import { commitMessage, exportReadme, exportTree, isValidRepoName } from '../../../shared/github.js'
 import { corsHeaders, fail, json } from '../_shared/cors.ts'
@@ -16,7 +16,7 @@ export interface ExportCheckpoint {
 
 export interface ExportDeps {
   callerId(req: Request): Promise<string | null> // null if logged out
-  // The class's lesson title and checkpoints in save order, read as the caller (so RLS decides);
+  // the class's lesson title and checkpoints in save order, read as the caller (so RLS decides);
   // null when the caller can't see that class. `mine`: the caller's own final code instead of the
   // prof's checkpoints, as a single entry
   loadExport(
@@ -86,7 +86,7 @@ export async function handleExport(req: Request, deps: ExportDeps): Promise<Resp
     let parent = await firstCommit(gh, `${base}/git/ref/heads/${branch}`, deps.wait)
     const readme = exportReadme(data.lessonTitle, data.checkpoints)
     for (const checkpoint of data.checkpoints) {
-      // No base_tree: each commit holds exactly that checkpoint's files
+      // no base_tree: each commit holds exactly that checkpoint's files
       const tree = await gh.json('POST', `${base}/git/trees`, {
         tree: exportTree(checkpoint.files, readme),
       })

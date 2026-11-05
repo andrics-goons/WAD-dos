@@ -1,5 +1,5 @@
 <script setup>
-// The replay's checkpoints in order, as numbered steps: a row you scroll sideways on phones, a
+// the replay's checkpoints in order, as numbered steps: a row you scroll sideways on phones, a
 // column joined by a line from lg.
 // ← and → move to the previous / next checkpoint and keep the focus on it.
 //   <CheckpointTimeline :checkpoints="cps" :active-seq="seq" @select="seq = $event" />

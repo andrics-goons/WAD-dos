@@ -3,8 +3,8 @@ import { onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 
-// Profile page: link a GitHub account to this one, so a replay can be exported to GitHub
-// (one commit per checkpoint). Connecting leaves for GitHub and comes back here.
+// profile page: link a GitHub account to this one, so a replay can be exported to GitHub
+// (one commit per checkpoint). connecting leaves for GitHub and comes back here.
 const auth = useAuthStore()
 const toast = useToastStore()
 
@@ -12,7 +12,7 @@ const loading = ref(true)
 const busy = ref(false)
 
 onMounted(async () => {
-  // GitHub sends us back with the reason in the URL when linking failed (e.g. that GitHub
+  // GitHub sends us back with the reason in the URL when linking failed (like that GitHub
   // belongs to another account); say so instead of showing a card that looks untouched
   const params = new URLSearchParams(window.location.hash.slice(1) || window.location.search)
   if (params.get('error_description')) {

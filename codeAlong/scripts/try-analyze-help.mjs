@@ -1,6 +1,6 @@
-// Manual test bench for the help request analysis (not part of the app). Runs the real prompt
+// manual test bench for the help request analysis (not part of the app). runs the real prompt
 // and parser from supabase/functions/analyze-help against Groq and shows the diagnosis.
-// No Docker or Supabase needed. Run from codeAlong/:
+// no Docker or Supabase needed. run from codeAlong/:
 //
 //   node --env-file=supabase/functions/.env scripts/try-analyze-help.mjs --serve
 //       opens a test page at http://localhost:5179: edit a broken student's code, click Analyse
@@ -9,13 +9,13 @@
 //   node --env-file=supabase/functions/.env scripts/try-analyze-help.mjs missing-prop
 //       runs one example (see the names in SCENARIOS below)
 //   node --env-file=supabase/functions/.env scripts/try-analyze-help.mjs --folder <path> --error "<message>"
-//       analyses your own project folder. Optional: --file <path> --line <n> --step "<step title>"
+//       analyses your own project folder. optional: --file <path> --line <n> --step "<step title>"
 //   add --prompt to the terminal commands to also print what is sent to the model
 //
-// supabase/functions/.env holds LLM_API_KEY (and optionally LLM_MODEL). It is git-ignored and
-// must never be committed or put in a VITE_ variable, which would ship to the browser. The test
+// supabase/functions/.env holds LLM_API_KEY (and optionally LLM_MODEL). it is git-ignored and
+// must never be committed or put in a VITE_ variable, which would ship to the browser. the test
 // page never sees the key: the browser posts to this script, and this script calls Groq.
-// Each analysis uses one request from the Groq free tier (about 1,000 a day).
+// each analysis uses one request from the Groq free tier (about 1,000 a day).
 import process from 'node:process'
 import { createServer } from 'node:http'
 import { readdirSync, readFileSync } from 'node:fs'
@@ -137,7 +137,7 @@ function readFolder(dir) {
 }
 
 // ── One analysis, shared by the terminal and the test page ──
-// Returns { ok, analysis | error, raw?, ms, model, prompt }
+// returns { ok, analysis | error, raw?, ms, model, prompt }
 async function runAnalysis(ctx) {
   const messages = buildPrompt(ctx)
   const prompt = messages[1].content
@@ -192,7 +192,7 @@ async function readJson(req) {
   return JSON.parse(body)
 }
 
-// Only accept the shape the page sends; anything else is a 400
+// only accept the shape the page sends; anything else is a 400
 function contextFromPage(body) {
   const fileList = (list) =>
     Array.isArray(list)
@@ -258,7 +258,7 @@ const SAMPLE_CLASS = [
   ),
 ]
 
-// Runs the real summarize-help handler, with the page's analyses standing in for the database
+// runs the real summarize-help handler, with the page's analyses standing in for the database
 async function runSummary(analysed) {
   const deps = {
     env: (name) => process.env[name],
@@ -279,7 +279,7 @@ async function runSummary(analysed) {
   return { ...summary, ms: Date.now() - started, prompt }
 }
 
-// Only keep analyses shaped like part 1's output
+// only keep analyses shaped like part 1's output
 function analysesFromPage(list) {
   return (Array.isArray(list) ? list : [])
     .filter((r) => r?.analysis?.summary && r?.analysis?.category)

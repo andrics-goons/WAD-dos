@@ -1,7 +1,7 @@
 <script setup>
-// The landing page's hero background: an editor full of a class's code, scrolling past on a loop
+// the landing page's hero background: an editor full of a class's code, scrolling past on a loop
 // and fading out at the edges, so the headline sits on top of "a class in progress".
-// Only decoration — the code is made up, and it stops moving for people who prefer less motion.
+// only decoration. the code is made up, and it stops moving for people who prefer less motion.
 const SOURCE = `// Week 6 · Mini Cart
 import { products } from './data.js'
 

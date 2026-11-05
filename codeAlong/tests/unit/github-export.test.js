@@ -1,4 +1,4 @@
-// Unit tests for github-export: shared/github.js helpers and the Edge Function handler,
+// unit tests for github-export: shared/github.js helpers and the Edge Function handler,
 // with a fake GitHub that records every call (no network).
 import { describe, it, expect, vi } from 'vitest'
 import { handleExport } from '../../supabase/functions/github-export/handler.ts'
@@ -7,7 +7,7 @@ import { GithubError } from '../../supabase/functions/_shared/github.ts'
 const TOKEN = 'gho_secret'
 const file = (path, content) => ({ path, content })
 
-// Two checkpoints of the Mini Cart lesson
+// two checkpoints of the Mini Cart lesson
 const lesson = {
   lessonTitle: 'Week 6 · Mini Cart',
   checkpoints: [

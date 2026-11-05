@@ -1,8 +1,8 @@
-// The prof's "what is the class stuck on" summary (design-docs/05 §8a, part 2). Called by the
-// Teach view when the dashboard loads or the prof presses Refresh.
+// the prof's "what is the class stuck on" summary. called by the
+// teach view when the dashboard loads or the prof presses Refresh.
 //
-// Reads with the caller's own JWT, so RLS decides what comes back: only session staff can see
-// a session's help requests, and anyone else is refused before anything is read. No student
+// reads with the caller's own JWT, so RLS decides what comes back: only session staff can see
+// a session's help requests, and anyone else is refused before anything is read. no student
 // name, id or code goes into the prompt, only the part 1 diagnoses.
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { deliver, isMockMode, type EnvReader, type OutboxClient } from '../_shared/outbox.ts'
@@ -42,7 +42,7 @@ export type SummaryResponse = ClassSummary & {
   llmLimitReached?: true // the site-wide LLM limit stopped the model; the prof gets the pop-up
 }
 
-// Errors use the same { code, message } shape as mapError, so the api module can pass them on
+// errors use the same { code, message } shape as mapError, so the api module can pass them on
 const refuse = (status: number, code: string, message: string) => json({ code, message }, status)
 
 export async function handleSummarize(req: Request, deps: SummarizeDeps): Promise<Response> {

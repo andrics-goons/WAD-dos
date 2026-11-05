@@ -1,4 +1,4 @@
-// Seed for the student workspace: the "Week 6 · Mini Cart" lesson (design-docs/07-seed-and-demo.md).
+// seed for the student workspace: the "Week 6 · Mini Cart" lesson.
 //
 // A real Vite + Vue project with a small Express API. `pnpm dev` runs both: Vite on 5173 and
 // the API on 3001, with Vite proxying /api. No mock API: lessons ship their own server now.

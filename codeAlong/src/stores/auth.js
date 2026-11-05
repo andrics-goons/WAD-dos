@@ -12,7 +12,7 @@ export const useAuthStore = defineStore('auth', () => {
   // a GitHub sign-up that hasn't picked student or educator yet: the router sends them to pick
   const needsRole = computed(() => user.value?.roleChosen === false)
 
-  // First call (from the router guard) loads who's logged in, and starts listening for
+  // first call (from the router guard) loads who's logged in, and starts listening for
   // auth changes so a logout in another tab clears this one too.
   async function ensureLoaded() {
     watchAuth()
@@ -22,49 +22,49 @@ export const useAuthStore = defineStore('auth', () => {
     return user.value
   }
 
-  // Registration
+  // registration
   async function register(form) {
     await authApi.register(form) // create the account (your trigger makes the profile)
     user.value = await authApi.getCurrentUser() // now the store knows who's logged in
     loaded.value = true
   }
 
-  // Login
+  // login
   async function login(form) {
     user.value = await authApi.login(form)
     loaded.value = true
   }
 
-  // Logout
+  // logout
   async function logout() {
     await authApi.logout()
     clear()
   }
 
-  // Profile page: delete the account for good
+  // profile page: delete the account for good
   async function deleteAccount() {
     await authApi.deleteAccount()
     clear()
   }
 
-  // Profile page: rename. The role can't be changed here — only an admin can.
+  // profile page: rename. the role can't be changed here, only an admin can.
   async function updateName(name) {
     user.value = { ...user.value, ...(await authApi.updateProfile({ name })) } // keeps hasPassword
   }
 
-  // After a GitHub sign-up: student or educator, once
+  // after a GitHub sign-up: student or educator, once
   async function chooseRole(choice) {
     await authApi.chooseRole(choice)
     user.value = await authApi.getCurrentUser()
   }
 
-  // Profile page: needs the current password as well as the new one
+  // profile page: needs the current password as well as the new one
   async function changePassword(form) {
     await authApi.changePassword(form)
   }
 
   // GitHub: sign in with it, or link it to this account so a replay can be exported to it.
-  // Both leave for GitHub and come back to the app, so there's nothing to update here afterwards.
+  // both leave for GitHub and come back to the app, so there's nothing to update here afterwards.
   const github = ref(null) // { username, canDisconnect }, or null when not linked
   const signInWithGitHub = (returnTo) => authApi.signInWithGitHub(returnTo)
   const connectGitHub = (returnTo) => authApi.connectGitHub(returnTo)
@@ -100,7 +100,7 @@ export const useAuthStore = defineStore('auth', () => {
     await leaveProtectedPage()
   }
 
-  // Logged out from another tab (or the session ended) while on a page that needs a login
+  // logged out from another tab (or the session ended) while on a page that needs a login
   async function leaveProtectedPage() {
     if (typeof window === 'undefined') return // unit tests have no router
     const { default: router } = await import('@/router') // lazy: the router imports this store

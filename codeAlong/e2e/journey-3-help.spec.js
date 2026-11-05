@@ -11,11 +11,11 @@ import {
   typeAtEnd,
 } from './classroom'
 
-// Journey 3: three students get help from two TAs during a class of Prof Tan's (who hasn't linked
-// Telegram), in every way the help bar offers. The in-person pings need the Edge Functions served
-// with EXTERNAL_APIS=mock and the Vault pair set (design-docs/03, "In-person ping"), so they land
-// in test_outbox, not on a phone. The class then ends, with the AI summary of what it was stuck
-// on, the report and the digest. Covers what were journeys 7 and 16-18
+// journey 3: three students get help from two TAs during a class of Prof Tan's (who hasn't linked
+// Telegram), in every way the help bar offers. the in-person pings need the Edge Functions served
+// with EXTERNAL_APIS=mock and the Vault pair set, so they land
+// in test_outbox, not on a phone. the class then ends, with the AI summary of what it was stuck
+// on, the report and the digest. covers what were journeys 7 and 16-18
 // (T-HELP-01, 02, 03, 04, 05, 07, 08, 09, 13, 14, 19).
 const room = classroom()
 const CHAT_ID = '424242'

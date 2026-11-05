@@ -6,8 +6,8 @@ import { Limits } from '@shared/constants.js'
 import { useHelpStore } from '@/stores/help'
 import { useToastStore } from '@/stores/toast'
 
-// Send my code to a TA, and follow what happens to it. The workspace passes in the class,
-// and my current files — that's the code the TA gets. The server notes which checkpoint the
+// send my code to a TA, and follow what happens to it. the workspace passes in the class,
+// and my current files, that's the code the TA gets. the server notes which checkpoint the
 // class is on, so the TA compares my code with it.
 const props = defineProps({
   sessionId: { type: String, required: true },
@@ -41,7 +41,7 @@ const waiting = (type) =>
 onMounted(() => help.load(props.sessionId).catch((e) => toast.show(e.message, 'danger')))
 onBeforeUnmount(() => help.stop())
 
-// run a button's action; a refusal (e.g. one already waiting) comes back as a message
+// run a button's action; a refusal (like one already waiting) comes back as a message
 async function run(action) {
   busy.value = true
   try {

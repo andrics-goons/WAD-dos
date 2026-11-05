@@ -1,8 +1,8 @@
 <script setup>
 import { ref } from 'vue'
 
-// The prof's notice across the top of the workspace. Closing it hides it until a new
-// announcement arrives (a new one has a new `at`). Pass the session's `announcement`:
+// the prof's notice across the top of the workspace. closing it hides it until a new
+// announcement arrives (a new one has a new `at`). pass the session's `announcement`:
 // { text, at }, or null when there isn't one.
 defineProps({ announcement: { type: Object, default: null } })
 

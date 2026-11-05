@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures'
 import { classroom, editor, joinWithCode, PROF_EMAIL } from './classroom'
 
-// Journey 6, at phone width (only the mobile-chrome project runs specs tagged @responsive), in
+// journey 6, at phone width (only the mobile-chrome project runs specs tagged @responsive), in
 // a throwaway live class of Prof Tan's.
 const room = classroom()
 

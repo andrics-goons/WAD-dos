@@ -1,7 +1,7 @@
 <script setup>
-    // The lesson, the prof's latest checkpoint, and Done for it: one button that says "I'm caught
+    // the lesson, the prof's latest checkpoint, and Done for it: one button that says "I'm caught
     // up", and goes back to In progress when clicked again. A new checkpoint puts everyone back to
-    // In progress. "Load latest
+    // in progress. "Load latest
     // checkpoint" asks the page to replace my code with it (the page confirms first).
     import HelpButton from "@/components/help/HelpButton.vue"
 
@@ -30,7 +30,7 @@
 
         <!-- below lg the buttons show only their icon (Load keeps a short label); the visually-hidden span keeps its name -->
         <div class="header-actions">
-            <!-- Done: I'm caught up to the checkpoint. Green once clicked; clicking again goes
+            <!-- done: I'm caught up to the checkpoint. green once clicked; clicking again goes
                  back to In progress -->
             <button
                 type="button"
@@ -125,7 +125,7 @@
         grid-area: 1 / 1;
     }
 
-    /* Done and Slow down when on: the soft state colours the dashboard's badges use (with their
+    /* done and Slow down when on: the soft state colours the dashboard's badges use (with their
        dark-mode versions), a border in the full colour and a gentle glow of it */
     .btn-done-on {
         --btn-bg: var(--ca-state-done-bg);

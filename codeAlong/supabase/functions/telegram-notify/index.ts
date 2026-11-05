@@ -1,4 +1,4 @@
-// Entry point for the in-person ping. Keeps verify_jwt on (the Database Webhook sends the
+// entry point for the in-person ping. keeps verify_jwt on (the Database Webhook sends the
 // service-role key); handler.ts re-reads the request from the database rather than trusting the body.
 import { createTelegramSender } from '../../../shared/telegram.js'
 import { checkpointLabel } from '../../../shared/checkpoint-label.js'
@@ -24,7 +24,7 @@ const db: NotifyDb = {
     const courseId = r.session.course_id
     const [{ data: course }, { data: staff }, { data: checkpoint }] = await Promise.all([
       admin.from('courses').select('code, section').eq('id', courseId).single(),
-      // Staff of this course who have linked Telegram (design-docs/05 §8: "who gets pinged").
+      // staff of this course who have linked Telegram.
       admin
         .from('course_staff')
         .select('profile:profiles!user_id(telegram_chat_id)')

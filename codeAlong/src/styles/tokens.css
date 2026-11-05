@@ -1,10 +1,10 @@
-/* Every colour, size and shadow in the app lives here as a variable (--ca-…).
-   Use them with var(--ca-…) instead of typing hex codes, so one change updates everything.
-   See them all at /_kit. */
+/* every colour, size and shadow in the app lives here as a variable (--ca-…).
+   use them with var(--ca-…) instead of typing hex codes, so one change updates everything.
+   see them all at /_kit. */
 
 :root {
-  /* Brand */
-  --ca-brand: #4f46e5; /* indigo — main buttons, links */
+  /* brand */
+  --ca-brand: #4f46e5; /* indigo: main buttons, links */
   --ca-brand-hover: #4338ca;
   --ca-brand-active: #3730a3;
   --ca-brand-subtle: #eef2ff; /* light tint behind active items */
@@ -12,7 +12,7 @@
   --ca-on-brand: #ffffff; /* text on an indigo background */
   --ca-link: var(--ca-brand);
 
-  /* Status colours — chosen so the text on them is easy to read */
+  /* status colours, chosen so the text on them is easy to read */
   --ca-success: #15803d;
   --ca-success-hover: #166534;
   --ca-danger: #dc2626;
@@ -22,7 +22,7 @@
   --ca-on-warning: #1f2937;
   --ca-info: #0369a1;
 
-  /* Backgrounds and text on normal (light) pages */
+  /* backgrounds and text on normal (light) pages */
   --ca-bg: #f8fafc; /* page background */
   --ca-surface: #ffffff; /* cards, panels, inputs */
   --ca-surface-muted: #f1f5f9; /* hover and secondary backgrounds */
@@ -32,7 +32,7 @@
   --ca-text-muted: #64748b;
   --ca-backdrop: rgba(15, 23, 42, 0.5); /* dim layer behind pop-ups */
 
-  /* The dark coding-area colours */
+  /* the dark coding-area colours */
   --ca-ide-bg: #0d1117;
   --ca-ide-surface: #161b22;
   --ca-ide-raised: #1c2330;
@@ -41,7 +41,7 @@
   --ca-ide-muted: #8b949e;
   --ca-ide-accent: #818cf8; /* lighter indigo that shows up on dark */
 
-  /* The 5 student states. Named like the data, so var(--ca-state-${state}) works.
+  /* the 5 student states. named like the data, so var(--ca-state-${state}) works.
      plain = the colour itself, -bg = soft fill, -fg = text on that fill */
   --ca-state-done: #16a34a;
   --ca-state-done-bg: #dcfce7;
@@ -59,7 +59,7 @@
   --ca-state-idle-bg: #f1f5f9;
   --ca-state-idle-fg: #334155;
 
-  /* Fonts (installed locally, not from Google) and text sizes */
+  /* fonts (installed locally, not from Google) and text sizes */
   --ca-font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   --ca-font-mono:
     'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -70,7 +70,7 @@
   --ca-text-xl: 1.5rem; /* 24px */
   --ca-text-2xl: 2rem; /* 32px */
 
-  /* Spacing steps for padding, margins and gaps */
+  /* spacing steps for padding, margins and gaps */
   --ca-space-1: 0.25rem; /* 4px */
   --ca-space-2: 0.5rem; /* 8px */
   --ca-space-3: 0.75rem; /* 12px */
@@ -79,7 +79,7 @@
   --ca-space-6: 2rem; /* 32px */
   --ca-space-7: 3rem; /* 48px */
 
-  /* Rounded corners and shadows */
+  /* rounded corners and shadows */
   --ca-radius-sm: 0.375rem;
   --ca-radius: 0.5rem;
   --ca-radius-lg: 0.75rem;
@@ -88,24 +88,24 @@
   --ca-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
   --ca-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.14);
 
-  /* Page layout */
+  /* page layout */
   --ca-navbar-height: 3.5rem;
   --ca-back-bar-height: 3.5rem;
   --ca-content-max: 1320px; /* stops lines getting too wide on big screens */
   --ca-content-narrow: 1040px; /* .ca-page--narrow, for pages with little on them */
 
-  /* What sits on top of what — same numbers Bootstrap uses */
+  /* what sits on top of what, same numbers Bootstrap uses */
   --ca-z-navbar: 1030;
   --ca-z-drawer: 1045;
   --ca-z-modal: 1055;
   --ca-z-toast: 1090;
 
-  /* Breakpoints (for reference — @media can't use variables):
+  /* breakpoints (for reference, @media can't use variables):
      sm 576px · md 768px · lg 992px · xl 1200px · xxl 1400px */
 }
 
-/* Dark coding area: wrap it in <div class="ca-ide" data-bs-theme="dark">.
-   It swaps the same variables to dark values, so everything inside turns dark. */
+/* dark coding area: wrap it in <div class="ca-ide" data-bs-theme="dark">.
+   it swaps the same variables to dark values, so everything inside turns dark. */
 .ca-ide {
   color-scheme: dark; /* dark scrollbars too */
   --ca-bg: var(--ca-ide-bg);

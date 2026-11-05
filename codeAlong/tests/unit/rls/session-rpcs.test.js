@@ -38,12 +38,12 @@ const saveAs = (who, session, title = null) =>
     p_title: title,
   })
 
-// Join the session's channel. Resolves once connected, with `next`: a promise for the next
+// join the session's channel. resolves once connected, with `next`: a promise for the next
 // `event`. (Wrapped in an object: returning the promise itself would make `await listen()`
 // wait for the message before the test has even sent it.)
 
-// The local live-messaging server sleeps when nobody is connected. Waking up, it takes a moment
-// to reconnect to the database, and a message sent in that gap is lost. So before the tests,
+// the local live-messaging server sleeps when nobody is connected. waking up, it takes a moment
+// to reconnect to the database, and a message sent in that gap is lost. so before the tests,
 // nudge a class's settings until a student has actually heard one.
 async function warmUp(session) {
   const channel = stu.client.channel(`session:${session.id}`, { config: { private: true } })

@@ -1,26 +1,26 @@
-// Compares two versions of a project's files line by line (design-docs/05-core-logic.md §7).
-// Used by "What you missed" (my attempt vs the checkpoint), the replay and the TA's side-by-side.
-// Whitespace-only changes (indentation, blank lines, CRLF vs LF) are ignored.
-// Uses jsdiff — https://github.com/kpdecker/jsdiff (BSD-3-Clause)
+// compares two versions of a project's files line by line.
+// used by "What you missed" (my attempt vs the checkpoint), the replay and the TA's side-by-side.
+// whitespace-only changes (indentation, blank lines, CRLF vs LF) are ignored.
+// uses jsdiff, https://github.com/kpdecker/jsdiff (BSD-3-Clause)
 
 import { diffLines } from 'diff'
 
-// How many unchanged lines to show around each change
+// how many unchanged lines to show around each change
 export const CONTEXT_LINES = 2
 
-// Split file content into lines; a trailing newline doesn't create an extra empty line
+// split file content into lines; a trailing newline doesn't create an extra empty line
 function splitLines(content) {
   const lines = String(content ?? '').split(/\r\n|\n/)
   if (lines[lines.length - 1] === '') lines.pop()
   return lines
 }
 
-// Join lines back for jsdiff, ending every line with \n so its line counts match our arrays
+// join lines back for jsdiff, ending every line with \n so its line counts match our arrays
 const toText = (lines) => lines.map((line) => `${line}\n`).join('')
 
 const isBlank = (line) => line.trim() === ''
 
-// Walk jsdiff's result and turn it into one row per line: 'context', 'del' or 'add'
+// walk jsdiff's result and turn it into one row per line: 'context', 'del' or 'add'
 function buildRows(beforeLines, afterLines) {
   const rows = []
   let oldNo = 0 // lines of the before version used up so far
@@ -31,7 +31,7 @@ function buildRows(beforeLines, afterLines) {
     const n = part.count
     if (part.removed) {
       const lines = beforeLines.slice(oldNo, oldNo + n)
-      // Skip changes that are only blank lines
+      // skip changes that are only blank lines
       if (!lines.every(isBlank)) {
         lines.forEach((text, i) =>
           rows.push({ type: 'del', text, oldLine: oldNo + i + 1, newLine: null, newPos: newNo }),
@@ -47,7 +47,7 @@ function buildRows(beforeLines, afterLines) {
       }
       newNo += n
     } else {
-      // Unchanged lines: show the after version's text, since that's what gets loaded
+      // unchanged lines: show the after version's text, since that's what gets loaded
       for (let i = 0; i < n; i++) {
         rows.push({
           type: 'context',
@@ -65,13 +65,13 @@ function buildRows(beforeLines, afterLines) {
 
 const plainRow = ({ type, text, oldLine, newLine }) => ({ type, text, oldLine, newLine })
 
-// Group the changed rows into hunks, each padded with CONTEXT_LINES of unchanged lines. The
+// group the changed rows into hunks, each padded with CONTEXT_LINES of unchanged lines. the
 // unchanged lines left out are kept with them, so the view can show them on request:
 // hiddenBefore on each hunk, and whatever follows the last one in hiddenAfter.
 function buildHunks(rows) {
   const changed = rows.flatMap((row, i) => (row.type === 'context' ? [] : [i]))
 
-  // Changes close enough that their context would overlap go into the same hunk
+  // changes close enough that their context would overlap go into the same hunk
   const ranges = []
   for (const i of changed) {
     const last = ranges[ranges.length - 1]
@@ -88,7 +88,7 @@ function buildHunks(rows) {
     const hiddenBefore = rows.slice(shownTo, from).map(plainRow)
     shownTo = to
     return {
-      // Starting line on each side (an added/deleted row only has a number on one side)
+      // starting line on each side (an added/deleted row only has a number on one side)
       oldStart: first.oldLine ?? first.oldPos + 1,
       newStart: first.newLine ?? first.newPos + 1,
       hiddenBefore,
@@ -98,7 +98,7 @@ function buildHunks(rows) {
   return { hunks, hiddenAfter: rows.slice(shownTo).map(plainRow) }
 }
 
-// Diff one file; returns null when nothing meaningful changed
+// diff one file; returns null when nothing meaningful changed
 function summariseFile(path, before, after) {
   const status = before === undefined ? 'added' : after === undefined ? 'removed' : 'modified'
   const afterLines = after === undefined ? [] : splitLines(after)
@@ -106,13 +106,13 @@ function summariseFile(path, before, after) {
   const rows =
     before === after ? [] : buildRows(before === undefined ? [] : splitLines(before), afterLines)
   const { hunks, hiddenAfter } = buildHunks(rows)
-  // Only whitespace changed, so leave the file out (a missing or extra file is always shown)
+  // only whitespace changed, so leave the file out (a missing or extra file is always shown)
   if (status === 'modified' && hunks.length === 0) return null
 
   let firstDiffLine = 1
   if (status === 'modified') {
     const first = rows.find((row) => row.type !== 'context')
-    // For a deletion, point at the line that now sits where the deleted line was
+    // for a deletion, point at the line that now sits where the deleted line was
     const line = first.newLine ?? first.newPos + 1
     firstDiffLine = Math.min(line, Math.max(afterLines.length, 1))
   }
@@ -131,12 +131,12 @@ function summariseFile(path, before, after) {
 // [{ path, content }] -> Map of path => content
 const byPath = (files) => new Map((files ?? []).map((f) => [f.path, f.content ?? '']))
 
-// Main entry point: returns { files: [{ path, status, added, removed, firstDiffLine, hunks, hiddenAfter }] }
+// main entry point: returns { files: [{ path, status, added, removed, firstDiffLine, hunks, hiddenAfter }] }
 // status is 'modified', 'added' (only in after) or 'removed' (only in before)
 export function diffSummary(beforeFiles, afterFiles) {
   const before = byPath(beforeFiles)
   const after = byPath(afterFiles)
-  // List files in the after version's order, then any that only exist before
+  // list files in the after version's order, then any that only exist before
   const paths = [...after.keys(), ...[...before.keys()].filter((p) => !after.has(p))]
 
   return {

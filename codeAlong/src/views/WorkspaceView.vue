@@ -26,7 +26,7 @@
   // my progress on the prof's dashboard: the checkpoint I've clicked Done on, my latest error
   const statusStore = useStatusStore()
 
-  // Done only counts for the prof's latest checkpoint: a new one puts me back to In progress
+  // done only counts for the prof's latest checkpoint: a new one puts me back to In progress
   const caughtUp = computed(() => statusStore.doneSeq === sessionStore.checkpointSeq)
   const checkpoint = computed(() =>
     checkpointLabel(sessionStore.checkpointSeq, sessionStore.latestCheckpoint?.title),
@@ -43,7 +43,7 @@
   function downloadMine() {
     downloadProject(workspaceStore.files, sessionStore.session?.lesson.title ?? "project")
   }
-  // Rename, or a file dragged to another folder: the files that point at it by its old path
+  // rename, or a file dragged to another folder: the files that point at it by its old path
   // (an import, a src, a script in package.json) now point at nothing, so say which ones
   async function renameFile(from, to) {
     const warning = moveWarning(workspaceStore.files, from)
@@ -80,14 +80,14 @@
     }
   }
 
-  // The file tree's Delete asks first: the path waiting to be confirmed, or ''
+  // the file tree's Delete asks first: the path waiting to be confirmed, or ''
   const deleting = ref("")
   function deleteFile() {
     workspaceStore.deleteFile(deleting.value)
     deleting.value = ""
   }
 
-  // A heads-up when the prof saves a new checkpoint while I'm here. Not on opening the page:
+  // A heads-up when the prof saves a new checkpoint while I'm here. not on opening the page:
   // the checkpoint I join on only counts once everything has loaded.
   watch(
     () => sessionStore.checkpointSeq,
@@ -100,16 +100,16 @@
   const runtime = useRuntime("The workspace couldn't start")
   const { isolated, bootError, previewUrl } = runtime
 
-  // The class didn't open: "not-found" when it doesn't exist or I'm not in its course (RLS
-  // returns nothing then), otherwise the reason. The editor never shows, so nothing boots.
+  // the class didn't open: "not-found" when it doesn't exist or I'm not in its course (RLS
+  // returns nothing then), otherwise the reason. the editor never shows, so nothing boots.
   const loadError = ref("")
   // the editor waits for the class, since its terminal boots the WebContainer as it mounts
   const opened = computed(() => sessionStore.session?.id === props.id)
 
   onMounted(async () => {
     if (!isolated) return
-    // Open the class first: someone outside it gets "You're not in this class", not an editor.
-    // The WebContainer starts booting as soon as the class opens (the terminal mounts then), while
+    // open the class first: someone outside it gets "You're not in this class", not an editor.
+    // the WebContainer starts booting as soon as the class opens (the terminal mounts then), while
     // this student's code downloads.
     try {
       await workspaceStore.load(props.id)

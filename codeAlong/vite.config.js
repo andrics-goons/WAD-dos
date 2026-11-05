@@ -6,15 +6,15 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
-// The in-browser coding sandbox only starts if the page sends these two security headers.
-// Same headers as vercel.json (the live site) — change both together.
+// the in-browser coding sandbox only starts if the page sends these two security headers.
+// same headers as vercel.json (the live site), change both together.
 const crossOriginIsolation = {
   'Cross-Origin-Embedder-Policy': 'credentialless',
   'Cross-Origin-Opener-Policy': 'same-origin',
 }
 
-// Popped out previews open /webcontainer/connect/<id> to find their project (see connect.html).
-// That page has to skip the isolation headers above, but Vite adds server.headers to every
+// popped out previews open /webcontainer/connect/<id> to find their project (see connect.html).
+// that page has to skip the isolation headers above, but Vite adds server.headers to every
 // html it sends, so this middleware answers those requests itself before Vite gets to them.
 // - The SAME exception is set for production in vercel.json.
 const CONNECT_PATH = '/webcontainer/connect/'

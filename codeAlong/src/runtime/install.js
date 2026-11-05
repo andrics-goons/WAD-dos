@@ -1,6 +1,6 @@
-// The package cache (design-docs/05-core-logic.md §2, "Dependency caching"). node_modules only
+// the package cache. node_modules only
 // lives in the WebContainer's memory, so a reload, a new tab or another class would download
-// every package again. After each install the packages are copied into IndexedDB on this device,
+// every package again. after each install the packages are copied into IndexedDB on this device,
 // and when a workspace boots with the same package.json they're put back: pnpm i then has
 // nothing to download ("Already up to date", so it works on a bad connection) and pnpm dev
 // starts at once.
@@ -9,13 +9,13 @@
 // never synced (SYNC_IGNORE), so a reload loses it; without it pnpm resolves every package again
 // and the WebContainer's pnpm hook fails with "Invalid package".
 //
-// Only an exact package.json match is restored; anything else installs as before. In a tab that
+// only an exact package.json match is restored; anything else installs as before. in a tab that
 // installed for itself, changed packages only download what's new (pnpm still has its store).
 // A restored tab doesn't have that store (it lives outside the project, where neither export
 // nor mount can put it back), so when a checkpoint changes package.json there, the restored
 // packages are cleared and the next pnpm i is a clean install (forgetRestoredPackages).
 //
-// Local only: no Supabase egress, and these are public npm packages, not anyone's code. Like the
+// local only: no Supabase egress, and these are public npm packages, not anyone's code. like the
 // file cache, IndexedDB is never relied on: a miss or a failed write just means a normal install.
 
 import { ref } from 'vue'
@@ -30,7 +30,7 @@ const QUIET_MS = 3000 // wait this long after the install's last write before sa
 // what pnpm (and npm) write last, when an install has finished
 const DONE_MARKERS = ['.modules.yaml', '.package-lock.json']
 const LOCKFILES = ['pnpm-lock.yaml', 'package-lock.json']
-// The snapshot doesn't keep the executable bit, so without this pnpm dev fails with "spawn
+// the snapshot doesn't keep the executable bit, so without this pnpm dev fails with "spawn
 // concurrently EACCES" until a pnpm i links them again: every command in a .bin folder (the
 // project's and each package's own under .pnpm) is made runnable again. chmod follows the link.
 const CHMOD_BINS = `
@@ -52,12 +52,12 @@ const exists = async (webcontainer, path) => (await read(webcontainer, path)) !=
 // the lockfiles this tab put back, if it restored a set (forgetRestoredPackages removes them)
 let restoredLocks = null
 
-// Whether the project's packages are there, shown in the terminal's header: 'ready' (restored,
+// whether the project's packages are there, shown in the terminal's header: 'ready' (restored,
 // or an install finished, so pnpm dev can run straight away), 'missing' ("Run pnpm i"), or null
 // while it isn't known yet (booting) or there's nothing to install (no package.json)
 export const packagesState = ref(null)
 
-/** Which set of packages this project needs: a hash of its package.json, or null without one. */
+/** which set of packages this project needs: a hash of its package.json, or null without one. */
 export async function packagesKey(webcontainer) {
   const pkg = await read(webcontainer, 'package.json')
   if (pkg === null) return null
@@ -72,7 +72,7 @@ async function installed(webcontainer) {
 }
 
 /**
- * Put the saved packages back, right after the source files are mounted. Only for the same
+ * put the saved packages back, right after the source files are mounted. only for the same
  * package.json: returns true when they're back, false when pnpm has to install as usual.
  */
 export async function restorePackages(webcontainer) {
@@ -117,9 +117,9 @@ async function putBack(webcontainer) {
 }
 
 /**
- * The project's package.json changed (Load latest checkpoint) in a tab whose packages were
- * restored: clear them, so the next pnpm i is a clean install. Topping up restored packages
- * fails in a WebContainer ("Invalid package"). Does nothing in a tab that installed for itself.
+ * the project's package.json changed (Load latest checkpoint) in a tab whose packages were
+ * restored: clear them, so the next pnpm i is a clean install. topping up restored packages
+ * fails in a WebContainer ("Invalid package"). does nothing in a tab that installed for itself.
  */
 export async function forgetRestoredPackages(webcontainer) {
   if (!restoredLocks) return
@@ -174,10 +174,10 @@ export async function savePackages(webcontainer) {
 }
 
 /**
- * Save the packages whenever an install finishes (pnpm i, pnpm add, pnpm remove…). pnpm writes
+ * save the packages whenever an install finishes (pnpm i, pnpm add, pnpm remove…). pnpm writes
  * node_modules/.modules.yaml last, so that file changing is the signal, not the many writes
- * before it (a stalled install must never be saved half done). Watches the project until
- * node_modules exists, then node_modules itself. Returns a function that stops watching.
+ * before it (a stalled install must never be saved half done). watches the project until
+ * node_modules exists, then node_modules itself. returns a function that stops watching.
  */
 export function watchInstalls(webcontainer, { quietMs = QUIET_MS } = {}) {
   let timer = null

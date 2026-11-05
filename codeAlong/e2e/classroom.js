@@ -1,18 +1,18 @@
 import { generateJoinCode } from '../shared/join-code.js'
 import { expect, joinClass, service } from './fixtures'
 
-// Throwaway accounts and classes for the journeys, made straight in the database and deleted
+// throwaway accounts and classes for the journeys, made straight in the database and deleted
 // afterwards, so no journey changes the seeded data the demo and the seed tests rely on.
 
 export const PASSWORD = 'pass1234'
-// Prof Tan's course (IS216 G1) and its lesson, a copy of Week 6 · Mini Cart (design-docs/07)
+// prof Tan's course (IS216 G1) and its lesson, a copy of Week 6 · Mini Cart
 const COURSE_ID = '00000000-0000-0000-0001-000000000003'
 const LESSON_ID = '00000000-0000-0000-0002-000000000003'
 export const PROF_EMAIL = 'prof.tan@codealong.test'
 
 const unique = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
 
-/** Tracks what a spec makes, so cleanup() can remove it. One per spec file. */
+/** tracks what a spec makes, so cleanup() can remove it. one per spec file. */
 export function classroom() {
   const users = []
   const sessions = []
@@ -48,7 +48,7 @@ export function classroom() {
 
     /**
      * A course the account owns, with a ready lesson for each { title, week } (copies of the Mini
-     * Cart project), as if they had made them. Removed by cleanup(), with its classes.
+     * Cart project), as if they had made them. removed by cleanup(), with its classes.
      */
     async course(owner, { code, lessons = [] }) {
       const { data: course, error } = await service
@@ -121,7 +121,7 @@ export function classroom() {
       return { id: data.id, joinCode: data.join_code }
     },
 
-    /** Remembers a course made through the app, so cleanup() removes it and its classes */
+    /** remembers a course made through the app, so cleanup() removes it and its classes */
     trackCourse(courseId) {
       courses.push(courseId)
     },
@@ -145,23 +145,23 @@ export async function userIdOf(email) {
   return data.users.find((u) => u.email === email)?.id
 }
 
-/** The code editor (the first one on the page) */
+/** the code editor (the first one on the page) */
 export const editor = (page) => page.locator('.cm-content').first()
 
-/** Types at the very end of the open file */
+/** types at the very end of the open file */
 export async function typeAtEnd(page, text) {
   await editor(page).click()
   await page.keyboard.press('ControlOrMeta+End')
   await page.keyboard.type(text)
 }
 
-/** Joins a class from its link and waits for the class channel and the editor */
+/** joins a class from its link and waits for the class channel and the editor */
 export async function joinWithCode(page, joinCode) {
   await joinClass(page, joinCode)
   await expect(editor(page)).toBeVisible()
 }
 
-/** Opens the student's help panel, unless it's open already (the button toggles it) */
+/** opens the student's help panel, unless it's open already (the button toggles it) */
 export async function openHelp(page) {
   if (!(await page.getByText('Need a hand?').isVisible())) {
     await page.getByTestId('btn-help').click()
@@ -169,7 +169,7 @@ export async function openHelp(page) {
   await expect(page.getByText('Need a hand?')).toBeVisible()
 }
 
-/** Asks for help with a question; seat makes it an in-person request */
+/** asks for help with a question; seat makes it an in-person request */
 export async function askForHelp(page, question, seat) {
   await openHelp(page)
   await page.getByRole('button', { name: 'Ask for help' }).click()
@@ -181,7 +181,7 @@ export async function askForHelp(page, question, seat) {
   await page.getByRole('button', { name: 'Send', exact: true }).click()
 }
 
-/** Types a command into the workspace terminal once its shell is ready, and presses Enter */
+/** types a command into the workspace terminal once its shell is ready, and presses Enter */
 export async function runInTerminal(page, command) {
   const rows = page.locator('.xterm-rows').first()
   // the prompt only shows once the WebContainer has booted
@@ -195,9 +195,9 @@ export async function runInTerminal(page, command) {
   await page.keyboard.press('Enter')
 }
 
-/** The running app in the workspace's preview pane */
+/** the running app in the workspace's preview pane */
 export const previewOf = (page) => page.frameLocator('iframe[src*="webcontainer-api.io"]')
 
-/** Clicks a button in the open confirm pop-up */
+/** clicks a button in the open confirm pop-up */
 export const confirmModal = (page, label) =>
   page.locator('.ca-modal').getByRole('button', { name: label }).click()

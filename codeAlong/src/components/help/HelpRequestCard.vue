@@ -5,7 +5,7 @@ import HelpStatusPill from './HelpStatusPill.vue'
 import { HELP_TYPE_LABEL, askedAt, waitingFor, lastHandledBy, isActive } from './helpLabels.js'
 import { checkpointLabel } from '@shared/checkpoint-label.js'
 
-// One request in the queue: who, which checkpoint, what kind, how long they've waited. No code.
+// one request in the queue: who, which checkpoint, what kind, how long they've waited. no code.
 const props = defineProps({
   request: { type: Object, required: true },
   staffNames: { type: Object, default: () => ({}) },

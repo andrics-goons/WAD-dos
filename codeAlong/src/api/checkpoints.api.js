@@ -2,11 +2,11 @@ import { supabase } from '@/lib/supabase'
 import { storableFiles } from '@shared/sync-files.js'
 import { mapError } from './mapError'
 
-// The prof's saved code: as many as they like, whenever they like. Owner: Ying Qi.
-// Lists leave out `files` on purpose: students only download them when they load one.
+// the prof's saved code: as many as they like, whenever they like.
+// lists leave out `files` on purpose: students only download them when they load one.
 
 /**
- * Profs only. Saves the code as the next checkpoint, with an optional title; the server
+ * profs only. saves the code as the next checkpoint, with an optional title; the server
  * numbers it and tells the class (checkpoint:new), which puts every student back to In progress.
  * VALIDATION_FAILED for a title over 80 characters; CONFLICT if the class ended.
  */
@@ -31,7 +31,7 @@ export async function listCheckpoints(sessionId) {
   return data
 }
 
-/** One checkpoint's files — the only call here that downloads code. */
+/** one checkpoint's files, the only call here that downloads code. */
 export async function getCheckpointFiles(id) {
   const { data, error } = await supabase
     .from('checkpoints')

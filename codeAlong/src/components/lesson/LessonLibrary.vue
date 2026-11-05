@@ -9,12 +9,11 @@ import { useToastStore } from '@/stores/toast'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 
-// The Lessons tab of the course page. Lessons sit in one folder per week ("Week 6"), and opening a
+// the Lessons tab of the course page. lessons sit in one folder per week ("Week 6"), and opening a
 // folder shows its code files ("ICE", "Extra exercises"), each with the classes run from it.
-// Each file has its own Start new session, which starts a class from that file's code.
+// each file has its own Start new session, which starts a class from that file's code.
 // A course I've archived is read-only for me: its lessons and replays stay open, but nothing
 // is added, started, changed or joined until I restore it.
-// Owner: Ray Yien (started by Ying Qi as a working first version).
 const props = defineProps({ course: { type: Object, required: true } })
 
 const store = useCourseStore()
@@ -49,7 +48,7 @@ onMounted(async () => {
   }
 })
 
-// archived lessons are out of use: hidden unless asked for. Students can ask too, since their
+// archived lessons are out of use: hidden unless asked for. students can ask too, since their
 // past classes from those lessons (and the Replay links) are listed under them
 const showArchived = ref(false)
 const archivedCount = computed(
@@ -80,7 +79,7 @@ const folders = computed(() => {
 })
 
 // the ✎ on a folder: give every file in it another week number, or a first one for "No week"
-// (the week is just a number on each lesson, so this changes that number). Each folder keeps
+// (the week is just a number on each lesson, so this changes that number). each folder keeps
 // its own week: a week some other lesson already uses is refused, archived ones included
 const editing = ref(null) // the name of the folder whose ✎ is open ("Week 2", "No week")
 let editingFrom = null // that folder's week (null for "No week")
@@ -164,8 +163,8 @@ const noDeleteReason = (lesson) =>
 onMounted(() => document.addEventListener('click', closeMenu))
 onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
 
-// ready: students can see it and the prof can start a class. Hidden = draft. Archived:
-// students still see its past classes, but no new class starts from it. Same as the switch on
+// ready: students can see it and the prof can start a class. hidden = draft. archived:
+// students still see its past classes, but no new class starts from it. same as the switch on
 // the lesson edit page, which also takes an archived lesson back to ready.
 async function setStatus(lesson, status) {
   await lessonsStore.update(lesson.id, { status })
@@ -215,7 +214,7 @@ async function archive() {
   }
 }
 
-// Delete: only a lesson no class has run from (the replays and reports point at it otherwise,
+// delete: only a lesson no class has run from (the replays and reports point at it otherwise,
 // and the database refuses too); a taught one is archived instead
 const deleting = ref(null) // the lesson waiting for "Delete this lesson?"
 const deleteBusy = ref(false)
@@ -242,7 +241,7 @@ async function removeLesson() {
 }
 
 const starting = ref(null)
-// Only a ready lesson can start a class, so starting from a draft publishes it first: students
+// only a ready lesson can start a class, so starting from a draft publishes it first: students
 // see it from now on, which they would once class starts anyway
 async function startClass(lesson) {
   starting.value = lesson.id
@@ -384,7 +383,7 @@ async function startClass(lesson) {
                 class="ms-auto d-flex flex-wrap align-items-center gap-1"
               >
                 <!-- any file not archived, taught before or not; while one of its classes is live,
-                     Open class (in its list below) is the way in instead -->
+                     open class (in its list below) is the way in instead -->
                 <button
                   v-if="l.status !== LessonStatus.ARCHIVED && !hasLiveClass(l)"
                   type="button"

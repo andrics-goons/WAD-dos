@@ -1,10 +1,10 @@
 import { test, expect, service } from './fixtures'
 import { classroom, confirmModal, joinWithCode, PASSWORD, userIdOf } from './classroom'
 
-// Journey 1: one student's account, from signing up to deleting it, with a class of Prof Tan's
-// (IS216 G1) to join. The account signs in through the forms throughout: the login fixture would
-// sign it back in after its sign-out. Archiving only changes the student's own list.
-// Covers what were journeys 1, 10 and 11.
+// journey 1: one student's account, from signing up to deleting it, with a class of Prof Tan's
+// (IS216 G1) to join. the account signs in through the forms throughout: the login fixture would
+// sign it back in after its sign-out. archiving only changes the student's own list.
+// covers what were journeys 1, 10 and 11.
 const room = classroom()
 const email = `e2e-signup-${Date.now()}@codealong.test`
 const NEW_PASSWORD = 'newpass5678'

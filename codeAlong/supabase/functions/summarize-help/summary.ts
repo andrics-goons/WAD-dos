@@ -1,8 +1,8 @@
-// The class-level view of help requests, for summarize-help (design-docs/05 §8a, part 2).
-// Pure: no Deno globals, no network, so Vitest runs it directly.
+// the class-level view of help requests, for summarize-help.
+// pure: no Deno globals, no network, so Vitest runs it directly.
 //
-// Counting is done here, not by the model: requests are grouped by (checkpoint, category) from the
-// part 1 analyses, so "5 students" is always true. The model only writes the words for each
+// counting is done here, not by the model: requests are grouped by (checkpoint, category) from the
+// part 1 analyses, so "5 students" is always true. the model only writes the words for each
 // group, and if it fails the groups still show with plain text from the analyses.
 import type { ChatMessage } from '../_shared/groq.ts'
 import { checkpointLabel } from '../../../shared/checkpoint-label.js'
@@ -43,7 +43,7 @@ export interface ClassSummary {
   groups: SummaryGroup[]
 }
 
-// Keep prompt 2 inside Groq's free-tier ~8K tokens a minute
+// keep prompt 2 inside Groq's free-tier ~8K tokens a minute
 const MAX_GROUPS = 8
 const MAX_ITEMS_PER_GROUP = 5
 export const MAX_PROMPT_CHARS = 6000
@@ -133,7 +133,7 @@ const clamp = (value: unknown, max: number): string =>
 
 const people = (n: number) => (n === 1 ? '1 student' : `${n} students`)
 
-// Plain text from the part 1 analyses: used when there's no model, or it fails
+// plain text from the part 1 analyses: used when there's no model, or it fails
 export function fallbackSummary(groups: Group[]): ClassSummary {
   const top = groups[0]
   return {
@@ -153,8 +153,8 @@ export function fallbackSummary(groups: Group[]): ClassSummary {
   }
 }
 
-// The model's words on top of our groups. A group it skipped keeps the fallback text.
-// Throws if the reply isn't JSON, so the handler can fall back for everything.
+// the model's words on top of our groups. A group it skipped keeps the fallback text.
+// throws if the reply isn't JSON, so the handler can fall back for everything.
 export function parseSummary(text: string, groups: Group[]): ClassSummary {
   let raw: { headline?: unknown; groups?: unknown }
   try {

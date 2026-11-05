@@ -2,9 +2,9 @@
 import { computed } from 'vue'
 import { tileStateMeta } from '@/components/ui/tileStates.js'
 
-// The Teach view's students panel: the students connected right now, grouped by what they're
-// doing. Each student is in one group, the most urgent first: a help request, then a check
-// request, then their state. Slow down never shows here: it's only ever a count (09 §5).
+// the Teach view's students panel: the students connected right now, grouped by what they're
+// doing. each student is in one group, the most urgent first: a help request, then a check
+// request, then their state. slow down never shows here: it's only ever a count.
 const props = defineProps({
   // [{ id, name, state, help, check }]; state is done / in_progress / error / idle
   students: { type: Array, required: true },

@@ -1,15 +1,15 @@
-// Fixed values the whole team uses (roles, states, limits…), so nobody types them by hand.
-// Copied from design doc 09 — tell the team before changing anything here.
+// fixed values the whole team uses (roles, states, limits…), so nobody types them by hand.
+// shared by the app and the Edge Functions. tell the team before changing anything here.
 
 export const Role = Object.freeze({ PROF: 'prof', TA: 'ta', STUDENT: 'student', ADMIN: 'admin' })
-// How each role is named in the UI
+// how each role is named in the UI
 export const RoleLabel = Object.freeze({
   prof: 'Educator',
   ta: 'TA',
   student: 'Student',
   admin: 'Admin',
 })
-// The only two roles a user may pick at sign-up ("Educator" in the UI = prof)
+// the only two roles a user may pick at sign-up ("Educator" in the UI = prof)
 export const SignupRole = Object.freeze({ STUDENT: 'student', EDUCATOR: 'prof' })
 export const CourseRole = Object.freeze({ PROF: 'prof', TA: 'ta' })
 
@@ -77,7 +77,7 @@ export const Limits = Object.freeze({
   STORAGE_LIMIT_MB: 450, // of the free tier's 500 MB
 })
 
-// Error codes that open the limit pop-up (LimitModal): an AI call skipped because the
+// error codes that open the limit pop-up (LimitModal): an AI call skipped because the
 // site-wide limit was reached, and a database limit (lessons per course, storage)
 export const LimitCode = Object.freeze({ LLM: 'LLM_LIMIT', USAGE: 'LIMIT_REACHED' })
 
