@@ -1,4 +1,13 @@
 // Error mapping for supabase errors
+import { LimitCode } from '@shared/constants.js'
+
+// Told about every LIMIT_REACHED error (a database usage limit), so the limits store can
+// open the pop-up however the page that hit it handles the error
+const limitListeners = new Set()
+export function onLimitReached(fn) {
+  limitListeners.add(fn)
+  return () => limitListeners.delete(fn)
+}
 
 export class AppError extends Error {
   constructor(code, message, { status = 500, cause } = {}) {
@@ -19,6 +28,7 @@ const STATUS = {
   CONFLICT: 409,
   PAYLOAD_TOO_LARGE: 413,
   RATE_LIMITED: 429,
+  LIMIT_REACHED: 429,
   UPSTREAM_UNAVAILABLE: 502,
   INTERNAL: 500,
 }
@@ -57,7 +67,12 @@ export function mapError(error) {
   // 1. Your own RPCs: raise exception 'CODE|message' using errcode = 'P0001'
   if (error.code === 'P0001' && error.message?.includes('|')) {
     const [code, ...rest] = error.message.split('|')
-    return new AppError(code, rest.join('|'), { status: STATUS[code] ?? 400, cause: error })
+    const appError = new AppError(code, rest.join('|'), {
+      status: STATUS[code] ?? 400,
+      cause: error,
+    })
+    if (code === LimitCode.USAGE) limitListeners.forEach((fn) => fn(appError))
+    return appError
   }
 
   // 2. Known Supabase Auth and Postgres codes

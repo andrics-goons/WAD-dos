@@ -320,7 +320,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-DASH-10 | **The dashboard counts only connected students** | Unit | "Done X of N" uses the students connected now: someone who joined and left isn't in N or their Done; they count again when they reconnect |
 | T-DASH-11 | **Slow down counts only students who are still here** | RLS | A flag from a student unseen for longer than the idle window (180 s, or the class's own) isn't counted, and counts again when they return; TAs read the same number; students get `null`; an ended class counts all |
 | T-DASH-12 | Leaving the class page takes my Slow down back | Unit | `statusStore.leave()` deletes my flag and stops the heartbeat; with no flag it sends nothing; a refused delete (class ended, offline) never throws |
-| T-DASH-13 | **The Students menu lists who is connected, by status** | Unit | `getClassSummary` gives each student's state and open/claimed help and check requests; the menu shows connected students only (one without a status row is In progress), each in one group (help, check, error, in progress, idle, done, in that order), and never says who asked to slow down; Present closes it |
+| T-DASH-13 | **The Students menu lists who is connected, by status** | Unit | `getClassSummary` gives each student's state and open/claimed help and check requests; the menu shows connected students with a status row in the class, under their names from the database (see T-LIM-09), each in one group (help, check, error, in progress, idle, done, in that order), and never says who asked to slow down; Present closes it |
 | T-DASH-14 | ~~Common errors says when errors haven't made a group yet~~ | — | Dropped with Common errors |
 | T-DASH-15 | A heartbeat doesn't reload the dashboard | Unit | A `student_status` change that only moves `last_seen_at` isn't passed to `sessionStore.onChange` listeners; a change to Done, the error or catch-ups is. The 10 s poll still picks up who has gone idle |
 
@@ -512,6 +512,22 @@ Admins read everything and write only accounts. Most of these are negative tests
 | T-RESP-04 | Teach view at 1280 px | E2E | Editor + checkpoints + class summary card visible together |
 | T-RESP-05 | No page has horizontal scroll at 375 px | E2E | `scrollWidth <= innerWidth` on every route |
 | T-RESP-06 | Landscape 667×375 workspace | E2E | Usable; bottom bar doesn't cover editor |
+
+### LIM — Usage limits · `rls/usage_limits.test.js`, `analyze-help.test.js`, `summarize-help.test.js`, `limits.test.js`
+
+The free-tier guardrails (migration `usage_limits`, numbers in `Limits` in `shared/constants.js`).
+
+| ID | Test | Layer | Expected |
+|---|---|:---:|---|
+| T-LIM-01 | `claim_llm_call()` | DB | 30 claims a minute across the site, the 31st is `false`; users can't call it, only the service role |
+| T-LIM-02 | Help analysis when the LLM limit is reached | Unit | Model never called; `{ status: 'failed', code: 'LLM_LIMIT' }` saved |
+| T-LIM-03 | Class summary when the LLM limit is reached | Unit | Model never called; the plain-text summary with `llmLimitReached: true` |
+| T-LIM-04 | 31st lesson in a course | DB | Refused with `LIMIT_REACHED`; 30 are fine |
+| T-LIM-05 | A student's error object over 4 KB | DB | Refused by `student_status_error_size` |
+| T-LIM-06 | Limit pop-up | Unit | A `LIMIT_REACHED` error from any api call opens it; the same limit opens it at most once a minute |
+| T-LIM-08 | `analyze-help` called with anything but the service-role key | Unit | `403`; nothing read, model never called |
+| T-LIM-09 | Presence a student made up (`teach-view.test.js`) | Unit | Only presence with a status row in the class counts, once per student, under the database's name |
+| T-LIM-07 | Database over 450 MB | Review | New lessons, checkpoints and snapshots refused with `LIMIT_REACHED` (not automated: needs a full database) |
 
 ### VALID — Validation & error handling · `errors.spec.js`
 

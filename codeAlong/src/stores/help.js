@@ -1,10 +1,11 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import { HelpStatus } from '@shared/constants.js'
+import { HelpStatus, Limits, LimitCode } from '@shared/constants.js'
 import * as helpApi from '@/api/help.api'
 import { listStaff } from '@/api/courses.api'
 import { listCheckpoints } from '@/api/checkpoints.api'
 import { loadFiles } from '@/cache/files.js'
+import { useLimitStore } from '@/stores/limits'
 import { useSessionStore } from '@/stores/session'
 
 // The staff side of help (design-docs/04, "Help"): one class's queue, kept live through the
@@ -14,11 +15,13 @@ export const useHelpStore = defineStore('help', () => {
   const staffNames = ref({}) // user id → name, for "Ana is on this" and "last handled by Ana"
   const snapshotFiles = new Map() // snapshot id → files, so going back to a request doesn't re-download
   let stopChanges = null
+  let studentSide = false // load() is the student's own requests; open() is a staff queue
 
   // The student side: my own requests in the class I'm in (the table's rules give a student only
   // their own). Unlike open(), this leaves the class channel to the workspace.
   async function load(sessionId) {
     stop()
+    studentSide = true
     // listen first, so nothing that changes while we load is missed
     stopChanges = useSessionStore().onChange('help_requests', apply)
     requests.value = await helpApi.listHelpRequests(sessionId)
@@ -37,6 +40,7 @@ export const useHelpStore = defineStore('help', () => {
   // Opens a class's queue and keeps it live until close()
   async function open(sessionId) {
     close()
+    studentSide = false
     const sessionStore = useSessionStore()
     const session = await sessionStore.open(sessionId)
     const [list, staff] = await Promise.all([
@@ -66,6 +70,17 @@ export const useHelpStore = defineStore('help', () => {
   // so a request we haven't seen yet means re-reading the list.
   async function apply(row) {
     const known = requests.value.find((r) => r.id === row.id)
+    // my request's AI analysis was skipped for the site-wide LLM limit: tell the student
+    if (
+      studentSide &&
+      row.analysis?.code === LimitCode.LLM &&
+      known?.analysis?.code !== LimitCode.LLM
+    ) {
+      useLimitStore().show(
+        LimitCode.LLM,
+        `The site's limit of ${Limits.LLM_CALLS_PER_MINUTE} AI calls a minute has been reached. Your request still went to the TA, but without an AI analysis.`,
+      )
+    }
     if (known) Object.assign(known, row)
     else requests.value = await helpApi.listHelpRequests(row.session_id)
   }

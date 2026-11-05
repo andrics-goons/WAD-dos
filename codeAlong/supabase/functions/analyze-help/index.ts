@@ -59,6 +59,11 @@ const db: AnalyzeDb = {
     const { error } = await admin.from('help_requests').update({ analysis }).eq('id', requestId)
     if (error) throw error
   },
+  async claimLlmCall() {
+    const { data, error } = await admin.rpc('claim_llm_call')
+    if (error) throw error
+    return data === true
+  },
 }
 
 const env = (key: string) => Deno.env.get(key)

@@ -3,21 +3,25 @@
 // student's request: a model or Groq failure is stored as { status: 'failed' } and the
 // dashboard falls back to the plain error.
 //
-// Anyone holding a valid JWT can call a function, so the body is never trusted: we take only
-// the request id and re-read everything from the database.
+// Only the service role (the trigger) is let in, and even then the body is never trusted: we take
+// only the request id and re-read everything from the database.
 import { deliver, isMockMode, type EnvReader, type OutboxClient } from '../_shared/outbox.ts'
 import type { Llm } from '../_shared/groq.ts'
+import { Limits, LimitCode } from '../../../shared/constants.js'
 import { buildPrompt, parseAnalysis, type Analysis, type AnalysisContext } from './analysis.ts'
 
 export const DEFAULT_MODEL = 'openai/gpt-oss-20b'
 
+// code: LLM_LIMIT when the call was skipped for the site-wide limit, so the student gets the pop-up
 export type StoredAnalysis =
   | (Analysis & { model: string; analyzedAt: string })
-  | { status: 'failed'; reason: string; analyzedAt: string }
+  | { status: 'failed'; reason: string; code?: string; analyzedAt: string }
 
 export interface AnalyzeDb {
   getAnalysisContext(requestId: string): Promise<AnalysisContext | null>
   saveAnalysis(requestId: string, analysis: StoredAnalysis): Promise<void>
+  // takes one of the site's LLM calls for this minute; false when they're used up
+  claimLlmCall(): Promise<boolean>
 }
 
 export interface AnalyzeDeps {
@@ -40,10 +44,24 @@ export const MOCK_ANALYSIS: Analysis = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 
+// Only the analyze_help_request trigger may run an analysis, and it calls with the service-role
+// key. A student's own login is a valid JWT too, so without this anyone could run up LLM calls
+// by calling the function directly. The gateway (verify_jwt) has already checked the signature.
+function isServiceRole(req: Request): boolean {
+  const token = req.headers.get('authorization')?.replace(/^Bearer /i, '') ?? ''
+  try {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    return JSON.parse(atob(payload)).role === 'service_role'
+  } catch {
+    return false
+  }
+}
+
 export async function handleAnalyze(req: Request, deps: AnalyzeDeps): Promise<Response> {
   const { env, db, outbox, llm } = deps
   const now = deps.now ?? Date.now
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405)
+  if (!isServiceRole(req)) return json({ error: 'forbidden' }, 403)
 
   // Database trigger shape is { requestId }; a Database Webhook would send { record: { id } }
   const body = await req.json().catch(() => null)
@@ -69,12 +87,17 @@ export async function handleAnalyze(req: Request, deps: AnalyzeDeps): Promise<Re
     try {
       const messages = buildPrompt(ctx)
       let text = ''
+      let limited = false
       const result = await deliver({
         channel: 'llm',
         payload: { requestId, model, messages },
         env,
         client: outbox,
         live: async () => {
+          if (!(await db.claimLlmCall())) {
+            limited = true
+            return { ok: false, status: 429 }
+          }
           const r = await llm({ model, messages })
           text = r.text
           return { ok: r.ok, status: r.status, retryAfter: r.retryAfter }
@@ -84,11 +107,18 @@ export async function handleAnalyze(req: Request, deps: AnalyzeDeps): Promise<Re
 
       stored = result.ok
         ? { ...parseAnalysis(text, ctx), model, analyzedAt }
-        : failed(
-            result.status === 429
-              ? 'rate limited by the LLM provider'
-              : `LLM request failed (${result.status})`,
-          )
+        : limited
+          ? {
+              ...failed(
+                `the site's limit of ${Limits.LLM_CALLS_PER_MINUTE} AI calls a minute was reached`,
+              ),
+              code: LimitCode.LLM,
+            }
+          : failed(
+              result.status === 429
+                ? 'rate limited by the LLM provider'
+                : `LLM request failed (${result.status})`,
+            )
     } catch (err) {
       stored = failed(err instanceof Error ? err.message : 'analysis failed')
     }

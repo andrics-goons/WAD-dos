@@ -55,7 +55,7 @@ Seeded accounts all use the password `pass1234` (list in `design-docs/07`): `pro
 ## App rules
 
 - **Layering:** component → Pinia store → `src/api/*.api.js` → supabase. Components never import `@/lib/supabase`.
-- **Errors:** every api function throws `mapError(error)` (`src/api/mapError.js`), an `AppError` with `code` and a user-safe `message`. Never show raw database or Supabase text to users. Codes: `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `BAD_REQUEST`, `VALIDATION_FAILED`, `RATE_LIMITED`, `UPSTREAM_UNAVAILABLE`, `INTERNAL`.
+- **Errors:** every api function throws `mapError(error)` (`src/api/mapError.js`), an `AppError` with `code` and a user-safe `message`. Never show raw database or Supabase text to users. Codes: `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `BAD_REQUEST`, `VALIDATION_FAILED`, `RATE_LIMITED`, `LIMIT_REACHED` (a free-tier usage limit; opens the limit pop-up), `UPSTREAM_UNAVAILABLE`, `INTERNAL`.
 - **RLS returns zero rows, not an error,** for data you may not see. Every view needs a real empty / not-found state (`EmptyState`).
 - **Secrets:** the service-role key lives only in Edge Functions. Never in `src/`, never in a `VITE_` variable.
 - **`shared/` must not touch** the DOM, `window`, `Deno` or the network. `shared/constants.js` is a team contract: tell the team before changing it.

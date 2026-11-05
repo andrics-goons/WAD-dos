@@ -157,32 +157,36 @@ const slowDownPoll = setInterval(() => live.isLive && loadSummary(), 10_000)
 // in "Done X of N" or its bar: N is the students connected, and Done is only theirs. (Slow down
 // is an anonymous count, and help requests stay in the queue until answered, so those aren't
 // filtered.)
-const connected = computed(() => new Set(live.present.map((p) => p.userId)))
+//
+// Presence is what each browser says about itself, so a student could claim to be several people
+// or anyone. Only students with a status row in this class count (opening the workspace writes
+// one), each once, under the name the database has for them. A student who has only just joined
+// shows up when that first row arrives, a second or so later.
+const here = computed(() => {
+  const rows = new Map((dashboard.classSummary?.students ?? []).map((t) => [t.studentId, t]))
+  const ids = new Set(live.present.map((p) => p.userId).filter((id) => rows.has(id)))
+  return [...ids].map((id) => rows.get(id))
+})
 const summaryNow = computed(() => {
   const s = dashboard.classSummary
   if (!s) return null
   return {
     ...s,
-    total: live.present.length,
-    done: (s.students ?? []).filter((t) => t.done && connected.value.has(t.studentId)).length,
+    total: here.value.length,
+    done: here.value.filter((t) => t.done).length,
   }
 })
 
-// everyone connected, with their state and requests for the Students menu. A student who has
-// only just joined has no status row yet, so they're In progress until it arrives
-const roster = computed(() => {
-  const rows = new Map((dashboard.classSummary?.students ?? []).map((t) => [t.studentId, t]))
-  return live.present.map((p) => {
-    const t = rows.get(p.userId)
-    return {
-      id: p.userId,
-      name: p.name,
-      state: t?.state ?? 'in_progress',
-      help: !!t?.help,
-      check: !!t?.check,
-    }
-  })
-})
+// everyone connected, with their state and requests for the Students menu
+const roster = computed(() =>
+  here.value.map((t) => ({
+    id: t.studentId,
+    name: t.name,
+    state: t.state,
+    help: t.help,
+    check: t.check,
+  })),
+)
 
 const savedAt = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -293,7 +297,7 @@ onBeforeUnmount(() => {
             >
               <span class="live-dot" />
               <span
-                ><strong>{{ live.present.length }}</strong> connected</span
+                ><strong>{{ here.length }}</strong> connected</span
               >
             </span>
             <!-- how long the class has been running -->

@@ -21,6 +21,8 @@ export interface SummarizeDb {
   isSessionStaff(sessionId: string): Promise<boolean>
   // open help requests in the session: the analysed ones, and how many are still waiting for part 1
   listAnalyses(sessionId: string): Promise<{ analysed: AnalysedRequest[]; pending: number }>
+  // takes one of the site's LLM calls for this minute; false when they're used up
+  claimLlmCall(): Promise<boolean>
 }
 
 export interface SummarizeDeps {
@@ -37,6 +39,7 @@ export type SummaryResponse = ClassSummary & {
   source: 'llm' | 'rules' | 'none' // who wrote the words: the model, plain text from part 1, or nothing to say
   model: string | null
   generatedAt: string
+  llmLimitReached?: true // the site-wide LLM limit stopped the model; the prof gets the pop-up
 }
 
 // Errors use the same { code, message } shape as mapError, so the api module can pass them on
@@ -88,17 +91,23 @@ export async function handleSummarize(req: Request, deps: SummarizeDeps): Promis
   try {
     const messages = buildSummaryPrompt(groups, analysed.length)
     let text = ''
+    let limited = false
     const result = await deliver({
       channel: 'llm',
       payload: { sessionId, model, messages },
       env,
       client: outbox,
       live: async () => {
+        if (!(await db.claimLlmCall())) {
+          limited = true
+          return { ok: false, status: 429 }
+        }
         const r = await llm({ model, messages })
         text = r.text
         return { ok: r.ok, status: r.status, retryAfter: r.retryAfter }
       },
     })
+    if (limited) return json({ ...rules(), llmLimitReached: true } satisfies SummaryResponse)
     // mock mode and any failure show the plain-text groups, so the panel always has something
     if (result.mocked || !result.ok) return json(rules())
     return json({
