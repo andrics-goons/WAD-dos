@@ -218,6 +218,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-LES-12 | ✎ on a week folder (and on "No week") gives its files another week | Unit | The prof types Week 1–13; every lesson in that folder moves (archived and search-hidden ones too); a week another folder already uses is refused ("Week N already has lessons"), so each folder keeps a unique week; "No week" starts from an empty box; same week or Cancel changes nothing; no ✎ for TAs |
 | T-LES-13 | Leaving New lesson after picking files | Unit | Back to course, the navbar or browser Back asks "Leave without creating the lesson?" (Stay / Leave), on either step; no files picked or Create lesson → no question; closing the tab gets the browser's own warning |
 | T-LES-14 | The prof adds, renames and deletes starter files | Unit | The lesson editor's file tree has New file / Rename / Delete; a new file is saved with its language; renaming the entry file moves `entry_file` with it; Delete asks first; the entry file can't be deleted |
+| T-LES-15 | A folder dropped on the upload box loads like Choose folder… | Unit + browser | Dragging files over the box stops the browser opening them and highlights it; a dropped folder gives the same files and title as picking it, without opening `node_modules`, `dist` or `.git`; loose files keep their names and leave the title alone |
 | T-TODO-* | ~~TODO parser~~ | — | Removed with lesson steps |
 
 ### SESS — Live session engine · `live-session.spec.js`
