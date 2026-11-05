@@ -15,7 +15,7 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | 6 | Catch-up | Week 10 | Load checkpoint warns first, offers a .zip download, then replaces the code with the checkpoint |
 | 7 | Help flow | Week 10 | Check my work → pass/reply; Ask for help → claim/resolve; **a replied request can be followed up**; Telegram ping (mock in tests) |
 | 8 | Replay & GitHub | Week 11 | Replay steps through all checkpoints; notes; download a checkpoint's code; import + export (one commit per checkpoint) |
-| 9 | Error groups | Week 11 | Grouping matches unit-test expectations (Spotlight dropped) |
+| 9 | ~~Error groups~~ | Week 11 | Dropped: live Common errors and Spotlight removed; the AI help summary (AIH) replaces them |
 | 10 | Insights | Week 11 | Report built in SQL when the class ends; trouble score + trends; digest sent (mock in tests) |
 | 11 | Hardening | Week 11–12 | Validation + error states everywhere; responsive pass 375 → 1440 px; load test 40 students passes **inside the Realtime free-tier cap** |
 | 12 | Demo ready | Week 12 | Fresh clone → README steps → `db:reset` → all E2E green → deployed URL works (incl. the `/join/:code` deep link) → keep-alive scheduled → video recorded |
@@ -316,21 +316,21 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-DASH-05 | Student un-taps "Slow down" | E2E | Count decrements |
 | T-DASH-06 | TA (staff) can view dashboard; student cannot | RLS | TA gets tile rows; a student gets zero rows from `session_tiles` |
 | T-DASH-07 | ~~Tiles show icon + label~~ | — | Removed: no per-student tiles |
-| T-DASH-10 | **The dashboard counts only connected students** | Unit | "Done X of N" and Common errors use the students connected now: someone who joined and left isn't in N, their Done or their errors; they count again when they reconnect |
+| T-DASH-10 | **The dashboard counts only connected students** | Unit | "Done X of N" uses the students connected now: someone who joined and left isn't in N or their Done; they count again when they reconnect |
 | T-DASH-11 | **Slow down counts only students who are still here** | RLS | A flag from a student unseen for longer than the idle window (180 s, or the class's own) isn't counted, and counts again when they return; TAs read the same number; students get `null`; an ended class counts all |
 | T-DASH-12 | Leaving the class page takes my Slow down back | Unit | `statusStore.leave()` deletes my flag and stops the heartbeat; with no flag it sends nothing; a refused delete (class ended, offline) never throws |
 | T-DASH-13 | **The Students menu lists who is connected, by status** | Unit | `getClassSummary` gives each student's state and open/claimed help and check requests; the menu shows connected students only (one without a status row is In progress), each in one group (help, check, error, in progress, idle, done, in that order), and never says who asked to slow down; Present closes it |
-| T-DASH-14 | **Common errors says when errors haven't made a group yet** | Unit | With errors but no group, the panel reads "No common errors yet" with how many students and how many it takes (`errorGroupThreshold`: 2, or 10% of the class), never "No errors right now"; beside groups, a note counts students whose error nobody shares |
+| T-DASH-14 | ~~Common errors says when errors haven't made a group yet~~ | — | Dropped with Common errors |
 
-### ERRG — Error groups · `error-normalizer.test.js`, `group-errors.test.js`, `api/dashboard.api.test.js`
+### ERRG — Error normalisation · `error-normalizer.test.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
 | T-ERRG-01 | Line/col and URLs stripped | Unit | Same `key` for two stacks differing only in line |
 | T-ERRG-02 | Numbers masked | Unit | `status code <n>` |
 | T-ERRG-03 | `items` vs `itmes is not defined` | Unit | Different `key`, same `shapeKey` |
-| T-ERRG-04 | Group threshold (≥ 2 or ≥ 10%) | Unit | Singletons excluded |
-| T-ERRG-05 | Same typo by 2 students | E2E | One group "×2" on the dashboard |
+| T-ERRG-04 | ~~Group threshold (≥ 2 or ≥ 10%)~~ | — | Dropped with Common errors |
+| T-ERRG-05 | ~~Same typo by 2 students~~ | — | Dropped with Common errors |
 | T-ERRG-06 | ~~Spotlight with an eligible help snapshot~~ | — | Dropped: the team chose not to build Spotlight; Common errors shows the groups only |
 | T-ERRG-07 | ~~Excerpt anonymised~~ | — | Dropped: the team chose not to build Spotlight; Common errors shows the groups only |
 | T-ERRG-08 | ~~Spotlight with no help snapshot~~ | — | Dropped: the team chose not to build Spotlight; Common errors shows the groups only |

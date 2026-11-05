@@ -317,32 +317,49 @@ const repoSlug = (title) =>
         @exported="onExported"
       />
 
-      <div v-if="canToggle" class="d-flex flex-wrap align-items-center gap-2 mb-3">
-        <div class="d-flex gap-1">
-          <button
-            type="button"
-            class="ca-btn ca-btn--sm"
-            :class="student ? 'ca-btn--secondary' : 'ca-btn--primary'"
-            @click="setView('teacher')"
-          >
-            <i class="bi bi-easel" />Teacher
-          </button>
-          <button
-            type="button"
-            class="ca-btn ca-btn--sm"
-            :class="student ? 'ca-btn--primary' : 'ca-btn--secondary'"
-            @click="setView('student')"
-          >
-            <i class="bi bi-person" />Student
-          </button>
-        </div>
-        <span class="small text-body-secondary">
-          {{
-            student
-              ? 'Your own code as the class ended'
-              : "The prof's code, checkpoint by checkpoint, with your notes"
-          }}
-        </span>
+      <!-- above the columns, so My notes stays put as the notes open below it and the code narrows -->
+      <div
+        v-if="canToggle || (!student && checkpoints.length)"
+        class="d-flex flex-wrap align-items-center gap-2 mb-3"
+      >
+        <template v-if="canToggle">
+          <div class="d-flex gap-1">
+            <button
+              type="button"
+              class="ca-btn ca-btn--sm"
+              :class="student ? 'ca-btn--secondary' : 'ca-btn--primary'"
+              @click="setView('teacher')"
+            >
+              <i class="bi bi-easel" />Teacher
+            </button>
+            <button
+              type="button"
+              class="ca-btn ca-btn--sm"
+              :class="student ? 'ca-btn--primary' : 'ca-btn--secondary'"
+              @click="setView('student')"
+            >
+              <i class="bi bi-person" />Student
+            </button>
+          </div>
+          <span class="small text-body-secondary">
+            {{
+              student
+                ? 'Your own code as the class ended'
+                : "The prof's code, checkpoint by checkpoint, with your notes"
+            }}
+          </span>
+        </template>
+        <button
+          v-if="!student && checkpoints.length"
+          type="button"
+          class="ca-btn ca-btn--sm ms-auto"
+          :class="notesOpen ? 'ca-btn--primary' : 'ca-btn--secondary'"
+          data-testid="btn-toggle-notes"
+          @click="toggleNotes"
+        >
+          <i class="bi bi-journal-text" />My notes
+          <template v-if="notesHere.length">({{ notesHere.length }})</template>
+        </button>
       </div>
 
       <div v-if="student && !hasCode" class="ca-surface">
@@ -399,16 +416,6 @@ const repoSlug = (title) =>
         <section class="col-12" :class="notesOpen ? 'col-lg-6' : 'col-lg-9'">
           <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
             <h2 class="fs-5 mb-0 me-auto">{{ checkpointLabel(active.seq, active.title) }}</h2>
-            <button
-              type="button"
-              class="ca-btn ca-btn--sm"
-              :class="notesOpen ? 'ca-btn--primary' : 'ca-btn--secondary'"
-              data-testid="btn-toggle-notes"
-              @click="toggleNotes"
-            >
-              <i class="bi bi-journal-text" />My notes
-              <template v-if="notesHere.length">({{ notesHere.length }})</template>
-            </button>
           </div>
           <ReplayTabs v-model="tab" :tabs="TABS">
             <div class="d-flex align-items-center gap-1">

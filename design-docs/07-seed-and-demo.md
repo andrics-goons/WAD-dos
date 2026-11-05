@@ -87,7 +87,7 @@ Two processes run in the container: Vite on 5173 and the Express endpoint on 300
 | 7 | Save the cart to localStorage and load it on start | `src/App.vue` |
 | 8 | Add Reset and Checkout buttons (POST `/api/checkout`) | `src/App.vue`, `server/api.js` |
 
-TODO 4 (checkpoint 4 in the seed) stays the deliberate trouble spot — `props.items` vs `items` — which is what the seeded past session, and the error-grouping demo are built on.
+TODO 4 (checkpoint 4 in the seed) stays the deliberate trouble spot — `props.items` vs `items` — which is what the seeded past session and its report are built on.
 
 Two things this changes:
 
@@ -128,11 +128,11 @@ Week 6 · Mini Cart, running in IS216 G2 on checkpoint 3 (3 titled checkpoints, 
 | Done on 3 | Alex, Eli, Kim, Nadia, Omar, Quinn, Sam, Tara (8) | Eli loaded the latest checkpoint once (a catch-up, with his old code kept) |
 | In progress (done on 2) | Chen, Hana, Jae, Lucas, Priya (5) | Chen, Lucas and Priya have tapped **Slow down** (staff see `slow_down_count = 3`, never who) |
 | Idle (done on 1) | Dana, Rachel (2) | Last seen 70 minutes ago, past the class's idle window |
-| Error | Bea, Gus, Victor (3) · Faye, Mei (2) · Ivan (1) | The `ItemCard` import typo in two spellings (`Itemcard`, `itemcard` — one shape, so Common errors shows the variants) · a missing `:items` prop · one typo (`categries`) nobody else has ("1 other student has an error nobody else shares yet") |
+| Error | Bea, Gus, Victor (3) · Faye, Mei (2) · Ivan (1) | The `ItemCard` import typo in two spellings (`Itemcard`, `itemcard` — one shape) · a missing `:items` prop · one typo (`categries`) nobody else has |
 
 **The help queue has every state a TA meets:** Priya's request is back in the queue after a reply and a follow-up ("last handled by Ben"); Lucas's is claimed by Ana; Gus's and Bea's are the same import mistake, so **What the class is stuck on** groups them; Faye's AI analysis failed; Nadia's is a Check my work; Mei asked in person (seat B7) and hers is still being analysed; and below them a passed check (Omar), a resolved in-person request (Hana, seat A3) and one Jae took back. Every help request has the **AI analysis** a TA sees on it.
 
-The prof's dashboard counts **only the students connected right now** (Done X of N, the Students panel, Common errors), so those numbers fill in as students log in; the statuses, help queue and help summary are there from the start.
+The prof's dashboard counts **only the students connected right now** (Done X of N, the Students panel), so those numbers fill in as students log in; the statuses, help queue and help summary are there from the start.
 
 The live class's `idleAfterSec` is **3600**, not 180, so its students stay "here" for an hour after `pnpm db:reset`; after that they all show `idle`. **End it or reset before recording the demo**, which starts its own session.
 
@@ -200,7 +200,7 @@ Every member presents the part they built (check your section's rule on who must
 | 5 | Three students join by code; simulator adds 25 more | Tiles fill in live |
 | 6 | Prof finishes ItemCard, types a title, clicks **Save checkpoint** | Every student gets the toast instantly and goes back to In progress until they click Done |
 | 7 | Alex (575 px window) types `items` instead of `props.items` | Console shows the real error; gutter marker; Alex's tile turns **red** |
-| 8 | Several simulated students hit the same error | Error group "`items is not defined` ×7" |
+| 8 | Several simulated students hit the same error and ask for help | "What the class is stuck on" groups them, e.g. "7 students · missing-prop" with a teaching tip |
 | 9 | Bea and Chen tap **Slow down** | Slow-down count 2 — no names anywhere |
 | 10 | **Explain:** WebContainer runtime, status derivation, error normaliser | Diagram slide + `session_tiles` view, `shared/error-normalizer.js`; mention that a build error's code frame is stripped before it ever leaves the browser |
 
@@ -259,7 +259,7 @@ What we'd do next (automatic checkpoint checks, VS Code reporter) + thanks.
 | 4 | Features & tiers | F1–F6 mapped to tiers; signature algorithm highlighted |
 | 5 | Architecture | Stack diagram; direct queries vs RPCs vs Edge Functions; WebContainer as the student runtime; why no server was needed |
 | 6 | Data store | Tables, relationships, RLS as the privacy mechanism, derived tile state |
-| 7 | Core logic | Sandbox + classifier + error grouping (diagram) |
+| 7 | Core logic | Sandbox + classifier + AI help summary (diagram) |
 | 8 | External APIs | Telegram (pings, digests), GitHub (import, export as commits) — integration details |
 | 9 | Design & responsiveness | Screens at 375 px and 1280 px; IDP rules applied |
 | 10 | Testing | Strategy, repeatability, stable selectors, how to run |

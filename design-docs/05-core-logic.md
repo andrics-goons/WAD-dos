@@ -7,7 +7,7 @@ This is the "how it actually works" document: the parts that make CodeAlong a Ti
 | Home | For | Why there |
 |---|---|---|
 | `shared/*.js` | Pure functions — normaliser, classifier, diff, excerpt, report, checkpoint labels | No DOM, no network, no `Deno`; unit-tested with Vitest; imported by both the Vue app and the Edge Functions |
-| `src/` (browser) | Anything the user's own data drives: the **WebContainer runtime**, re-parsing, diffing, error grouping, the IndexedDB cache | Already trusted with that data; a round-trip would add latency and nothing else |
+| `src/` (browser) | Anything the user's own data drives: the **WebContainer runtime**, re-parsing, diffing, the IndexedDB cache | Already trusted with that data; a round-trip would add latency and nothing else |
 | Postgres (RPC / view / trigger) | Anything a client must not decide: roles, join codes, `seq`, state transitions, **tile state** | `security definer` and RLS make it unforgeable |
 | Edge Function (Deno) | Anything needing an API secret or elevated rights: Telegram, GitHub, LLM, reports | The only place secrets exist |
 
@@ -18,7 +18,7 @@ This is the "how it actually works" document: the parts that make CodeAlong a Ti
 | 3 | Session lifecycle | Ying Qi | 2 | RPC | `tests/unit/rls/sessions.test.js`, E2E `live-session.spec.js` |
 | 4 | Status reporting + classifier | Andric (view) · Evan (`classify()`) | 3 | view + `shared/` | `tests/unit/tile-state.test.js`, `tests/unit/rls/status.test.js` |
 | 5 | ~~TODO parser → lesson plan~~ (removed: no lesson steps) | — | — | — | — |
-| 6 | Error normalisation + grouping (runtime **and build** errors) | Evan | **3** | `shared/` | `tests/unit/error-normalizer.test.js` |
+| 6 | Error normalisation (runtime **and build** errors) | Evan | **3** | `shared/` | `tests/unit/error-normalizer.test.js` |
 | 7 | Catch-up (download, then replace) | Ray Yien · Dylan (mount) | 2 | browser | `tests/unit/stores/workspace.test.js`, `downloadProject.test.js`, E2E `catch-up.spec.js` |
 | 8 | Help queue + Telegram ping | Karin | 2 | RPC + function | E2E `help.spec.js` |
 | 9 | ~~Spotlight anonymisation~~ | — | — | Dropped | — |
@@ -69,7 +69,7 @@ Set in `vercel.json` next to the SPA rewrite — see [02](./02-tech-stack.md#dep
 
 ### What we capture, and from where
 
-The error pipeline now has **two** sources. This is the main design change for Evan's grouping and the dashboard.
+The error pipeline now has **two** sources. This is the main design change for Evan's normaliser and the dashboard.
 
 | Source | How | Shape |
 |---|---|---|
@@ -349,7 +349,7 @@ A trigger on `student_status` appends to `status_history` when the **derived** s
 
 ### Dashboard summary
 
-`session_summary` gives counts and `slow_down_count`; error groups are `groupErrors()` over the tile list in the staff browser, recomputed as a Vue `computed` and throttled to `SUMMARY_THROTTLE_MS` (1 s). There is no in-memory cache to rebuild after a restart, and no single-instance assumption — which also removes the old "scaling out would need a Redis adapter" caveat.
+`session_summary` gives counts and `slow_down_count`, refreshed in the staff browser and throttled to `SUMMARY_THROTTLE_MS` (1 s). There is no in-memory cache to rebuild after a restart, and no single-instance assumption — which also removes the old "scaling out would need a Redis adapter" caveat.
 
 **Load target:** 40 simulated students updating every 3 s → p95 tile latency < 500 ms, checked with `scripts/simulate-class.js`. **This is also the Realtime free-tier check** — see the risk table in [02](./02-tech-stack.md#risks-specific-to-this-stack).
 
@@ -361,13 +361,13 @@ Lessons used to carry an ordered list of steps, parsed from `// TODO 3:` comment
 
 ---
 
-## 6. Error Normalisation & Grouping (signature algorithm)
+## 6. Error Normalisation
 
-**Goal:** if 13 students hit "the same mistake", the prof sees **one** group of 13, not 13 different messages. Messages differ in volatile parts (line numbers, URLs, values), so we normalise before grouping.
+**Goal:** one mistake gets one label, however its message varies. Messages differ in volatile parts (line numbers, URLs, values), so we normalise them. The labels feed the report's top error groups (§10, from `status_history.error_key`) and the student's Error state.
 
-`shared/error-normalizer.js` runs in the **student's** browser, before the status upsert, so `student_status.error` already carries `key` and `shapeKey`. Grouping runs in the **staff** browser over the tile list. Neither needs a server.
+`shared/error-normalizer.js` runs in the **student's** browser, before the status upsert, so `student_status.error` already carries `key` and `shapeKey`. It needs no server.
 
-It now normalises **two** kinds of error. Runtime errors arrive from the probe as before. Build errors arrive from the dev server's output and must pass through `parseBuildError()` first, which strips the code frame (§1) — only then does `normalizeError()` see them. Both end up with the same `{ key, shapeKey }` shape, so grouping and the insights funnel need no changes.
+It now normalises **two** kinds of error. Runtime errors arrive from the probe as before. Build errors arrive from the dev server's output and must pass through `parseBuildError()` first, which strips the code frame (§1) — only then does `normalizeError()` see them. Both end up with the same `{ key, shapeKey }` shape, so the insights funnel needs no changes.
 
 Build errors group especially well: when nine students break the same `import`, Vite gives all nine a near-identical message, which is exactly the signal the prof wants. `error.source` (`'runtime'` or `'build'`) is carried through so the dashboard can label a group "won't compile" versus "throws at runtime".
 
@@ -404,15 +404,11 @@ export function normalizeError({ name = 'Error', message = '' }) {
 | `ReferenceError: itmes is not defined` | `ReferenceError: itmes is not defined` | `ReferenceError: <id> is not defined` |
 | `AxiosError: Request failed with status code 404` | `AxiosError: Request failed with status code <n>` | same |
 
-### Grouping rules
+### Live grouping (dropped)
 
-1. Group by `key`. The whole class is working towards the same checkpoint and follows the same code, so identifiers usually match — the exact key is the most useful label ("`items is not defined`" tells the prof exactly what to explain).
-2. Groups that share a `shapeKey` are shown as **one group with variants** ("`<id> is not defined` — items ×9, itmes ×2").
-3. Only groups with **≥ 2 students** (or ≥ 10% of those present, whichever is larger) appear.
-4. Sort by student count desc, then most recent.
-5. A student leaves a group as soon as their next run has no error.
+The teach view used to group students' current errors live ("Common errors": same `key`, typos merged by `shapeKey`, shown once 2 students or 10% of the class shared one). It was dropped: build errors fire on almost every keystroke while a student types, so the groups were mostly noise, and the AI summary of help requests (§8a) tells the prof more. Students' errors are still reported and stored exactly as above, because the help request analysis, the Error state and the report use them.
 
-> **Trust note.** A student's browser computes its own `key`. A malicious student could write a false error key into their own row — but it only affects their own tile and group membership, never anyone else's, and nothing in the privacy contract depends on it. Not worth a round-trip.
+> **Trust note.** A student's browser computes its own `key`. A malicious student could write a false error key into their own row — but it only affects their own status, never anyone else's, and nothing in the privacy contract depends on it. Not worth a round-trip.
 
 ---
 
@@ -551,7 +547,7 @@ prof opens the Teach view or presses Refresh → dashboard store → dashboard.a
 
 ## 9. ~~Spotlight Anonymisation~~
 
-**Dropped.** The team chose not to build Spotlight (projecting one anonymised student example of a common error to the whole class). Common errors on the teach view shows the groups only. The `sessions.spotlight` column and the `spotlight:show` / `spotlight:hide` constants are still in the schema and `shared/constants.js`, unused.
+**Dropped.** The team chose not to build Spotlight (projecting one anonymised student example of a common error to the whole class). (Common errors on the teach view was later dropped too, see §6.) The `sessions.spotlight` column and the `spotlight:show` / `spotlight:hide` constants are still in the schema and `shared/constants.js`, unused.
 
 ---
 

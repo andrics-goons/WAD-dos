@@ -320,7 +320,7 @@ RLS applies to the subscription, so a student receives only their own rows.
 
 **Tiles are read from the `session_tiles` view, not the raw table.** A change event tells the staff client *which* `student_id` moved; the client re-reads that row from the view (or recomputes with `shared/tile-state.js`) so the derived state always matches the SQL.
 
-The old `dashboard:summary` event is gone: counts, `slow_down_count` and error groups are a Vue `computed` over the tile list, throttled client-side to `Limits.SUMMARY_THROTTLE_MS`.
+The old `dashboard:summary` event is gone: counts and `slow_down_count` are read by the staff browser, throttled client-side to `Limits.SUMMARY_THROTTLE_MS`.
 
 ### c) Presence — attendance and "who is in the room"
 
@@ -376,7 +376,7 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `rpc('claim_help_request')` | Karin | Help queue | `(p_request_id uuid) → request row` (raises `CONFLICT\|…` if taken) |
 | `rpc('transition_help_request')` | Karin | Help review | `(p_request_id uuid, p_to text, p_reply text) → request row` — a reply is **appended to `thread`**, never overwritten |
 | `rpc('follow_up_help_request')` | Karin | Student help panel | `(p_request_id uuid, p_message text, p_files jsonb) → request row` — `replied → open`, fresh snapshot, max `MAX_FOLLOW_UPS` |
-| `view session_tiles` | Andric | Evan (dashboard) | `(session_id, student_id, name, checkpoint_seq, done_seq, error_source, error_key, error_preview, checks, last_seen_at, state, passed_seqs, error_shape_key)` — `state` is `done` / `in_progress` / `error` / `idle` (no `behind`). `error_source` is `'runtime'` or `'build'`, so the dashboard can label a group "won't compile" vs "throws". `passed_seqs` is `int[]` of checkpoints whose `check` was passed. `error_shape_key` is `normalizeError`'s `shapeKey`, which Common errors groups on |
+| `view session_tiles` | Andric | Evan (dashboard) | `(session_id, student_id, name, checkpoint_seq, done_seq, error_source, error_key, error_preview, checks, last_seen_at, state, passed_seqs, error_shape_key)` — `state` is `done` / `in_progress` / `error` / `idle` (no `behind`). `error_source` is `'runtime'` or `'build'`. `passed_seqs` is `int[]` of checkpoints whose `check` was passed. `error_shape_key` is `normalizeError`'s `shapeKey` (unused since Common errors was dropped) |
 | `view session_summary` | Andric | Evan (class summary card) | `(session_id, total, done, in_progress, error, idle, slow_down_count)` — `slow_down_count` is `null` for anyone but staff and admins |
 | `normalizeError` | Evan | Dylan (before writing status) | `({ name, message }) => { key, shapeKey }` |
 | `parseBuildError` | Dylan | Dylan (dev-server output) | `(stdout: string) => { name, message, file, line } \| null` — **drops the code frame**; run before `normalizeError` |
@@ -384,7 +384,6 @@ reconnect (automatic)      → re-subscribe, re-read latest checkpoint + own sta
 | `loadFiles(kind, id, hash)` | Ray Yien | Dylan (workspace boot) | `→ files` — IndexedDB first, Supabase only on a hash miss. `kind` is `'lesson'`, `'checkpoint'` or `'snapshot'` (snapshots are never cached). `hash` is optional: without it, the hash is checked first. For the student's own autosave, `findMyAutosave(sessionId)` in `files.api.js` gives `{ id, files_hash, updated_at }` |
 | `autosave(tree)` | Ray Yien | Dylan (editor changes) | Debounced 5 s; sends only changed files |
 | `workspaceStore.loadLatestCheckpoint()` | Ray Yien | Dylan (Load checkpoint) | `→ { packageChanged }` — no RPC (05 §7); when `packageChanged` the toast tells the student to run `pnpm install` |
-| `groupErrors` | Evan | Evan (client summary) | `(tiles, { min, presentCount }) => errorGroups[]` |
 | `classify` | Evan | Evan (dashboard re-derive) — must agree with Andric's `session_tiles` | `({ doneSeq, error, lastSeenAt, checkpointSeq, now, idleAfterMs }) => TileState` |
 | `checkpointLabel` | Andric | Workspace, help screens, report, Telegram ping | `(seq, title?) => 'Checkpoint 3 · Added ItemCard' \| 'Checkpoint 3' \| 'Starter code'` |
 | `diffSummary` | Ray Yien | Dylan, Karin | `(beforeFiles, afterFiles) => { files: [{ path, added, removed, firstDiffLine, hunks }] }` |
@@ -420,7 +419,7 @@ Unchanged from the Mongo design — tests must not care which backend is underne
 | Lessons | `lesson-dropzone` (New lesson's upload box, takes a dropped folder), `lesson-row-<slug>`, `lesson-start-<slug>`, `lesson-menu-<slug>` (the ⋯ on each lesson: Edit files, Visibility (a switch), Archive / Unarchive, Delete (greyed out with a ? once it's taught)), `lesson-why-no-delete-<slug>` (that ?), `lesson-visible-<slug>` (that switch), `btn-connect-github` (import tab, when GitHub isn't connected) |
 | Session | `join-code`, `join-qr`, `input-join-code`, `join-error`, `input-checkpoint-title`, `btn-save-checkpoint`, `btn-end-session`, `btn-present` (Present / Dashboard view, in the session bar), `btn-open-students` (Show / Hide students, under the number cards), `students-menu` (the panel it drops over the editor), `students-group-<status>` (one group in it: `help`, `check`, `error`, `in_progress`, `idle`, `done`), `btn-open-announce` (the Announce button in the session bar), `input-announce` and `btn-announce` (Send, disabled while the box is empty), both in its menu, `btn-clear-announce` ("Clear announcement", in the menu's "Showing to students now" section, only while one is live), `announce-showing` (that section), `announcement-banner` |
 | Workspace | `editor`, `file-tab-<path>`, `preview-frame`, `console-entry`, `status-pill`, `save-status`, `btn-done`, `btn-slow-down`, `btn-help`, `btn-load-checkpoint`, `btn-toggle-view` (split / full view, in the editor's and the preview's header, xl and up), `btn-download-project`, `workspace-not-found` ("You're not in this class", for a class you can't open), `packages-ready` and `packages-missing` ("Packages ready" / "Run pnpm i" in the terminal's header), `tree-root` (the file tree's list, a drop there moves a file to the top level), `move-error` (why a dragged file couldn't move), `workspace-checkpoint`, `tab-code`, `tab-preview`, `tab-console` |
-| Dashboard | `summary-done`, `slow-down-count`, `error-group-<index>`, `help-summary`, `help-summary-headline`, `help-summary-group-<index>`, `btn-refresh-help-summary` |
+| Dashboard | `summary-done`, `slow-down-count`, `help-summary`, `help-summary-headline`, `help-summary-group-<index>`, `btn-refresh-help-summary` |
 | Help | `help-card-<requestId>`, `btn-claim`, `btn-pass`, `btn-reply`, `input-reply`, `help-status`, `help-thread`, `btn-follow-up`, `input-follow-up`, `badge-follow-up`, `btn-open-in-editor` (review panel, opens `/help/:id/code` in a new tab), `link-request-page` (the student's name in the queue's review panel, opens `/help/:id`), `help-analysis` and `help-analysis-failed` (the AI's analysis of the request in the review panel), `scratch-notice` (that page's "nothing is saved" notice), `btn-toggle-handled` and `handled-list` (the queue's Handled heading and list) |
 | Replay | `timeline-checkpoint-<seq>`, `timeline-noted` (the marker on a checkpoint with notes), `btn-toggle-notes`, `diff-view`, `diff-show-gap` (Show N unchanged lines), `btn-add-note`, `note-item`, `input-search`, `btn-export-github` |
 | Reports | `report-funnel`, `report-most-loaded`, `report-stuck-on`, `btn-send-digest`, `digest-sent` |
@@ -479,7 +478,6 @@ Full list in [02-tech-stack.md](./02-tech-stack.md#environment-variables).
 - [ ] Check my work → pass/reply; Ask for help → Telegram ping → resolve
 - [ ] A replied request can be followed up (same request, original queue place, fresh code), up to 3 times
 - [ ] Prof announcement reaches every student, and a late joiner still sees it
-- [ ] Error groups merge the same mistake
 - [ ] Ending a session shows the replay link; replay, notes, search work
 - [ ] GitHub export creates one commit per checkpoint
 - [ ] Insights report + digest correct (counts only)
