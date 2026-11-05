@@ -11,7 +11,6 @@ vi.mock('@/lib/supabase', async () => {
 import { supabase } from '@/lib/supabase'
 import * as coursesApi from '@/api/courses.api'
 import { getClassSummary } from '@/api/dashboard.api'
-import { groupErrors } from '@shared/error-normalizer.js'
 import { createUser, service, cleanup } from '../rls/_helpers.js'
 
 const FILES = [{ path: 'index.html', language: 'html', content: '' }]
@@ -174,33 +173,9 @@ describe('getClassSummary', () => {
     expect(JSON.stringify({ total, done, slowDown, help, check })).not.toMatch(/Student|-/)
   })
 
-  it("gives the class's errors in the shape groupErrors takes", async () => {
-    const { errors } = await getClassSummary(session.id)
-    expect(errors).toContainEqual({
-      studentId: students[1].id,
-      errorKey: 'ReferenceError: itmes is not defined',
-      errorShapeKey: 'ReferenceError: <id> is not defined',
-      errorSource: 'runtime',
-      errorPreview: 'itmes is not defined',
-      lastSeenAt: expect.any(String),
-    })
-    expect(errors).toHaveLength(2)
-  })
-
-  it('T-ERRG-05: two students with typos of the same mistake make one group of 2', async () => {
-    const { errors, total } = await getClassSummary(session.id)
-    const groups = groupErrors(errors, { presentCount: total })
-    expect(groups).toHaveLength(1)
-    expect(groups[0].count).toBe(2)
-    expect(groups[0].variants.map((v) => v.key).sort()).toEqual([
-      'ReferenceError: items is not defined',
-      'ReferenceError: itmes is not defined',
-    ])
-  })
-
   it('T-DASH-06: a student gets nothing from the class view', async () => {
     await as(students[4])
     const summary = await getClassSummary(session.id)
-    expect(summary).toMatchObject({ total: 0, done: 0, slowDown: 0, errors: [] })
+    expect(summary).toMatchObject({ total: 0, done: 0, slowDown: 0 })
   })
 })

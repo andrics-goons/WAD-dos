@@ -1,11 +1,9 @@
-// turns an error into labels we can group by (design-docs/05-core-logic.md §6)
+// turns an error into labels that identify the mistake (design-docs/05-core-logic.md §6)
 // runs in the student's browser before their status is saved, so it must be quick and always give the same answer
 //
 //   normalizeError({ name, message }) -> { key, shapeKey }
 //     key       the exact mistake, e.g. "ReferenceError: items is not defined"
 //     shapeKey  the kind of mistake, e.g. "ReferenceError: <id> is not defined"
-
-import { Limits } from './constants.js'
 
 const MAX_LENGTH = 200
 
@@ -37,78 +35,4 @@ export function normalizeError({ name, message } = {}) {
   const shapeKey = `${errorName}: ${shape}`
 
   return { key, shapeKey }
-}
-
-// puts students with the same mistake together so the prof sees one line per mistake (design-docs/05-core-logic.md §6)
-// runs on the prof's side, just redo it whenever a student's tile changes
-//
-//   groupErrors(tiles, { min, presentCount }) -> groups, biggest first
-//     tiles         { studentId, errorKey, errorShapeKey, errorSource, errorPreview, lastSeenAt }
-//     min           smallest group to show, 2 by default
-//     presentCount  how many students are in class, for the 10% rule (defaults to tiles.length)
-//
-//   each group: { key, shapeKey, count, source, preview, studentIds, lastAt, variants: [{ key, count, preview }] }
-//
-// The whole class works towards the same checkpoint, so groups are by mistake alone.
-
-/** How many students must share a mistake before it shows as a group: min, or 10% of the class. */
-export function errorGroupThreshold(presentCount, min = Limits.ERROR_GROUP_MIN) {
-  return Math.max(min, Math.ceil(presentCount * 0.1))
-}
-
-export function groupErrors(
-  tiles,
-  { min = Limits.ERROR_GROUP_MIN, presentCount = tiles.length } = {},
-) {
-  // the same exact error
-  const byKey = new Map()
-  for (const t of tiles) {
-    if (!t.errorKey) continue
-    let v = byKey.get(t.errorKey)
-    if (!v) {
-      v = {
-        key: t.errorKey,
-        shapeKey: t.errorShapeKey || t.errorKey,
-        tiles: [],
-      }
-      byKey.set(t.errorKey, v)
-    }
-    v.tiles.push(t)
-  }
-
-  // typos of the same mistake go in one group
-  const byShape = new Map()
-  for (const v of byKey.values()) {
-    if (!byShape.has(v.shapeKey)) byShape.set(v.shapeKey, [])
-    byShape.get(v.shapeKey).push(v)
-  }
-
-  // need at least min students, or 10% of the class if that's more
-  const threshold = errorGroupThreshold(presentCount, min)
-
-  const groups = []
-  for (const variants of byShape.values()) {
-    const all = variants.flatMap((v) => v.tiles)
-    if (all.length < threshold) continue
-
-    variants.sort((a, b) => b.tiles.length - a.tiles.length)
-    const top = variants[0]
-    groups.push({
-      key: top.key,
-      shapeKey: top.shapeKey,
-      count: all.length,
-      source: top.tiles[0].errorSource ?? 'runtime',
-      preview: top.tiles[0].errorPreview ?? '',
-      studentIds: all.map((t) => t.studentId),
-      lastAt: Math.max(...all.map((t) => Date.parse(t.lastSeenAt) || 0)),
-      variants: variants.map((v) => ({
-        key: v.key,
-        count: v.tiles.length,
-        preview: v.tiles[0].errorPreview ?? '',
-      })),
-    })
-  }
-
-  // biggest first, then newest
-  return groups.sort((a, b) => b.count - a.count || b.lastAt - a.lastAt)
 }

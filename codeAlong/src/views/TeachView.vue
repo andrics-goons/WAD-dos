@@ -1,13 +1,12 @@
 <script setup>
 // The prof's live class. The editor, terminal and preview are the real workspace (Dylan's
 // panels and store); the class, join code and checkpoints come from ying qi's session store.
-// The dashboard shows what the class clicked as numbers (no tiles) and their common errors.
+// The dashboard shows what the class clicked as numbers (no tiles) and the AI help summary.
 // The announce box is karin's: students see the message as a banner.
 // No navbar here: the global nav (AppNavbar) wraps every page from App.vue.
 import { computed, ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Limits } from '@shared/constants.js'
-import { errorGroupThreshold, groupErrors } from '@shared/error-normalizer.js'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import EditorPanel from '@/components/workspace/EditorPanel.vue'
@@ -21,7 +20,6 @@ import { useTeachStore } from '@/stores/teach'
 import { useToastStore } from '@/stores/toast'
 import ClassChoices from '@/components/dashboard/ClassChoices.vue'
 import StudentsByStatus from '@/components/dashboard/StudentsByStatus.vue'
-import ErrorGroupList from '@/components/dashboard/ErrorGroupList.vue'
 import HelpSummaryPanel from '@/components/dashboard/HelpSummaryPanel.vue'
 import JoinCodeCard from '@/components/session/JoinCodeCard.vue'
 import { checkpointLabel } from '@shared/checkpoint-label.js'
@@ -175,9 +173,9 @@ const stopHelpChanges = live.onChange('help_requests', refreshSummarySoon)
 const slowDownPoll = setInterval(() => live.isLive && loadSummary(), 10_000)
 
 // The dashboard is about who is here now. Students who joined earlier and have left don't count
-// in "Done X of N", its bar or Common errors: N is the students connected, and Done and the
-// errors are only theirs. (Slow down is an anonymous count, and help requests stay in the queue
-// until answered, so those aren't filtered.)
+// in "Done X of N" or its bar: N is the students connected, and Done is only theirs. (Slow down
+// is an anonymous count, and help requests stay in the queue until answered, so those aren't
+// filtered.)
 const connected = computed(() => new Set(live.present.map((p) => p.userId)))
 const summaryNow = computed(() => {
   const s = dashboard.classSummary
@@ -186,7 +184,6 @@ const summaryNow = computed(() => {
     ...s,
     total: live.present.length,
     done: (s.students ?? []).filter((t) => t.done && connected.value.has(t.studentId)).length,
-    errors: s.errors.filter((e) => connected.value.has(e.studentId)),
   }
 })
 
@@ -206,18 +203,6 @@ const roster = computed(() => {
   })
 })
 
-// common errors, from the students who are here
-const errorGroups = computed(() =>
-  groupErrors(summaryNow.value?.errors ?? [], { presentCount: live.present.length }),
-)
-// students here with an error that isn't in a group yet, so the panel can say so
-const errorsWaiting = computed(() => {
-  const inGroups = new Set(errorGroups.value.flatMap((g) => g.studentIds))
-  return new Set(
-    (summaryNow.value?.errors ?? []).map((e) => e.studentId).filter((id) => !inGroups.has(id)),
-  ).size
-})
-const errorsNeeded = computed(() => errorGroupThreshold(live.present.length))
 const savedAt = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
@@ -561,12 +546,12 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <!-- Join code + checkpoints + error groups -->
+          <!-- Join code + checkpoints + help summary -->
           <div
             class="teach-side col-12 col-xl-4"
             :class="{ 'd-none d-xl-block': mobileTab !== 'editor', 'side-hidden': presenting }"
           >
-            <div class="d-flex flex-column gap-3">
+            <div class="d-flex flex-column gap-3 h-100">
               <JoinCodeCard :code="live.session.join_code" />
 
               <!-- Save the editor's code as the next checkpoint, any time. Every student goes
@@ -615,14 +600,9 @@ onBeforeUnmount(() => {
                 </ol>
               </div>
 
-              <!-- what the class is stuck on: the live errors, then the help requests -->
-              <HelpSummaryPanel :session-id="id">
-                <ErrorGroupList
-                  :groups="errorGroups"
-                  :waiting="errorsWaiting"
-                  :need="errorsNeeded"
-                />
-              </HelpSummaryPanel>
+              <!-- what the class is stuck on: the AI summary of the help requests. It takes the
+                 rest of the column, so its bottom lines up with the editor's -->
+              <HelpSummaryPanel :session-id="id" class="flex-grow-1" />
             </div>
           </div>
         </div>

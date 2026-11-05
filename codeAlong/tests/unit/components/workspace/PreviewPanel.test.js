@@ -27,14 +27,14 @@ describe("PreviewPanel Back, Forward and Reload", () => {
     const fromPreview = (wrapper, data) =>
         window.dispatchEvent(new MessageEvent("message", { source: frameOf(wrapper), data: { codealongPreview: true, ...data } }))
 
-    it("T-SBX-33: sits on the left of the header, Back then Forward then Reload, like a browser", () => {
+    it("T-SBX-34: sits on the left of the header, Back then Forward then Reload, like a browser", () => {
         const wrapper = open()
         const titles = wrapper.findAll(".pane-header button").map((b) => b.attributes("title"))
         expect(titles.slice(0, 3)).toEqual(["Back", "Forward", "Reload"])
         wrapper.unmount()
     })
 
-    it("T-SBX-33: Back and Forward wait until the preview can go there, then ask it to", async () => {
+    it("T-SBX-34: Back and Forward wait until the preview can go there, then ask it to", async () => {
         const wrapper = open()
         expect(disabled(wrapper, "Back")).toBe(true)
         expect(disabled(wrapper, "Forward")).toBe(true)
@@ -48,7 +48,7 @@ describe("PreviewPanel Back, Forward and Reload", () => {
         wrapper.unmount()
     })
 
-    it("T-SBX-33: a message from anywhere but the preview is ignored", async () => {
+    it("T-SBX-34: a message from anywhere but the preview is ignored", async () => {
         const wrapper = open()
         window.dispatchEvent(new MessageEvent("message", { source: window, data: { codealongPreview: true, canGoBack: true } }))
         await wrapper.vm.$nextTick()
@@ -56,7 +56,7 @@ describe("PreviewPanel Back, Forward and Reload", () => {
         wrapper.unmount()
     })
 
-    it("T-SBX-33: Reload reloads the page the preview is on", async () => {
+    it("T-SBX-34: Reload reloads the page the preview is on", async () => {
         const wrapper = open()
         fromPreview(wrapper, { canGoBack: false, canGoForward: false })
         const before = wrapper.find("iframe").element
@@ -67,7 +67,7 @@ describe("PreviewPanel Back, Forward and Reload", () => {
         wrapper.unmount()
     })
 
-    it("T-SBX-33: without the preview's script, Reload loads the app again from its start page", async () => {
+    it("T-SBX-34: without the preview's script, Reload loads the app again from its start page", async () => {
         const wrapper = open()
         const before = wrapper.find("iframe").element
         await button(wrapper, "Reload").trigger("click")
@@ -76,7 +76,7 @@ describe("PreviewPanel Back, Forward and Reload", () => {
         wrapper.unmount()
     })
 
-    it("T-SBX-33: all three wait for the dev server", () => {
+    it("T-SBX-34: all three wait for the dev server", () => {
         const wrapper = mount(PreviewPanel)
         expect(["Back", "Forward", "Reload"].map((t) => disabled(wrapper, t))).toEqual([true, true, true])
     })

@@ -15,7 +15,7 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | 6 | Catch-up | Week 10 | Load checkpoint warns first, offers a .zip download, then replaces the code with the checkpoint |
 | 7 | Help flow | Week 10 | Check my work → pass/reply; Ask for help → claim/resolve; **a replied request can be followed up**; Telegram ping (mock in tests) |
 | 8 | Replay & GitHub | Week 11 | Replay steps through all checkpoints; notes; download a checkpoint's code; import + export (one commit per checkpoint) |
-| 9 | Error groups | Week 11 | Grouping matches unit-test expectations (Spotlight dropped) |
+| 9 | ~~Error groups~~ | Week 11 | Dropped: live Common errors and Spotlight removed; the AI help summary (AIH) replaces them |
 | 10 | Insights | Week 11 | Report built in SQL when the class ends; trouble score + trends; digest sent (mock in tests) |
 | 11 | Hardening | Week 11–12 | Validation + error states everywhere; responsive pass 375 → 1440 px; load test 40 students passes **inside the Realtime free-tier cap** |
 | 12 | Demo ready | Week 12 | Fresh clone → README steps → `db:reset` → all E2E green → deployed URL works (incl. the `/join/:code` deep link) → keep-alive scheduled → video recorded |
@@ -199,6 +199,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-26 | Home's My courses puts a live class's course first | Unit | Of 3 shown, a course with a class live right now comes first even if it is the oldest, the rest newest first; "See all (n)" appears with more than 3 courses and a plain "See all" otherwise |
 | T-PLAT-27 | The profile page is split into chapters | Unit + browser | Profile shows first, the sidebar switches chapter and the URL follows, an unknown `?chapter=` falls back to Profile, what's half typed survives a switch, and connecting GitHub returns to Connections |
 | T-PLAT-28 | Everyone can connect GitHub and Telegram | Unit + browser | Both cards show in Connections for a student, a TA, a prof and an admin |
+| T-PLAT-29 | **Navigation still works after a deploy** | Unit + browser | A tab opened before a deploy asks for page files that are gone: the click loads the page fresh (once per page, kept in `sessionStorage`) and opens it; if it still fails, or storage is blocked, a toast says so instead of a click that does nothing. Missing `/assets/…` files are a 404, not `index.html` |
 
 ### LESSON — Lessons · `lessons.spec.js`, `lesson-edit-view.test.js`
 
@@ -218,6 +219,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-LES-12 | ✎ on a week folder (and on "No week") gives its files another week | Unit | The prof types Week 1–13; every lesson in that folder moves (archived and search-hidden ones too); a week another folder already uses is refused ("Week N already has lessons"), so each folder keeps a unique week; "No week" starts from an empty box; same week or Cancel changes nothing; no ✎ for TAs |
 | T-LES-13 | Leaving New lesson after picking files | Unit | Back to course, the navbar or browser Back asks "Leave without creating the lesson?" (Stay / Leave), on either step; no files picked or Create lesson → no question; closing the tab gets the browser's own warning |
 | T-LES-14 | The prof adds, renames and deletes starter files | Unit | The lesson editor's file tree has New file / Rename / Delete; a new file is saved with its language; renaming the entry file moves `entry_file` with it; Delete asks first; the entry file can't be deleted |
+| T-LES-15 | A folder dropped on the upload box loads like Choose folder… | Unit + browser | Dragging files over the box stops the browser opening them and highlights it; a dropped folder gives the same files and title as picking it, without opening `node_modules`, `dist` or `.git`; loose files keep their names and leave the title alone |
 | T-TODO-* | ~~TODO parser~~ | — | Removed with lesson steps |
 
 ### SESS — Live session engine · `live-session.spec.js`
@@ -284,7 +286,8 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-SBX-30 | Files can be dragged into another folder | Unit | Dropping a file on a folder, on a file (its folder) or on the space under the tree (the top level) renames it there and opens that folder; its own folder isn't highlighted and dropping there does nothing; a name already there shows an error and moves nothing; dragging out a folder's last file asks first, and Cancel moves nothing; folders, read-only trees and drags from outside the tree don't move anything; moving or renaming a file another file imports shows a warning naming them, and no warning when nothing does |
 | T-SBX-31 | The terminal says whether the packages are there | Unit + browser | "Packages ready" in the terminal's header once an install finishes, a reload puts the packages back, or they're still there from an earlier install in the tab; "Run pnpm i" when the boot finds none, a checkpoint's new `package.json` clears them, or `node_modules` is deleted; nothing while booting or with no `package.json` |
 | T-SBX-32 | The prof can add, move and delete files | Unit + browser | The Teach view's file tree is editable: New file, Rename, drag and Delete work as in the student workspace, with the same warning when another file imports the moved file and a confirmation before deleting; the next checkpoint carries the changes to students |
-| T-SBX-33 | **Preview Back, Forward and Reload** | Unit + browser | On the left like a browser's. Back and Forward are greyed out until the preview can go there, then step through the app's own pages only (never out of CodeAlong); Reload reloads the page it's on (the start page if the preview's script is missing). In the workspace, Teach, help request and replay previews |
+| T-SBX-33 | **Someone outside the class can't open its workspace** | Unit + browser | Opening `/s/:id/code` for a class you're not in (or that doesn't exist) shows "You're not in this class" with Join a class and Home: no editor, no student buttons, and the WebContainer never boots. An archived course says so instead. A real boot failure still shows the "couldn't start" banner. Joining with the code (auto-enrol) is unchanged |
+| T-SBX-34 | **Preview Back, Forward and Reload** | Unit + browser | On the left like a browser's. Back and Forward are greyed out until the preview can go there, then step through the app's own pages only (never out of CodeAlong); Reload reloads the page it's on (the start page if the preview's script is missing). In the workspace, Teach, help request and replay previews |
 
 ### STAT — Status & derived state · `tile-state.test.js`, `dashboard.spec.js`
 
@@ -314,21 +317,21 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-DASH-05 | Student un-taps "Slow down" | E2E | Count decrements |
 | T-DASH-06 | TA (staff) can view dashboard; student cannot | RLS | TA gets tile rows; a student gets zero rows from `session_tiles` |
 | T-DASH-07 | ~~Tiles show icon + label~~ | — | Removed: no per-student tiles |
-| T-DASH-10 | **The dashboard counts only connected students** | Unit | "Done X of N" and Common errors use the students connected now: someone who joined and left isn't in N, their Done or their errors; they count again when they reconnect |
+| T-DASH-10 | **The dashboard counts only connected students** | Unit | "Done X of N" uses the students connected now: someone who joined and left isn't in N or their Done; they count again when they reconnect |
 | T-DASH-11 | **Slow down counts only students who are still here** | RLS | A flag from a student unseen for longer than the idle window (180 s, or the class's own) isn't counted, and counts again when they return; TAs read the same number; students get `null`; an ended class counts all |
 | T-DASH-12 | Leaving the class page takes my Slow down back | Unit | `statusStore.leave()` deletes my flag and stops the heartbeat; with no flag it sends nothing; a refused delete (class ended, offline) never throws |
 | T-DASH-13 | **The Students menu lists who is connected, by status** | Unit | `getClassSummary` gives each student's state and open/claimed help and check requests; the menu shows connected students only (one without a status row is In progress), each in one group (help, check, error, in progress, idle, done, in that order), and never says who asked to slow down; Present closes it |
-| T-DASH-14 | **Common errors says when errors haven't made a group yet** | Unit | With errors but no group, the panel reads "No common errors yet" with how many students and how many it takes (`errorGroupThreshold`: 2, or 10% of the class), never "No errors right now"; beside groups, a note counts students whose error nobody shares |
+| T-DASH-14 | ~~Common errors says when errors haven't made a group yet~~ | — | Dropped with Common errors |
 
-### ERRG — Error groups · `error-normalizer.test.js`, `group-errors.test.js`, `api/dashboard.api.test.js`
+### ERRG — Error normalisation · `error-normalizer.test.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|
 | T-ERRG-01 | Line/col and URLs stripped | Unit | Same `key` for two stacks differing only in line |
 | T-ERRG-02 | Numbers masked | Unit | `status code <n>` |
 | T-ERRG-03 | `items` vs `itmes is not defined` | Unit | Different `key`, same `shapeKey` |
-| T-ERRG-04 | Group threshold (≥ 2 or ≥ 10%) | Unit | Singletons excluded |
-| T-ERRG-05 | Same typo by 2 students | E2E | One group "×2" on the dashboard |
+| T-ERRG-04 | ~~Group threshold (≥ 2 or ≥ 10%)~~ | — | Dropped with Common errors |
+| T-ERRG-05 | ~~Same typo by 2 students~~ | — | Dropped with Common errors |
 | T-ERRG-06 | ~~Spotlight with an eligible help snapshot~~ | — | Dropped: the team chose not to build Spotlight; Common errors shows the groups only |
 | T-ERRG-07 | ~~Excerpt anonymised~~ | — | Dropped: the team chose not to build Spotlight; Common errors shows the groups only |
 | T-ERRG-08 | ~~Spotlight with no help snapshot~~ | — | Dropped: the team chose not to build Spotlight; Common errors shows the groups only |

@@ -270,7 +270,44 @@ router.beforeEach(async (to) => {
 
 router.afterEach((to) => {
   document.title = to.meta.title ? `${to.meta.title} · CodeAlong` : 'CodeAlong'
+  try {
+    sessionStorage.removeItem(reloadKey(to.fullPath)) // it opened, so a later deploy can reload again
+  } catch {
+    // blocked storage: nothing was kept
+  }
 })
+
+// Each page's code is its own file, downloaded the first time it's opened. A deploy renames those
+// files and removes the old ones, so a tab opened before it asks for files that are gone and the
+// navigation would fail without a word. Then the page is loaded fresh, which gets the new deploy.
+// Only once per page (kept for this tab), so a file that's really broken can't reload forever.
+const reloadKey = (path) => `codealong:reloaded:${path}`
+const PAGE_DOWNLOAD_FAILED =
+  /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i
+
+/** What happens when a navigation throws. Exported for its tests. */
+export function onNavigationError(error, to) {
+  if (PAGE_DOWNLOAD_FAILED.test(error?.message ?? '') && to) {
+    let tried = true // without storage, never reload: it couldn't stop a loop
+    try {
+      tried = sessionStorage.getItem(reloadKey(to.fullPath)) === '1'
+      sessionStorage.setItem(reloadKey(to.fullPath), '1')
+    } catch {
+      // blocked storage: fall through to the message
+    }
+    if (!tried) {
+      window.location.assign(to.fullPath)
+      return
+    }
+  }
+  // anything else (or a reload that didn't help): say so, instead of a click that does nothing
+  useToastStore().show(
+    "That page didn't open. Check your connection, then reload the page.",
+    'danger',
+    { title: "Couldn't open the page" },
+  )
+}
+router.onError(onNavigationError)
 
 // The page you came from. A link opened directly has none, so go to the starting page instead.
 export function goBack() {

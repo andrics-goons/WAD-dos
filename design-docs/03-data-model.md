@@ -482,7 +482,7 @@ There is **no "behind" state**: a new checkpoint resets everyone, so a student i
 
 `security_invoker = true` makes the view run with the caller's rights, so the RLS policies above still apply — **without it a view would leak every session's rows.** A student querying it sees only their own tile.
 
-The help/notes/reports migration appends one more column, `passed_seqs int[]`: the checkpoints this student's `check` requests were **passed** on (each request's `checkpoint_seq`), e.g. `{1,3}`. (`create or replace view` can only add columns at the end, so it comes after `state`.) The shape-key migration then appends `error_shape_key text` (`error->>'shapeKey'`, the error with the student's own names blanked out), which the dashboard groups Common errors on, so typos of one mistake share a group.
+The help/notes/reports migration appends one more column, `passed_seqs int[]`: the checkpoints this student's `check` requests were **passed** on (each request's `checkpoint_seq`), e.g. `{1,3}`. (`create or replace view` can only add columns at the end, so it comes after `state`.) The shape-key migration then appends `error_shape_key text` (`error->>'shapeKey'`, the error with the student's own names blanked out), the kind of mistake with typos merged. (The teach view's Common errors used to group on it; that panel was dropped, and the column is unused for now.)
 
 ```sql
 create view public.session_summary with (security_invoker = true) as
@@ -882,7 +882,7 @@ The contract, enforced by RLS policies and `security definer` RPCs. **Admin** is
 | Post / clear a class announcement | ❌ | ❌ | ✅ | ❌ |
 | Join a live session | ✅ | ✅ (as staff) | ✅ | — |
 | Report own status, tap Done, toggle "Slow down", autosave, catch up | ✅ | — | — | — |
-| View class dashboard (tiles, counts, error groups) | ❌ | ✅ | ✅ | ✅ (read-only) |
+| View class dashboard (counts, students, help summary) | ❌ | ✅ | ✅ | ✅ (read-only) |
 | See which student tapped "Slow down" (`slow_down_flags`) | ❌ | ❌ | ❌ | ✅ |
 | Send Check my work / Ask for help | ✅ | — | — | — |
 | Follow up on own replied request (max 3) | ✅ | — | — | — |

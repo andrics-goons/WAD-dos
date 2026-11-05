@@ -103,6 +103,12 @@
   const isolated = window.crossOriginIsolated === true
   const bootError = ref(isolated ? "" : UNSUPPORTED_BROWSER)
 
+  // The class didn't open: "not-found" when it doesn't exist or I'm not in its course (RLS
+  // returns nothing then), otherwise the reason. The editor never shows, so nothing boots.
+  const loadError = ref("")
+  // the editor waits for the class, since its terminal boots the WebContainer as it mounts
+  const opened = computed(() => sessionStore.session?.id === props.id)
+
   const previewUrl = ref("")
   let stopWorkspace
   // set on unmount, so a boot that finishes after the user has left doesn't leave a listener behind
@@ -110,17 +116,25 @@
 
   onMounted(async () => {
     if (!isolated) return
+    // Open the class first: someone outside it gets "You're not in this class", not an editor.
+    // The WebContainer starts booting as soon as the class opens (the terminal mounts then), while
+    // this student's code downloads.
     try {
-      // boot the WebContainer while this student's code downloads. The class and my status
-      // don't wait for the boot, so a WebContainer that fails still leaves the code and my
-      // attendance in place.
-      const opening = workspaceStore.load(props.id).then(async () => {
-        if (unmounted) return workspaceStore.close() // left while loading: stop the autosave it started
-        await statusStore.start(props.id) // tells the dashboard I'm here
+      await workspaceStore.load(props.id)
+    } catch (e) {
+      if (!unmounted) loadError.value = e.code === "NOT_FOUND" ? "not-found" : e.message
+      return
+    }
+    if (unmounted) return workspaceStore.close() // left while loading: stop the autosave it started
+    try {
+      // my status doesn't wait for the boot, so a WebContainer that fails still leaves my
+      // attendance in place
+      const starting = statusStore.start(props.id).then(() => {
+        // tells the dashboard I'm here
         if (unmounted) return statusStore.leave()
         loaded.value = true
       })
-      const [webcontainer] = await Promise.all([getWebContainer(), opening])
+      const [webcontainer] = await Promise.all([getWebContainer(), starting])
       if (unmounted) return
       const stop = await startWorkspace(
         webcontainer,
@@ -146,80 +160,108 @@
 <template>
   <!-- ca-fill-viewport makes the page exactly the height left under the navbar -->
   <div class="ca-fill-viewport workspace-page">
-    <StudentWorkspaceHeader
-      :lesson-title="sessionStore.session?.lesson.title"
-      :checkpoint="checkpoint"
-      :done="caughtUp"
-      :disabled="!loaded || !sessionStore.isLive"
-      :session-id="id"
-      :files="workspaceStore.files"
-      :can-load-checkpoint="canLoadCheckpoint"
-      :slow-down="statusStore.slowDown"
-      @slow-down="toggleSlowDown"
-      @load-checkpoint="catchUpOpen = true"
-      @done="statusStore.markDone(sessionStore.checkpointSeq)"
-      @undo="statusStore.markInProgress()"
-      
-    />
-
-    <AnnouncementBanner :announcement="sessionStore.session?.announcement" />
-
-    <CatchUpModal
-      v-model:open="catchUpOpen"
-      :checkpoint="sessionStore.latestCheckpoint"
-      :busy="catchingUp"
-      @download="downloadMine"
-      @confirm="catchUp"
-    />
-
-    <ConfirmModal
-      :open="!!deleting"
-      :title="`Delete ${deleting}?`"
-      confirm-label="Delete"
-      variant="danger"
-      @update:open="deleting = ''"
-      @confirm="deleteFile"
-    >
-      It's removed from your project and from your saved code.
-    </ConfirmModal>
-
-    <EmptyState v-if="!isolated" icon="bi-exclamation-triangle" title="The workspace can't start">
-      {{ bootError }}
-    </EmptyState>
+    <!-- not in this class (or it doesn't exist): no editor, no WebContainer -->
+    <div v-if="loadError" class="ca-surface mt-3" data-testid="workspace-not-found">
+      <EmptyState
+        :icon="loadError === 'not-found' ? 'bi-door-closed' : 'bi-exclamation-triangle'"
+        :title="loadError === 'not-found' ? `You're not in this class` : `Couldn't open this class`"
+      >
+        {{
+          loadError === "not-found"
+            ? "This class doesn't exist, or it's in a course you're not in. If you have its join code, enter it to join."
+            : loadError
+        }}
+        <template #actions>
+          <RouterLink v-if="loadError === 'not-found'" :to="{ name: 'join' }" class="ca-btn ca-btn--primary">
+            <i class="bi bi-box-arrow-in-right" />Join a class
+          </RouterLink>
+          <RouterLink :to="{ name: 'home' }" class="ca-btn ca-btn--secondary">Home</RouterLink>
+        </template>
+      </EmptyState>
+    </div>
 
     <template v-else>
-      <!-- boot failed: keep the editor so the student's code is still visible, but say why nothing runs -->
-      <div v-if="bootError" class="alert alert-danger">
-        {{ bootError }} Try reloading the page.
-      </div>
+      <StudentWorkspaceHeader
+        :lesson-title="sessionStore.session?.lesson.title"
+        :checkpoint="checkpoint"
+        :done="caughtUp"
+        :disabled="!loaded || !sessionStore.isLive"
+        :session-id="id"
+        :files="workspaceStore.files"
+        :can-load-checkpoint="canLoadCheckpoint"
+        :slow-down="statusStore.slowDown"
+        @slow-down="toggleSlowDown"
+        @load-checkpoint="catchUpOpen = true"
+        @done="statusStore.markDone(sessionStore.checkpointSeq)"
+        @undo="statusStore.markInProgress()"
+      
+      />
 
-      <!-- editor and preview, split or full view (WorkspaceLayout, shared with the TA's copy) -->
-      <WorkspaceLayout>
-        <template #editor="{ pane, toggleView, swap }">
-          <EditorPanel
-            :file-paths="workspaceStore.filePaths"
-            v-model:selected-file="workspaceStore.selectedFile"
-            v-model:selected-code="workspaceStore.selectedCode"
-            :save-status="workspaceStore.saveStatus"
-            :files-version="workspaceStore.filesVersion"
-            :editable="loaded && sessionStore.isLive"
-            v-bind="pane"
-            @toggle-view="toggleView"
-            @show-preview="swap"
-            @create-file="workspaceStore.createFile"
-            @rename-file="renameFile"
-            @delete-file="deleting = $event"
-          />
-        </template>
-        <template #preview="{ pane, toggleView, swap }">
-          <PreviewPanel
-            :preview-url="previewUrl"
-            v-bind="pane"
-            @toggle-view="toggleView"
-            @show-editor="swap"
-          />
-        </template>
-      </WorkspaceLayout>
+      <AnnouncementBanner :announcement="sessionStore.session?.announcement" />
+
+      <CatchUpModal
+        v-model:open="catchUpOpen"
+        :checkpoint="sessionStore.latestCheckpoint"
+        :busy="catchingUp"
+        @download="downloadMine"
+        @confirm="catchUp"
+      />
+
+      <ConfirmModal
+        :open="!!deleting"
+        :title="`Delete ${deleting}?`"
+        confirm-label="Delete"
+        variant="danger"
+        @update:open="deleting = ''"
+        @confirm="deleteFile"
+      >
+        It's removed from your project and from your saved code.
+      </ConfirmModal>
+
+      <EmptyState v-if="!isolated" icon="bi-exclamation-triangle" title="The workspace can't start">
+        {{ bootError }}
+      </EmptyState>
+
+      <template v-else>
+        <!-- boot failed: keep the editor so the student's code is still visible, but say why nothing runs -->
+        <div v-if="bootError" class="alert alert-danger">
+          {{ bootError }} Try reloading the page.
+        </div>
+
+        <div v-if="!opened" class="d-flex justify-content-center py-5">
+          <span class="spinner-border text-primary">
+            <span class="visually-hidden">Opening the class…</span>
+          </span>
+        </div>
+
+        <!-- editor and preview, split or full view (WorkspaceLayout, shared with the TA's copy) -->
+        <WorkspaceLayout v-else>
+          <template #editor="{ pane, toggleView, swap }">
+            <EditorPanel
+              :file-paths="workspaceStore.filePaths"
+              v-model:selected-file="workspaceStore.selectedFile"
+              v-model:selected-code="workspaceStore.selectedCode"
+              :save-status="workspaceStore.saveStatus"
+              :files-version="workspaceStore.filesVersion"
+              :editable="loaded && sessionStore.isLive"
+              v-bind="pane"
+              @toggle-view="toggleView"
+              @show-preview="swap"
+              @create-file="workspaceStore.createFile"
+              @rename-file="renameFile"
+              @delete-file="deleting = $event"
+            />
+          </template>
+          <template #preview="{ pane, toggleView, swap }">
+            <PreviewPanel
+              :preview-url="previewUrl"
+              v-bind="pane"
+              @toggle-view="toggleView"
+              @show-editor="swap"
+            />
+          </template>
+        </WorkspaceLayout>
+      </template>
     </template>
   </div>
 

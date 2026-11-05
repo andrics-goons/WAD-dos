@@ -83,7 +83,7 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   ├── components/
 │   │   ├── ui/                  ← AppNavbar, AppToast, ConfirmModal, EmptyState, StatusPill (Ying Qi)
 │   │   ├── workspace/           ← CodeEditor, FileTabs, PreviewFrame, ConsolePanel, DoneButton (Dylan); FileTree (Ray Yien)
-│   │   ├── dashboard/           ← ClassChoices, ErrorGroupList, HelpSummaryPanel (Evan)
+│   │   ├── dashboard/           ← ClassChoices, HelpSummaryPanel (Evan)
 │   │   ├── lesson/              ← LessonLibrary, StarterUpload (Evan)
 │   │   ├── session/             ← AnnouncementBanner (Karin); JoinCodeCard, QrDisplay (Evan)
 │   │   ├── help/                ← HelpQueue, HelpRequestCard, SideBySideView (Karin)
@@ -230,10 +230,10 @@ Useful for the "explain how you used JS/Vue/CSS" part of the video.
 | Concept | Where we use it |
 |---|---|
 | Vue reactivity (`ref`, `reactive`) | Workspace file buffers, dashboard tiles |
-| `computed` | Class summary counts, error groups, progress %, changed-line counts in the replay diff |
+| `computed` | Class summary counts, progress %, changed-line counts in the replay diff |
 | `watch` | Autosave debounce on editor changes; re-run preview when files change |
-| Components, props, emits | `ClassChoices` (props: summary); `ErrorGroupList` (props: groups); `CodeEditor` emits `update:modelValue`, `save` |
-| `v-for`, `v-if`, `v-model`, `:class` | Class summary card, checkpoint list, error groups, state colours |
+| Components, props, emits | `ClassChoices` (props: summary); `HelpSummaryPanel` (props: sessionId); `CodeEditor` emits `update:modelValue`, `save` |
+| `v-for`, `v-if`, `v-model`, `:class` | Class summary card, checkpoint list, help summary groups, state colours |
 | Lifecycle hooks | `onMounted` subscribes to the session channel; `onBeforeUnmount` unsubscribes and clears timers |
 | Vue Router + guards | Role-guarded routes (`meta.roles`), `/join/:code` deep link from QR |
 | Pinia | Shared session state between editor, toolbar, console and checkpoint list |
@@ -362,7 +362,7 @@ Each developer can make their own OAuth app for the local stack (GitHub allows o
 
 ```json
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [{ "source": "/((?!assets/).*)", "destination": "/index.html" }],
   "headers": [{
     "source": "/(.*)",
     "headers": [
@@ -372,6 +372,7 @@ Each developer can make their own OAuth app for the local stack (GitHub allows o
   }]
 }
 ```
+  `/assets/` is left out on purpose: a page file that's gone after a deploy is then a plain 404, not `index.html`. A tab opened before the deploy still asks for the old files, and the router's `onError` (`src/router/index.js`) loads that page fresh, once, instead of the click doing nothing (T-PLAT-29).
 
 - **Those two headers are what make WebContainer work** — it needs `SharedArrayBuffer`, which needs the page cross-origin isolated. We use `credentialless` rather than `require-corp` because `require-corp` additionally demands a `Cross-Origin-Resource-Policy` header on *every* cross-origin subresource, which would break any CDN asset. Self-host fonts rather than loading Google Fonts.
 
