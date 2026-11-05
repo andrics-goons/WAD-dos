@@ -15,7 +15,7 @@ A normal Vite project from GitHub won't report errors to CodeAlong as is. Before
 | 3 | `vite.config.js` | **add the `ca-errors` plugin** | the probe sends its errors here, and the plugin prints them to the terminal |
 | 4 | `package.json` | **add two pinned devDependencies** (Vite 8 only) | Vite 8 crashes in the WebContainer without them |
 
-The finished example is the Mini Cart lesson: `codeAlong/supabase/seed.sql` (the `seed.starter` list, §4) and `codeAlong/src/stores/seed/miniCartSeed.js`. Every file below is copied from there. If you're unsure what the result should look like, compare against those.
+The finished example is the Mini Cart lesson: `codeAlong/supabase/seed.sql` (the `seed.starter` list, §4) and `codeAlong/tests/fixtures/miniCartSeed.js`. Every file below is copied from there. If you're unsure what the result should look like, compare against those.
 
 ---
 

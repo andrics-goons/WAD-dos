@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { mapError } from './mapError'
+import { LessonStatus } from '@shared/constants.js'
 
 // all the lesson calls to supabase live here. A lesson is a title and its starter files:
 // there are no steps, the prof saves checkpoints during class (design-docs/05 §3).
@@ -8,7 +9,10 @@ import { mapError } from './mapError'
 
 // list view doesn't need the files, they can be big
 const LESSON_SUMMARY = 'id, course_id, title, week, description, status, updated_at'
-const LESSON_DETAIL = `${LESSON_SUMMARY}, files, files_hash, entry_file, dev_command, source, created_by, created_at`
+// one lesson without its files: load those through loadFiles(), which skips the download when
+// the browser already has this files_hash
+const LESSON_INFO = `${LESSON_SUMMARY}, files_hash, entry_file, dev_command, source, created_by, created_at`
+const LESSON_DETAIL = `${LESSON_INFO}, files`
 
 // db row -> lesson object
 export function toLesson(row) {
@@ -74,7 +78,7 @@ export async function createLesson(
       files,
       entry_file: entryFile,
       source: source ?? { type: 'upload' },
-      status: 'draft',
+      status: LessonStatus.DRAFT,
       created_by: user?.id,
     })
     .select(LESSON_DETAIL)
@@ -83,26 +87,23 @@ export async function createLesson(
   return toLesson(row)
 }
 
-// lessons in a course, can search by title
-export async function listLessons(courseId, { search } = {}) {
-  let query = supabase
+// lessons in a course
+export async function listLessons(courseId) {
+  const { data, error } = await supabase
     .from('lessons')
     .select(LESSON_SUMMARY)
     .eq('course_id', courseId)
     .order('week', { ascending: true, nullsFirst: false })
     .order('title')
-  if (search?.trim()) query = query.ilike('title', `%${search.trim()}%`)
-
-  const { data, error } = await query
   if (error) throw mapError(error)
   return data.map(toLesson)
 }
 
-// one lesson with its files and whether it has been taught
+// one lesson and whether it has been taught, without its files
 export async function getLesson(lessonId) {
   const { data, error } = await supabase
     .from('lessons')
-    .select(`${LESSON_DETAIL}, sessions(count)`)
+    .select(`${LESSON_INFO}, sessions(count)`)
     .eq('id', lessonId)
     .single()
   if (error) throw mapError(error)
@@ -114,7 +115,7 @@ export async function updateLesson(lessonId, changes) {
     .from('lessons')
     .update(toLessonPatch(changes))
     .eq('id', lessonId)
-    .select(LESSON_DETAIL)
+    .select(LESSON_INFO)
     .single()
   if (error) throw mapError(error)
   return toLesson(data)

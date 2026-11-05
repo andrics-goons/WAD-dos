@@ -239,7 +239,8 @@ const router = createRouter({
   },
 })
 
-router.beforeEach(async (to) => {
+// Who may open a page (meta: auth, guest, roles). Exported for its tests
+export async function guard(to) {
   const auth = useAuthStore()
 
   // supabase-js restores the session from localStorage asynchronously, so the first
@@ -266,7 +267,8 @@ router.beforeEach(async (to) => {
   }
 
   return true
-})
+}
+router.beforeEach(guard)
 
 router.afterEach((to) => {
   document.title = to.meta.title ? `${to.meta.title} · CodeAlong` : 'CodeAlong'

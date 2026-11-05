@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
+import { Role } from '@shared/constants.js'
 
 // The ⋯ menu on a course in My courses (the cards and the archived list):
 //   Archive (or Restore, once archived) · Leave course (a student) · Delete (the owner, until a
@@ -54,7 +55,7 @@ const reason = () =>
 
       <!-- a student or TA can't delete a course; they leave it -->
       <button
-        v-if="course.myRole === 'student' || course.myRole === 'ta'"
+        v-if="course.myRole === Role.STUDENT || course.myRole === Role.TA"
         type="button"
         class="dropdown-item text-danger"
         :data-testid="`course-leave-${course.code}`"

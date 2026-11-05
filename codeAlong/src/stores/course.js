@@ -9,7 +9,7 @@ import { useCoursesStore } from './courses'
 // Nothing here is shared with other pages, so the page keeps its own copy of what it loads.
 export const useCourseStore = defineStore('course', () => {
   const get = (id) => coursesApi.getCourse(id)
-  const lessons = (id, search) => lessonsApi.listLessons(id, { search })
+  const lessons = (id) => lessonsApi.listLessons(id)
   const sessions = (id) => sessionsApi.listSessions(id)
   const staff = (id) => coursesApi.listStaff(id)
   const students = (id) => coursesApi.listStudents(id)

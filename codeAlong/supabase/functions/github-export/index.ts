@@ -1,20 +1,13 @@
 // Entry point for github-export: wires the real clients into handler.ts.
 // Reads the class as the caller (their own token), so RLS decides what they may export.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { isMockMode } from '../_shared/outbox.ts'
 import { liveGithub, mockGithub } from '../_shared/github.ts'
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts'
+import { supabaseAsCaller as asCaller } from '../_shared/supabaseCaller.ts'
 import { handleExport } from './handler.ts'
 
 const env = (key: string) => Deno.env.get(key)
 const admin = supabaseAdmin() // only for writing test_outbox in mock mode
-
-// A Supabase client that acts as whoever called the function
-const asCaller = (req: Request) =>
-  createClient(env('SUPABASE_URL')!, env('SUPABASE_ANON_KEY')!, {
-    global: { headers: { Authorization: req.headers.get('authorization') ?? '' } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
 
 Deno.serve((req) =>
   handleExport(req, {

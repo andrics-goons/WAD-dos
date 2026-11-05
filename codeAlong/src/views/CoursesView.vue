@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { RoleLabel } from '@shared/constants.js'
+import { Role, RoleLabel } from '@shared/constants.js'
 import { useAuthStore } from '@/stores/auth'
 import { useCoursesStore } from '@/stores/courses'
 import { useToastStore } from '@/stores/toast'
@@ -20,8 +20,8 @@ const toast = useToastStore()
 const router = useRouter()
 const route = useRoute()
 
-const isProf = computed(() => auth.role === 'prof')
-const canEnrol = computed(() => ['student', 'ta'].includes(auth.role))
+const isProf = computed(() => auth.role === Role.PROF)
+const canEnrol = computed(() => [Role.STUDENT, Role.TA].includes(auth.role))
 
 const loading = ref(true)
 const loadError = ref('')
@@ -314,7 +314,7 @@ async function toggleArchived() {
     <LeaveCourseModal
       :open="leaving !== null"
       :title="leaving?.title"
-      :ta="leaving?.myRole === 'ta'"
+      :ta="leaving?.myRole === Role.TA"
       :busy="changing"
       @update:open="leaving = null"
       @confirm="leaveCourse"

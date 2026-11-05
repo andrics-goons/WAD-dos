@@ -11,6 +11,9 @@ const api = vi.hoisted(() => ({
   deleteLesson: vi.fn(),
 }))
 vi.mock('@/api/lessons.api', () => api)
+// the files come through the cache, which here just hands back the lesson's
+const cache = vi.hoisted(() => ({ loadFiles: vi.fn() }))
+vi.mock('@/cache/files', () => cache)
 
 const replace = vi.hoisted(() => vi.fn())
 const push = vi.hoisted(() => vi.fn())
@@ -51,7 +54,9 @@ function lesson(overrides = {}) {
 let wrapper
 let pinia
 async function open(data = lesson()) {
-  api.getLesson.mockResolvedValue(data)
+  const { files, ...rest } = data
+  api.getLesson.mockResolvedValue({ ...rest, filesHash: 'h1' })
+  cache.loadFiles.mockResolvedValue(files)
   pinia = createPinia()
   wrapper = mount(LessonEditView, {
     props: { id: 'les-1' },
@@ -94,6 +99,8 @@ describe('LessonEditView', () => {
   it('loads the lesson and shows its starter files', async () => {
     await open()
     expect(api.getLesson).toHaveBeenCalledWith('les-1')
+    // through the cache, so a browser that has this version doesn't download it again
+    expect(cache.loadFiles).toHaveBeenCalledWith('lesson', 'les-1', 'h1')
     expect(wrapper.text()).toContain('Week 6 · Mini Cart')
     expect(wrapper.findComponent(FileTree).props('filePaths')).toEqual(['index.html', 'src/app.js'])
     // the entry file is open first

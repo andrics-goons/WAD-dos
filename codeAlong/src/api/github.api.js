@@ -1,17 +1,9 @@
 import { supabase } from '@/lib/supabase'
 import { Fn } from '@shared/constants.js'
-import { AppError, mapError } from './mapError'
+import { AppError } from './mapError'
+import { invoke } from './invoke'
 
 // GitHub import (New lesson) and export (replay) — design-docs/05 §11.
-
-// Call one of our Edge Functions. A refusal comes back as { code, message } in the response body.
-async function invoke(name, body) {
-  const { data, error } = await supabase.functions.invoke(name, { body })
-  if (!error) return data
-  const sent = await error.context?.json?.().catch(() => null)
-  if (sent?.code) throw new AppError(sent.code, sent.message, { status: error.context.status })
-  throw mapError(error)
-}
 
 // Supabase Auth keeps GitHub's token on the session after signing in to GitHub (connectGitHub()
 // in auth.api.js); it goes to the function for one call and is never stored by us. Supabase drops

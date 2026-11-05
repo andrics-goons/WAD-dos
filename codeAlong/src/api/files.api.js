@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { AppError, mapError } from './mapError'
+import { SnapshotReason } from '@shared/constants.js'
 
 // Downloading code from Supabase: lesson starter files, the prof's checkpoints, and the
 // student's own autosave. Use it through loadFiles() in src/cache/files.js, which only
@@ -42,7 +43,7 @@ export async function findMyAutosave(sessionId) {
     .from('snapshots')
     .select('id, files_hash, updated_at')
     .eq('session_id', sessionId)
-    .eq('reason', 'autosave')
+    .eq('reason', SnapshotReason.AUTOSAVE)
     .maybeSingle() // RLS shows a student only their own snapshots
   if (error) throw mapError(error)
   return data

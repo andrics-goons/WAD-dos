@@ -174,11 +174,11 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-01 | Register as Student, and as Educator | E2E | `profiles.role` is `student` / `prof` respectively, set by the trigger; lands on `/courses` |
 | T-PLAT-02 | Register duplicate email / short password | E2E | zod field errors shown; values kept; Supabase rejects the duplicate |
 | T-PLAT-03 | Login wrong password vs unknown email | DB | Both fail with the same generic message |
-| T-PLAT-04 | Protected page while logged out | E2E | Redirect to `/login?returnTo=…`; after login, back to that page |
+| T-PLAT-04 | Protected page while logged out | Unit (`router-guards.test.js`) + E2E | Redirect to `/login?returnTo=…`; after login, back to that page |
 | T-PLAT-05 | Prof creates course | E2E | Course card shows enrol code |
 | T-PLAT-06 | Student enrols with code / wrong code | E2E | Course appears / "No course with that code" from `enrol_with_code` |
 | T-PLAT-07 | Prof adds TA by email | E2E | TA sees the course; `profiles.role` becomes `ta` |
-| T-PLAT-08 | Student opens prof-only route | E2E | Toast + redirect; the equivalent query returns zero rows |
+| T-PLAT-08 | Student opens prof-only route | Unit (`router-guards.test.js`) + E2E | Toast + redirect; the equivalent query returns zero rows |
 | T-PLAT-09 | **Credentials never touch our schema** | DB | No column in any `public` table holds a password or hash; `auth.users` is not readable with the anon key |
 | T-PLAT-10 | **A student cannot promote themselves** | RLS | `update profiles set role='prof'` on own row is rejected by the policy's `with check` |
 | T-PLAT-11 | Login rate limit | DB | Repeated failures throttled by Supabase Auth (platform-provided) |
@@ -322,6 +322,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-DASH-12 | Leaving the class page takes my Slow down back | Unit | `statusStore.leave()` deletes my flag and stops the heartbeat; with no flag it sends nothing; a refused delete (class ended, offline) never throws |
 | T-DASH-13 | **The Students menu lists who is connected, by status** | Unit | `getClassSummary` gives each student's state and open/claimed help and check requests; the menu shows connected students only (one without a status row is In progress), each in one group (help, check, error, in progress, idle, done, in that order), and never says who asked to slow down; Present closes it |
 | T-DASH-14 | ~~Common errors says when errors haven't made a group yet~~ | — | Dropped with Common errors |
+| T-DASH-15 | A heartbeat doesn't reload the dashboard | Unit | A `student_status` change that only moves `last_seen_at` isn't passed to `sessionStore.onChange` listeners; a change to Done, the error or catch-ups is. The 10 s poll still picks up who has gone idle |
 
 ### ERRG — Error normalisation · `error-normalizer.test.js`
 
@@ -450,7 +451,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-GH-07 | Export to a private repo | Unit | "Connect GitHub" asks for the `repo` scope; GitHub refusing a private repo (403/404) → `FORBIDDEN` "reconnect GitHub", not "try again" |
 | T-GH-08 | Export my own code | Unit | `mine: true` exports the caller's final autosave as one commit ("My code at the end of the class"); no saved code → `BAD_REQUEST` |
 
-### INS — Insights · `rls/session_report.test.js`, `digest-function.test.js`, `views/ReportView.test.js`
+### INS — Insights · `rls/session_report.test.js`, `api/reports.api.test.js`, `digest-function.test.js`, `views/ReportView.test.js`
 
 | ID | Test | Layer | Expected |
 |---|---|:---:|---|

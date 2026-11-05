@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { addProbe, CA_PROBE_JS, VITE8_PINS } from '../../shared/lesson-template.js'
 import { buildLessonFiles } from '../../shared/lesson-files.js'
-import { miniCartSeed } from '@/stores/seed/miniCartSeed.js'
+import { miniCartSeed } from '../fixtures/miniCartSeed.js'
 
 const f = (path, content, language = path.split('.').pop()) => ({ path, language, content })
 const content = (files, path) => files.find((x) => x.path === path)?.content

@@ -4,7 +4,7 @@
 // the Telegram digest.
 import { computed, onMounted, ref } from 'vue'
 import { checkpointLabel } from '@shared/checkpoint-label.js'
-import { formatStaffDigest } from '@shared/telegram.js'
+import { formatStaffDigest, topCheckpoints } from '@shared/telegram.js'
 import { useReportStore } from '@/stores/report'
 import { useToastStore } from '@/stores/toast'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -34,14 +34,9 @@ const joined = computed(() => report.value?.attendance.joined ?? 0)
 const pct = (n) => (joined.value ? Math.round((n / joined.value) * 100) : 0)
 const when = (iso) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 
-// The two checkpoints with the most of something (catch-ups, help requests, slow-down peak),
-// most first; a tie goes to the earlier one. Only checkpoints where it happened at all
+// the two checkpoints with the most of something (catch-ups, help requests, slow-down peak)
 const topTwo = (field) =>
-  report.value.checkpoints
-    .filter((c) => c[field] > 0)
-    .toSorted((a, b) => b[field] - a[field] || a.seq - b.seq)
-    .slice(0, 2)
-    .map((c) => checkpointLabel(c.seq, c.title))
+  topCheckpoints(report.value, field, 2).map((c) => checkpointLabel(c.seq, c.title))
 
 // "Checkpoint 2 · Emit add-to-cart, followed by Checkpoint 4 · Fetch items"
 const firstThen = ([first, next]) => first && first + (next ? `, followed by ${next}` : '')

@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { LessonStatus } from '@shared/constants.js'
+import { LessonStatus, Role, SessionStatus } from '@shared/constants.js'
 import { useCourseStore } from '@/stores/course'
 import { useLessonsStore } from '@/stores/lessons'
 import { useSessionStore } from '@/stores/session'
@@ -23,8 +23,8 @@ const sessionStore = useSessionStore()
 const toast = useToastStore()
 const router = useRouter()
 
-const isStaff = computed(() => ['prof', 'ta'].includes(props.course.myRole))
-const isProf = computed(() => props.course.myRole === 'prof')
+const isStaff = computed(() => [Role.PROF, Role.TA].includes(props.course.myRole))
+const isProf = computed(() => props.course.myRole === Role.PROF)
 
 const lessons = ref([])
 const sessions = ref([])
@@ -40,7 +40,7 @@ onMounted(async () => {
     // start with live classes showing, so nobody has to hunt for the way in
     for (const s of sessions.value) {
       const lesson = lessons.value.find((l) => l.id === s.lesson_id)
-      if (s.status === 'live' && lesson) opened.value[lesson.week] = true
+      if (s.status === SessionStatus.LIVE && lesson) opened.value[lesson.week] = true
     }
   } catch (error) {
     loadError.value = error.message
@@ -129,7 +129,7 @@ async function moveWeek() {
 // the folder already says the week, so "Week 6 · Mini Cart" shows as "Mini Cart"
 const fileName = (l) => l.title.replace(/^Week \d+\s*[·:-]\s*/i, '')
 const classesOf = (lesson) => sessions.value.filter((s) => s.lesson_id === lesson.id)
-const hasLiveClass = (lesson) => classesOf(lesson).some((s) => s.status === 'live')
+const hasLiveClass = (lesson) => classesOf(lesson).some((s) => s.status === SessionStatus.LIVE)
 
 const STATUS = {
   draft: { label: 'Draft', css: 'text-bg-warning' },
@@ -504,17 +504,17 @@ async function startClass(lesson) {
                 :key="s.id"
                 class="list-group-item d-flex flex-wrap align-items-center gap-2"
               >
-                <span v-if="s.status === 'live'" class="ca-pill ca-pill--sm ca-state--error">
+                <span v-if="s.status === SessionStatus.LIVE" class="ca-pill ca-pill--sm ca-state--error">
                   <i class="bi bi-broadcast" />Live
                 </span>
                 <span v-else class="badge text-bg-light">Ended</span>
                 <span class="text-body-secondary small">{{ when(s.started_at) }}</span>
-                <span v-if="isStaff && s.status === 'live'" class="small">
+                <span v-if="isStaff && s.status === SessionStatus.LIVE" class="small">
                   Code <span class="ca-mono fw-semibold">{{ s.join_code }}</span>
                 </span>
 
                 <span class="ms-auto d-flex gap-1">
-                  <template v-if="s.status === 'live' && !course.archived">
+                  <template v-if="s.status === SessionStatus.LIVE && !course.archived">
                     <RouterLink
                       v-if="isProf"
                       :to="{ name: 'teach', params: { id: s.id } }"

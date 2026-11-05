@@ -16,7 +16,10 @@ export function getExtension(filename) {
 // mapping the extension to the appropraite codemirror language
 const LANGUAGES = {
     js: () => javascript(),  // stores the function itself rather than the output
+    mjs: () => javascript(),
+    cjs: () => javascript(),
     html: () => html(),
+    htm: () => html(),
     css: () => css(),
     vue: () => vue(),
 }

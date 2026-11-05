@@ -59,8 +59,8 @@ describe('FileTree', () => {
     ['', 'Type a file name'],
     ['my notes.js', 'Use only letters, numbers, - _ . and /'],
     ['../secret.js', 'Use only letters, numbers, - _ . and /'],
-    ['logo.png', 'Use a .html, .css, .js, .vue, .json or .md file'],
-    ['debug.log', 'Use a .html, .css, .js, .vue, .json or .md file'],
+    ['logo.png', 'Use a .html, .css, .js, .mjs, .cjs, .vue, .json or .md file'],
+    ['debug.log', 'Use a .html, .css, .js, .mjs, .cjs, .vue, .json or .md file'],
     ['src/App.vue', 'A file with that name already exists'],
     ['index.html/x.js', 'That name clashes with a file or folder that already exists'],
   ])('refuses %j, which autosave could not save', async (name, error) => {

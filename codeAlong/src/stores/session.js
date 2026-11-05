@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { RtEvent } from '@shared/constants.js'
+import { RtEvent, SessionStatus } from '@shared/constants.js'
 import * as sessionsApi from '@/api/sessions.api'
 import * as checkpointsApi from '@/api/checkpoints.api'
 import { assertNotArchived } from '@/api/courses.api'
@@ -17,11 +17,12 @@ export const useSessionStore = defineStore('session', () => {
   let closeChannel = null
   let connectedBefore = false
   const rowListeners = { student_status: new Set(), help_requests: new Set() }
+  const lastStatus = new Map() // student id → their row as last passed on, without last_seen_at
 
   // the prof's latest checkpoint: its number (0 before the first) and { id, seq, title, … }
   const checkpointSeq = computed(() => session.value?.checkpoint_seq ?? 0)
   const latestCheckpoint = computed(() => session.value?.latest_checkpoint ?? null)
-  const isLive = computed(() => session.value?.status === 'live')
+  const isLive = computed(() => session.value?.status === SessionStatus.LIVE)
   const isStaff = computed(() => session.value?.role === 'staff')
 
   // A prof starts a class, a student joins one — both return the session id to open.
@@ -57,7 +58,7 @@ export const useSessionStore = defineStore('session', () => {
           session.value.settings = { ...session.value.settings, allowCatchUp, hintsEnabled }
         },
         [RtEvent.SESSION_ENDED]: () => {
-          session.value.status = 'ended'
+          session.value.status = SessionStatus.ENDED
         },
         [RtEvent.ANNOUNCE]: ({ text, at }) => {
           session.value.announcement = text ? { text, at } : null
@@ -72,7 +73,7 @@ export const useSessionStore = defineStore('session', () => {
       // staff: every student's status (the dashboard). Everyone: help requests — staff get the
       // whole queue, a student only their own (the tables' rules decide).
       changes: {
-        ...(isStaff.value && { student_status: (row) => notify('student_status', row) }),
+        ...(isStaff.value && { student_status: onStatusRow }),
         help_requests: (row) => notify('help_requests', row),
       },
       // students say they're here; staff see who is (the attendance count)
@@ -86,6 +87,18 @@ export const useSessionStore = defineStore('session', () => {
       },
     })
     return session.value
+  }
+
+  // Every student's heartbeat rewrites their row every 30 s. One that only moves last_seen_at
+  // changes nothing on the dashboard (its 10 s poll catches who has gone idle), so it isn't passed on.
+  // A delete (a student left the course) arrives as an empty row and always is.
+  function onStatusRow(row) {
+    if (!row.student_id) return notify('student_status', row)
+    const { last_seen_at: _seen, ...status } = row
+    const key = JSON.stringify(status)
+    if (lastStatus.get(row.student_id) === key) return
+    lastStatus.set(row.student_id, key)
+    notify('student_status', row)
   }
 
   function notify(table, row) {
@@ -102,6 +115,7 @@ export const useSessionStore = defineStore('session', () => {
   function close() {
     closeChannel?.()
     closeChannel = null
+    lastStatus.clear()
     session.value = null
     present.value = []
     connection.value = 'offline'

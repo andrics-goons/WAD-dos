@@ -270,7 +270,7 @@ describe('Slow down', () => {
     await status.start('s1')
     status.markDone(2)
     setSlowDown.mockRejectedValue(new Error('This class has ended'))
-    await expect(status.toggleSlowDown()).rejects.toThrow()
+    await expect(status.toggleSlowDown()).rejects.toThrow('This class has ended')
     expect(status.doneSeq).toBe(2)
   })
 

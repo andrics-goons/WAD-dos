@@ -2,7 +2,7 @@
 // outbox and Telegram faked. Mock mode writes each message to the outbox instead of sending.
 import { describe, it, expect, vi } from 'vitest'
 import { handleDigest } from '../../supabase/functions/digest/handler.ts'
-import { formatStaffDigest, formatAbsentDigest, troubleCheckpoints } from '../../shared/telegram.js'
+import { formatStaffDigest, formatAbsentDigest, topCheckpoints } from '../../shared/telegram.js'
 
 const envOf = (vars) => (key) => vars[key]
 const MOCK = envOf({ EXTERNAL_APIS: 'mock', APP_URL: 'https://app.test' })
@@ -111,7 +111,7 @@ describe('digest', () => {
 
 describe('digest messages', () => {
   it('the hardest checkpoints come first, and untroubled ones are left out', () => {
-    expect(troubleCheckpoints(REPORT).map((c) => c.seq)).toEqual([4, 7])
+    expect(topCheckpoints(REPORT, 'trouble', 3).map((c) => c.seq)).toEqual([4, 7])
   })
 
   it('escapes anything a prof or student typed', () => {
