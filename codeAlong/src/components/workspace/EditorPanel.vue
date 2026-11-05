@@ -4,6 +4,7 @@
     import FileTree from "./FileTree.vue"
     import TerminalPanel from "./TerminalPanel.vue"
     import { packagesState } from "@/runtime/install"
+    import { getExtension } from "@/utils/languages"
 
     const props = defineProps({
         filePaths: { type: Array, default: () => [] },
@@ -97,7 +98,7 @@
     }
 
     // used as filebadge next to filename in codeeditor
-    const fileType = computed(() => props.selectedFile.split(".").pop().toUpperCase())
+    const fileType = computed(() => getExtension(props.selectedFile).toUpperCase())
 
     // autosave's state, shown next to the file name; anything starting "Not saved" is a warning
     const SAVE_LABELS = {
@@ -194,7 +195,7 @@
             <div class="pane editor-pane">
                 <!-- Pane header -->
                 <div class="pane-header">
-                    <span class="file-badge">{{ fileType }}</span>
+                    <span v-if="fileType" class="file-badge">{{ fileType }}</span>
                     <span>{{ selectedFile }}</span>
                     <!-- right after the file name, so it reads as that file's save state. The usual
                          states are faded; a warning keeps its full colour so it's noticed -->

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { mapError } from './mapError'
+import { SessionStatus } from '@shared/constants.js'
 
 // Live classes: start, join, load, change settings, end. Owner: Ying Qi.
 // Contract: design-docs/04 "Sessions & checkpoints" and 09 §7.
@@ -80,7 +81,7 @@ export async function listLiveSessions() {
   const { data, error } = await supabase
     .from('sessions')
     .select(`${SESSION}, lessons(title), courses(code, section)`)
-    .eq('status', 'live')
+    .eq('status', SessionStatus.LIVE)
     .order('started_at', { ascending: false })
   if (error) throw mapError(error)
   return data

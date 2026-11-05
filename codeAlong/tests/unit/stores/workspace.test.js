@@ -64,6 +64,19 @@ describe("workspace store loading", () => {
         expect(loadFiles).toHaveBeenCalledWith("snapshot", "snap1")
         expect(store.selectedCode).toBe("<p>mine</p>")
     })
+
+    it("starts downloading my autosave without waiting for the class to open", async () => {
+        loadFiles.mockClear()
+        findMyAutosave.mockResolvedValue({ id: "snap1", files_hash: "h2" })
+        let opened
+        getSession.mockReturnValue(new Promise((resolve) => (opened = resolve)))
+        const store = useWorkspaceStore()
+        const loading = store.load("s1")
+        await vi.waitFor(() => expect(loadFiles).toHaveBeenCalledWith("snapshot", "snap1"))
+        opened({ lesson_id: "l1", lesson: { files_hash: "h1", entry_file: "index.html" } })
+        await loading
+        expect(loadFiles).not.toHaveBeenCalledWith("lesson", "l1", "h1")
+    })
 })
 
 describe("workspace store autosave", () => {

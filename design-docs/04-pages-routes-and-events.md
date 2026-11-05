@@ -167,10 +167,10 @@ Call these, not the queries below: `listCourses({ includeArchived })`, `getCours
 
 | Kind | Call | What happens | Who |
 |---|---|---|---|
-| Query | `from('lessons').select().eq('course_id', id).ilike('title', …)` | Lesson library search | Staff / enrolled |
+| Query | `from('lessons').select(…).eq('course_id', id)` — `listLessons(courseId)` | The course's lessons, without their files; the library's search filters them in the browser | Staff / enrolled |
 | Query | `from('lessons').insert(…)` — `createLesson(courseId, details)` | Create a lesson from uploaded files, hidden from students (`draft`) so nothing uploaded by mistake reaches them; the Visibility switch in the lesson's ⋯ menu on the course page shows it (`ready`) | Prof |
 | Function | `github-import` → `{ repoUrl, providerToken }` | Fetches files with the prof's own GitHub token → returns files; client then inserts. No token → `UNAUTHENTICATED` and the tab offers **Connect GitHub** | Prof (Ray Yien) |
-| Query | `from('lessons').select('*, sessions(count)')` — `getLesson(id)` | Lesson with its files and whether it has been taught. Staff see every lesson; **enrolled students see non-draft lessons only**, including their starter `files` | Staff / enrolled |
+| Query | `from('lessons').select('…, files_hash, sessions(count)')` — `getLesson(id)`, then `loadFiles('lesson', id, files_hash)` | Lesson and whether it has been taught; its files come from the browser's cache when the hash matches, else one download. Staff see every lesson; **enrolled students see non-draft lessons only**, including their starter `files` | Staff / enrolled |
 | Query | `from('lessons').update(…)` | Title/description/week/files/entry_file/dev_command/status | Prof |
 | Query | `from('lessons').delete().eq('id', id)` | Deletes the lesson. A trigger raises `CONFLICT` if the lesson was ever taught → UI offers Archive | Prof |
 

@@ -9,8 +9,7 @@
   import EmptyState from "@/components/ui/EmptyState.vue"
   import ConfirmModal from "@/components/ui/ConfirmModal.vue"
   import { getWebContainer } from "@/runtime/webcontainer";
-  import { UNSUPPORTED_BROWSER } from "@/runtime/unsupportedBrowser";
-  import { startWorkspace } from "@/runtime/workspace";
+  import { useRuntime } from "@/runtime/useRuntime";
   import { useWorkspaceStore } from "@/stores/workspace.js"
   import { useSessionStore } from "@/stores/session"
   import { useStatusStore } from "@/stores/status"
@@ -97,22 +96,15 @@
     },
   )
 
-  // WebContainer needs SharedArrayBuffer, which only exists on a cross-origin isolated page
-
   // TerminalPanel.vue mounts before this view does and would otherwise start booting first.
-  const isolated = window.crossOriginIsolated === true
-  const bootError = ref(isolated ? "" : UNSUPPORTED_BROWSER)
+  const runtime = useRuntime("The workspace couldn't start")
+  const { isolated, bootError, previewUrl } = runtime
 
   // The class didn't open: "not-found" when it doesn't exist or I'm not in its course (RLS
   // returns nothing then), otherwise the reason. The editor never shows, so nothing boots.
   const loadError = ref("")
   // the editor waits for the class, since its terminal boots the WebContainer as it mounts
   const opened = computed(() => sessionStore.session?.id === props.id)
-
-  const previewUrl = ref("")
-  let stopWorkspace
-  // set on unmount, so a boot that finishes after the user has left doesn't leave a listener behind
-  let unmounted = false
 
   onMounted(async () => {
     if (!isolated) return
@@ -122,36 +114,22 @@
     try {
       await workspaceStore.load(props.id)
     } catch (e) {
-      if (!unmounted) loadError.value = e.code === "NOT_FOUND" ? "not-found" : e.message
+      if (!runtime.unmounted()) loadError.value = e.code === "NOT_FOUND" ? "not-found" : e.message
       return
     }
-    if (unmounted) return workspaceStore.close() // left while loading: stop the autosave it started
-    try {
-      // my status doesn't wait for the boot, so a WebContainer that fails still leaves my
-      // attendance in place
-      const starting = statusStore.start(props.id).then(() => {
-        // tells the dashboard I'm here
-        if (unmounted) return statusStore.leave()
-        loaded.value = true
-      })
-      const [webcontainer] = await Promise.all([getWebContainer(), starting])
-      if (unmounted) return
-      const stop = await startWorkspace(
-        webcontainer,
-        workspaceStore.files,
-        (url) => (previewUrl.value = url)     // webcontainer generates a special url in order to view the vite project
-      )
-      // startWorkspace finished after we unmounted, so undo it straight away
-      if (unmounted) stop()
-      else stopWorkspace = stop
-    } catch (e) {
-      if (!unmounted) bootError.value = `The workspace couldn't start: ${e.message}`
-    }
+    if (runtime.unmounted()) return workspaceStore.close() // left while loading: stop the autosave it started
+    // my status doesn't wait for the boot, so a WebContainer that fails still leaves my
+    // attendance in place
+    const starting = statusStore.start(props.id).then(() => {
+      // tells the dashboard I'm here
+      if (runtime.unmounted()) return statusStore.leave()
+      loaded.value = true
+    })
+    const booting = Promise.all([getWebContainer(), starting]).then(([webcontainer]) => webcontainer)
+    await runtime.start(booting, workspaceStore.files)
   })
 
   onBeforeUnmount(() => {
-    unmounted = true
-    stopWorkspace?.() // if the startWorkspace has finished firing and returned the function, then call the stop function before unmount
     statusStore.leave() // stops reporting, and takes back my Slow down
     workspaceStore.close() // saves any edit still waiting for the 5 s autosave, then leaves the class channel
   })

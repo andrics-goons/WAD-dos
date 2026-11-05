@@ -2,9 +2,9 @@
 // (they own the course) is checked with their own JWT, so RLS and the helper functions decide
 // exactly as in the app. Telegram chat ids aren't readable by the prof, so the recipients are
 // read with the service role.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { createTelegramSender } from '../../../shared/telegram.js'
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts'
+import { supabaseAsCaller } from '../_shared/supabaseCaller.ts'
 import { handleDigest, type DigestDb } from './handler.ts'
 
 const env = (key: string) => Deno.env.get(key)
@@ -12,10 +12,7 @@ const admin = supabaseAdmin()
 const send = createTelegramSender(fetch, env('TELEGRAM_BOT_TOKEN') ?? '')
 
 function dbFor(req: Request): DigestDb {
-  const caller = createClient(env('SUPABASE_URL')!, env('SUPABASE_ANON_KEY')!, {
-    global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
+  const caller = supabaseAsCaller(req)
 
   return {
     async getContext(sessionId) {

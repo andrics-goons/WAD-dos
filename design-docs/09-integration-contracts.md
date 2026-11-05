@@ -48,6 +48,7 @@ export const NoteKind = Object.freeze({ NOTE: 'note', BOOKMARK: 'bookmark' })
 export const Limits = Object.freeze({
   MAX_FILES: 40,                 // a bare Vite scaffold is already ~10 files
   MAX_SNAPSHOT_BYTES: 200_000,   // unchanged — this is what protects the 5 GB egress budget
+  MAX_PATH: 120,                 // characters in a file path, as files_valid() allows
   // Never synced to Postgres: dependency and build output live only in WebContainer
   SYNC_IGNORE: ['node_modules/**', 'dist/**', '.vite/**', '.cache/**', 'pnpm-lock.yaml', '*.log'],
   BOOT_TIMEOUT_MS: 30_000,       // no server-ready → "your project didn't start"

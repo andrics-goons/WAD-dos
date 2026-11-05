@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { buildLessonFiles, languageForPath, isIgnored, LIMITS } from '../../shared/lesson-files.js'
+import { buildLessonFiles, languageForPath, isIgnored } from '../../shared/lesson-files.js'
+import { Limits } from '../../shared/constants.js'
 import { miniCartFiles, miniCartEntryFile } from '../fixtures/miniCart.js'
 
 const e = (path, content = 'x') => ({ path, content })
@@ -17,6 +18,13 @@ describe('languageForPath', () => {
     expect(languageForPath('logo.png')).toBeNull()
     expect(languageForPath('main.ts')).toBeNull()
     expect(languageForPath('Dockerfile')).toBeNull()
+    expect(languageForPath('.npmrc')).toBeNull()
+    expect(languageForPath('v1.2/Makefile')).toBeNull()
+  })
+  it('maps .mjs, .cjs and .htm to the language the database stores', () => {
+    expect(languageForPath('server.mjs')).toBe('js')
+    expect(languageForPath('config.cjs')).toBe('js')
+    expect(languageForPath('old.htm')).toBe('html')
   })
 })
 
@@ -71,12 +79,12 @@ describe('buildLessonFiles', () => {
   })
 
   it('reports an error for more than 40 files', () => {
-    const many = Array.from({ length: LIMITS.MAX_FILES + 1 }, (_, i) => e(`f${i}.js`))
+    const many = Array.from({ length: Limits.MAX_FILES + 1 }, (_, i) => e(`f${i}.js`))
     expect(buildLessonFiles(many).errors[0]).toMatch(/Too many files/)
   })
 
   it('reports an error over the byte cap', () => {
-    const big = e('big.js', 'a'.repeat(LIMITS.MAX_BYTES))
+    const big = e('big.js', 'a'.repeat(Limits.MAX_SNAPSHOT_BYTES))
     expect(buildLessonFiles([big]).errors[0]).toMatch(/too large/)
   })
 

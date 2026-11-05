@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { RoleLabel } from '@shared/constants.js'
+import { Role, RoleLabel } from '@shared/constants.js'
 import { useAuthStore } from '@/stores/auth'
 import { useCoursesStore } from '@/stores/courses'
 import { useHomeStore } from '@/stores/home'
@@ -26,7 +26,7 @@ onMounted(async () => {
   }
 })
 
-const isProf = computed(() => auth.role === 'prof')
+const isProf = computed(() => auth.role === Role.PROF)
 // my role in that class's course decides where its button goes
 const roleIn = (courseId) => courses.courses.find((c) => c.id === courseId)?.myRole
 // my courses leave out the ones I've archived, so their classes don't show here either
@@ -42,8 +42,8 @@ const recentCourses = computed(() => {
 })
 function classLink(s) {
   const role = roleIn(s.course_id)
-  if (role === 'prof') return { label: 'Open class', to: { name: 'teach', params: { id: s.id } } }
-  if (role === 'ta')
+  if (role === Role.PROF) return { label: 'Open class', to: { name: 'teach', params: { id: s.id } } }
+  if (role === Role.TA)
     return { label: 'Help queue', to: { name: 'help-queue', params: { id: s.id } } }
   return { label: 'Join', to: { name: 'workspace', params: { id: s.id } } }
 }

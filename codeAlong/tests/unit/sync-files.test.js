@@ -4,7 +4,6 @@ import { Limits } from '../../shared/constants.js'
 import {
   isSyncIgnored,
   isStorablePath,
-  languageOf,
   contentHash,
   planAutosave,
   storableFiles,
@@ -59,19 +58,6 @@ describe('isStorablePath', () => {
     '/etc/passwd.js',
     `src/${'a'.repeat(120)}.js`,
   ])('rejects %s', (path) => expect(isStorablePath(path)).toBe(false))
-})
-
-describe('languageOf', () => {
-  it.each([
-    ['src/App.vue', 'vue'],
-    ['README.md', 'md'],
-    ['DATA.JSON', 'json'],
-    ['.npmrc', null],
-    ['notes.txt', null],
-    ['Makefile', null],
-  ])('%s → %s', (path, expected) => {
-    expect(languageOf(path)).toBe(expected)
-  })
 })
 
 describe('storableFiles', () => {

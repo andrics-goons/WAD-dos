@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import QRCode from 'qrcode' // Source: https://github.com/soldair/node-qrcode (MIT)
-import { CourseRole, RoleLabel } from '@shared/constants.js'
+import { CourseRole, Role, RoleLabel, SessionStatus } from '@shared/constants.js'
 import { useCourseStore } from '@/stores/course'
 import { useToastStore } from '@/stores/toast'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -138,7 +138,7 @@ async function copyLink() {
 
 // People: who's online in each live class. Students see the names per class; staff see a
 // dot beside each enrolled student who is online.
-const isStaff = computed(() => ['prof', 'ta'].includes(course.value?.myRole))
+const isStaff = computed(() => [Role.PROF, Role.TA].includes(course.value?.myRole))
 const liveClasses = ref([])
 const onlineIds = computed(
   () => new Set(liveClasses.value.flatMap((c) => c.people.map((p) => p.userId))),
@@ -155,7 +155,7 @@ watch(tab, async (now) => {
     const sessions = await store.sessions(props.id)
     if (tab.value !== 'people') return
     liveClasses.value = sessions
-      .filter((s) => s.status === 'live')
+      .filter((s) => s.status === SessionStatus.LIVE)
       .map((s) => ({ id: s.id, title: s.lessons.title, people: [] }))
     closeChannels = liveClasses.value.map((c) =>
       store.watchPresent(c.id, (people) => (c.people = people)),
@@ -285,7 +285,7 @@ async function removeStudent() {
           </button>
           <!-- students and TAs: a prof owns the course -->
           <button
-            v-if="course.myRole === 'student' || course.myRole === 'ta'"
+            v-if="course.myRole === Role.STUDENT || course.myRole === Role.TA"
             type="button"
             class="ca-btn ca-btn--danger ca-btn--sm"
             data-testid="btn-leave-course"
@@ -524,7 +524,7 @@ async function removeStudent() {
     <LeaveCourseModal
       v-model:open="confirmLeave"
       :title="course?.title"
-      :ta="course?.myRole === 'ta'"
+      :ta="course?.myRole === Role.TA"
       :busy="changing"
       @confirm="leaveCourse"
     />

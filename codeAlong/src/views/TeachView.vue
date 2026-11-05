@@ -12,8 +12,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import EditorPanel from '@/components/workspace/EditorPanel.vue'
 import PreviewPanel from '@/components/workspace/PreviewPanel.vue'
 import { getWebContainer } from '@/runtime/webcontainer'
-import { UNSUPPORTED_BROWSER } from '@/runtime/unsupportedBrowser'
-import { startWorkspace } from '@/runtime/workspace'
+import { useRuntime } from '@/runtime/useRuntime'
 import { useWorkspaceStore } from '@/stores/workspace.js'
 import { useSessionStore } from '@/stores/session'
 import { useTeachStore } from '@/stores/teach'
@@ -99,13 +98,8 @@ async function clearAnnouncement() {
 
 const workspaceStore = useWorkspaceStore()
 
-// WebContainer needs SharedArrayBuffer, which only exists on a cross-origin isolated page
-const isolated = window.crossOriginIsolated === true
-const bootError = ref(isolated ? '' : UNSUPPORTED_BROWSER)
-const previewUrl = ref('')
-let stopWorkspace
-// set on unmount, so a boot that finishes after leaving doesn't leave a listener behind
-let unmounted = false
+const runtime = useRuntime("The editor couldn't start")
+const { isolated, bootError, previewUrl } = runtime
 
 // open the class. When the editor can run, dylan's loadForTeaching opens it while it loads my
 // code (my draft in this browser, else the latest checkpoint), and the WebContainer boots alongside
@@ -121,20 +115,7 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-  if (!isolated || !live.isLive) return
-  try {
-    const webcontainer = await booting
-    if (unmounted) return
-    const stop = await startWorkspace(
-      webcontainer,
-      workspaceStore.files,
-      (url) => (previewUrl.value = url),
-    )
-    if (unmounted) stop()
-    else stopWorkspace = stop
-  } catch (e) {
-    if (!unmounted) bootError.value = `The editor couldn't start: ${e.message}`
-  }
+  if (isolated && live.isLive) await runtime.start(booting, workspaceStore.files)
 })
 
 // checkpoints saved so far, newest first. Reloaded whenever a new one arrives on the channel
@@ -266,13 +247,11 @@ const elapsed = computed(() => {
 })
 
 onBeforeUnmount(() => {
-  unmounted = true
   clearInterval(timer)
   clearInterval(slowDownPoll)
   clearTimeout(summaryTimer)
   stopStatusChanges()
   stopHelpChanges()
-  stopWorkspace?.()
   workspaceStore.close() // saves my draft, then leaves the class channel
   live.close() // when the editor couldn't run, the class was opened here
 })

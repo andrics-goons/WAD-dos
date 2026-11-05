@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
-import { AppError, mapError } from './mapError'
+import { mapError } from './mapError'
+import { invoke } from './invoke'
 
 // Prof dashboard calls for the Teach view (design-docs/04, "Dashboard").
 
@@ -61,14 +62,5 @@ export async function getClassSummary(sessionId) {
  * Staff only; anyone else gets FORBIDDEN.
  */
 export async function getHelpSummary(sessionId) {
-  const { data, error } = await supabase.functions.invoke('summarize-help', { body: { sessionId } })
-  if (error) {
-    // the function answers errors as { code, message }, the same shape mapError produces
-    const body = await error.context?.json?.().catch(() => null)
-    if (body?.code) {
-      throw new AppError(body.code, body.message, { status: error.context.status, cause: error })
-    }
-    throw mapError(error)
-  }
-  return data
+  return invoke('summarize-help', { sessionId })
 }

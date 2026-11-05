@@ -3,8 +3,6 @@
 
 import { checkpointLabel } from './checkpoint-label.js'
 
-export const LINK_CODE_TTL_MS = 10 * 60 * 1000
-
 const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;' }
 
 // Telegram's HTML parse mode only needs these three escaped.
@@ -59,11 +57,12 @@ export function formatInPersonPing({
   return lines.join('\n')
 }
 
-// The 3 checkpoints with the highest trouble score (design-docs/05 §10), most troublesome first
-export function troubleCheckpoints(report, count = 3) {
+// The `count` checkpoints with the most of `field` (e.g. the trouble score, design-docs/05 §10),
+// most first; a tie goes to the earlier one. Only checkpoints where it happened at all
+export function topCheckpoints(report, field, count) {
   return [...(report.checkpoints ?? [])]
-    .filter((c) => c.trouble > 0)
-    .sort((a, b) => b.trouble - a.trouble || a.seq - b.seq)
+    .filter((c) => c[field] > 0)
+    .sort((a, b) => b[field] - a[field] || a.seq - b.seq)
     .slice(0, count)
 }
 
@@ -74,7 +73,7 @@ export function formatStaffDigest({ courseLabel, lessonTitle, report, openHelp, 
   const { joined, enrolled } = report.attendance
   const lines = [`📊 Class report — ${where}`, `Attended: ${joined} of ${enrolled}`]
 
-  const trouble = troubleCheckpoints(report)
+  const trouble = topCheckpoints(report, 'trouble', 3)
   if (trouble.length) {
     lines.push('', '<b>Where students struggled</b>')
     for (const c of trouble) {
@@ -95,7 +94,7 @@ export function formatStaffDigest({ courseLabel, lessonTitle, report, openHelp, 
 
 // For enrolled students who didn't join: what they missed and where to start in the replay
 export function formatAbsentDigest({ lessonTitle, report, link }) {
-  const [worst] = troubleCheckpoints(report, 1)
+  const [worst] = topCheckpoints(report, 'trouble', 1)
   const lines = [`You missed <b>${escapeHtml(lessonTitle)}</b>.`]
   if (worst) {
     lines.push(

@@ -10,6 +10,8 @@ window.matchMedia = () => ({
     addEventListener() {},
     removeEventListener() {},
 })
+// jsdom has no document.fonts either; createTerminal waits on it to measure the code font
+Object.defineProperty(document, "fonts", { value: { load: () => Promise.resolve([]) } })
 
 // Terminals made during a test, disposed afterwards so they don't pile up
 let made = []
@@ -26,7 +28,7 @@ afterEach(() => {
 
 describe("createTerminal", () => {
     it("returns a terminal", () => {
-        const term = createTerminal(newDiv())
+        const { term } = createTerminal(newDiv())
         made.push(term)
         expect(term).toBeDefined()
         expect(typeof term.write).toBe("function")
@@ -34,20 +36,20 @@ describe("createTerminal", () => {
 
     it("draws the terminal inside the element it was given", () => {
         const el = newDiv()
-        made.push(createTerminal(el))
+        made.push(createTerminal(el).term)
         // xterm adds an element with class "xterm" when it opens
         expect(el.querySelector(".xterm")).not.toBeNull()
     })
 
     it("uses your options", () => {
-        const term = createTerminal(newDiv())
+        const { term } = createTerminal(newDiv())
         made.push(term)
         expect(term.options.cursorBlink).toBe(true)
     })
 
     it("gives a different terminal on every call (one per TerminalPanel.vue)", () => {
-        const a = createTerminal(newDiv())
-        const b = createTerminal(newDiv())
+        const a = createTerminal(newDiv()).term
+        const b = createTerminal(newDiv()).term
         made.push(a, b)
         expect(a).not.toBe(b)
     })
