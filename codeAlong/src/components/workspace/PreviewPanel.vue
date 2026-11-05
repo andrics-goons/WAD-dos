@@ -1,5 +1,6 @@
 <script setup>
     import { ref } from "vue"
+    import { usePreviewNav } from "@/runtime/previewNav.js"
 
     const props = defineProps({
         // url the webcontainer's dev server gives us, empty until it's ready
@@ -11,6 +12,9 @@
     const emit = defineEmits(["show-editor", "toggle-view"])
 
     const poppedOut = ref(false)
+
+    // Back, Forward and Reload, like a browser's, for the app's own pages
+    const { frame, frameKey, canGoBack, canGoForward, back, forward, reload } = usePreviewNav()
 
     // Our Cross-Origin-Opener-Policy header cuts this page off from any popup on another
     // origin, so we can't see when the popup closes or close it ourselves. noopener just
@@ -29,7 +33,44 @@
     <div class="preview-panel">
         <!-- Pane header -->
         <div class="pane-header">
-            <span>Preview</span>
+            <!-- on the left, like a browser's: Back, Forward, Reload -->
+            <div class="d-flex align-items-center gap-3">
+                <button
+                    class="toggle-btn"
+                    type="button"
+                    title="Back"
+                    :disabled="!canGoBack || poppedOut"
+                    @click="back"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"/>
+                    </svg>
+                </button>
+                <button
+                    class="toggle-btn"
+                    type="button"
+                    title="Forward"
+                    :disabled="!canGoForward || poppedOut"
+                    @click="forward"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-right" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M1 8a.5.5 0 0 1 .5-.5h11.793l-3.147-3.146a.5.5 0 0 1 .708-.708l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L13.293 8.5H1.5A.5.5 0 0 1 1 8"/>
+                    </svg>
+                </button>
+                <button
+                    class="toggle-btn"
+                    type="button"
+                    title="Reload"
+                    :disabled="!previewUrl || poppedOut"
+                    @click="reload"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/>
+                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/>
+                    </svg>
+                </button>
+                <span class="ms-1">Preview</span>
+            </div>
             <div class="d-flex gap-3">
                 <!-- Pop out button -->
                 <button
@@ -78,7 +119,7 @@
 
         <div class="pane-body">
             <!-- iframe is hidden while popped out so the app isn't running twice -->
-            <iframe v-if="previewUrl && !poppedOut" :src="previewUrl"></iframe>
+            <iframe v-if="previewUrl && !poppedOut" ref="frame" :key="frameKey" :src="previewUrl"></iframe>
 
             <div v-else-if="poppedOut" class="popped-out">
                 <span>Preview is open in a separate window</span>

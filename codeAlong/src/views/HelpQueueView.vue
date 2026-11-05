@@ -48,7 +48,12 @@ const waiting = computed(() => help.requests.filter(isActive))
 const handled = computed(() =>
   help.requests.filter((r) => !isActive(r) && r.status !== HelpStatus.CANCELLED).reverse(),
 )
-const selected = computed(() => help.requests.find((r) => r.id === selectedId.value) ?? null)
+// a request the student cancels leaves both lists, so it leaves the right-hand side too
+const selected = computed(
+  () =>
+    help.requests.find((r) => r.id === selectedId.value && r.status !== HelpStatus.CANCELLED) ??
+    null,
+)
 const myId = computed(() => auth.user?.id ?? null)
 
 // The waiting times count up without a request changing

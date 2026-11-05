@@ -111,7 +111,7 @@ describe('HelpCodeView', () => {
   it("on a page that can't run WebContainers, keeps the editor and says why", async () => {
     vi.stubGlobal('crossOriginIsolated', false)
     await open()
-    expect(wrapper.text()).toContain("isn't cross-origin isolated")
+    expect(wrapper.text()).toContain("This browser can't run code")
     expect(editor().exists()).toBe(true)
     expect(runtime.startWorkspace).not.toHaveBeenCalled()
   })

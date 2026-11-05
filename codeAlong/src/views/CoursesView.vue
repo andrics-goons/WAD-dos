@@ -83,7 +83,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
 
 const archiving = ref(null) // the course waiting for "Archive this course?"
 const deleting = ref(null) // the course waiting for "Delete this course?"
-const leaving = ref(null) // the course waiting for "Leave this course?" (students)
+const leaving = ref(null) // the course waiting for "Leave this course?" (students and TAs)
 const changing = ref(false)
 function askArchive(course) {
   closeMenu()
@@ -172,7 +172,7 @@ async function toggleArchived() {
 </script>
 
 <template>
-  <div class="ca-page">
+  <div class="ca-page ca-page--narrow">
     <div class="ca-page-header">
       <h1>{{ showForm ? 'New course' : 'My courses' }}</h1>
       <button
@@ -227,9 +227,9 @@ async function toggleArchived() {
       </EmptyState>
     </div>
 
-    <!-- 1 column on phones, 2 on tablets, 3 on desktop -->
-    <div v-else class="row g-3">
-      <div v-for="c in courses.courses" :key="c.id" class="col-12 col-md-6 col-xl-4">
+    <!-- 1 column on phones, 2 from tablets up: big cards, since the page is narrow -->
+    <div v-else class="row g-4">
+      <div v-for="c in courses.courses" :key="c.id" class="col-12 col-md-6">
         <!-- a plain box, not a link, so its text can be selected and copied;
              the title is the link, and a click anywhere else on the card opens the course too -->
         <!-- pt-3: the header row (name, role, ⋯) is taller than its text, so less padding above it
@@ -251,7 +251,7 @@ async function toggleArchived() {
               @delete="askDelete(c)"
             />
           </div>
-          <h3 class="mb-1">
+          <h3 class="fs-4 mb-1">
             <RouterLink :to="{ name: 'course', params: { id: c.id } }" class="text-reset">
               {{ c.title }}
             </RouterLink>
@@ -314,6 +314,7 @@ async function toggleArchived() {
     <LeaveCourseModal
       :open="leaving !== null"
       :title="leaving?.title"
+      :ta="leaving?.myRole === 'ta'"
       :busy="changing"
       @update:open="leaving = null"
       @confirm="leaveCourse"

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { anonClient, userClient, service, cleanup } from './_helpers.js'
+import { anonClient, userClient, service, makeAdmin, cleanup } from './_helpers.js'
 import { mapError } from '@/api/mapError'
 import { isValidJoinCode } from '@shared/join-code.js'
 
@@ -217,14 +217,24 @@ describe('join_session', () => {
     expect(again.data.role).toBe('student')
   })
 
-  it("T-SESS-04: a prof from another course is told they're not in it", async () => {
+  it('T-SESS-04: a prof from another course is enrolled as a student, and joins', async () => {
     const otherProf = await userClient({ name: 'Other Prof', role: 'prof' })
-    const { error } = await otherProf.client.rpc('join_session', { p_join_code: session.join_code })
+    const { data, error } = await otherProf.client.rpc('join_session', {
+      p_join_code: session.join_code,
+    })
+    expect(error).toBeNull()
+    expect(data).toEqual({ session_id: session.id, role: 'student' })
+  })
+
+  it("T-SESS-04: an admin is told they're not in it, and isn't enrolled", async () => {
+    const admin = await userClient({ name: 'Ada Admin' })
+    await makeAdmin(admin.id)
+    const { error } = await admin.client.rpc('join_session', { p_join_code: session.join_code })
     expect(codeOf(error)).toBe('FORBIDDEN')
     const { count } = await service
       .from('course_students')
       .select('user_id', { count: 'exact', head: true })
-      .eq('user_id', otherProf.id)
+      .eq('user_id', admin.id)
     expect(count).toBe(0)
   })
 

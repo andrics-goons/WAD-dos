@@ -212,7 +212,7 @@
 
         <!-- the empty space below the rows is the top level -->
         <div
-            class="tree-list"
+            class="tree-list ca-ide-scroll"
             :class="{ 'drop-root': dropFolder === '' }"
             data-testid="tree-root"
             @dragover="onDragOver('', $event)"
@@ -303,27 +303,6 @@
         flex: 1;
         padding: 6px 0;
         overflow-y: auto;
-    }
-    /* a thin scrollbar like VS Code's Explorer (and the terminal's): no arrows, no track, a soft
-       grey thumb that brightens on hover. Chrome and Edge use the ::-webkit-scrollbar parts;
-       Firefox only has these two settings, so it gets its own thin bar in the same colour */
-    .tree-list::-webkit-scrollbar {
-        width: 10px;
-    }
-    .tree-list::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    .tree-list::-webkit-scrollbar-thumb {
-        background: #79797966;
-    }
-    .tree-list::-webkit-scrollbar-thumb:hover {
-        background: #646464b3;
-    }
-    @supports not selector(::-webkit-scrollbar) {
-        .tree-list {
-            scrollbar-width: thin;
-            scrollbar-color: #79797966 transparent;
-        }
     }
     .tree-item {
         display: flex;

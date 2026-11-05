@@ -77,7 +77,8 @@
 </script>
 
 <template>
-    <div ref="editorEl" class="editor"></div>
+    <!-- ca-ide-scroll: the same thin dark scrollbars as the file tree (components.css) -->
+    <div ref="editorEl" class="editor ca-ide-scroll"></div>
 </template>
 
 <style scoped>

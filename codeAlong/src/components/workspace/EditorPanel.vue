@@ -304,7 +304,7 @@
                             :key="number"
                         />
                     </div>
-                    <div class="terminal-list">
+                    <div class="terminal-list ca-ide-scroll">
                         <div
                             v-for="number in terminals"
                             :key="number"

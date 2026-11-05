@@ -9,6 +9,7 @@
   import EmptyState from "@/components/ui/EmptyState.vue"
   import ConfirmModal from "@/components/ui/ConfirmModal.vue"
   import { getWebContainer } from "@/runtime/webcontainer";
+  import { UNSUPPORTED_BROWSER } from "@/runtime/unsupportedBrowser";
   import { startWorkspace } from "@/runtime/workspace";
   import { useWorkspaceStore } from "@/stores/workspace.js"
   import { useSessionStore } from "@/stores/session"
@@ -100,7 +101,7 @@
 
   // TerminalPanel.vue mounts before this view does and would otherwise start booting first.
   const isolated = window.crossOriginIsolated === true
-  const bootError = ref(isolated ? "" : "This page isn't cross-origin isolated, so the workspace can't run here.")
+  const bootError = ref(isolated ? "" : UNSUPPORTED_BROWSER)
 
   // The class didn't open: "not-found" when it doesn't exist or I'm not in its course (RLS
   // returns nothing then), otherwise the reason. The editor never shows, so nothing boots.
@@ -218,7 +219,7 @@
       </ConfirmModal>
 
       <EmptyState v-if="!isolated" icon="bi-exclamation-triangle" title="The workspace can't start">
-        {{ bootError }} Try reloading the page.
+        {{ bootError }}
       </EmptyState>
 
       <template v-else>

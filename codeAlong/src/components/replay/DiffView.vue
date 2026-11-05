@@ -26,22 +26,29 @@ const statusLabel = (file) =>
     removed: `Only in ${props.beforeLabel}`,
   })[file.status]
 
-// Unchanged lines stay hidden until asked for. Each block is a hunk with the gap above it, plus
-// one for whatever follows the last hunk. New files to compare start with everything hidden again.
+// Unchanged lines stay hidden until asked for, and can be hidden again. Each block is a hunk with
+// the gap above it, plus one for whatever follows the last hunk. New files to compare start with
+// everything hidden again.
 const shownGaps = ref(new Set())
 watch(files, () => (shownGaps.value = new Set()))
 const showGap = (key) => (shownGaps.value = new Set(shownGaps.value).add(key))
+function hideGap(key) {
+  const next = new Set(shownGaps.value)
+  next.delete(key)
+  shownGaps.value = next
+}
 function blocks(file) {
   const block = (key, hidden, lines) =>
     shownGaps.value.has(key)
-      ? { key, hiddenCount: 0, lines: [...hidden, ...lines] }
-      : { key, hiddenCount: hidden.length, lines }
+      ? { key, hiddenCount: 0, shownCount: hidden.length, lines: [...hidden, ...lines] }
+      : { key, hiddenCount: hidden.length, shownCount: 0, lines }
   return [
     ...file.hunks.map((h, i) => block(`${file.path}:${i}`, h.hiddenBefore, h.lines)),
     block(`${file.path}:end`, file.hiddenAfter, []),
   ].filter((b) => b.hiddenCount || b.lines.length)
 }
 const gapLabel = (n) => `Show ${n} unchanged ${n === 1 ? 'line' : 'lines'}`
+const hideLabel = (n) => `Hide ${n} unchanged ${n === 1 ? 'line' : 'lines'}`
 
 // A + or − in front of each changed line, so the change shows without relying on colour
 const MARK = { add: '+ ', del: '− ', context: '  ' }
@@ -99,6 +106,17 @@ const sideBg = (line) => (line ? BG[line.type] : 'bg-body-secondary')
                   </button>
                 </td>
               </tr>
+              <tr v-else-if="b.shownCount">
+                <td colspan="2" class="p-0 bg-body-tertiary">
+                  <button
+                    type="button"
+                    class="diff-gap btn btn-link btn-sm w-100 text-start text-decoration-none rounded-0 px-3"
+                    @click="hideGap(b.key)"
+                  >
+                    <i class="bi bi-arrows-collapse me-1" />{{ hideLabel(b.shownCount) }}
+                  </button>
+                </td>
+              </tr>
               <tr v-for="(line, i) in b.lines" :key="i" :class="BG[line.type]">
                 <td class="px-2 text-end align-top text-body-secondary user-select-none">
                   {{ line.newLine ?? line.oldLine }}
@@ -133,6 +151,17 @@ const sideBg = (line) => (line ? BG[line.type] : 'bg-body-secondary')
                   @click="showGap(b.key)"
                 >
                   <i class="bi bi-arrows-expand me-1" />{{ gapLabel(b.hiddenCount) }}
+                </button>
+              </td>
+            </tr>
+            <tr v-else-if="b.shownCount">
+              <td colspan="4" class="p-0 bg-body-tertiary">
+                <button
+                  type="button"
+                  class="diff-gap btn btn-link btn-sm w-100 text-start text-decoration-none rounded-0 px-3"
+                  @click="hideGap(b.key)"
+                >
+                  <i class="bi bi-arrows-collapse me-1" />{{ hideLabel(b.shownCount) }}
                 </button>
               </td>
             </tr>

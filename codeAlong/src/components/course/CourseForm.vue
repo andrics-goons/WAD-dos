@@ -51,7 +51,7 @@ function save() {
 <template>
   <form class="ca-card mb-4" @submit.prevent="save">
     <div class="row g-3">
-      <div class="ca-field col-12 col-sm-6 col-lg-2">
+      <div class="ca-field col-12 col-sm-4">
         <label class="ca-label" for="course-code">Course code</label>
         <input
           id="course-code"
@@ -64,7 +64,7 @@ function save() {
         />
         <p v-if="codeError" class="ca-field-error">{{ codeError }}</p>
       </div>
-      <div class="ca-field col-12 col-sm-6 col-lg-4">
+      <div class="ca-field col-12 col-sm-8">
         <label class="ca-label" for="course-title">Title</label>
         <input
           id="course-title"
@@ -75,21 +75,21 @@ function save() {
           required
         />
       </div>
-      <div class="ca-field col-6 col-sm-4 col-lg-2">
+      <div class="ca-field col-6 col-sm-4">
         <label class="ca-label" for="course-ay">Academic year</label>
         <select id="course-ay" v-model="form.ay" class="ca-input" required>
           <option value="" disabled>Choose…</option>
           <option v-for="y in academicYears" :key="y" :value="y">{{ y }}</option>
         </select>
       </div>
-      <div class="ca-field col-6 col-sm-4 col-lg-2">
+      <div class="ca-field col-6 col-sm-4">
         <label class="ca-label" for="course-term">Term</label>
         <select id="course-term" v-model="form.termNo" class="ca-input" required>
           <option value="" disabled>Choose…</option>
           <option v-for="t in terms" :key="t" :value="t">{{ t }}</option>
         </select>
       </div>
-      <div class="ca-field col-12 col-sm-4 col-lg-2">
+      <div class="ca-field col-12 col-sm-4">
         <label class="ca-label" for="course-section">Section</label>
         <input
           id="course-section"

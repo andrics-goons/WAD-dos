@@ -12,6 +12,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import EditorPanel from '@/components/workspace/EditorPanel.vue'
 import PreviewPanel from '@/components/workspace/PreviewPanel.vue'
 import { getWebContainer } from '@/runtime/webcontainer'
+import { UNSUPPORTED_BROWSER } from '@/runtime/unsupportedBrowser'
 import { startWorkspace } from '@/runtime/workspace'
 import { useWorkspaceStore } from '@/stores/workspace.js'
 import { useSessionStore } from '@/stores/session'
@@ -100,9 +101,7 @@ const workspaceStore = useWorkspaceStore()
 
 // WebContainer needs SharedArrayBuffer, which only exists on a cross-origin isolated page
 const isolated = window.crossOriginIsolated === true
-const bootError = ref(
-  isolated ? '' : "This page isn't cross-origin isolated, so the editor can't run here.",
-)
+const bootError = ref(isolated ? '' : UNSUPPORTED_BROWSER)
 const previewUrl = ref('')
 let stopWorkspace
 // set on unmount, so a boot that finishes after leaving doesn't leave a listener behind
@@ -327,6 +326,14 @@ onBeforeUnmount(() => {
             </span>
           </div>
         </div>
+        <!-- the TAs' help queue, in its own tab so this class keeps running here -->
+        <RouterLink
+          :to="{ name: 'help-queue', params: { id } }"
+          target="_blank"
+          class="ca-btn ca-btn--secondary ca-btn--sm"
+        >
+          <i class="bi bi-life-preserver" />Help queue
+        </RouterLink>
         <!-- Present: just the editor, full page. The same button brings the dashboard back -->
         <button
           type="button"
@@ -505,7 +512,7 @@ onBeforeUnmount(() => {
                 icon="bi-exclamation-triangle"
                 title="The editor can't start"
               >
-                {{ bootError }} Try reloading the page.
+                {{ bootError }}
               </EmptyState>
 
               <template v-else>

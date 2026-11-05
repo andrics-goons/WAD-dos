@@ -88,10 +88,7 @@ afterAll(async () => {
 })
 
 describe('leave_course', () => {
-  it('T-PLAT-25: only an enrolled student can leave, and logged out nobody can', async () => {
-    expect(codeOf((await tia.client.rpc('leave_course', { p_course_id: courseA.id })).error)).toBe(
-      'NOT_FOUND',
-    ) // a TA is staff, not a student
+  it('T-PLAT-25: only an enrolled student or a TA can leave, and logged out nobody can', async () => {
     expect(codeOf((await prof.client.rpc('leave_course', { p_course_id: courseA.id })).error)).toBe(
       'NOT_FOUND',
     )
@@ -167,5 +164,40 @@ describe('leave_course', () => {
     expect(codeOf((await stu.client.rpc('leave_course', { p_course_id: courseA.id })).error)).toBe(
       'NOT_FOUND',
     )
+  })
+})
+
+describe('leave_course for a TA', () => {
+  it("T-PLAT-25: a TA leaves: they lose the course, their claimed request goes back to the queue, and they're a student again", async () => {
+    const { data: request } = await other.client.rpc('create_help_request', {
+      p_session_id: sessionA.id,
+      p_type: 'help',
+      p_files: file('theirs'),
+      p_message: 'stuck too',
+    })
+    await tia.client.rpc('claim_help_request', { p_request_id: request.id })
+    const before = await service.from('profiles').select('role').eq('id', tia.id).single()
+    expect(before.data.role).toBe('ta')
+
+    const { error } = await tia.client.rpc('leave_course', { p_course_id: courseA.id })
+    expect(error).toBeNull()
+
+    const { data: staff } = await service
+      .from('course_staff')
+      .select('user_id')
+      .eq('course_id', courseA.id)
+      .eq('user_id', tia.id)
+    expect(staff).toHaveLength(0)
+    const { data: after } = await service
+      .from('help_requests')
+      .select('status, claimed_by')
+      .eq('id', request.id)
+      .single()
+    expect(after).toEqual({ status: 'open', claimed_by: null })
+    expect(
+      (await service.from('profiles').select('role').eq('id', tia.id).single()).data.role,
+    ).toBe('student')
+    const { data: seen } = await tia.client.from('courses').select('id').eq('id', courseA.id)
+    expect(seen).toHaveLength(0)
   })
 })

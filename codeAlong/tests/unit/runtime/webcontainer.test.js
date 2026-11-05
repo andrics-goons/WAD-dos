@@ -34,3 +34,17 @@ describe("getWebContainer", () => {
         expect(boot).toHaveBeenCalledTimes(1)
     })
 })
+
+describe("the preview script", () => {
+    it("T-SBX-34: is put into every preview, for its Back button", async () => {
+        const setPreviewScript = vi.fn().mockResolvedValue()
+        boot.mockResolvedValueOnce({ setPreviewScript })
+        await getWebContainer()
+        expect(setPreviewScript).toHaveBeenCalledWith(expect.stringContaining("codealong:back"))
+    })
+
+    it("T-SBX-34: a container that refuses it still boots", async () => {
+        boot.mockResolvedValueOnce({ setPreviewScript: vi.fn().mockRejectedValue(new Error("no")) })
+        await expect(getWebContainer()).resolves.toBeDefined()
+    })
+})

@@ -138,12 +138,12 @@ describe('My courses ⋯ menu', () => {
     expect(toast.show).toHaveBeenCalledWith('You left Course IS216', 'success')
   })
 
-  it('a prof and a TA have no Leave course', async () => {
+  it('T-PLAT-25: a prof has no Leave course, and a TA does', async () => {
     const wrapper = await open([course('IS216'), course('IS112', { myRole: 'ta', isOwner: false })])
     await menu(wrapper, 'IS216').trigger('click')
     expect(items(wrapper)).not.toContain('Leave course')
     await menu(wrapper, 'IS112').trigger('click')
-    expect(items(wrapper)).toEqual(['Archive'])
+    expect(items(wrapper)).toEqual(['Archive', 'Leave course'])
   })
 
   it('taught since the page loaded: it stays, says to archive, and the list reloads', async () => {
