@@ -10,7 +10,6 @@ import { AppError, mapError } from './mapError'
  *   slowDown  asked the prof to slow down (only ever a count, see 09 §5)
  *   help      open or claimed "Ask for help" requests
  *   check     open or claimed "Check my work" requests
- *   errors    students' current errors, in the shape groupErrors() takes, for Common errors
  *   students  [{ studentId, done, state, help, check }] for everyone in the class: the Teach view
  *             counts only the students connected right now, and lists them by status in its
  *             Students menu (state is session_tiles' done / in_progress / error / idle; help and
@@ -21,9 +20,7 @@ export async function getClassSummary(sessionId) {
   const [tiles, summary, requests] = await Promise.all([
     supabase
       .from('session_tiles')
-      .select(
-        'student_id, checkpoint_seq, done_seq, state, error_source, error_key, error_shape_key, error_preview, last_seen_at',
-      )
+      .select('student_id, checkpoint_seq, done_seq, state')
       .eq('session_id', sessionId),
     supabase
       .from('session_summary')
@@ -55,17 +52,6 @@ export async function getClassSummary(sessionId) {
     slowDown: summary.data?.slow_down_count ?? 0,
     help: requests.data.filter((r) => r.type === 'help').length,
     check: requests.data.filter((r) => r.type === 'check').length,
-    errors: rows
-      .filter((t) => t.error_key)
-      .map((t) => ({
-        studentId: t.student_id,
-        errorKey: t.error_key,
-        // the names blanked out, so typos of the same mistake group together
-        errorShapeKey: t.error_shape_key,
-        errorSource: t.error_source,
-        errorPreview: t.error_preview,
-        lastSeenAt: t.last_seen_at,
-      })),
   }
 }
 

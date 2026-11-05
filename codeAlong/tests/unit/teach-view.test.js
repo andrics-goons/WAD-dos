@@ -89,11 +89,11 @@ function fakeWorkspace() {
   })
 }
 
-// the help summary is stubbed (it calls an Edge Function), but keeps its slot: Common errors
+// the help summary is stubbed: it calls an Edge Function
 const stubs = {
   EditorPanel: true,
   PreviewPanel: true,
-  HelpSummaryPanel: { template: '<div><slot /></div>' },
+  HelpSummaryPanel: true,
 }
 let wrapper
 let pinia
@@ -130,7 +130,6 @@ beforeEach(() => {
     slowDown: 2,
     help: 3,
     check: 1,
-    errors: [],
   })
   runtime.getWebContainer.mockResolvedValue({})
   runtime.startWorkspace.mockResolvedValue(() => {})
@@ -261,30 +260,6 @@ describe('TeachView', () => {
     expect(wrapper.find('[data-testid="summary-done"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="slow-down-count"]').text()).toContain('2')
     expect(wrapper.find('[data-testid^="tile-"]').exists()).toBe(false)
-  })
-
-  it('groups the real class errors in Common errors', async () => {
-    const err = (studentId) => ({
-      studentId,
-      errorKey: 'ReferenceError: itmes is not defined',
-      errorShapeKey: null,
-      errorSource: 'runtime',
-      errorPreview: 'itmes is not defined',
-      lastSeenAt: new Date().toISOString(),
-    })
-    api.getClassSummary.mockResolvedValue({
-      total: 4,
-      done: 0,
-      slowDown: 0,
-      help: 0,
-      check: 0,
-      students: [],
-      errors: [err('a'), err('b')],
-    })
-    await open()
-    live.present = [{ userId: 'a' }, { userId: 'b' }] // the two who hit it are connected
-    await flushPromises()
-    expect(wrapper.find('[data-testid="error-group-0"]').text()).toContain('itmes is not defined')
   })
 
   it('refreshes the counts when a student or a help request changes', async () => {
@@ -455,14 +430,6 @@ describe('TeachView', () => {
 
   describe('the dashboard counts only the students who are connected', () => {
     const student = (studentId, done) => ({ studentId, done })
-    const error = (studentId) => ({
-      studentId,
-      errorKey: 'ReferenceError: itmes is not defined',
-      errorShapeKey: null,
-      errorSource: 'runtime',
-      errorPreview: 'itmes is not defined',
-      lastSeenAt: new Date().toISOString(),
-    })
     const summary = (over = {}) => ({
       total: 3,
       done: 2,
@@ -470,7 +437,6 @@ describe('TeachView', () => {
       help: 0,
       check: 0,
       students: [student('a', true), student('b', false), student('c', true)],
-      errors: [],
       ...over,
     })
     const done = () => wrapper.find('[data-testid="summary-done"]').text()
@@ -502,52 +468,6 @@ describe('TeachView', () => {
       expect(done()).toContain('of 2')
       expect(done()).toContain('1') // only c
     })
-
-    it('T-DASH-14: one student with an error shows "No common errors yet", not "No errors right now"', async () => {
-      api.getClassSummary.mockResolvedValue(summary({ errors: [error('a')] }))
-      await open()
-      live.present = [{ userId: 'a' }, { userId: 'b' }]
-      await flushPromises()
-      expect(wrapper.find('[data-testid="error-group-0"]').exists()).toBe(false)
-      expect(wrapper.text()).toContain('No common errors yet')
-      expect(wrapper.text()).toContain('1 student has an error')
-    })
-
-    it('T-DASH-14: a group forms at 2 students, and an error nobody shares is noted beside it', async () => {
-      api.getClassSummary.mockResolvedValue(
-        summary({
-          errors: [
-            error('a'),
-            error('b'),
-            {
-              ...error('c'),
-              errorKey: 'TypeError: x is undefined',
-              errorShapeKey: 'TypeError: <id> is undefined',
-            },
-          ],
-        }),
-      )
-      await open()
-      live.present = [{ userId: 'a' }, { userId: 'b' }, { userId: 'c' }]
-      await flushPromises()
-      expect(wrapper.find('[data-testid="error-group-0"]').text()).toContain('itmes is not defined')
-      expect(wrapper.find('[data-testid="errors-waiting"]').text()).toContain(
-        '1 other student has an error nobody else shares yet',
-      )
-    })
-
-    it('Common errors only counts students who are here', async () => {
-      api.getClassSummary.mockResolvedValue(
-        summary({ errors: [error('a'), error('b'), error('c')] }),
-      )
-      await open()
-      live.present = [{ userId: 'a' }] // b and c made the mistake but left: just one here
-      await flushPromises()
-      expect(wrapper.find('[data-testid="error-group-0"]').exists()).toBe(false) // under the minimum of 2
-      live.present = [{ userId: 'a' }, { userId: 'b' }]
-      await flushPromises()
-      expect(wrapper.find('[data-testid="error-group-0"]').text()).toContain('itmes is not defined')
-    })
   })
 
   describe('T-DASH-13: the Students menu lists who is connected, grouped by status', () => {
@@ -573,7 +493,6 @@ describe('TeachView', () => {
         slowDown: 1,
         help: 1,
         check: 1,
-        errors: [],
         students: [
           row('a', 'error', { help: true }), // asked for help: that group wins over the error
           row('b', 'in_progress', { check: true }),
