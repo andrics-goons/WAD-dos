@@ -277,12 +277,14 @@ Patterns:
 |---|---|
 | `ca-back-bar` | The row holding `BackButton`, lined up with `ca-page`. Used by `BackButton` only |
 | `ca-page` | **Wrapper for every non-IDE page.** Centred, max width 1320px, side gutters |
+| `ca-page--narrow` | Add to `ca-page` on a page with little on it (Home, My courses, New course): max width 1040px, and a bigger, bold `<h1>` in its `ca-page-header` |
 | `ca-page-header` | Title row: `<h1>` left, actions right; wraps at xs |
 | `ca-eyebrow` | Small uppercase label above a heading |
 | `ca-card` | White panel **with** padding (course cards, report cards, forms) |
 | `ca-surface` | White panel **without** padding (wraps lists, tables, EmptyState) |
 | `ca-fill-viewport` | Full height below the navbar (IDE pages) |
 | `ca-ide` | Dark IDE region (pair with `data-bs-theme="dark"`) |
+| `ca-ide-scroll` | Thin dark scrollbars (no arrows, no track) on a dark code area: the box that scrolls, or the CodeMirror editor's wrapper. Used by the file tree, the editor and the terminal list |
 | `ca-mono` | Monospace text (join codes, file names, inline code-ish values) |
 
 Headings: `h1` 32px, `h2` 24px, `h3` 18px, `h4`–`h6` 16px, all semibold. One `<h1>` per page.

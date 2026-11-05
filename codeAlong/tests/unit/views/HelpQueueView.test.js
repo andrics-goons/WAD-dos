@@ -2,6 +2,7 @@
 // The TA's queue: the Handled list can be folded away (issue #72)
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { nextTick, reactive } from 'vue'
 import HelpQueueView from '@/views/HelpQueueView.vue'
 
 const help = vi.hoisted(() => ({ requests: [], staffNames: {}, open: vi.fn(), close: vi.fn() }))
@@ -85,6 +86,16 @@ describe('HelpQueueView Handled list', () => {
     const spacer = wrapper.find('.col-lg-7 h2.invisible')
     expect(spacer.text()).toBe('Waiting') // same text and size as the heading beside it
     expect(spacer.classes()).toEqual(expect.arrayContaining(['d-none', 'd-lg-block'])) // stacked on phones: no gap
+  })
+
+  it('a request the student cancels while it is open leaves the right-hand side too', async () => {
+    help.requests = reactive([request('w1', 'open')])
+    const wrapper = await show()
+    await wrapper.find('[data-testid="help-card-w1"]').trigger('click')
+    expect(wrapper.findComponent({ name: 'HelpReviewPanel' }).exists()).toBe(true)
+    help.requests[0].status = 'cancelled' // what the class channel does when they cancel
+    await nextTick()
+    expect(wrapper.findComponent({ name: 'HelpReviewPanel' }).exists()).toBe(false)
   })
 
   it('no Handled heading at all when nothing has been handled', async () => {

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { getWebContainer, toFileSystemTree } from '@/runtime/webcontainer'
+import { usePreviewNav } from '@/runtime/previewNav.js'
 import { appFolder } from '@shared/lesson-template.js'
 
 // The replay's read-only preview (design-docs/06 T-REP-03): runs one checkpoint's code in the
@@ -22,6 +23,8 @@ const DIR = 'replay'
 const isVite = (port) => port >= 5173 && port <= 5179
 
 const state = ref('idle') // idle → installing → starting → ready, or error
+// Back, Forward and Reload, like a browser's, for the app's own pages
+const { frame, frameKey, canGoBack, canGoForward, back, forward, reload } = usePreviewNav()
 const url = ref('')
 const error = ref('')
 watch(state, (now) => emit('state', now))
@@ -231,9 +234,40 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <div v-else class="ratio ratio-16x9">
-      <iframe :src="url" data-testid="preview-frame"></iframe>
-    </div>
+    <template v-else>
+      <!-- on the left, like a browser's: Back, Forward, Reload -->
+      <div class="d-flex gap-1 mb-2">
+        <button
+          type="button"
+          class="ca-btn ca-btn--ghost ca-btn--sm ca-btn--icon"
+          title="Back"
+          :disabled="!canGoBack"
+          @click="back"
+        >
+          <i class="bi bi-arrow-left" />
+        </button>
+        <button
+          type="button"
+          class="ca-btn ca-btn--ghost ca-btn--sm ca-btn--icon"
+          title="Forward"
+          :disabled="!canGoForward"
+          @click="forward"
+        >
+          <i class="bi bi-arrow-right" />
+        </button>
+        <button
+          type="button"
+          class="ca-btn ca-btn--ghost ca-btn--sm ca-btn--icon"
+          title="Reload"
+          @click="reload"
+        >
+          <i class="bi bi-arrow-clockwise" />
+        </button>
+      </div>
+      <div class="ratio ratio-16x9">
+        <iframe ref="frame" :key="frameKey" :src="url" data-testid="preview-frame"></iframe>
+      </div>
+    </template>
   </div>
 </template>
 

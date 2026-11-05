@@ -131,6 +131,12 @@ async function savePassword() {
           <section>
             <h2 class="h3">Your details</h2>
             <p class="mb-1">
+              Email: <strong>{{ auth.user.email }}</strong>
+              <span v-if="!auth.user.hasPassword" class="text-body-secondary small">
+                (from your GitHub account)
+              </span>
+            </p>
+            <p class="mb-1">
               <!-- a TA account is a student who helps in some courses: those are listed below -->
               Role:
               <strong>{{ RoleLabel[auth.role === Role.TA ? Role.STUDENT : auth.role] }}</strong>

@@ -329,31 +329,85 @@ select.ca-input {
   text-transform: uppercase;
 }
 /* phones: the links drop down under the bar · tablets and up: in a row on the right */
+/* Phones: the links are a panel that slides in from the right, under the bar, with the profile
+   at its bottom (its menu opens upwards). Tablets and up: always in a row. */
 .ca-navbar__links {
-  display: none;
-  position: absolute;
-  top: 100%;
-  inset-inline: 0;
+  position: fixed;
+  top: var(--ca-navbar-height);
+  right: 0;
+  bottom: 0;
+  z-index: var(--ca-z-drawer);
+  display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: var(--ca-space-1);
-  padding: var(--ca-space-3) var(--ca-space-4);
+  width: min(18rem, 85vw);
+  padding: var(--ca-space-4);
   background: var(--ca-surface);
-  border-bottom: 1px solid var(--ca-border);
-  box-shadow: var(--ca-shadow);
+  border-left: 1px solid var(--ca-border);
+  box-shadow: var(--ca-shadow-lg);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition:
+    transform 0.25s ease,
+    visibility 0.25s;
 }
 .ca-navbar__links.is-open {
-  display: flex;
+  transform: none;
+  visibility: visible;
+}
+.ca-navbar__user {
+  margin-top: auto;
+  padding-top: var(--ca-space-3);
+  border-top: 1px solid var(--ca-border);
+}
+.ca-navbar__user > .ca-btn {
+  width: 100%;
+  justify-content: flex-start;
+}
+.ca-navbar__user .dropdown-menu {
+  inset: auto 0 100% 0;
+  margin-bottom: var(--ca-space-2);
+}
+/* the page behind the panel, dimmed; tapping it closes the panel */
+.ca-navbar__backdrop {
+  position: fixed;
+  inset: var(--ca-navbar-height) 0 0;
+  z-index: var(--ca-z-drawer);
+  background: var(--ca-backdrop);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ca-navbar__links {
+    transition: none;
+  }
 }
 @media (min-width: 768px) {
   .ca-navbar__links {
-    display: flex;
     position: static;
     flex-direction: row;
     align-items: center;
+    width: auto;
     padding: 0;
     border: 0;
     box-shadow: none;
+    transform: none;
+    visibility: visible;
+    transition: none;
+  }
+  .ca-navbar__user {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+  .ca-navbar__user > .ca-btn {
+    width: auto;
+  }
+  .ca-navbar__user .dropdown-menu {
+    inset: auto;
+    margin-bottom: 0;
+  }
+  .ca-navbar__backdrop {
+    display: none;
   }
 }
 
@@ -418,6 +472,37 @@ select.ca-input {
 .ca-toast__icon {
   color: var(--accent);
   font-size: 1.1rem;
+}
+
+/* Thin dark scrollbars for the dark code areas (file tree, editor, terminal list), like VS Code's:
+   no arrows, no track, a soft grey thumb that brightens on hover. Add ca-ide-scroll to the box
+   that scrolls, or to the editor's wrapper (CodeMirror makes its own scroller inside).
+   Chrome and Edge use the ::-webkit-scrollbar parts; Firefox only has the two settings below. */
+.ca-ide-scroll::-webkit-scrollbar,
+.ca-ide-scroll .cm-scroller::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.ca-ide-scroll::-webkit-scrollbar-track,
+.ca-ide-scroll .cm-scroller::-webkit-scrollbar-track,
+.ca-ide-scroll::-webkit-scrollbar-corner,
+.ca-ide-scroll .cm-scroller::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.ca-ide-scroll::-webkit-scrollbar-thumb,
+.ca-ide-scroll .cm-scroller::-webkit-scrollbar-thumb {
+  background: #79797966;
+}
+.ca-ide-scroll::-webkit-scrollbar-thumb:hover,
+.ca-ide-scroll .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background: #646464b3;
+}
+@supports not selector(::-webkit-scrollbar) {
+  .ca-ide-scroll,
+  .ca-ide-scroll .cm-scroller {
+    scrollbar-width: thin;
+    scrollbar-color: #79797966 transparent;
+  }
 }
 
 /* Fade in/out for pop-ups: <Transition name="ca-fade"> */

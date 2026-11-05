@@ -91,4 +91,17 @@ describe('GitHub sign-in and linking', () => {
     })
     expect(await authApi.getCurrentUser()).toEqual({ ...profile, hasPassword: true })
   })
+
+  it('getCurrentUser gives the email: for a GitHub account, the one GitHub shared', async () => {
+    auth.getUser = async () => ({
+      data: {
+        user: {
+          id: 'u1',
+          email: 'alex@users.github.test',
+          app_metadata: { providers: ['github'] },
+        },
+      },
+    })
+    expect((await authApi.getCurrentUser()).email).toBe('alex@users.github.test')
+  })
 })

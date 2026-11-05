@@ -283,9 +283,9 @@ async function removeStudent() {
           >
             <i class="bi bi-archive" />Archive
           </button>
-          <!-- only students: a TA is added by the prof and a prof owns the course -->
+          <!-- students and TAs: a prof owns the course -->
           <button
-            v-if="course.myRole === 'student'"
+            v-if="course.myRole === 'student' || course.myRole === 'ta'"
             type="button"
             class="ca-btn ca-btn--danger ca-btn--sm"
             data-testid="btn-leave-course"
@@ -524,6 +524,7 @@ async function removeStudent() {
     <LeaveCourseModal
       v-model:open="confirmLeave"
       :title="course?.title"
+      :ta="course?.myRole === 'ta'"
       :busy="changing"
       @confirm="leaveCourse"
     />

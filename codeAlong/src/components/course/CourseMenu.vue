@@ -52,9 +52,9 @@ const reason = () =>
         <i class="bi bi-archive me-2" />Archive
       </button>
 
-      <!-- a student can't delete a course; they leave it (their code in it is deleted) -->
+      <!-- a student or TA can't delete a course; they leave it -->
       <button
-        v-if="course.myRole === 'student'"
+        v-if="course.myRole === 'student' || course.myRole === 'ta'"
         type="button"
         class="dropdown-item text-danger"
         :data-testid="`course-leave-${course.code}`"

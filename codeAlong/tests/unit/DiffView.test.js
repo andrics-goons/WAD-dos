@@ -105,6 +105,19 @@ describe('DiffView', () => {
       expect(code[0].trim()).toBe('line 1')
     })
 
+    it('T-REP-10: a shown gap can be hidden again', async () => {
+      const wrapper = mountDiff({ mode: 'unified' })
+      const p = () => panel(wrapper, 'src/App.vue')
+      await p().findAll('[data-testid="diff-show-gap"]')[0].trigger('click')
+      const hide = p()
+        .findAll('button')
+        .find((b) => b.text() === 'Hide 19 unchanged lines')
+      await hide.trigger('click')
+      expect(p().text()).toContain('Show 19 unchanged lines')
+      expect(p().text()).not.toContain('Hide 19 unchanged lines')
+      expect(codeLines(stacked(p()))).toHaveLength(6)
+    })
+
     it('T-REP-10: new code to compare starts with the lines hidden again', async () => {
       const wrapper = mountDiff({ mode: 'unified' })
       await panel(wrapper, 'src/App.vue')

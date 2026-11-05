@@ -46,6 +46,8 @@ export async function getCurrentUser() {
   const { role_chosen: roleChosen, ...profile } = data
   return {
     ...profile,
+    // the address they log in with; for a "Continue with GitHub" account, the one GitHub gave us
+    email: user.email,
     // false right after a "Continue with GitHub" sign-up, until they pick student or educator
     roleChosen,
     // false for an account made with "Continue with GitHub", which has no password to change

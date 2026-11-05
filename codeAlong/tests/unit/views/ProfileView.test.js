@@ -34,7 +34,7 @@ const shownChapters = () => ['profile', 'connections'].filter(shown)
 const go = (name) => wrapper.get(`[data-testid="profile-chapter-${name}"]`).trigger('click')
 
 beforeEach(() => {
-  auth.user = { name: 'Alex Tan', hasPassword: true }
+  auth.user = { name: 'Alex Tan', email: 'alex@codealong.test', hasPassword: true }
   auth.role = Role.STUDENT
   courses.courses = []
   courses.load = vi.fn().mockResolvedValue()
@@ -85,6 +85,18 @@ describe('ProfileView chapters', () => {
     expect(inChapter('connections', 'telegram-card')).toBe(true)
     expect(inChapter('profile', 'input-new-password')).toBe(true)
     expect(inChapter('profile', 'delete-card')).toBe(true)
+  })
+
+  it('shows my email, and says when it came from GitHub', async () => {
+    await open()
+    const details = () => wrapper.get('[data-testid="chapter-profile"]').text()
+    expect(details()).toContain('alex@codealong.test')
+    expect(details()).not.toContain('from your GitHub account')
+    wrapper.unmount()
+    auth.user = { name: 'Alex Tan', email: 'alex@users.github.test', hasPassword: false }
+    await open()
+    expect(details()).toContain('alex@users.github.test')
+    expect(details()).toContain('from your GitHub account')
   })
 
   it('only lists TA courses for someone who is a TA in one', async () => {

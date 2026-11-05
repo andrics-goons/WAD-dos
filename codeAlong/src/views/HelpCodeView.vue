@@ -4,6 +4,7 @@ import { checkpointLabel } from '@shared/checkpoint-label.js'
 import { useHelpStore } from '@/stores/help'
 import { useSessionStore } from '@/stores/session'
 import { getWebContainer } from '@/runtime/webcontainer'
+import { UNSUPPORTED_BROWSER } from '@/runtime/unsupportedBrowser'
 import { startWorkspace } from '@/runtime/workspace'
 import { debounceByPath, writeToContainer } from '@/runtime/sync'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -48,9 +49,7 @@ const syncEdit = debounceByPath(async (path, content) => {
 
 // WebContainer needs SharedArrayBuffer, which only exists on a cross-origin isolated page
 const isolated = window.crossOriginIsolated === true
-const bootError = ref(
-  isolated ? '' : "This page isn't cross-origin isolated, so the code can't run here.",
-)
+const bootError = ref(isolated ? '' : UNSUPPORTED_BROWSER)
 const previewUrl = ref('')
 let stopWorkspace
 // set on unmount, so a boot that finishes after leaving doesn't leave a listener behind

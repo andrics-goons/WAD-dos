@@ -3,7 +3,8 @@ import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
-// The top bar on every page. On phones the links fold into a ☰ menu.
+// The top bar on every page. On phones the links fold into a ☰ panel that slides in from the
+// right, with the profile at its bottom.
 // The #status slot is where live indicators (like the connection pill) go.
 const auth = useAuthStore()
 const route = useRoute()
@@ -59,7 +60,10 @@ async function signOut() {
         <span class="visually-hidden">Menu</span>
       </button>
 
-      <!-- phones: drops down under the bar when ☰ is tapped · tablets and up: always in a row -->
+      <!-- phones: the page behind the open panel; tapping it closes the panel -->
+      <div v-if="menuOpen" class="ca-navbar__backdrop" @click="menuOpen = false" />
+
+      <!-- phones: slides in from the right when ☰ is tapped · tablets and up: always in a row -->
       <div class="ca-navbar__links" :class="{ 'is-open': menuOpen }">
         <!-- Home, Courses and Replays all need a login, so they only show once you're logged in -->
         <template v-if="auth.isAuthenticated">
@@ -79,12 +83,15 @@ async function signOut() {
           <i class="bi bi-box-arrow-in-right" />Join a class
         </RouterLink>
 
-        <div v-if="auth.isAuthenticated" class="dropdown">
+        <!-- phones: at the bottom of the panel, its menu opening upwards -->
+        <div v-if="auth.isAuthenticated" class="dropdown ca-navbar__user">
           <button type="button" class="ca-btn ca-btn--ghost" @click="userMenuOpen = !userMenuOpen">
             <span class="ca-avatar">{{ auth.user.name?.[0] ?? '?' }}</span>
             <!-- tablets: the initial only, the links take up the row -->
             <span class="text-body text-wrap d-md-none d-lg-inline">{{ auth.user.name }}</span>
-            <i class="bi bi-chevron-down small" />
+            <!-- the menu opens upwards on phones, downwards from tablets up -->
+            <i class="bi bi-chevron-up small d-md-none ms-auto" />
+            <i class="bi bi-chevron-down small d-none d-md-inline" />
           </button>
           <div class="dropdown-menu dropdown-menu-end" :class="{ show: userMenuOpen }">
             <RouterLink :to="{ name: 'profile' }" class="dropdown-item" data-testid="nav-profile">
