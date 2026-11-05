@@ -68,14 +68,16 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         await close()
         saveStatus.value = null
         const auth = useAuthStore()
-        const [session, mine] = await Promise.all([
+        // my autosave's files download as soon as its row is found, while the class still opens
+        const finding = findMyAutosave(sessionId)
+        const [session, mine, mineFiles] = await Promise.all([
             useSessionStore().open(sessionId),
-            findMyAutosave(sessionId),
+            finding,
+            finding.then((m) => m && loadFiles('snapshot', m.id)),
             auth.ensureLoaded(),
         ])
-        const loaded = mine
-            ? await loadFiles('snapshot', mine.id)
-            : await loadFiles('lesson', session.lesson_id, session.lesson.files_hash)
+        const loaded =
+            mineFiles ?? (await loadFiles('lesson', session.lesson_id, session.lesson.files_hash))
         files.value = loaded
         selectedFile.value = session.lesson.entry_file
         saveStatus.value = 'saved' // what's open is what Supabase has

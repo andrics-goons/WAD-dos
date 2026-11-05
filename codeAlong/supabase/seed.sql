@@ -147,7 +147,7 @@ insert into public.course_students (course_id, user_id) values
 
 -- 4. The lesson projects ------------------------------------
 -- Two real projects the workspace boots and runs. Mini Cart's starter files are copied from
--- Dylan's src/stores/seed/miniCartSeed.js; Grade Book shares its Vite setup and ca-probe.js.
+-- tests/fixtures/miniCartSeed.js; Grade Book shares its Vite setup and ca-probe.js.
 -- If a project changes, re-copy it — the patches in step 5 raise an error if their text is gone.
 
 create table seed.project (name text primary key, files jsonb);

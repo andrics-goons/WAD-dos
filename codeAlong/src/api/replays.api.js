@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { mapError } from './mapError'
+import { SessionStatus } from '@shared/constants.js'
 
 // Replays: ended classes to look back on, and search across them. Owner: Ray Yien.
 // Contract: design-docs/04 "Replay, notes, search, export". A replay's checkpoints come from
@@ -15,7 +16,7 @@ export async function listReplays() {
     .select(
       'id, course_id, lesson_id, checkpoint_seq, started_at, ended_at, lessons(title), courses(code, title, section, term)',
     )
-    .eq('status', 'ended')
+    .eq('status', SessionStatus.ENDED)
     .gt('checkpoint_seq', 0)
     .order('started_at', { ascending: false })
   if (error) throw mapError(error)

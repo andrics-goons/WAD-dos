@@ -11,7 +11,7 @@ import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import CodeEditor from '@/components/workspace/CodeEditor.vue'
 import FileTree from '@/components/workspace/FileTree.vue'
-import { languageOf } from '@shared/sync-files.js'
+import { languageForPath } from '@shared/lesson-files.js'
 import { moveWarning } from '@/utils/imports.js'
 
 const props = defineProps({ id: { type: String, required: true } })
@@ -82,7 +82,7 @@ onMounted(async () => {
 // The file tree's New file, Rename and Delete: the working copy changes, and Save sends it with
 // everything else. The language comes from the name (the database refuses a file without one)
 function createFile(path) {
-  files.value = [...files.value, { path, language: languageOf(path), content: '' }]
+  files.value = [...files.value, { path, language: languageForPath(path), content: '' }]
   activeFile.value = path
 }
 function renameFile(from, to) {
@@ -90,7 +90,7 @@ function renameFile(from, to) {
   // and the student workspace
   const warning = moveWarning(files.value, from)
   files.value = files.value.map((f) =>
-    f.path === from ? { ...f, path: to, language: languageOf(to) } : f,
+    f.path === from ? { ...f, path: to, language: languageForPath(to) } : f,
   )
   if (activeFile.value === from) activeFile.value = to
   if (entryFile.value === from) entryFile.value = to

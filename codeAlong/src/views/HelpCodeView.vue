@@ -4,8 +4,7 @@ import { checkpointLabel } from '@shared/checkpoint-label.js'
 import { useHelpStore } from '@/stores/help'
 import { useSessionStore } from '@/stores/session'
 import { getWebContainer } from '@/runtime/webcontainer'
-import { UNSUPPORTED_BROWSER } from '@/runtime/unsupportedBrowser'
-import { startWorkspace } from '@/runtime/workspace'
+import { useRuntime } from '@/runtime/useRuntime'
 import { debounceByPath, writeToContainer } from '@/runtime/sync'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import EditorPanel from '@/components/workspace/EditorPanel.vue'
@@ -47,13 +46,8 @@ const syncEdit = debounceByPath(async (path, content) => {
   }
 }, 300)
 
-// WebContainer needs SharedArrayBuffer, which only exists on a cross-origin isolated page
-const isolated = window.crossOriginIsolated === true
-const bootError = ref(isolated ? '' : UNSUPPORTED_BROWSER)
-const previewUrl = ref('')
-let stopWorkspace
-// set on unmount, so a boot that finishes after leaving doesn't leave a listener behind
-let unmounted = false
+const runtime = useRuntime("The code couldn't start")
+const { isolated, bootError, previewUrl } = runtime
 
 onMounted(async () => {
   const booting = isolated ? getWebContainer() : null
@@ -73,21 +67,10 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-  if (!isolated) return
-  try {
-    const webcontainer = await booting
-    if (unmounted) return
-    const stop = await startWorkspace(webcontainer, files.value, (url) => (previewUrl.value = url))
-    if (unmounted) stop()
-    else stopWorkspace = stop
-  } catch (e) {
-    if (!unmounted) bootError.value = `The code couldn't start: ${e.message}`
-  }
+  if (isolated) await runtime.start(booting, files.value)
 })
 
 onBeforeUnmount(() => {
-  unmounted = true
-  stopWorkspace?.()
   help.close()
 })
 </script>

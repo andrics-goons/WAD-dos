@@ -1,3 +1,5 @@
+// matching the escape () and bell () control characters is the point: they start ANSI codes
+// oxlint-disable-next-line no-control-regex
 const ANSI = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[0-_])/g
 
 // removes colour and cursor codes 

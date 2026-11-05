@@ -105,15 +105,16 @@ describe('a prof makes and edits a lesson', () => {
     expect(lesson.files).toEqual(FILES)
   })
 
-  it('lists the course lessons by title search, without their files', async () => {
-    const found = await listLessons(course.id, { search: '  cart ' })
+  it('lists the course lessons, without their files', async () => {
+    const found = await listLessons(course.id)
     expect(found.map((l) => l.id)).toEqual([lesson.id])
     expect(found[0].files).toBeUndefined()
   })
 
-  it('getLesson loads the files and whether it has been taught', async () => {
+  it('getLesson loads whether it has been taught and the files_hash, but not the files', async () => {
     const loaded = await getLesson(lesson.id)
-    expect(loaded.files).toEqual(FILES)
+    expect(loaded.files).toBeUndefined()
+    expect(loaded.filesHash).toEqual(expect.any(String))
     expect(loaded.taught).toBe(false)
   })
 

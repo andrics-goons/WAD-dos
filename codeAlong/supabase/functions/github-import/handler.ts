@@ -4,7 +4,8 @@
 //   { repoUrl, providerToken } -> { files, entryFile, source }
 // providerToken is the prof's own GitHub token from Supabase Auth, as for github-export: the
 // prof signs in to GitHub to import, and GitHub counts the requests against their account.
-import { buildLessonFiles, LIMITS } from '../../../shared/lesson-files.js'
+import { buildLessonFiles } from '../../../shared/lesson-files.js'
+import { Limits } from '../../../shared/constants.js'
 import { importCandidates, parseRepoUrl } from '../../../shared/github.js'
 import { corsHeaders, fail, json } from '../_shared/cors.ts'
 import { GithubError, type Github } from '../_shared/github.ts'
@@ -54,7 +55,7 @@ export async function handleImport(req: Request, deps: ImportDeps): Promise<Resp
 
     // Check the limits before downloading, so a huge repo costs one request, not hundreds.
     // New lesson adds ca-probe.js after this, so leave room for it unless the repo has one.
-    const room = LIMITS.MAX_FILES - (wanted.some((f) => f.path.endsWith('ca-probe.js')) ? 0 : 1)
+    const room = Limits.MAX_FILES - (wanted.some((f) => f.path.endsWith('ca-probe.js')) ? 0 : 1)
     if (wanted.length > room) {
       return fail(
         400,
@@ -62,11 +63,11 @@ export async function handleImport(req: Request, deps: ImportDeps): Promise<Resp
         `That has ${wanted.length} source files; a lesson can have at most ${room} (CodeAlong adds one more)`,
       )
     }
-    if (wanted.reduce((sum, f) => sum + f.size, 0) > LIMITS.MAX_BYTES) {
+    if (wanted.reduce((sum, f) => sum + f.size, 0) > Limits.MAX_SNAPSHOT_BYTES) {
       return fail(
         400,
         'VALIDATION_FAILED',
-        `That is over ${LIMITS.MAX_BYTES / 1000} KB of source code`,
+        `That is over ${Limits.MAX_SNAPSHOT_BYTES / 1000} KB of source code`,
       )
     }
 

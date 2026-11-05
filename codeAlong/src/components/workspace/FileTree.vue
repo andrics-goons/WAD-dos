@@ -1,6 +1,7 @@
 <script setup>
     import { ref, computed, nextTick } from "vue"
-    import { languageOf, isStorablePath, isSyncIgnored } from "@shared/sync-files.js"
+    import { isStorablePath, isSyncIgnored } from "@shared/sync-files.js"
+    import { languageForPath } from "@shared/lesson-files.js"
     import ConfirmModal from "@/components/ui/ConfirmModal.vue"
 
     const props = defineProps({
@@ -90,7 +91,7 @@
     function nameProblem(path, from) {
         if (!path) return "Type a file name"
         if (!isStorablePath(path)) return "Use only letters, numbers, - _ . and /"
-        if (!languageOf(path) || isSyncIgnored(path)) return "Use a .html, .css, .js, .vue, .json or .md file"
+        if (!languageForPath(path) || isSyncIgnored(path)) return "Use a .html, .css, .js, .mjs, .cjs, .vue, .json or .md file"
         const others = props.filePaths.filter(p => p !== from)
         if (others.includes(path)) return "A file with that name already exists"
         // "index.html/x.js" would put a file inside a file; "src" would be a file named like a folder

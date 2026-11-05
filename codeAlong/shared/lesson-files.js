@@ -5,18 +5,9 @@
 //
 // Pure function: the caller (upload tab, or the github-import function) reads the file text
 // and hands over { path, content } entries. Nothing here touches the DOM or the network.
-//
-// TODO: LIMITS / SYNC_IGNORE below mirror Limits in design-docs/09-integration-contracts.md.
-// Import them from shared/constants.js once that file exists.
 
+import { Limits } from './constants.js'
 import { addProbe } from './lesson-template.js'
-
-export const LIMITS = Object.freeze({
-  MAX_FILES: 40,
-  MAX_BYTES: 200_000,
-  MAX_PATH: 120,
-  SYNC_IGNORE: ['node_modules/**', 'dist/**', '.vite/**', '.cache/**', 'pnpm-lock.yaml', '*.log'],
-})
 
 // Anything else (images, .ts, .env ...) fails files_valid() in the database, so it is skipped here.
 const LANGUAGE_BY_EXT = Object.freeze({
@@ -48,7 +39,7 @@ function globToRegExp(glob) {
     .replace(/@@GLOBSTAR@@/g, '.*')
   return new RegExp(`^${body}$`)
 }
-const IGNORE_RES = LIMITS.SYNC_IGNORE.map(globToRegExp)
+const IGNORE_RES = Limits.SYNC_IGNORE.map(globToRegExp)
 
 /** True when the path, or any folder-suffix of it, matches SYNC_IGNORE (so nested node_modules/ too). */
 export function isIgnored(path) {
@@ -100,7 +91,7 @@ export function buildLessonFiles(entries, { stripRoot = false, probe = false } =
       skipped.push({ path, reason: 'unsupported type' })
       continue
     }
-    if (path.length > LIMITS.MAX_PATH || !PATH_RE.test(path) || path.includes('..')) {
+    if (path.length > Limits.MAX_PATH || !PATH_RE.test(path) || path.includes('..')) {
       skipped.push({ path, reason: 'unsafe path' })
       continue
     }
@@ -125,11 +116,11 @@ export function buildLessonFiles(entries, { stripRoot = false, probe = false } =
   files.sort((a, b) => a.path.localeCompare(b.path))
 
   if (!files.length) errors.push('No supported source files were found.')
-  if (files.length > LIMITS.MAX_FILES) {
-    errors.push(`Too many files: ${files.length} (limit ${LIMITS.MAX_FILES}).`)
+  if (files.length > Limits.MAX_FILES) {
+    errors.push(`Too many files: ${files.length} (limit ${Limits.MAX_FILES}).`)
   }
-  if (byteLength(files) > LIMITS.MAX_BYTES) {
-    errors.push(`Lesson is too large (limit ${LIMITS.MAX_BYTES / 1000} KB of source).`)
+  if (byteLength(files) > Limits.MAX_SNAPSHOT_BYTES) {
+    errors.push(`Lesson is too large (limit ${Limits.MAX_SNAPSHOT_BYTES / 1000} KB of source).`)
   }
 
   const entryFile =

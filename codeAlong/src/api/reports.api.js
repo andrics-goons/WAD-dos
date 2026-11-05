@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { AppError, mapError } from './mapError'
+import { invoke } from './invoke'
+import { Fn } from '@shared/constants.js'
 
 // The end-of-class report (design-docs/04, "Reports & digests"). Owner: Andric.
 // The report row is built by the database when the prof ends the class; staff read it here.
@@ -14,24 +16,32 @@ import { AppError, mapError } from './mapError'
  *   isProf   whether I own the course (only the prof sends the digest)
  */
 export async function getReport(sessionId) {
-  const { data: s, error } = await supabase
-    .from('sessions')
-    .select(
-      'id, status, started_at, ended_at, lesson_id, course_id, lessons(title), courses(code, section)',
-    )
-    .eq('id', sessionId)
-    .maybeSingle()
-  if (error) throw mapError(error)
-  if (!s) throw new AppError('NOT_FOUND', 'Class not found', { status: 404 })
-
-  const [report, requests, prof] = await Promise.all([
+  // only "am I the prof" needs the course id, so the rest go out together. Promise.resolve
+  // makes the session query one request: a query builder runs again each time it's awaited
+  const sessionQuery = Promise.resolve(
+    supabase
+      .from('sessions')
+      .select(
+        'id, status, started_at, ended_at, lesson_id, course_id, lessons(title), courses(code, section)',
+      )
+      .eq('id', sessionId)
+      .maybeSingle(),
+  )
+  const profQuery = sessionQuery.then(({ data }) =>
+    data ? supabase.rpc('is_course_prof', { cid: data.course_id }) : { data: false },
+  )
+  const [session, report, requests, prof] = await Promise.all([
+    sessionQuery,
     supabase.from('session_reports').select('*').eq('session_id', sessionId).maybeSingle(),
     supabase
       .from('help_requests')
       .select('status, thread, created_at, updated_at, checkpoint_seq, analysis')
       .eq('session_id', sessionId),
-    supabase.rpc('is_course_prof', { cid: s.course_id }),
+    profQuery,
   ])
+  if (session.error) throw mapError(session.error)
+  const s = session.data
+  if (!s) throw new AppError('NOT_FOUND', 'Class not found', { status: 404 })
   for (const r of [report, requests, prof]) if (r.error) throw mapError(r.error)
 
   return {
@@ -95,14 +105,5 @@ export async function lessonTrends(lessonId) {
  * students where to start. Returns { sent, failed, staff, absent }.
  */
 export async function sendDigest(sessionId) {
-  const { data, error } = await supabase.functions.invoke('digest', { body: { sessionId } })
-  if (error) {
-    // the function answers errors as { code, message }, the same shape mapError produces
-    const body = await error.context?.json?.().catch(() => null)
-    if (body?.code) {
-      throw new AppError(body.code, body.message, { status: error.context.status, cause: error })
-    }
-    throw mapError(error)
-  }
-  return data
+  return invoke(Fn.DIGEST, { sessionId })
 }

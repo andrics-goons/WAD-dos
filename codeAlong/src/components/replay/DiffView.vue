@@ -7,6 +7,7 @@ import { computed, ref, watch } from 'vue'
 import { diffSummary } from '@shared/diff-summary.js'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { splitRows } from './diffRows.js'
+import DiffGapRow from './DiffGapRow.vue'
 
 const props = defineProps({
   before: { type: Array, default: () => [] }, // [{ path, content }]
@@ -47,8 +48,6 @@ function blocks(file) {
     block(`${file.path}:end`, file.hiddenAfter, []),
   ].filter((b) => b.hiddenCount || b.lines.length)
 }
-const gapLabel = (n) => `Show ${n} unchanged ${n === 1 ? 'line' : 'lines'}`
-const hideLabel = (n) => `Hide ${n} unchanged ${n === 1 ? 'line' : 'lines'}`
 
 // A + or − in front of each changed line, so the change shows without relying on colour
 const MARK = { add: '+ ', del: '− ', context: '  ' }
@@ -94,29 +93,13 @@ const sideBg = (line) => (line ? BG[line.type] : 'bg-body-secondary')
               <col />
             </colgroup>
             <tbody v-for="b in blocks(file)" :key="b.key">
-              <tr v-if="b.hiddenCount">
-                <td colspan="2" class="p-0 bg-body-tertiary">
-                  <button
-                    type="button"
-                    class="diff-gap btn btn-link btn-sm w-100 text-start text-decoration-none rounded-0 px-3"
-                    data-testid="diff-show-gap"
-                    @click="showGap(b.key)"
-                  >
-                    <i class="bi bi-arrows-expand me-1" />{{ gapLabel(b.hiddenCount) }}
-                  </button>
-                </td>
-              </tr>
-              <tr v-else-if="b.shownCount">
-                <td colspan="2" class="p-0 bg-body-tertiary">
-                  <button
-                    type="button"
-                    class="diff-gap btn btn-link btn-sm w-100 text-start text-decoration-none rounded-0 px-3"
-                    @click="hideGap(b.key)"
-                  >
-                    <i class="bi bi-arrows-collapse me-1" />{{ hideLabel(b.shownCount) }}
-                  </button>
-                </td>
-              </tr>
+              <DiffGapRow
+                :hidden="b.hiddenCount"
+                :shown="b.shownCount"
+                :colspan="2"
+                @show="showGap(b.key)"
+                @hide="hideGap(b.key)"
+              />
               <tr v-for="(line, i) in b.lines" :key="i" :class="BG[line.type]">
                 <td class="px-2 text-end align-top text-body-secondary user-select-none">
                   {{ line.newLine ?? line.oldLine }}
@@ -142,29 +125,13 @@ const sideBg = (line) => (line ? BG[line.type] : 'bg-body-secondary')
             </tr>
           </thead>
           <tbody v-for="b in blocks(file)" :key="b.key">
-            <tr v-if="b.hiddenCount">
-              <td colspan="4" class="p-0 bg-body-tertiary">
-                <button
-                  type="button"
-                  class="diff-gap btn btn-link btn-sm w-100 text-start text-decoration-none rounded-0 px-3"
-                  data-testid="diff-show-gap"
-                  @click="showGap(b.key)"
-                >
-                  <i class="bi bi-arrows-expand me-1" />{{ gapLabel(b.hiddenCount) }}
-                </button>
-              </td>
-            </tr>
-            <tr v-else-if="b.shownCount">
-              <td colspan="4" class="p-0 bg-body-tertiary">
-                <button
-                  type="button"
-                  class="diff-gap btn btn-link btn-sm w-100 text-start text-decoration-none rounded-0 px-3"
-                  @click="hideGap(b.key)"
-                >
-                  <i class="bi bi-arrows-collapse me-1" />{{ hideLabel(b.shownCount) }}
-                </button>
-              </td>
-            </tr>
+            <DiffGapRow
+              :hidden="b.hiddenCount"
+              :shown="b.shownCount"
+              :colspan="4"
+              @show="showGap(b.key)"
+              @hide="hideGap(b.key)"
+            />
             <tr v-for="(row, i) in splitRows(b.lines)" :key="i">
               <td
                 class="px-2 text-end align-top text-body-secondary user-select-none"

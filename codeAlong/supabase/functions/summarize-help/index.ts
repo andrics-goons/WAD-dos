@@ -1,9 +1,9 @@
 // Entry point for the class summary. verify_jwt stays on, and every read uses the caller's
 // own JWT, so RLS applies exactly as it does in the app. Only the test outbox uses the
 // service role (mock mode writes there).
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { createGroqClient } from '../_shared/groq.ts'
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts'
+import { supabaseAsCaller } from '../_shared/supabaseCaller.ts'
 import type { AnalysedRequest } from './summary.ts'
 import { handleSummarize, type SummarizeDb } from './handler.ts'
 
@@ -12,10 +12,7 @@ const llm = createGroqClient(fetch, env('LLM_API_KEY') ?? '')
 const admin = supabaseAdmin()
 
 function dbFor(req: Request): SummarizeDb {
-  const caller = createClient(env('SUPABASE_URL')!, env('SUPABASE_ANON_KEY')!, {
-    global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
+  const caller = supabaseAsCaller(req)
 
   return {
     async isSessionStaff(sessionId) {

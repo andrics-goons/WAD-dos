@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { AppError, mapError } from './mapError'
+import { Role } from '@shared/constants.js'
 
 // Courses, enrolment and the People tab. Contract: design-docs/04-pages-routes-and-events.md
 // ("Courses — courses.api.js"). RLS decides what each caller sees, so none of these
@@ -30,7 +31,7 @@ function withMyRole(course, user) {
   const mine = staff.find((s) => s.user_id === user?.id)
   return {
     ...rest,
-    myRole: mine?.role ?? 'student',
+    myRole: mine?.role ?? Role.STUDENT,
     isOwner: course.owner_id === user?.id,
     hasClasses: (sessions?.[0]?.count ?? 0) > 0,
     archived: archivedIds(user).includes(course.id),
@@ -72,7 +73,7 @@ export async function createCourse({ code, title, term, section }) {
     p_section: section.trim(),
   })
   if (error) throw mapError(error)
-  return { ...data, myRole: 'prof', isOwner: true }
+  return { ...data, myRole: Role.PROF, isOwner: true }
 }
 
 /**
@@ -83,7 +84,7 @@ export async function createCourse({ code, title, term, section }) {
 export async function enrolWithCode(code) {
   const { data, error } = await supabase.rpc('enrol_with_code', { p_code: code.trim() })
   if (error) throw mapError(error)
-  return { ...data, myRole: 'student', isOwner: false }
+  return { ...data, myRole: Role.STUDENT, isOwner: false }
 }
 
 /** Owner only. Send just the fields that changed: code, title, term, section. */

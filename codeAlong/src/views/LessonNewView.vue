@@ -11,6 +11,7 @@ import { useLessonsStore } from '@/stores/lessons'
 import { useSessionStore } from '@/stores/session'
 import { useToastStore } from '@/stores/toast'
 import { buildLessonFiles, isIgnored, languageForPath } from '../../shared/lesson-files.js'
+import { LessonStatus } from '@shared/constants.js'
 
 const props = defineProps({ id: { type: String, required: true } }) // the course id
 const router = useRouter()
@@ -148,7 +149,7 @@ async function create() {
     })
     leaving = true // saved: going to the editor or the class doesn't need asking
     if (startingClass) {
-      await lessons.update(lesson.id, { status: 'ready' })
+      await lessons.update(lesson.id, { status: LessonStatus.READY })
       const session = await sessions.start(lesson.id)
       router.replace({ name: 'teach', params: { id: session.id } })
       return
