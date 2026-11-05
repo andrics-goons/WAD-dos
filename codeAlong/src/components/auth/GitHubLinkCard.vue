@@ -12,6 +12,12 @@ const loading = ref(true)
 const busy = ref(false)
 
 onMounted(async () => {
+  // GitHub sends us back with the reason in the URL when linking failed (e.g. that GitHub
+  // belongs to another account); say so instead of showing a card that looks untouched
+  const params = new URLSearchParams(window.location.hash.slice(1) || window.location.search)
+  if (params.get('error_description')) {
+    toast.show(params.get('error_description').replace(/\+/g, ' '), 'danger')
+  }
   try {
     await auth.loadGitHub()
   } catch (error) {
@@ -53,10 +59,11 @@ async function disconnect() {
     </div>
 
     <template v-else-if="auth.github">
-      <p class="mb-1" data-testid="github-username">
-        Connected as <strong>@{{ auth.github.username }}</strong>
+      <p class="small mb-4" data-testid="github-username">
+        <i class="bi bi-check-circle-fill me-1" />Connected as
+        <strong>@{{ auth.github.username }}</strong
+        >. You can export a class's replay to your GitHub, and import a repo as a lesson.
       </p>
-      <p class="text-body-secondary small mb-4">You can export a class's replay to your GitHub.</p>
       <button
         type="button"
         class="ca-btn ca-btn--secondary"

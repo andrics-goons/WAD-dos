@@ -18,4 +18,14 @@ describe('GitHubLinkCard', () => {
     await wrapper.get('[data-testid="btn-connect-github"]').trigger('click')
     expect(auth.connectGitHub).toHaveBeenCalledWith('/profile?chapter=connections')
   })
+
+  it('T-PLAT-28: once connected it says so, with the username, and offers Disconnect', async () => {
+    auth.github = { username: 'alextan', canDisconnect: true }
+    const wrapper = mount(GitHubLinkCard)
+    await flushPromises()
+    expect(wrapper.get('[data-testid="github-username"]').text()).toContain('@alextan')
+    expect(wrapper.find('[data-testid="btn-connect-github"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="btn-disconnect-github"]').exists()).toBe(true)
+    auth.github = null
+  })
 })

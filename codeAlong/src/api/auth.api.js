@@ -150,7 +150,7 @@ export async function getGitHubLink() {
   const github = data.identities.find((i) => i.provider === 'github')
   if (!github) return null
   return {
-    username: github.identity_data.user_name,
+    username: github.identity_data.user_name ?? github.identity_data.preferred_username,
     canDisconnect: data.identities.length > 1,
   }
 }

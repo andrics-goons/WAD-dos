@@ -46,6 +46,14 @@ const AUTH = {
   same_password: ['VALIDATION_FAILED', 'Choose a password different from your current one'],
   email_not_confirmed: ['UNAUTHENTICATED', 'Check your email to confirm your account first'],
   user_banned: ['FORBIDDEN', 'This account has been disabled — contact your instructor'],
+  manual_linking_disabled: [
+    'FORBIDDEN',
+    "Connecting GitHub isn't switched on for this project yet",
+  ],
+  identity_already_exists: [
+    'CONFLICT',
+    'That GitHub account is already connected to another CodeAlong account',
+  ],
   over_request_rate_limit: ['RATE_LIMITED', 'Too many attempts — wait a minute and try again'],
 }
 
