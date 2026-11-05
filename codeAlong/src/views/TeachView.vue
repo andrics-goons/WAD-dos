@@ -638,7 +638,7 @@ onBeforeUnmount(() => {
 .announce-menu {
   width: min(22rem, 90vw);
 }
-/* about two rows of groups; a longer class scrolls inside the students panel */
+/* a long class scrolls inside the students panel */
 .students-menu {
   max-height: 21rem;
   overflow-y: auto;
