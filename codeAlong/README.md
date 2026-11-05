@@ -167,30 +167,76 @@ On the cloud project, the ID and secret go in the Supabase dashboard under Authe
 
 ## Tests
 
-| Task | Command |
-| --- | --- |
-| Unit and RLS tests | `pnpm exec vitest run` (RLS tests need the local stack running) |
-| End-to-end tests | `pnpm exec playwright install chromium`, then `pnpm test:e2e` |
-| Lint | `pnpm lint` |
+### Before you start
 
-The end-to-end tests need Docker and `supabase start` already running. They start the dev server and Edge Functions themselves and mock the external APIs, so no keys are needed. If you already serve the functions yourself, use `pnpm exec supabase functions serve --env-file e2e/functions.env`, or the tests call the real APIs.
+Do the steps in [Run locally](#run-locally) first: `pnpm install`, `pnpm exec supabase start`, `pnpm exec supabase db reset` and `.env.local`. The tests use the seeded demo data and the app's own `.env.local`.
+
+### 1. Unit tests (no Docker needed)
+
+```sh
+pnpm exec vitest run --exclude "tests/unit/rls/**"
+```
+
+Expected: **25 files, 148 tests passed**, in about 20 seconds.
+
+### 2. Database security (RLS) tests
+
+Needs the local stack running (`pnpm exec supabase start`).
+
+```sh
+pnpm exec vitest run tests/unit/rls
+```
+
+Expected: all 18 files pass. These sign in as real users of each role against the local database and check that each one can read and write only what it should. For example, a classmate can never read another student's code, and staff only ever see "Slow down" as a count.
+
+### 3. End-to-end tests (Playwright)
+
+Needs the local stack running. In a **second terminal**, serve the Edge Functions in mock mode, so the tests never call Groq, Telegram or GitHub and no keys are needed:
+
+```sh
+pnpm exec supabase functions serve --env-file e2e/functions.env
+```
+
+Leave it running. Then, in the first terminal:
+
+```sh
+pnpm exec playwright install chromium   # first time only
+pnpm test:e2e
+```
+
+Expected: **6 passed** (Journeys 1 to 5 on desktop, Journey 6 at phone width). Journey 4 installs real npm packages, so it needs the internet and takes the longest.
 
 - Run the desktop project only: `pnpm test:e2e --project=desktop-chrome`. Add a file name such as `journey-3` to run one journey.
 - Watch a run step by step: `pnpm test:e2e --project=desktop-chrome --ui`. Open the last report with `pnpm exec playwright show-report`.
-- Each journey makes its own users and classes (`e2e/classroom.js`) and deletes them afterwards, so the demo data is never changed. `login()` in `e2e/fixtures.js` signs people in by planting a Supabase session, so one test can drive several browsers at once.
 
-The six end-to-end journeys in `e2e/`:
+### 4. Lint
 
-| File | What it covers |
-| --- | --- |
-| `journey-1-student-account.spec.js` | One student's account, from signing up to deleting it, including joining a class |
-| `journey-2-run-a-class.spec.js` | A new prof sets up a course and teaches a whole class to three students, then a student uses the replay, a note, search and the GitHub export |
-| `journey-3-help.spec.js` | Three students get help from two TAs in every way the help bar offers, including in-person pings |
-| `journey-4-run-the-code.spec.js` | A student runs the project in the browser, makes a mistake, and the prof sees it on the dashboard. It installs real npm packages, so it needs the network and takes the longest |
-| `journey-5-manage-a-course.spec.js` | A prof looks after a course between classes: its students, its TAs and which lessons students can see |
-| `journey-6-phone.spec.js` | A live class at phone width (runs only in the `mobile-chrome` project) |
+```sh
+pnpm lint
+```
 
-The Vitest tests are in `tests/unit/`. Those in `tests/unit/rls/` run against the local stack and check that each role can read and write only what it should.
+### The six end-to-end journeys
+
+| File | What it covers | Edge cases checked |
+| --- | --- | --- |
+| `journey-1-student-account.spec.js` | One student's account, from signing up to deleting it, including joining a class | Wrong current password when changing it |
+| `journey-2-run-a-class.spec.js` | A new prof sets up a course and teaches a whole class to three students, then a student uses the replay, a note, search and the GitHub export | Wrong join code; joining after the class has ended |
+| `journey-3-help.spec.js` | Three students get help from two TAs in every way the help bar offers, including in-person pings | A second TA claiming a request that's already taken; nobody to ping on Telegram |
+| `journey-4-run-the-code.spec.js` | A student runs the project in the browser, makes a mistake, and the prof sees it on the dashboard | The error reaches the dashboard without the student reporting it |
+| `journey-5-manage-a-course.spec.js` | A prof looks after a course between classes: its students, its TAs and which lessons students can see | Wrong enrol code; unknown TA email; a taught lesson can't be deleted |
+| `journey-6-phone.spec.js` | A live class at phone width (runs only in the `mobile-chrome` project) | Nothing on the page is wider than a 375 px screen |
+
+Every feature in [Features](#features) is covered by a journey, except GitHub import, which is covered by a unit test (`tests/unit/github-import.test.js`).
+
+### How the tests are kept reliable
+
+- **Repeatable:** each journey makes its own users and classes (`e2e/classroom.js`) and deletes them afterwards, so the demo data is never changed and runs don't affect each other.
+- **Stable selectors:** tests find elements by `data-testid` and by visible text, not by CSS classes or page structure.
+- **No guessing at timing:** tests wait for real events, like the realtime channel being confirmed before anyone broadcasts, instead of fixed pauses.
+- **Clear failures:** setup stops with a plain message if Docker or Supabase isn't running.
+- **No real external calls:** in mock mode, Telegram, GitHub and AI calls are written to the `test_outbox` table, and the tests check that table. Edge Function logic is also unit-tested with fake clients.
+- **One at a time:** the specs share one database, so they run with `workers: 1`.
+- **Several people in one test:** `login()` in `e2e/fixtures.js` signs people in by planting a Supabase session, so one test can drive a prof, TAs and students in separate browsers.
 
 ## Troubleshooting
 
@@ -201,6 +247,10 @@ The Vitest tests are in `tests/unit/`. Those in `tests/unit/rls/` run against th
 | Playwright says Local Supabase is not running | Run `pnpm exec supabase start` first |
 | Playwright cannot find its browser | Run `pnpm exec playwright install chromium` |
 | The workspace stays blank or the preview never loads | Use Chrome or Edge. WebContainer needs cross-origin isolation |
+| Journey 3 fails at the Telegram or AI steps | The Edge Functions aren't in mock mode. Run `pnpm exec supabase functions serve --env-file e2e/functions.env` in a second terminal, then run the tests again |
+| Many `tests/unit/rls` files fail at once | The local stack isn't running. Run `pnpm exec supabase start`, or run only the unit tests with `--exclude "tests/unit/rls/**"` |
+| Tests can't find a seeded account or course | Run `pnpm exec supabase db reset` to reload the demo data |
+| Journey 4 times out | It downloads real npm packages. Check your internet connection and run it again |
 
 ## Third-party libraries
 
