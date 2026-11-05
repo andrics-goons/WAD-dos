@@ -199,6 +199,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-26 | Home's My courses puts a live class's course first | Unit | Of 3 shown, a course with a class live right now comes first even if it is the oldest, the rest newest first; "See all (n)" appears with more than 3 courses and a plain "See all" otherwise |
 | T-PLAT-27 | The profile page is split into chapters | Unit + browser | Profile shows first, the sidebar switches chapter and the URL follows, an unknown `?chapter=` falls back to Profile, what's half typed survives a switch, and connecting GitHub returns to Connections |
 | T-PLAT-28 | Everyone can connect GitHub and Telegram | Unit + browser | Both cards show in Connections for a student, a TA, a prof and an admin |
+| T-PLAT-29 | **Navigation still works after a deploy** | Unit + browser | A tab opened before a deploy asks for page files that are gone: the click loads the page fresh (once per page, kept in `sessionStorage`) and opens it; if it still fails, or storage is blocked, a toast says so instead of a click that does nothing. Missing `/assets/…` files are a 404, not `index.html` |
 
 ### LESSON — Lessons · `lessons.spec.js`, `lesson-edit-view.test.js`
 
@@ -218,6 +219,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-LES-12 | ✎ on a week folder (and on "No week") gives its files another week | Unit | The prof types Week 1–13; every lesson in that folder moves (archived and search-hidden ones too); a week another folder already uses is refused ("Week N already has lessons"), so each folder keeps a unique week; "No week" starts from an empty box; same week or Cancel changes nothing; no ✎ for TAs |
 | T-LES-13 | Leaving New lesson after picking files | Unit | Back to course, the navbar or browser Back asks "Leave without creating the lesson?" (Stay / Leave), on either step; no files picked or Create lesson → no question; closing the tab gets the browser's own warning |
 | T-LES-14 | The prof adds, renames and deletes starter files | Unit | The lesson editor's file tree has New file / Rename / Delete; a new file is saved with its language; renaming the entry file moves `entry_file` with it; Delete asks first; the entry file can't be deleted |
+| T-LES-15 | A folder dropped on the upload box loads like Choose folder… | Unit + browser | Dragging files over the box stops the browser opening them and highlights it; a dropped folder gives the same files and title as picking it, without opening `node_modules`, `dist` or `.git`; loose files keep their names and leave the title alone |
 | T-TODO-* | ~~TODO parser~~ | — | Removed with lesson steps |
 
 ### SESS — Live session engine · `live-session.spec.js`
@@ -284,6 +286,7 @@ Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API
 | T-SBX-30 | Files can be dragged into another folder | Unit | Dropping a file on a folder, on a file (its folder) or on the space under the tree (the top level) renames it there and opens that folder; its own folder isn't highlighted and dropping there does nothing; a name already there shows an error and moves nothing; dragging out a folder's last file asks first, and Cancel moves nothing; folders, read-only trees and drags from outside the tree don't move anything; moving or renaming a file another file imports shows a warning naming them, and no warning when nothing does |
 | T-SBX-31 | The terminal says whether the packages are there | Unit + browser | "Packages ready" in the terminal's header once an install finishes, a reload puts the packages back, or they're still there from an earlier install in the tab; "Run pnpm i" when the boot finds none, a checkpoint's new `package.json` clears them, or `node_modules` is deleted; nothing while booting or with no `package.json` |
 | T-SBX-32 | The prof can add, move and delete files | Unit + browser | The Teach view's file tree is editable: New file, Rename, drag and Delete work as in the student workspace, with the same warning when another file imports the moved file and a confirmation before deleting; the next checkpoint carries the changes to students |
+| T-SBX-33 | **Someone outside the class can't open its workspace** | Unit + browser | Opening `/s/:id/code` for a class you're not in (or that doesn't exist) shows "You're not in this class" with Join a class and Home: no editor, no student buttons, and the WebContainer never boots. An archived course says so instead. A real boot failure still shows the "couldn't start" banner. Joining with the code (auto-enrol) is unchanged |
 
 ### STAT — Status & derived state · `tile-state.test.js`, `dashboard.spec.js`
 

@@ -362,7 +362,7 @@ Each developer can make their own OAuth app for the local stack (GitHub allows o
 
 ```json
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [{ "source": "/((?!assets/).*)", "destination": "/index.html" }],
   "headers": [{
     "source": "/(.*)",
     "headers": [
@@ -372,6 +372,7 @@ Each developer can make their own OAuth app for the local stack (GitHub allows o
   }]
 }
 ```
+  `/assets/` is left out on purpose: a page file that's gone after a deploy is then a plain 404, not `index.html`. A tab opened before the deploy still asks for the old files, and the router's `onError` (`src/router/index.js`) loads that page fresh, once, instead of the click doing nothing (T-PLAT-29).
 
 - **Those two headers are what make WebContainer work** — it needs `SharedArrayBuffer`, which needs the page cross-origin isolated. We use `credentialless` rather than `require-corp` because `require-corp` additionally demands a `Cross-Origin-Resource-Policy` header on *every* cross-origin subresource, which would break any CDN asset. Self-host fonts rather than loading Google Fonts.
 

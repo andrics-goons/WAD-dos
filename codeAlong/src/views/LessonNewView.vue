@@ -192,24 +192,85 @@ onBeforeUnmount(() => window.removeEventListener('focus', onWindowFocus))
 async function onFolderPicked(event) {
   pickerOpen = false
   const input = event.target
-  const picked = [...input.files]
+  // each file's path starts with the picked folder's name
+  const picked = [...input.files].map((file) => ({ path: file.webkitRelativePath, file }))
   input.value = '' // so picking the same folder again still fires `change`
   if (!picked.length) {
     phase.value = 'idle'
     return
   }
+  scanTotal.value = picked.length
+  await readPicked(picked, { folder: picked[0].path.split('/')[0] })
+}
 
+// Dragging a folder (or files) onto the box does the same as Choose folder…
+const dragOver = ref(false)
+const isFileDrag = (event) => [...(event.dataTransfer?.types ?? [])].includes('Files')
+function onDragOver(event) {
+  if (!isFileDrag(event)) return
+  event.preventDefault() // without this the browser opens the dropped file in a new tab
+  event.dataTransfer.dropEffect = locked.value ? 'none' : 'copy'
+  dragOver.value = !locked.value
+}
+function onDragLeave(event) {
+  if (!event.currentTarget.contains(event.relatedTarget)) dragOver.value = false
+}
+async function onDrop(event) {
+  dragOver.value = false
+  if (locked.value) return
+  // the entries have to be taken now: the browser empties dataTransfer once this event is over
+  const roots = [...event.dataTransfer.items]
+    .map((item) => item.webkitGetAsEntry?.())
+    .filter(Boolean)
+  // no entries (a browser without them): just the dropped files, without their folders
+  const loose = roots.length ? [] : [...event.dataTransfer.files]
+  if (!roots.length && !loose.length) return
   try {
     errors.value = []
     files.value = []
-    scanTotal.value = picked.length
+    scanTotal.value = 0
+    phase.value = 'scanning'
+    const picked = loose.map((file) => ({ path: file.name, file }))
+    for (const root of roots) await walk(root, picked)
+    // one folder dropped: like picking it, its name is the title and isn't part of the paths
+    const folder = roots.length === 1 && roots[0].isDirectory ? roots[0].name : null
+    await readPicked(picked, { folder })
+  } catch (err) {
+    errors.value = [`Couldn't read what was dropped: ${err.message}`]
+    phase.value = 'idle'
+  }
+}
+
+// Every file in a dropped folder, as { path, file }. Ignored folders (node_modules, dist, .git…)
+// are never opened, so a big one doesn't take minutes.
+async function walk(entry, picked) {
+  const path = entry.fullPath.replace(/^\/+/, '')
+  if (entry.isFile) {
+    picked.push({ path, file: await new Promise((resolve, reject) => entry.file(resolve, reject)) })
+    scanTotal.value++
+    return
+  }
+  if (entry.name === '.git' || isIgnored(`${path}/`)) return
+  const reader = entry.createReader()
+  // readEntries hands a folder over in batches (about 100 at a time), until an empty one
+  for (;;) {
+    const batch = await new Promise((resolve, reject) => reader.readEntries(resolve, reject))
+    if (!batch.length) break
+    for (const child of batch) await walk(child, picked)
+  }
+}
+
+// Read the source files of a picked or dropped folder into the review step.
+// picked: [{ path, file }], each path starting with `folder` when there is one
+async function readPicked(picked, { folder }) {
+  try {
+    errors.value = []
+    files.value = []
     phase.value = 'scanning'
     await nextPaint()
 
     // Filter on the path BEFORE reading, so a node_modules folder is never loaded into memory.
-    const wanted = picked.filter(
-      (f) => !isIgnored(f.webkitRelativePath) && languageForPath(f.webkitRelativePath),
-    )
+    const wanted = picked.filter((f) => !isIgnored(f.path) && languageForPath(f.path))
 
     readTotal.value = wanted.length
     readDone.value = 0
@@ -218,16 +279,16 @@ async function onFolderPicked(event) {
 
     const entries = await Promise.all(
       wanted.map(async (f) => {
-        const content = await f.text()
+        const content = await f.file.text()
         readDone.value++
-        return { path: f.webkitRelativePath, content }
+        return { path: f.path, content }
       }),
     )
 
-    load(entries, { stripRoot: true })
+    load(entries, { stripRoot: !!folder })
     githubSource.value = null // these files came from the folder, not the last import
     ignoredCount.value = picked.length - wanted.length
-    suggestTitle(picked[0].webkitRelativePath.split('/')[0]) // the picked folder's name
+    suggestTitle(folder) // the folder's name
   } catch (err) {
     errors.value = [`Couldn't read that folder: ${err.message}`]
   } finally {
@@ -301,13 +362,21 @@ async function onFolderPicked(event) {
 
         <div v-if="source === 'upload'">
           <div
-            class="dropzone d-flex flex-column align-items-center text-center px-3 py-5 rounded-3 bg-body-tertiary"
+            class="dropzone d-flex flex-column align-items-center text-center px-3 py-5 rounded-3"
+            :class="dragOver ? 'drag-over' : 'bg-body-tertiary'"
+            data-testid="lesson-dropzone"
+            @dragover="onDragOver"
+            @dragleave="onDragLeave"
+            @drop.prevent="onDrop"
           >
             <i class="bi bi-folder2-open fs-2 text-primary mb-2" />
-            <p class="fw-semibold mb-1">Choose your starter code folder</p>
+            <p class="fw-semibold mb-1">
+              {{ dragOver ? 'Drop it to upload' : 'Drop your starter code folder here' }}
+            </p>
             <p class="ca-field-hint mb-3">
               node_modules, .git and build output are ignored automatically
             </p>
+            <p class="ca-field-hint mb-2">or</p>
             <label class="ca-btn ca-btn--primary" :class="{ 'ca-btn--disabled': locked }">
               <i class="bi bi-upload" />Choose folder…
               <input
@@ -519,6 +588,11 @@ async function onFolderPicked(event) {
 }
 .dropzone {
   border: 2px dashed var(--ca-border-strong);
+}
+/* a folder is being dragged over it */
+.dropzone.drag-over {
+  border-color: var(--ca-brand);
+  background: var(--ca-brand-subtle);
 }
 .meter {
   --bs-progress-height: 6px;

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import { mount, flushPromises } from "@vue/test-utils"
+import { mount, flushPromises, RouterLinkStub } from "@vue/test-utils"
+import { AppError } from "@/api/mapError"
 import { createPinia, setActivePinia } from "pinia"
 import WorkspaceView from "@/views/WorkspaceView.vue"
 import { useToastStore } from "@/stores/toast"
@@ -14,7 +15,11 @@ const store = vi.hoisted(() => ({ files: [], filePaths: [], selectedFile: "", se
 vi.mock("@/stores/workspace.js", () => ({ useWorkspaceStore: () => store }))
 const status = vi.hoisted(() => ({ doneStepOrder: 0 }))
 vi.mock("@/stores/status", () => ({ useStatusStore: () => status }))
-const session = vi.hoisted(() => ({ session: null, checkpointSeq: 0, latestCheckpoint: null, isLive: true }))
+// reactive like the real store, so the page sees the class open
+const session = await vi.hoisted(async () => {
+    const { reactive } = await import("vue")
+    return reactive({ session: null, checkpointSeq: 0, latestCheckpoint: null, isLive: true })
+})
 vi.mock("@/stores/session", () => ({ useSessionStore: () => session }))
 
 // A promise the test resolves by hand, to pause the view mid-await
@@ -28,7 +33,9 @@ function deferred() {
 const mountView = () =>
     mount(WorkspaceView, {
         props: { id: "s1" },
-        global: { stubs: { EditorPanel: true, PreviewPanel: true, StudentWorkspaceHeader: true } },
+        global: {
+            stubs: { EditorPanel: true, PreviewPanel: true, StudentWorkspaceHeader: true, RouterLink: RouterLinkStub },
+        },
     })
 
 beforeEach(() => {
@@ -36,13 +43,73 @@ beforeEach(() => {
     vi.stubGlobal("crossOriginIsolated", true)
     vi.mocked(getWebContainer).mockReset().mockResolvedValue({})
     vi.mocked(startWorkspace).mockReset().mockResolvedValue(() => {})
-    store.load = vi.fn(async () => (store.files = [{ path: "index.html", content: "" }]))
+    // like the real store: opening the class sets it on the session store, then the code arrives
+    session.session = null
+    store.load = vi.fn(async () => {
+        session.session = { id: "s1", lesson: { title: "Mini Cart", entry_file: "index.html" }, settings: {} }
+        store.files = [{ path: "index.html", content: "" }]
+    })
     store.close = vi.fn()
     status.start = vi.fn(async () => {})
     status.stop = vi.fn()
     status.leave = vi.fn()
 })
 afterEach(() => vi.unstubAllGlobals())
+
+describe("T-SBX-33: someone outside the class", () => {
+    const refuse = (code, message) => (store.load = vi.fn(async () => { throw new AppError(code, message) }))
+
+    it("gets \"You're not in this class\" with a way to join, and no editor or WebContainer", async () => {
+        refuse("NOT_FOUND", "Not found")
+        const wrapper = mountView()
+        await flushPromises()
+        const page = wrapper.get('[data-testid="workspace-not-found"]')
+        expect(page.text()).toContain("You're not in this class")
+        expect(page.text()).toContain("enter it to join")
+        const links = wrapper.findAllComponents(RouterLinkStub).map(l => l.props("to"))
+        expect(links).toEqual([{ name: "join" }, { name: "home" }])
+        expect(wrapper.findComponent({ name: "EditorPanel" }).exists()).toBe(false)
+        expect(wrapper.findComponent({ name: "StudentWorkspaceHeader" }).exists()).toBe(false)
+        expect(getWebContainer).not.toHaveBeenCalled()
+        expect(startWorkspace).not.toHaveBeenCalled()
+        expect(status.start).not.toHaveBeenCalled()
+        expect(wrapper.text()).not.toContain("couldn't start")
+    })
+
+    it("an archived course says why, without the join link", async () => {
+        refuse("FORBIDDEN", "You've archived this course. Restore it from My courses to join its classes.")
+        const wrapper = mountView()
+        await flushPromises()
+        const page = wrapper.get('[data-testid="workspace-not-found"]')
+        expect(page.text()).toContain("Couldn't open this class")
+        expect(page.text()).toContain("You've archived this course")
+        expect(wrapper.findAllComponents(RouterLinkStub).map(l => l.props("to"))).toEqual([{ name: "home" }])
+        expect(getWebContainer).not.toHaveBeenCalled()
+    })
+
+    it("a member gets the editor once the class opens, with a spinner until then", async () => {
+        const opening = deferred()
+        store.load = vi.fn(() => opening.promise)
+        const wrapper = mountView()
+        await flushPromises()
+        expect(wrapper.text()).toContain("Opening the class")
+        expect(wrapper.findComponent({ name: "EditorPanel" }).exists()).toBe(false)
+        session.session = { id: "s1", lesson: { title: "Mini Cart", entry_file: "index.html" }, settings: {} }
+        opening.resolve()
+        await flushPromises()
+        expect(wrapper.findComponent({ name: "EditorPanel" }).exists()).toBe(true)
+        expect(startWorkspace).toHaveBeenCalled()
+        expect(wrapper.find('[data-testid="workspace-not-found"]').exists()).toBe(false)
+    })
+
+    it("a WebContainer that fails to boot still shows the banner, not the not-in-class page", async () => {
+        getWebContainer.mockRejectedValue(new Error("boot failed"))
+        const wrapper = mountView()
+        await flushPromises()
+        expect(wrapper.text()).toContain("The workspace couldn't start: boot failed")
+        expect(wrapper.find('[data-testid="workspace-not-found"]').exists()).toBe(false)
+    })
+})
 
 describe("WorkspaceView", () => {
     it("stops the workspace on unmount", async () => {
