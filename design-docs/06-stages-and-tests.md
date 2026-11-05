@@ -199,6 +199,7 @@ test('a typo turns the tile red and catching up turns it green', async ({ prof, 
 | T-PLAT-26 | Home's My courses puts a live class's course first | Unit | Of 3 shown, a course with a class live right now comes first even if it is the oldest, the rest newest first; "See all (n)" appears with more than 3 courses and a plain "See all" otherwise |
 | T-PLAT-27 | The profile page is split into chapters | Unit + browser | Profile shows first, the sidebar switches chapter and the URL follows, an unknown `?chapter=` falls back to Profile, what's half typed survives a switch, and connecting GitHub returns to Connections |
 | T-PLAT-28 | Everyone can connect GitHub and Telegram | Unit + browser | Both cards show in Connections for a student, a TA, a prof and an admin |
+| T-PLAT-29 | **Navigation still works after a deploy** | Unit + browser | A tab opened before a deploy asks for page files that are gone: the click loads the page fresh (once per page, kept in `sessionStorage`) and opens it; if it still fails, or storage is blocked, a toast says so instead of a click that does nothing. Missing `/assets/…` files are a 404, not `index.html` |
 
 ### LESSON — Lessons · `lessons.spec.js`, `lesson-edit-view.test.js`
 
