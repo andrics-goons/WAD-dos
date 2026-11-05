@@ -110,13 +110,13 @@ The Q&A slides grade on three tiers: **Tier 1** get data → show data (~B+), **
 | F1 | **Run a live coding session** — start a session, students join by code/QR, every checkpoint reaches every laptop instantly; the prof can **post a short announcement** to the whole class | 2 | Real-time fan-out, reconnection, room authorization; merges session + checkpoint + membership data | Ying Qi |
 | F2 | **Code along and catch up** — edit files in the browser, see the live preview and console, have errors caught automatically, tap Done, load the prof's checkpoint without losing my attempt | 2–3 | Sandboxed execution + error capture + snapshot preservation; automatic checkpoint checks are the stretch | Dylan |
 | F3 | **Get help quickly** — send my code to the TA ("Check my work" / "Ask for help"); TA reviews side-by-side with the checkpoint, passes or replies, or gets pinged on Telegram to come over; if the reply doesn't fix it, **follow up on the same request** without losing my place | 2 | Queue workflow + side-by-side comparison + Telegram Bot API | Karin |
-| F4 | **See the room and teach to it** — save checkpoints as you teach, watch one tile per student (Done on the latest checkpoint or still in progress), see grouped common errors | **3** | Status classification, error normalisation + grouping algorithm | Evan |
+| F4 | **See the room and teach to it** — save checkpoints as you teach, watch one tile per student (Done on the latest checkpoint or still in progress), see an AI summary of what the class's help requests are stuck on | **3** | Status classification, error normalisation, help request analysis + class summary | Evan |
 | F5 | **Review the lesson afterwards** — checkpoint-by-checkpoint replay with diffs, notes, download the code at any checkpoint, search, import starter code from GitHub and export my replay with one commit per checkpoint | 2 | GitHub REST (Git Data API) + diffing + search across lessons | Ray Yien |
 | F6 | **Learn where students get lost** — after-class insights (drop-off per checkpoint, top errors, recurring trouble checkpoints across terms) sent as a Telegram digest | 2–3 | Aggregation across statuses, help requests and past terms | Andric |
 
 **Platform (not features):** the data platform — schema, RLS, auth, accounts / courses / enrolment data — is owned by Andric; the frontend platform — app shell, router, login/registration and course pages, shared UI kit, deployment — is owned by Ying Qi.
 
-**Our signature (Tier 3):** F4's error grouping + status classifier and F2's catch-up flow. These are what we lead with in the pitch and the video.
+**Our signature (Tier 3):** F4's AI help summary + status classifier and F2's catch-up flow. These are what we lead with in the pitch and the video.
 
 ---
 
@@ -128,8 +128,8 @@ Priorities follow the latest proposal (self-marking + automatic error detection 
 |---|---|
 | **Week 9 pitch (must work live)** | Sessions + join by code, checkpoint broadcast, student editor + preview + console, basic dashboard tiles, load checkpoint |
 | **MUST (baseline for submission)** | Accounts/courses/roles; lesson CRUD; live checkpoints saved any time; student workspace with error detection + Done; class dashboard with filters + anonymous "Slow down" count; catch-up (download my project, then load the latest checkpoint); Check my work / Ask for help + TA queue + Telegram ping; replay with notes/bookmarks |
-| **SHOULD** | Error groups; GitHub import + export; search across lessons; insights report + Telegram digest |
-| **WON'T** | Spotlight (projecting one anonymised example of a common error to the class) — dropped to keep the scope realistic |
+| **SHOULD** | GitHub import + export; search across lessons; insights report + Telegram digest |
+| **WON'T** | Spotlight (projecting one anonymised example of a common error to the class) — dropped to keep the scope realistic · Common errors on the teach view (live groups of students' errors) — dropped: mid-typing build errors made it noise, and the AI help summary says more |
 | **COULD** | Automatic checks generated from checkpoints; AI one-line hints (hints only, cached, rule-based fallback); VS Code one-line reporter; `.vue` single-file-component lessons |
 
 **Rule:** no COULD work starts until every MUST item passes the full end-to-end demo in [07-seed-and-demo.md](./07-seed-and-demo.md).
@@ -182,7 +182,7 @@ Priorities follow the latest proposal (self-marking + automatic error detection 
 
 | Allowed (lower-order) | Not allowed (higher-order) |
 |---|---|
-| Information search, explaining errors, debugging hints | Core business logic (status classifier, error grouping, catch-up, help workflow, export) |
+| Information search, explaining errors, debugging hints | Core business logic (status classifier, error normalisation, catch-up, help workflow, export) |
 | Layout/theme ideas, UI/UX inspiration | RLS policies, RPCs and Edge Functions |
 | Boilerplate and starter snippets | Critical frontend interactivity (workspace, dashboard, replay) |
 | Generating unit test cases, sample inputs, mock/seed data | Solving major implementation issues end-to-end |
