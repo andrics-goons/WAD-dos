@@ -134,6 +134,20 @@ Running the app locally using `pnpm dev` doesn't serve the Edge Functions. To us
 
 `supabase db reset` wipes the local database, so only use it for first-time setup or when you want a fresh start.
 
+### API keys (included in the submitted folder)
+
+The keys needed to run the app locally are already in the submitted folder, in three files. They are left out of the GitHub repository on purpose, so a fresh clone won't have them.
+
+| File | What's in it |
+| --- | --- |
+| `.env.local` | The local Supabase URL and key for the app |
+| `supabase/.env` | The GitHub OAuth app's client ID and secret, for "Continue with GitHub" on the local stack |
+| `supabase/functions/.env` | The Groq API key (`LLM_API_KEY`) and `APP_URL`, for the Edge Functions on the local stack |
+
+`pnpm exec supabase start` reads the two `supabase/` files by itself. If you change either one, run `pnpm exec supabase stop`, then `pnpm exec supabase start`.
+
+The Telegram bot token isn't included; Telegram works on the deployed app.
+
 ### Environment variables
 
 Never commit real values, and never put a secret in a `VITE_` variable, because Vite ships those to the browser.
@@ -151,7 +165,7 @@ Set function secrets with `pnpm exec supabase secrets set NAME=value`. Supabase 
 
 ### GitHub sign-in (optional)
 
-"Continue with GitHub" and "Connect GitHub" use Supabase Auth's GitHub provider. Without the steps below the app still runs, but the GitHub buttons fail. To turn them on for the local stack:
+"Continue with GitHub" and "Connect GitHub" use Supabase Auth's GitHub provider. In the submitted folder this is already set up through `supabase/.env`. Without that file the app still runs, but the GitHub buttons fail. To set it up yourself on the local stack:
 
 1. Create a GitHub OAuth app (GitHub → Settings → Developer settings → OAuth Apps) with the homepage URL `http://localhost:5173` and the callback URL `http://127.0.0.1:54321/auth/v1/callback`.
 2. Create `supabase/.env` with the app's client ID and a client secret:
@@ -169,7 +183,7 @@ On the cloud project, the ID and secret go in the Supabase dashboard under Authe
 
 ### Before you start
 
-Do the steps in [Run locally](#run-locally) first: `pnpm install`, `pnpm exec supabase start`, `pnpm exec supabase db reset` and `.env.local`. The tests use the seeded demo data and the app's own `.env.local`.
+Run every command in the path of this folder. Follow [Run locally](#run-locally) first, so the stack is running, the seed data is loaded and `.env.local` exists.
 
 ### 1. Unit tests (no Docker needed)
 
@@ -191,18 +205,21 @@ Expected: all 18 files pass. These sign in as real users of each role against th
 
 ### 3. End-to-end tests (Playwright)
 
-Needs the local stack running. In a **second terminal**, serve the Edge Functions in mock mode, so the tests never call Groq, Telegram or GitHub and no keys are needed:
+Run these in order. The tests don't start the Edge Functions in mock mode themselves, because `supabase start` already serves them with real keys, so step 2 swaps those for mock ones.
 
-```sh
-pnpm exec supabase functions serve --env-file e2e/functions.env
-```
+1. Start the local stack, if it isn't running: `pnpm exec supabase start`.
+2. In a **second terminal**, serve the Edge Functions in mock mode, so the tests never call Groq, Telegram or GitHub and no keys are needed. This command keeps running; leave that terminal open:
 
-Leave it running. Then, in the first terminal:
+   ```sh
+   pnpm exec supabase functions serve --env-file e2e/functions.env
+   ```
 
-```sh
-pnpm exec playwright install chromium   # first time only
-pnpm test:e2e
-```
+3. Back in the first terminal, run the tests:
+
+   ```sh
+   pnpm exec playwright install chromium   # first time only
+   pnpm test:e2e
+   ```
 
 Expected: **6 passed** (Journeys 1 to 5 on desktop, Journey 6 at phone width). Journey 4 installs real npm packages, so it needs the internet and takes the longest.
 
