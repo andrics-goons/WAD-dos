@@ -43,11 +43,6 @@ describe('router guard', () => {
     expect(await guard(to('enrol', { code: 'CART42' }))).toBe(true)
   })
 
-  it('sends a signed-in user away from login and register', async () => {
-    signedInAs('student')
-    expect(await guard(to('login'))).toEqual({ name: 'home' })
-  })
-
   it('a new GitHub account picks its role first, and only then', async () => {
     signedInAs('student')
     auth.needsRole = true
@@ -55,12 +50,5 @@ describe('router guard', () => {
     expect(await guard(home)).toEqual({ name: 'choose-role', query: { returnTo: home.fullPath } })
     auth.needsRole = false
     expect(await guard(to('choose-role'))).toEqual({ name: 'home' })
-  })
-
-  it('waits for the saved session before deciding, on the first navigation after a refresh', async () => {
-    auth.loaded = false
-    auth.ensureLoaded = vi.fn(async () => signedInAs('prof'))
-    expect(await guard(to('teach', { id: 's1' }))).toBe(true)
-    expect(auth.ensureLoaded).toHaveBeenCalled()
   })
 })

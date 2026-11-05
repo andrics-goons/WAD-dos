@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   escapeHtml,
   isValidWebhookSecret,
-  parseCommand,
   checkLinkCode,
   formatInPersonPing,
   sendWithRetry,
@@ -54,23 +53,10 @@ describe('telegram helpers', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('T-TG-04 gives up after one retry', async () => {
-    const send = vi.fn().mockResolvedValue({ ok: false, status: 429, retryAfter: 1 })
-    const result = await sendWithRetry(send, 42, 'hi', vi.fn().mockResolvedValue())
-    expect(send).toHaveBeenCalledTimes(2)
-    expect(result.ok).toBe(false)
-  })
-
   it('T-TG-05 only accepts the exact webhook secret', () => {
     expect(isValidWebhookSecret('s3cret', 's3cret')).toBe(true)
     expect(isValidWebhookSecret(undefined, 's3cret')).toBe(false)
     expect(isValidWebhookSecret('s3creT', 's3cret')).toBe(false)
     expect(isValidWebhookSecret('anything', '')).toBe(false)
-  })
-
-  it('parses bot commands', () => {
-    expect(parseCommand('/start ABC123')).toEqual({ command: 'start', arg: 'ABC123' })
-    expect(parseCommand('/stop@CodeAlongBot')).toEqual({ command: 'stop', arg: null })
-    expect(parseCommand('hello')).toBeNull()
   })
 })

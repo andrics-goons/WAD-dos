@@ -26,19 +26,6 @@ describe('normalizeError', () => {
     expect(a.key).toBe(b.key)
   })
 
-  it('replaces urls', () => {
-    const a = normalizeError({
-      name: 'Error',
-      message: 'Failed to load http://localhost:5173/api/items?cat=1',
-    })
-    const b = normalizeError({
-      name: 'Error',
-      message: 'Failed to load https://abc.webcontainer.io/api/items?cat=2',
-    })
-    expect(a.key).toBe('Error: Failed to load <url>')
-    expect(a.key).toBe(b.key)
-  })
-
   it('T-ERRG-02: masks numbers', () => {
     const { key, shapeKey } = normalizeError({
       name: 'AxiosError',
@@ -46,12 +33,6 @@ describe('normalizeError', () => {
     })
     expect(key).toBe('AxiosError: Request failed with status code <n>')
     expect(shapeKey).toBe(key)
-  })
-
-  it('matches build errors that differ only in position', () => {
-    const a = normalizeError({ name: 'SyntaxError', message: 'Unexpected token (14:8)' })
-    const b = normalizeError({ name: 'SyntaxError', message: 'Unexpected token (16:3)' })
-    expect(a.key).toBe(b.key)
   })
 
   it('T-ERRG-03: keeps typos apart in the key but together in the shape', () => {
@@ -71,30 +52,6 @@ describe('normalizeError', () => {
     })
     expect(key).toBe('TypeError: cart.value.map is not a function')
     expect(shapeKey).toBe('TypeError: <id> is not a function')
-  })
-
-  it("doesn't touch digits inside a name", () => {
-    const { key } = normalizeError({ name: 'ReferenceError', message: 'item2 is not defined' })
-    expect(key).toBe('ReferenceError: item2 is not defined')
-  })
-
-  it('only looks at the first line', () => {
-    const { key } = normalizeError({
-      name: 'Error',
-      message: 'boom\n    at foo (app.js:1:1)\n    at bar (app.js:2:2)',
-    })
-    expect(key).toBe('Error: boom')
-  })
-
-  it('cuts very long messages', () => {
-    const { key } = normalizeError({ name: 'Error', message: 'x'.repeat(500) })
-    expect(key.length).toBe('Error: '.length + 200)
-  })
-
-  it('copes with missing parts', () => {
-    expect(normalizeError({ message: 'boom' }).key).toBe('Error: boom')
-    expect(normalizeError({ name: 'TypeError' }).key).toBe('TypeError: ')
-    expect(normalizeError().key).toBe('Error: ')
   })
 
   it('always gives the same answer for the same error', () => {

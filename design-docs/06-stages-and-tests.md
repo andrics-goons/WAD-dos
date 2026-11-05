@@ -7,7 +7,7 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | # | Stage | Target | Gate (must be true before moving on) |
 |---|---|---|---|
 | 0 | Design lock | Week 8 | All nine design docs reviewed by all six members; open questions in [08-workload-split.md](./08-workload-split.md#open-questions) answered |
-| 1 | Skeleton | Week 8 | `supabase start` + `pnpm dev` boots; `pnpm db:reset` applies every migration from scratch; the app reads one seeded row through RLS; **a WebContainer boots and serves a preview**; one Playwright smoke test passes |
+| 1 | Skeleton | Week 8 | `supabase start` + `pnpm dev` boots; `supabase db reset` applies every migration from scratch; the app reads one seeded row through RLS; **a WebContainer boots and serves a preview**; one Playwright smoke test passes |
 | 2 | Platform | Week 8 | Register/login/logout via Supabase Auth, course create + enrol, role guards; **every table has RLS enabled and one negative test** |
 | 3 | **Live session core (pitch demo)** | Week 9 Mon | Prof starts session → 3 students join by code → **their containers boot and the preview runs** → checkpoint broadcast reaches all 3 → a typo turns a tile red → student loads checkpoint → tile turns green |
 | 4 | Lessons | Week 9 | Upload starter → review files → edit starter files and details → lesson `ready` |
@@ -18,7 +18,7 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 | 9 | ~~Error groups~~ | Week 11 | Dropped: live Common errors and Spotlight removed; the AI help summary (AIH) replaces them |
 | 10 | Insights | Week 11 | Report built in SQL when the class ends; trouble score + trends; digest sent (mock in tests) |
 | 11 | Hardening | Week 11–12 | Validation + error states everywhere; responsive pass 375 → 1440 px; load test 40 students passes **inside the Realtime free-tier cap** |
-| 12 | Demo ready | Week 12 | Fresh clone → README steps → `db:reset` → all E2E green → deployed URL works (incl. the `/join/:code` deep link) → keep-alive scheduled → video recorded |
+| 12 | Demo ready | Week 12 | Fresh clone → README steps → `supabase db reset` → all journeys green → deployed URL works (incl. the `/join/:code` deep link) → keep-alive scheduled → video recorded |
 
 ### Pattern checks per stage (reviewer ticks these in the PR)
 
@@ -38,567 +38,119 @@ This is the progress tracker. Each stage has a one-line gate: **don't move on un
 
 ---
 
-## Testing Strategy
+## Testing
 
-| Layer | Tool | Scope | Why it matters for the rubric |
-|---|---|---|---|
-| **E2E** (main) | Playwright, Chromium | Every main user journey, with **multiple browser contexts in one test** (prof + TA + students) | "Tests cover the app's main user journeys" |
-| Unit | Vitest | Pure logic in `shared/`: classifier, normaliser, checkpoint labels, diff summary, build-error parser, report builder; plus the IndexedDB cache and delta-autosave logic | Shows understanding of testing concepts; fast feedback |
-| **RLS** (new) | Vitest + `supabase-js` | Authorization as data: sign in as the wrong user, assert **zero rows** | Authorization is now the database's job, so it needs its own tests |
-| Load | `scripts/simulate-class.js` | 40 Realtime clients in one session | Proves the live dashboard holds up in a real class, and that we fit the free tier |
+The tests are few and each one earns its place. **The six Playwright journeys are the main suite.** Each follows one person or one class through a whole story, in the browser, against the local stack. Underneath them sit a small set of database tests for who may see what, and a set of unit tests for logic that has many edge cases and no screen.
+
+| Layer | Tool | Count | What it proves |
+|---|---|---:|---|
+| **E2E journeys** (main) | Playwright, Chromium | 6 journeys, 54 steps | The app's main user stories work, with several browser contexts at once (prof + TAs + students) |
+| **RLS / privacy** | Vitest + `supabase-js` | 42 | Authorization lives in the database, so sign in as the wrong person and assert **zero rows** |
+| **Unit** | Vitest | 148 | Pure logic (`shared/`, the parsers, the cache and autosave) and the Edge Function handlers, run with fakes |
+| Load | `scripts/simulate-class.js` (not written) | 0 | 40 Realtime clients in one class, inside the free-tier cap |
+
+Not tested on purpose: how a component renders, what a store holds, and what an API function passes to `supabase`. A journey fails when any of those break, and then says which step.
 
 ### Why RLS gets its own layer
 
-In the Express design, "a student cannot read another student's code" was true because **no route existed**. T-PRIV-02 asserted a 404. The browser now queries Postgres directly, so absence proves nothing — the guarantee lives entirely in policies, and a single missing `enable row level security` makes a table world-readable through the public anon key.
-
-So every policy gets a test that signs in as the wrong person and asserts the row is invisible:
+The browser queries Postgres directly, so "a student cannot read another student's code" is true only because of a policy. A single missing `enable row level security` makes a table world-readable through the public anon key. A journey cannot see that, because it only ever signs in as people who are allowed. So the privacy tests sign in as the wrong person:
 
 ```js
-// tests/unit/rls/snapshots.test.js
 it("a student cannot read another student's autosave", async () => {
-  const bea = await signIn('bea@codealong.test')
   const { data } = await bea.from('snapshots').select('*').eq('student_id', alexId)
-  expect(data).toEqual([])            // not an error — the rows simply do not exist
-})
-
-it('staff can read a snapshot the student sent via a help request', async () => {
-  const ta = await signIn('ta.ana@codealong.test')
-  const { data } = await ta.from('snapshots').select('*').eq('id', sentSnapshotId)
-  expect(data).toHaveLength(1)
+  expect(data).toEqual([])            // not an error: the rows simply do not exist
 })
 ```
 
-A companion test sweeps the schema so a new table cannot be merged without policies:
+A sweep over the schema stops a new table or view being merged without its policy: `tables_without_rls()` and the view sweep must be empty, and every table has exactly one `admin reads all` policy and no other admin policy (T-PRIV-06, T-PRIV-07, T-ADM-09).
 
-```js
-it('every public table has RLS enabled', async () => {
-  const { data } = await admin.rpc('tables_without_rls')   // helper defined in a migration
-  expect(data).toEqual([])
-})
-```
+---
 
-### Making tests repeatable and stable
+## The journeys
 
-| Rubric ask | How |
+Every journey makes its own people and its own classes (`e2e/classroom.js`) and deletes them afterwards, so the seeded demo data (Prof Lee's course, the live class CART42) is never changed. Prof Tan's course and its Mini Cart lesson are the only seeded rows they use, read-only. Each journey is split into `test.step`s named in plain words, so a failure says which part of the story broke.
+
+| # | Journey | The story | Time |
+|---|---|---|---:|
+| 1 | A student's account, from signing up to deleting it | Sign up and land where they were going. Kept out of prof pages. Join a class with its code, which enrols them. Archive the course (its classes won't open), restore it, leave it. Rename, change the password (a wrong current one is refused), log in with the new one, delete the account | 3 s |
+| 2 | A prof sets up a course and teaches a whole class | A new prof creates a course, uploads a project folder as a lesson, starts a class. Three students arrive: one mistypes the code, one uses the QR link, one only has the class link and is turned away until they use the code. Announce, a late joiner sees it, clear it. A student edits and moves files, and it is all saved. Done and Slow down reach the prof as numbers. A checkpoint resets Done and a student loads it. End the class: the report (attendance, funnel, hardest checkpoint), saving stops, the old code is refused. Afterwards a student keeps a note in the replay, finds it by search, sees their own code, downloads it and exports it to GitHub (a mock) | 45 s |
+| 3 | Students get help from the TAs in every way the help bar offers | Check my work (arrives without code, claimed, a second TA turned away, passed, cancelled). Ask for help (AI analysis, the student's code opened in the TA's own tab, a reply, a follow-up with a fresh copy of the code, a second reply that keeps the first). In-person requests: nobody on Telegram, then a ping to the TA's phone. Then the AI summary of what the class is stuck on, the report's "stuck on" list, and the digest | 9 s |
+| 4 | A student runs the code, breaks it and fixes it, and the prof watches | `pnpm i && pnpm dev` in the real terminal and the app appears in the preview. A bad line puts the student in the prof's **Error** group, with no help request. Fixing it takes them out. Done moves them to **Done**. Needs the npm registry | 30 s |
+| 5 | A prof manages their course, its people and its lessons | Enrol code, link, QR and Copy. A student enrols from the link, another mistypes first. Remove a student. Add a TA by email (an unknown email is refused) and remove them. Hide a lesson from students and bring it back. Move it to another week (not a taken one). Edit its files and details. Archive, unarchive and delete a lesson. A lesson that has been taught can only be archived. Rename, archive and restore the course. Delete an empty one | 26 s |
+| 6 | On a phone (`@responsive`, 375 px only) | No sideways scrolling, the ☰ menu, the editor and the preview switch, and the Teach view's Dashboard and Editor tabs | 2 s |
+
+**Journeys 2 and 3 are the stage 3 gate and the demo script**: a prof starts a class, three students join, a checkpoint reaches them, one catches up, and the help queue works.
+
+### What the journeys cannot reach
+
+- **Admin page, Present mode, the free-tier limit pop-up:** no journey yet. Listed so nobody assumes they are covered.
+- **Anything that needs a real GitHub or Telegram login:** GitHub sign-in and the role chooser, linking Telegram from Profile. The mock functions cover export, import and the pings; the sign-in screens are checked by hand.
+- **Dropping a whole folder on New lesson:** Playwright cannot fake a dragged folder. Journey 2 uploads a folder through the file picker.
+- **A page asking for files from before a deploy:** `router-errors` was removed with the component tests. Check it by hand after a deploy.
+
+---
+
+## Privacy and permission tests (`tests/unit/rls/`)
+
+They run against the local stack and each starts `// @vitest-environment node`. Names starting `T-PRIV` come from the privacy contract in [09 §5](./09-integration-contracts.md).
+
+| File | What it checks |
 |---|---|
-| Repeatable | `supabase start` runs Postgres + Auth + Realtime + Functions locally; `supabase db reset` re-applies all migrations and `seed.sql` before each spec file; E2E runs with `workers: 1` |
-| No external flakiness | `EXTERNAL_APIS=mock` makes the Telegram/GitHub/LLM functions append to `test_outbox`; tests read that table with the service role key |
-| Stable selectors | Only `getByTestId()` and `getByRole()` — never CSS classes or text that may change. Convention in [09-integration-contracts.md](./09-integration-contracts.md#9-data-testid-convention) |
-| No arbitrary waits | `await expect(locator).toHaveText(...)` auto-waits; no `waitForTimeout` except the idle-state test, which shortens `idleAfterSec` via session settings |
-| Clear structure | One spec file per feature; `test.describe` per journey; Arrange → Act → Assert comments; shared fixtures |
-| Responsive | Two Playwright projects: `desktop-chrome` (1280×800) and `mobile-chrome` (375×667, `isMobile`, `hasTouch`). Specs tagged `@responsive` run on both |
-| Docker dependency | `supabase start` needs Docker. The README documents it, and `pnpm test:e2e` fails with a clear message if the daemon is not running |
+| `schema` | Every table has RLS on; every view is `security_invoker` (T-PRIV-06, T-PRIV-07) |
+| `admin` | Every table has exactly one `admin reads all` select policy and no other admin policy (T-ADM-09) |
+| `profiles` | A student cannot promote themselves, sees only their own profile, and editing auth metadata changes nothing (T-PLAT-10, T-PLAT-13) |
+| `courses` | A prof never sees another prof's course (T-PLAT-15); a student cannot create one; a student sees their staff but never other students (T-PRIV-11) |
+| `sessions` | A status row has no `state` and no code, a student reads only their own row and tile, and who asked to slow down is never readable (T-STAT-09, T-PRIV-01, T-PRIV-04) |
+| `help_notes_reports` | Staff read the snapshot sent with a help request; other courses' staff and classmates cannot (T-PRIV-03); a student reads only their own requests; notes are private (T-PRIV-05); reports are not readable by students; raw Slow down events are admin-only |
+| `help_rpcs`, `session-rpcs`, `lessons`, `session_report` | The second TA to claim is refused; a TA or student cannot start, checkpoint or end a class; a student sees only ready lessons; another prof never sees my trends |
+| `slow_down_present`, `tile-state` | Slow down stays a count; the SQL classifier agrees with `classify()` in `shared/` |
+| `autosave`, `session-channel`, `test_outbox`, `delete_account`, `github-export` | Staff and outsiders cannot write a student's autosave; outsiders cannot join a class channel; the outbox is not readable by users; deleting an account removes only the caller's rows; no GitHub token is stored |
+| `seed` | The documented accounts log in with their roles; a seeded student cannot read a classmate's code |
 
-### Fixture sketch — `e2e/fixtures.js`
+## Logic tests (`tests/unit/`)
 
-```js
-import { test as base, expect } from '@playwright/test'
-import { createClient } from '@supabase/supabase-js'
+| Area | Files |
+|---|---|
+| The tile-state rule | `tile-state` |
+| Errors | `error-normalizer` (grouping), `build-error` (what reaches the dashboard, never code), `mapError` |
+| Code in and out | `lesson-files`, `lesson-template` (the error probe), `sync-files` (what may be synced), `utils/imports` |
+| Diffs | `diff-summary`, `diff-rows` |
+| Join codes and Telegram | `join-code`, `telegram` |
+| Saving and caching | `autosave`, `files-cache`, `idb`, `runtime/install` (the package cache), `runtime/sync` |
+| Navigation | `router-guards` |
+| Edge Functions, run with fakes | `analyze-help`, `summarize-help`, `telegram-functions`, `digest-function`, `github-export`, `github-import`, `outbox` |
 
-const URL = process.env.VITE_SUPABASE_URL
-const ANON = process.env.VITE_SUPABASE_ANON_KEY
-
-// Sign in through Supabase Auth, then plant the session in localStorage so the
-// page is already logged in — the equivalent of the old API-login shortcut.
-async function loginContext(browser, email, password = 'pass1234') {
-  const sb = createClient(URL, ANON)
-  const { data, error } = await sb.auth.signInWithPassword({ email, password })
-  expect(error).toBeNull()
-
-  const context = await browser.newContext()
-  await context.addInitScript(([key, session]) => {
-    window.localStorage.setItem(key, JSON.stringify(session))
-  }, [`sb-${new URL(URL).hostname.split('.')[0]}-auth-token`, data.session])
-
-  return { context, page: await context.newPage() }
-}
-
-export const test = base.extend({
-  prof:     async ({ browser }, use) => { const s = await loginContext(browser, 'prof@codealong.test'); await use(s.page); await s.context.close() },
-  ta:       async ({ browser }, use) => { const s = await loginContext(browser, 'ta.ana@codealong.test'); await use(s.page); await s.context.close() },
-  students: async ({ browser }, use) => {
-    const emails = ['alex@codealong.test', 'bea@codealong.test', 'chen@codealong.test']
-    const sessions = await Promise.all(emails.map(e => loginContext(browser, e)))
-    await use(sessions.map(s => s.page))
-    await Promise.all(sessions.map(s => s.context.close()))
-  },
-})
-export { expect }
-```
-
-> The one fiddly part of this rewrite: the Supabase session lives in `localStorage` under a project-scoped key, not in a cookie, so `addInitScript` replaces `context.request.post('/api/auth/login')`. **Owner: Karin**, and worth getting right in Week 8 — every E2E spec depends on it.
-
-### Example journey — `e2e/live-session.spec.js`
-
-Unchanged from the Mongo design, which is the point: the tests describe behaviour, not plumbing.
-
-```js
-test('a typo turns the tile red and catching up turns it green', async ({ prof, students }) => {
-  const [alex] = students
-  // Arrange: prof starts the seeded Mini Cart lesson
-  await prof.goto('/courses')
-  await prof.getByTestId('course-card-IS216').click()
-  await prof.getByTestId('lesson-start-mini-cart').click()
-  const code = await prof.getByTestId('join-code').innerText()
-
-  // Act: Alex joins, prof saves checkpoint 1, Alex introduces a typo
-  await alex.goto(`/join/${code}`)
-  await expect(alex.getByTestId('workspace-checkpoint')).toContainText('Checkpoint 1')
-  await prof.getByTestId('btn-save-checkpoint').click()
-  await alex.getByTestId('editor').click()
-  await alex.keyboard.type('itmes.push(1)')
-  await alex.keyboard.press('Control+S')
-
-  // Assert: red on the prof's dashboard, with the grouped error
-  const tile = prof.getByTestId(/tile-.*/).filter({ hasText: 'Alex' })
-  await expect(tile).toHaveAttribute('data-state', 'error')
-
-  // Act + Assert: catch up → green after Done
-  await alex.getByTestId('btn-load-checkpoint').click()
-  await alex.getByRole('button', { name: 'Replace my code' }).click()
-  await alex.getByTestId('btn-done').click()
-  await expect(tile).toHaveAttribute('data-state', 'done')
-})
-```
+A test ID in a test's name (T-HELP-05, T-SBX-19) is a label from an earlier version of this document, kept so the tests can still be found in old issues and PRs. It is not a promise that a matching entry exists here. New tests do not need one.
 
 ---
 
-## Test Plan
+## Making tests repeatable and stable
 
-**Layer:** E2E = Playwright · Unit = Vitest on `shared/` · **DB** = `supabase-js` signed in as a specific user (replaces the old "Int" API-level layer) · RLS = negative authorization test · Load = simulator. Each ID maps to the spec file in brackets.
+| Ask | How |
+|---|---|
+| Repeatable | `supabase start` runs Postgres, Auth, Realtime and Functions locally. Every journey makes its own data and deletes it, so they can run in any order, twice in a row, and leave no trace. `workers: 1` |
+| No external flakiness | `EXTERNAL_APIS=mock` makes the Telegram, GitHub and LLM functions append to `test_outbox` instead of calling out. **The Edge Functions must be served in mock mode** (below), or the AI analysis calls the real model. Only journey 4 touches the network, for `pnpm i` |
+| Stable selectors | `getByTestId()`, `getByRole()` and visible text, never CSS classes. The ids are in [09](./09-integration-contracts.md#9-data-testid-convention). An icon's glyph is part of a button's role name, so a few buttons are found by their text |
+| No arbitrary waits | `expect(...).toHaveText()` auto-waits. A 15 s action timeout makes a missing button fail at once instead of at the end of a long journey |
+| Logging in | `login(email)` plants a Supabase session in `localStorage` (no form), and `login(email, { githubToken })` does it as if the user had signed in with GitHub. Journey 1 uses the real forms, because it signs out |
+| Responsive | Two projects: `desktop-chrome` (1280×800, skips `@responsive`) and `mobile-chrome` (375×667, runs only `@responsive`) |
 
-### PLAT — Accounts, courses, roles (platform) · `platform.spec.js`
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-PLAT-01 | Register as Student, and as Educator | E2E | `profiles.role` is `student` / `prof` respectively, set by the trigger; lands on `/courses` |
-| T-PLAT-02 | Register duplicate email / short password | E2E | zod field errors shown; values kept; Supabase rejects the duplicate |
-| T-PLAT-03 | Login wrong password vs unknown email | DB | Both fail with the same generic message |
-| T-PLAT-04 | Protected page while logged out | Unit (`router-guards.test.js`) + E2E | Redirect to `/login?returnTo=…`; after login, back to that page |
-| T-PLAT-05 | Prof creates course | E2E | Course card shows enrol code |
-| T-PLAT-06 | Student enrols with code / wrong code | E2E | Course appears / "No course with that code" from `enrol_with_code` |
-| T-PLAT-07 | Prof adds TA by email | E2E | TA sees the course; `profiles.role` becomes `ta` |
-| T-PLAT-08 | Student opens prof-only route | Unit (`router-guards.test.js`) + E2E | Toast + redirect; the equivalent query returns zero rows |
-| T-PLAT-09 | **Credentials never touch our schema** | DB | No column in any `public` table holds a password or hash; `auth.users` is not readable with the anon key |
-| T-PLAT-10 | **A student cannot promote themselves** | RLS | `update profiles set role='prof'` on own row is rejected by the policy's `with check` |
-| T-PLAT-11 | Login rate limit | DB | Repeated failures throttled by Supabase Auth (platform-provided) |
-| T-PLAT-12 | **Sign-up role allow-list** | DB | Sign-up metadata `role: 'admin'`, `'ta'`, `'xyz'` or missing → `student`; only `'prof'` → `prof` |
-| T-PLAT-13 | **Editing auth metadata later changes nothing** | RLS | `auth.updateUser({ data: { role: 'prof' } })` after sign-up leaves `profiles.role` = `student` |
-| T-PLAT-14 | **Course uniqueness is per prof** | DB | Two profs can each create "IS216 · AY2026/27 T1 · G2"; the same prof creating it twice → `CONFLICT` |
-| T-PLAT-15 | **A prof never sees another prof's course** | RLS | Prof B selecting Prof A's course, lessons or sessions gets zero rows |
-| T-PLAT-16 | **Enrol link** while logged in | E2E | `/enrol/<code>` enrols without typing and lands on the course page |
-| T-PLAT-17 | **Enrol link as a brand-new student** | E2E | Link → log in → "Create an account" → register → back on the enrol link → enrolled (`returnTo` survives login *and* register) |
-| T-PLAT-18 | A prof opens an enrol link | E2E | Toast + redirect (the route is students and TAs only; `enrol_with_code` would refuse anyway) |
-| T-PLAT-19 | **A prof sees their course immediately after creating it** | RLS | `create_course` returns it, and a `select` on `courses` as that prof finds it (regression guard for the no-insert-policy design) |
-| T-PLAT-20 | **Staff/student separation** | DB | A TA can enrol in a course they don't staff; enrolling in one they staff → `CONFLICT`; adding an enrolled student as TA → `CONFLICT` |
-| T-PLAT-21 | **Profile updates still work alongside "read coursemates"** | RLS | A student renaming themselves succeeds and promoting themselves fails with `42501` — never `42P17` (regression guard for the recursion fix) |
-| T-PLAT-22 | **A new GitHub account picks its role once** | RLS + Unit | `/welcome` → `choose_role('prof')` makes a prof; a second call, an email account, or an enrolled student who reset `role_chosen` → `CONFLICT`; `admin` → `VALIDATION_FAILED` |
-| T-PLAT-23 | **Delete my account** | RLS + Unit | Only after typing DELETE; a student's rows go and the classes stay; a prof's courses and classes go, another prof's stay; logged out → `FORBIDDEN` |
-| T-PLAT-24 | **The owner removes a TA** | RLS + API | Only the owner, only a TA row (never themselves); the TA loses the course, a request they'd claimed goes back to `open`, and their account is `student` again unless they still TA elsewhere |
-| T-PLAT-25 | **A student or TA leaves a course** | RLS + API | Only an enrolled student or a TA. A TA loses the course, their claimed requests reopen and they are a student again; a student: their snapshots, progress, Slow down, help requests and notes in that course are gone and they lose the course and its replays; the classes, other students and their other courses are untouched |
-| T-PLAT-26 | Home's My courses puts a live class's course first | Unit | Of 3 shown, a course with a class live right now comes first even if it is the oldest, the rest newest first; "See all (n)" appears with more than 3 courses and a plain "See all" otherwise |
-| T-PLAT-27 | The profile page is split into chapters | Unit + browser | Profile shows first, the sidebar switches chapter and the URL follows, an unknown `?chapter=` falls back to Profile, what's half typed survives a switch, and connecting GitHub returns to Connections |
-| T-PLAT-28 | Everyone can connect GitHub and Telegram | Unit + browser | Both cards show in Connections for a student, a TA, a prof and an admin |
-| T-PLAT-29 | **Navigation still works after a deploy** | Unit + browser | A tab opened before a deploy asks for page files that are gone: the click loads the page fresh (once per page, kept in `sessionStorage`) and opens it; if it still fails, or storage is blocked, a toast says so instead of a click that does nothing. Missing `/assets/…` files are a 404, not `index.html` |
-
-### LESSON — Lessons · `lessons.spec.js`, `lesson-edit-view.test.js`
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-LES-01 | Upload starter files → new lesson | E2E | Lesson created hidden from students (`draft`) with its files; opens in the editor; the Visibility switch in its ⋯ menu on the course page shows it (`ready`) |
-| T-LES-02 | Edit a starter file and the lesson details | E2E | Saved; persists after reload |
-| T-LES-03 | ~~Reorder steps~~ | — | Removed with lesson steps |
-| T-LES-04 | ~~Delete step~~ | — | Removed with lesson steps |
-| T-LES-05 | Unsafe path / > 20 files / > 200 KB | DB | `files_valid()` / `octet_length` constraint rejects the insert |
-| T-LES-06 | Delete a lesson that was taught | DB | Trigger raises `CONFLICT`; the ⋯ menu on the course page shows Delete only before the first class, and a refused delete says to archive it instead |
-| T-LES-07 | What an enrolled student can read | RLS | A **draft** lesson: zero rows. A **ready** lesson: visible, with its starter `files` (RLS can't hide one column; starter files aren't secret — see [03](./03-data-model.md#policies-1)) |
-| T-LES-08 | An uploaded or imported project gets the error reporter (`addProbe`, [lesson-import-requirements](./lesson-import-requirements.md)) | Unit | `src/ca-probe.js` added, imported first by the entry script, `ca-errors` in `vite.config.js`, Vite 8 pins; running it twice changes nothing; a project it can't patch is rejected with a message |
-| T-LES-09 | Two lessons in one course with the same week | DB + Unit | Both are kept: a second insert, or moving a lesson into a week that already has one, succeeds (a week is a folder of lessons) |
-| T-LES-10 | Start new session on the lesson list | Unit | Every file that isn't archived shows Start new session, drafts and files taught before included, and it starts straight away; a file with a live class has none (Open class is in its list); week folders have no button |
-| T-LES-11 | Continue at the bottom of the lesson editor | Unit | The one button says Continue until something is edited, then Save and continue (no Save button in the header); with nothing changed it goes straight back to the course; with edits it saves first, then goes back; if saving fails it stays on the page with the edits and the error |
-| T-LES-12 | ✎ on a week folder (and on "No week") gives its files another week | Unit | The prof types Week 1–13; every lesson in that folder moves (archived and search-hidden ones too); a week another folder already uses is refused ("Week N already has lessons"), so each folder keeps a unique week; "No week" starts from an empty box; same week or Cancel changes nothing; no ✎ for TAs |
-| T-LES-13 | Leaving New lesson after picking files | Unit | Back to course, the navbar or browser Back asks "Leave without creating the lesson?" (Stay / Leave), on either step; no files picked or Create lesson → no question; closing the tab gets the browser's own warning |
-| T-LES-14 | The prof adds, renames and deletes starter files | Unit | The lesson editor's file tree has New file / Rename / Delete; a new file is saved with its language; renaming the entry file moves `entry_file` with it; Delete asks first; the entry file can't be deleted |
-| T-LES-15 | A folder dropped on the upload box loads like Choose folder… | Unit + browser | Dragging files over the box stops the browser opening them and highlights it; a dropped folder gives the same files and title as picking it, without opening `node_modules`, `dist` or `.git`; loose files keep their names and leave the title alone |
-| T-TODO-* | ~~TODO parser~~ | — | Removed with lesson steps |
-
-### SESS — Live session engine · `live-session.spec.js`
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-SESS-01 | Prof starts session | E2E | Join code (6 chars, no 0/O/1/I/L) + QR visible |
-| T-SESS-02 | Start on a draft lesson | DB | `start_session` raises `CONFLICT` |
-| T-SESS-03 | Student joins via code input and via `/join/:code` | E2E | Lands in the workspace on the latest checkpoint (or "Starter code") |
-| T-SESS-04 | Non-enrolled user joins | E2E + DB | A student is enrolled in the course and lands in the workspace; so is a prof from another course; an admin gets "You're not in this course" |
-| T-SESS-05 | Wrong / ended code | E2E | "No live class with that code" |
-| T-SESS-06 | Checkpoint broadcast to 3 students | E2E | All 3 see the toast + the new checkpoint (and its title) within 2 s, and their status is back to In progress |
-| T-SESS-07 | Student reconnects (go offline → online) | E2E | Status re-read after reconnecting; checkpoint missed while offline is shown |
-| T-SESS-08 | Two quick checkpoint saves | DB | Distinct `seq` 1, 2 — the unique index plus the RPC retry |
-| T-SESS-09 | **Realtime subscribe without a session** | RLS | Anon client cannot subscribe to `session:<id>`; no messages received |
-| T-SESS-10 | **Subscribe to another course's session channel** | RLS | Rejected by the `realtime.messages` policy |
-| T-SESS-11 | Prof ends session | E2E | Students see "Class ended" banner with replay link |
-| T-SESS-12 | Settings toggle (catch-up off) | E2E | Students' Load checkpoint button disabled with tooltip |
-| T-SESS-13 | **Student calls `save_checkpoint`** | RLS | `FORBIDDEN` — the RPC checks `is_course_prof` |
-| T-SESS-14 | Prof posts an announcement | E2E | Every student sees `announcement-banner` with the text within 2 s |
-| T-SESS-15 | **Late joiner sees the current announcement** | E2E | A student who joins after it was sent sees it on load (read from `sessions.announcement`, not the broadcast) |
-| T-SESS-16 | Prof clears the announcement | E2E | Banner disappears for everyone |
-| T-SESS-17 | Student or TA calls `announce` | RLS | `FORBIDDEN` |
-| T-SESS-18 | Announcement over 200 chars | DB | Check constraint rejects it |
-| T-SESS-19 | **Start a lesson that is already live** | DB | Returns the same class and join code, even on a double-click; a new class only once it has ended |
-| T-SESS-20 | An empty announcement can't be sent | Unit | **Send** is disabled for an empty or blank box and Enter does nothing; **Clear** (shown only while an announcement is live) is how it comes down |
-| T-SESS-21 | The prof presents the editor | Unit | **Present** hides the dashboard numbers, the join code, checkpoints and summary panels, the editor takes the full width, the button reads **Dashboard view**, and pressing it again restores everything with the same editor still mounted |
-
-### SBX — Workspace, runtime & cache · `workspace.spec.js`, `build-error.test.js`, `files-cache.test.js`
-
-Rewritten for WebContainer. T-SBX-01/02/06 (srcdoc builder) and the old mock-API tests are gone; boot, install, build errors and the cache replace them.
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-SBX-01 | Container boots and the dev server comes up | E2E | `BootState` goes booting → installing → starting → ready; preview renders the app |
-| T-SBX-02 | `crossOriginIsolated` is true on the app origin | E2E | COOP/COEP headers present; without them the boot is skipped with a clear message |
-| T-SBX-03 | Runtime error shown in console, gutter and status pill | E2E | File + line match the typo; `error.source === 'runtime'` |
-| T-SBX-04 | `console.log` appears in the console panel | E2E | Entry visible |
-| T-SBX-05 | **Preview cannot read our Supabase session** | E2E | The preview is a different origin: `localStorage` there is the project's own; `parent.document` access throws |
-| T-SBX-06 | **Build error turns the tile red** | E2E | A broken `import` produces `error.source === 'build'` with file + line |
-| T-SBX-07 | **Build error carries no code frame** | Unit | `parseBuildError()` on real Vite output returns `{name,message,file,line}` and **no** source lines |
-| T-SBX-08 | Boot timeout | E2E | No `server-ready` within `BOOT_TIMEOUT_MS` → "Your project didn't start" + terminal tail + Retry |
-| T-SBX-09 | Terminal output never leaves the browser | DB | After an install, no row in any table contains install/dev-server output |
-| T-SBX-10 | `localStorage` works in the student's project | E2E | Cart persists across a reload — natively, with no shim |
-| T-SBX-11 | Autosave + refresh | E2E | Edits restored after reload |
-| T-SBX-18 | **Autosave fires 5 s after the last keystroke** | E2E | No write while typing continues; one write 5 s after it stops |
-| T-SBX-19 | **Only changed files are sent** | Unit | Editing one file of twelve produces a one-entry `p_upsert` |
-| T-SBX-20 | **An unchanged tree sends no request** | Unit | Debounce tick with no hash change issues zero calls |
-| T-SBX-21 | **A failed save retries the same delta** | Unit | Synced hashes are not advanced on failure; the next tick resends |
-| T-SBX-22 | Flush on tab close | E2E | `visibilitychange` writes immediately, losing none of the 5 s window |
-| T-SBX-23 | Deleted file is removed server-side | E2E | Path appears in `p_delete`; gone from the autosave row |
-| T-SBX-24 | **Multiple terminals** | Unit | Starts with one; + adds up to 3, using the lowest free number; switching keeps every terminal mounted; closing the one on screen shows the first; the last can't be closed |
-| T-SBX-25 | A hidden terminal isn't refitted | Unit | A zero-width resize doesn't call `fit()`, so a server running in another terminal keeps its width |
-| T-SBX-26 | Packages are saved after an install | Unit | Once pnpm writes `.modules.yaml`, `node_modules` (minus `.vite`/`.cache`) and the lockfile go to IndexedDB under a hash of `package.json`; never mid-install, never when `node_modules` is just deleted |
-| T-SBX-27 | **A reload gets the packages back** | Unit + browser | Same `package.json` → `node_modules` and the lockfile are restored; `pnpm i` says "Already up to date" (~0.6 s, was ~16 s) and `pnpm dev` starts, even without a `pnpm i` first (the restored commands are made executable again, or it fails with `spawn concurrently EACCES`) |
-| T-SBX-28 | Changed packages install cleanly | Unit + browser | A different `package.json` restores nothing; in a restored tab, a checkpoint that changes `package.json` clears the restored packages so `pnpm i` succeeds; only the 2 most recently used sets are kept |
-| T-SBX-12 | Done disabled while the last run has an error | E2E | Button disabled with reason (runtime **or** build) |
-| T-SBX-13 | **`SYNC_IGNORE` respected** | DB | After an install, no saved row contains a `node_modules/`, `dist/` or `.vite/` path |
-| T-SBX-14 | **Cache hit costs no network** | Unit | Matching `files_hash` → `loadFiles` returns from IndexedDB with zero fetches |
-| T-SBX-15 | **Cache miss and eviction** | Unit | Changed hash refetches; a wiped store still loads correctly (cache, not source of truth) |
-| T-SBX-16 | File tree create / rename / delete | E2E | Reflected in the container FS and in the next autosave |
-| T-SBX-17 | Unsupported browser | E2E | With isolation disabled, "This browser can't run code" naming Chrome, Edge or Firefox on a computer or Android phone (iPhone, iPad and in-app browsers can't: our COEP is `credentialless`, which Safari's engine lacks), with no "try reloading" — not a blank pane |
-| T-SBX-29 | The file tree and the terminal can be resized | Unit | Dragging the handle beside the tree sets its width and the one above the terminal sets its height; both are kept on the device; the editor keeps at least 320px wide and 120px tall; a double-click on a handle goes back to the default; moving without holding a handle changes nothing |
-| T-SBX-30 | Files can be dragged into another folder | Unit | Dropping a file on a folder, on a file (its folder) or on the space under the tree (the top level) renames it there and opens that folder; its own folder isn't highlighted and dropping there does nothing; a name already there shows an error and moves nothing; dragging out a folder's last file asks first, and Cancel moves nothing; folders, read-only trees and drags from outside the tree don't move anything; moving or renaming a file another file imports shows a warning naming them, and no warning when nothing does |
-| T-SBX-31 | The terminal says whether the packages are there | Unit + browser | "Packages ready" in the terminal's header once an install finishes, a reload puts the packages back, or they're still there from an earlier install in the tab; "Run pnpm i" when the boot finds none, a checkpoint's new `package.json` clears them, or `node_modules` is deleted; nothing while booting or with no `package.json` |
-| T-SBX-32 | The prof can add, move and delete files | Unit + browser | The Teach view's file tree is editable: New file, Rename, drag and Delete work as in the student workspace, with the same warning when another file imports the moved file and a confirmation before deleting; the next checkpoint carries the changes to students |
-| T-SBX-33 | **Someone outside the class can't open its workspace** | Unit + browser | Opening `/s/:id/code` for a class you're not in (or that doesn't exist) shows "You're not in this class" with Join a class and Home: no editor, no student buttons, and the WebContainer never boots. An archived course says so instead. A real boot failure still shows the "couldn't start" banner. Joining with the code (auto-enrol) is unchanged |
-| T-SBX-34 | **Preview Back, Forward and Reload** | Unit + browser | On the left like a browser's. Back and Forward are greyed out until the preview can go there, then step through the app's own pages only (never out of CodeAlong); Reload reloads the page it's on (the start page if the preview's script is missing). In the workspace, Teach, help request and replay previews |
-
-### STAT — Status & derived state · `tile-state.test.js`, `dashboard.spec.js`
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-STAT-01 | Before first checkpoint | Unit | `in_progress` (or `done` if Done on the starter, `done_seq = 0`) |
-| T-STAT-02 | `done_seq` = latest checkpoint | Unit | `done` |
-| T-STAT-03 | `done_seq` is an older checkpoint, or null | Unit | `in_progress` |
-| T-STAT-04 | ~~Two or more behind~~ | — | Removed: there is no `behind` state; each checkpoint resets everyone |
-| T-STAT-05 | Error overrides done | Unit | `error` |
-| T-STAT-06 | Idle overrides everything | Unit | `idle` |
-| T-STAT-07 | New checkpoint resets the class | E2E | Every Done (green) tile turns In progress (amber) with no status writes |
-| T-STAT-08 | Idle after `idleAfterSec` (set to 5 s in test) | E2E | Tile grey; returns on activity |
-| T-STAT-09 | **A student cannot forge their state** | DB | `student_status` has no `state` column; writing one is rejected |
-| T-STAT-10 | **`shared/tile-state.js` agrees with `session_tiles`** | DB+Unit | Same inputs → same state from SQL and JS, across all 6 cases |
-| T-STAT-11 | **A student cannot write another student's status** | RLS | Rejected by the `student_id = auth.uid()` policy |
-| T-STAT-12 | **A student cannot write status after the session ends** | RLS | Policy requires `status = 'live'` |
-
-### DASH — Dashboard · `dashboard.spec.js`
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-DASH-01 | Summary card loads for a running session | E2E | Counts for the joined students |
-| T-DASH-02 | Counts are what students clicked | Unit + DB | Done = Done on the latest checkpoint (even with an error since); help / check = open or claimed requests |
-| T-DASH-03 | ~~Filter by clicking a summary segment~~ | — | Removed: no per-student tiles to filter |
-| T-DASH-04 | "Slow down" from 2 students | E2E | Slow-down count = 2; nothing on the dashboard shows who |
-| T-DASH-05 | Student un-taps "Slow down" | E2E | Count decrements |
-| T-DASH-06 | TA (staff) can view dashboard; student cannot | RLS | TA gets tile rows; a student gets zero rows from `session_tiles` |
-| T-DASH-07 | ~~Tiles show icon + label~~ | — | Removed: no per-student tiles |
-| T-DASH-10 | **The dashboard counts only connected students** | Unit | "Done X of N" uses the students connected now: someone who joined and left isn't in N or their Done; they count again when they reconnect |
-| T-DASH-11 | **Slow down counts only students who are still here** | RLS | A flag from a student unseen for longer than the idle window (180 s, or the class's own) isn't counted, and counts again when they return; TAs read the same number; students get `null`; an ended class counts all |
-| T-DASH-12 | Leaving the class page takes my Slow down back | Unit | `statusStore.leave()` deletes my flag and stops the heartbeat; with no flag it sends nothing; a refused delete (class ended, offline) never throws |
-| T-DASH-13 | **The Students menu lists who is connected, by status** | Unit | `getClassSummary` gives each student's state and open/claimed help and check requests; the menu shows connected students with a status row in the class, under their names from the database (see T-LIM-09), each in one group (help, check, error, in progress, idle, done, in that order), and never says who asked to slow down; Present closes it |
-| T-DASH-14 | ~~Common errors says when errors haven't made a group yet~~ | — | Dropped with Common errors |
-| T-DASH-15 | A heartbeat doesn't reload the dashboard | Unit | A `student_status` change that only moves `last_seen_at` isn't passed to `sessionStore.onChange` listeners; a change to Done, the error or catch-ups is. The 10 s poll still picks up who has gone idle |
-
-### ERRG — Error normalisation · `error-normalizer.test.js`
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-ERRG-01 | Line/col and URLs stripped | Unit | Same `key` for two stacks differing only in line |
-| T-ERRG-02 | Numbers masked | Unit | `status code <n>` |
-| T-ERRG-03 | `items` vs `itmes is not defined` | Unit | Different `key`, same `shapeKey` |
-| T-ERRG-04 | ~~Group threshold (≥ 2 or ≥ 10%)~~ | — | Dropped with Common errors |
-| T-ERRG-05 | ~~Same typo by 2 students~~ | — | Dropped with Common errors |
-| T-ERRG-06 | ~~Spotlight with an eligible help snapshot~~ | — | Dropped: the team chose not to build Spotlight; Common errors shows the groups only |
-| T-ERRG-07 | ~~Excerpt anonymised~~ | — | Dropped: the team chose not to build Spotlight; Common errors shows the groups only |
-| T-ERRG-08 | ~~Spotlight with no help snapshot~~ | — | Dropped: the team chose not to build Spotlight; Common errors shows the groups only |
-| T-ERRG-09 | ~~Student invokes the `spotlight` function~~ | — | Dropped: the team chose not to build Spotlight; Common errors shows the groups only |
-
-### AIH — Help request analysis · `analyze-help.test.js`
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-AIH-01 | Prompt has the checkpoint, the error, the student's code and the checkpoint region | Unit | All four present |
-| T-AIH-02 | Comment lines dropped, `TODO` kept | Unit | A name in a comment never reaches the prompt |
-| T-AIH-03 | Huge file | Unit | Prompt stays under the 6,000-character cap |
-| T-AIH-04 | Valid reply | Unit | Fields kept; `stuckAt.checkpoint` from the request, not the model |
-| T-AIH-05 | Unknown category, code block in `rootCause` | Unit | `other`; code block removed |
-| T-AIH-06 | Help request analysed | Unit | `analysis` saved with `model` and `analyzedAt` |
-| T-AIH-07 | "Check my work" request | Unit | Skipped; no LLM call |
-| T-AIH-08 | Provider 429 or non-JSON reply | Unit | `{ status: 'failed' }` saved; nothing thrown |
-| T-AIH-09 | `EXTERNAL_APIS=mock` | Unit | Prompt in `test_outbox` (`channel = 'llm'`); model never called |
-| T-AIH-20 | No error: only the files that differ from the reference are sent | Unit | A changed file reaches the model however many unchanged files there are |
-| T-AIH-21 | No error and code identical to the reference | Unit | Prompt says so; the model is told not to invent a mistake |
-| T-AIH-22 | Files left out of the prompt | Unit | Listed by name, so the model never assumes they're missing |
-| T-AIH-23 | Every mistake is asked for | Unit + live | The prompt asks for every mistake and for malformed markup even with no error; `summary`, `category` and `stuckAt` follow the most important one, and `rootCause` keeps up to 1,500 characters so the others aren't cut off; the class summary's prompt only takes the first 400, so one long request can't crowd out the other groups |
-| T-AIH-10 | Class summary grouping (`summarize-help.test.js`) | Unit | Students counted per `(checkpoint, category)` in code, biggest first |
-| T-AIH-11 | Prompt 2 | Unit | Each group's key and count listed; diagnoses treated as data |
-| T-AIH-12 | Prompt 2 reply | Unit | Model words on our groups; counts unchanged; skipped group keeps plain text |
-| T-AIH-13 | Caller is not session staff | Unit | `FORBIDDEN`, nothing read, no model call |
-| T-AIH-14 | Summary returned | Unit | `source: 'llm'`, true counts, `pendingCount` |
-| T-AIH-15 | Model fails or replies badly | Unit | `source: 'rules'`: the same groups with plain text |
-| T-AIH-16 | Dashboard panel (`help-summary-panel.test.js`) | Unit | Loads on open and on Refresh; shows headline, groups, pending count |
-
-### CATCH — Catch-up · `catch-up.spec.js`, `stores/workspace.test.js`, `downloadProject.test.js`
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-CATCH-01 | Load checkpoint | E2E | A warning names the checkpoint; after **Replace my code** the editor shows the checkpoint's code |
-| T-CATCH-02 | Download first | E2E + Unit | **Download my project** saves a .zip with every file at its path, and nothing is replaced until the student confirms |
-| T-CATCH-03 | Autosave follows | DB | After loading, the student's autosave row has the checkpoint's `files_hash`, so a refresh keeps it |
-| T-CATCH-04 | Files the checkpoint doesn't have | Unit | Removed from the editor and the WebContainer; the entry file opens if the open file is gone |
-| T-CATCH-05 | Still in progress | E2E | The tile stays `in_progress` until the student clicks Done |
-| T-CATCH-06 | Catch-up before any checkpoint | E2E | Button disabled |
-| T-CATCH-07 | Catch-up when `allowCatchUp` is false | E2E | Button disabled |
-| T-CATCH-08 | The warning readable at 375 px | E2E `@responsive` | Buttons stacked, no horizontal page scroll |
-| T-CATCH-09 | **Checkpoint with an unchanged `package.json`** | E2E | Files written, HMR picks them up, plain "Loaded" toast |
-| T-CATCH-10 | **Checkpoint that changed `package.json`** | Unit + E2E | Toast tells the student to run `pnpm install`, then `pnpm dev` |
-
-### HELP — Help flow · `help.spec.js`
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-HELP-01 | Student sends Check my work | E2E | TA queue shows card instantly via Postgres Changes (name, checkpoint, type — no code) |
-| T-HELP-02 | TA claims → side-by-side view | E2E | Student code vs the checkpoint the class was on when they asked |
-| T-HELP-03 | Pass | E2E | Student sees a tick for that checkpoint; tile shows passed |
-| T-HELP-04 | Reply | E2E | Student sees reply in their help panel |
-| T-HELP-05 | Two TAs claim the same request | E2E | Second gets "already on this one" (zero rows updated) |
-| T-HELP-06 | Duplicate active request of same type | DB | Partial unique index → `CONFLICT` |
-| T-HELP-07 | Student cancels open request | E2E | Card disappears from queue |
-| T-HELP-08 | In-person help → Telegram ping | E2E | `test_outbox` has a message with name, seat, step, link |
-| T-HELP-09 | Telegram mock set to fail | E2E | Request still exists (committed before the webhook); student sees "notified in app only" |
-| T-HELP-10 | Another student reads a help request | RLS | Zero rows |
-| T-HELP-11 | Pass on a `help` (not `check`) request | DB | `BAD_REQUEST` from `transition_help_request` |
-| T-HELP-12 | Non-claiming TA replies | DB | `FORBIDDEN` |
-| T-HELP-13 | **Student follows up on a replied request** | E2E | Same request returns to the queue **in its original place**, badged "Follow-up · last handled by Ana"; the TA sees the full thread |
-| T-HELP-14 | **Follow-up attaches the student's current code** | E2E | The TA's side-by-side shows the new snapshot, not the original |
-| T-HELP-15 | **Earlier snapshot still readable by the course's staff** | RLS | After a follow-up, the request points at the new snapshot; staff can still read the previous one (staff read every snapshot in their course), a classmate can't |
-| T-HELP-16 | **Fourth follow-up rejected** | DB | `BAD_REQUEST` "ask for in-person help instead"; `follow_ups` stays 3 |
-| T-HELP-17 | Follow-up on a `passed` / `resolved` / `cancelled` request | DB | `BAD_REQUEST` — only `replied` reopens |
-| T-HELP-18 | Another student follows up on someone else's request | RLS | `FORBIDDEN`, and no snapshot is left behind (the function rolls back) |
-| T-HELP-19 | Earlier replies survive a follow-up | E2E | Second reply is appended to `thread`; the first is still shown |
-| T-HELP-20 | The reply form's buttons are spaced below the reply box | Unit | On a claimed request, the row of Send reply / Pass / Resolved / Release has a gap (`mt-3`) under the textarea |
-| T-HELP-21 | The queue's Handled list can be folded away | Unit | The heading toggles it, the count stays visible, the waiting requests are never hidden, the choice is remembered on the device, and there is no heading when nothing has been handled |
-| T-HELP-22 | A request before the first checkpoint is compared with the starter code | Unit | The review panel's baseline is the lesson's starter files (labelled "Starter code"), so only files the student changed show; with a checkpoint it is still compared with that; if the starter code can't be loaded it falls back to the empty baseline |
-| T-HELP-23 | A TA can open a student's code in an editor of their own | Unit | **Open in editor** (once the code has loaded) links to `/help/:id/code` with `target="_blank"` and `rel="noopener"`; that page loads the snapshot into the editor, boots a WebContainer with it, and says nothing is saved; edits go to the running project but never to the cached original or to any save; a missing request shows not-found, a page that can't run WebContainers keeps the editor and says why, and leaving stops the workspace |
-| T-HELP-24 | The help request and editor pages have no Back button | Unit | Neither route has `meta.back`: the request page has its own Help queue button (and a Telegram link opens it with nothing behind it), and the editor page always opens in its own tab; the queue has none either, like every live class page |
-| T-HELP-25 | Back never loops between the request and the queue | Unit | The shell's Back steps back when its target is the previous page, and otherwise replaces this page with the target (no new history entry); so request, queue and editor in any order leave the queue's Back going Home, not to the request. The request page's "Help queue" button replaces too |
-| T-HELP-26 | The student's name in the queue opens the request's own page | Unit | In the queue's review panel the name links to `/help/:id` (title "Open this request on its own page"); on the request page itself it is plain text, not a link to itself |
-| T-HELP-27 | The request box lines up with the first request in the queue | Unit | From lg the right-hand box is pushed down by an invisible copy of the "Waiting" heading, so its top is level with the first card; below lg, where the columns stack, the copy is hidden and adds no gap |
-| T-HELP-28 | TAs see the AI's analysis of a help request | Unit | The review panel (queue and request page) shows the analysis between the message and the reply box: summary, why, readable category, where they are stuck (checkpoint · file:line) and confidence; nothing before it is ready; it appears by itself when it arrives; a failed one shows only "couldn't analyse this one", never the reason |
-| T-HELP-29 | The TA's editor page has split and full view | Unit | As in the student workspace: from xl it starts side by side, the expand button on a pane shows only that pane, the other folding away over 0.3 s instead of snapping (the code / eye button swaps them, the same way), and the choice is remembered on the device with the same key as the workspace |
-
-### TG — Telegram linking & webhook · `telegram.test.js`, `insights.spec.js`
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-TG-01 | Link code → `/start <code>` binds `telegram_chat_id` | Unit | Chat id set; code cleared |
-| T-TG-02 | Expired code | Unit | Not bound; bot replies "code expired" |
-| T-TG-03 | User text HTML-escaped | Unit | `<script>` sent as `&lt;script&gt;` |
-| T-TG-04 | 429 handling | Unit | Waits `retry_after`, retries once |
-| T-TG-05 | **Webhook without the secret token header** | Unit | Rejected with 401; nothing written |
-
-### REPLAY — Replay, notes, search · `replay.spec.js`
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-REP-01 | Replay lists checkpoints in order | E2E | Step titles 1…n |
-| T-REP-02 | Changed lines highlighted vs previous checkpoint | E2E | Highlight count matches diff |
-| T-REP-03 | Read-only preview runs | E2E | Preview renders the app at that step |
-| T-REP-04 | Add / edit / delete a note | E2E | Persist after reload; private to author |
-| T-REP-05 | Search finds a step title and a note | E2E | Both in results with links |
-| T-REP-06 | Search with regex characters | DB | No crash; literal match (parameterised RPC) |
-| T-REP-07 | Non-member reads a replay | RLS | Zero checkpoints returned |
-| T-REP-08 | Student view of a replay | Unit | A student who joined can switch to their own code as the class ended (code viewer, download, preview, export); staff have no toggle; a student with nothing saved sees "No saved code" |
-| T-REP-09 | Preview warms up by itself | Unit | With `autostart` the preview installs and starts once there is code, reporting `installing` → `starting` → `ready`; below `md` it waits for Run preview |
-| T-REP-10 | Hidden unchanged lines can be shown and hidden again | Unit | Each gap offers **Show N unchanged lines** and opens in place, then **Hide N unchanged lines** folds it back; hidden and shown rows together are the whole file; new code to compare starts hidden again |
-| T-REP-11 | Notes make room for the code | Unit + browser | **My notes** starts closed with the code wider, keeps a half-written note when closed, is remembered on the device, and opens from a note's search result; the timeline marks checkpoints with notes |
-
-### GH — GitHub import/export · `github-export.test.js`, `replay.spec.js`
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-GH-01 | Import public repo (mock) | E2E | Draft lesson with the filtered files |
-| T-GH-02 | Import filters unsafe types / > 40 files | Unit | Only allowed files kept |
-| T-GH-03 | Export creates one commit per checkpoint | Unit | Mock records 1 repo + n trees + n commits + 1 ref update, in order |
-| T-GH-04 | Commit messages `checkpointLabel(seq, title)`: `Checkpoint k · <title>`, or `Checkpoint k` without a title | Unit | Match |
-| T-GH-05 | Repo name taken (422) | E2E | UI asks for another name |
-| T-GH-06 | **Token never persisted in our schema** | DB | No GitHub token in any row of any `public` table after an export |
-| T-GH-07 | Export to a private repo | Unit | "Connect GitHub" asks for the `repo` scope; GitHub refusing a private repo (403/404) → `FORBIDDEN` "reconnect GitHub", not "try again" |
-| T-GH-08 | Export my own code | Unit | `mine: true` exports the caller's final autosave as one commit ("My code at the end of the class"); no saved code → `BAD_REQUEST` |
-
-### INS — Insights · `rls/session_report.test.js`, `api/reports.api.test.js`, `digest-function.test.js`, `views/ReportView.test.js`
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-INS-01 | `reachedDone` and `dropOff` from a class run through the RPCs | DB | Match hand-computed values |
-| T-INS-02 | Trouble score formula | DB | Matches expected ranking |
-| T-INS-03 | Recurring trouble across 2 past sessions | DB | Checkpoint listed by `lesson_trends`, matched by title |
-| T-INS-04 | Report written when the session ends | DB | No row while live; a row as soon as `end_session` returns |
-| T-INS-05 | Report has no per-student data | DB | No `student_id` anywhere in the row |
-| T-INS-06 | Digest to staff and absent students | Unit | `test_outbox`: TA summary + messages only to linked, absent students |
-| T-INS-07 | Student reads a report | RLS | Zero rows |
-| T-INS-10 | Where in the lesson help and slow-downs peaked | DB + Unit | Each checkpoint has its own `slowDownPeak` (flags still up from earlier count); the page names the top two: "Highest during Checkpoint 2, followed by Checkpoint 4", and the same for help requests ("Most during …") |
-| T-INS-11 | What students got stuck on | Unit | The report lists the help requests' saved AI diagnoses grouped by checkpoint + category, biggest first, titled by the group's first diagnosis; "Nobody asked for help" when there were none; replaces the Top errors panel (the digest keeps its own list) |
-| T-INS-09 | Catch-ups counted per checkpoint | DB | Each "Load latest checkpoint" logs a `catch_up` row at the class's checkpoint; the report's `catchUps` counts the students (once each); `trouble` is unchanged by them |
-| T-INS-08 | **Trends stay inside one prof's courses** | DB | With two profs teaching a same-titled lesson, each prof's `lesson_trends` includes only their own sessions |
-
-### PRIV — Privacy by design · `privacy.spec.js`, `tests/unit/rls/*`
-
-The section the architecture change affects most. Each rule that used to be "no endpoint exists" is now a policy with a negative test.
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-PRIV-01 | Tile and summary payloads contain no code | DB | `session_tiles` / `session_summary` expose no `files` column at all |
-| T-PRIV-02 | **Course staff read a student's autosave and catch-up attempts** | RLS | The rows are returned, so staff can troubleshoot |
-| T-PRIV-03 | Staff of another course, or a classmate, read a student's snapshot | RLS | Zero rows |
-| T-PRIV-04 | **Who asked to slow down is never retrievable by staff** | RLS | Staff reading `slow_down_flags` get zero rows; `student_status` has no slow-down column; `session_summary.slow_down_count` is an aggregate (admins can read the flags — T-ADM-07) |
-| T-PRIV-05 | Notes private | RLS | Another non-admin user's note is invisible |
-| T-PRIV-06 | **Every `public` table has RLS enabled** | RLS | `tables_without_rls()` returns empty |
-| T-PRIV-07 | **Every view uses `security_invoker`** | RLS | A view without it would leak all sessions; assert none exist |
-| T-PRIV-08 | No keystroke logging | Review | Status written only on change + 30 s heartbeat |
-| T-PRIV-11 | **Students can't read each other's profiles or enrolments** | RLS | A student reads the names of their course's staff, never of other students in it (the live-class online list is the one exception: T-PRIV-12) |
-| T-PRIV-12 | **A student sees classmates online in their live class** | RLS | Presence on `session:<id>` shows who is online to class members only; outsiders can't join the channel (T-SESS-10) |
-| T-PRIV-09 | **No build-error code frame reaches staff** | Unit+DB | Real Vite error output → `student_status.error` holds the message only; no source line appears in `session_tiles` |
-| T-PRIV-10 | **Terminal output never persisted** | DB | No table holds `pnpm install` or dev-server text |
-
-### ADM — Admin · `admin.spec.js`, `tests/unit/rls/admin.test.js`
-
-Admins read everything and write only accounts. Most of these are negative tests, because the risk with an all-seeing role is an admin power leaking somewhere it shouldn't.
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-ADM-01 | Student, TA or prof calls `admin_list_users` / `admin_set_role` | RLS | `FORBIDDEN` for both |
-| T-ADM-02 | Admin lists users | DB | Every account, with email and role |
-| T-ADM-03 | Admin changes a user's role | DB | Role updated, and it takes effect (a promoted prof can create a course) |
-| T-ADM-04 | **Admin changes their own role** | DB | `BAD_REQUEST`; role unchanged |
-| T-ADM-07 | Admin reads any table | RLS | Snapshots, notes, `slow_down_flags` and another prof's course all readable |
-| T-ADM-08 | **Admin cannot act inside a course** | RLS | `save_checkpoint`, `claim_help_request`, lesson updates and course edits by an admin → `FORBIDDEN` or zero rows |
-| T-ADM-09 | **Policy sweep** | RLS | Every `public` table has exactly one `admin reads all` `select` policy, and no admin policy for any other command |
-| T-ADM-10 | Logged-out caller is never an admin | RLS | `is_admin()` is `false` (not `null`) for the anon key |
-| T-ADM-11 | Admin users page at 375 px and 1280 px | E2E `@responsive` | Users stack on xs, one row each on lg; the admin's own role is locked |
-
-### RESP — Responsive (Chrome) · tagged `@responsive`
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-RESP-01 | Workspace at 375 px | E2E | Tabs Code/Preview/Terminal/Steps; **file tree is an offcanvas drawer**; sticky bottom bar; no horizontal scroll |
-| T-RESP-02 | Workspace at 1280 px | E2E | File tree rail + editor + preview, terminal docked below |
-| T-RESP-03 | Teach view at 375 px | E2E | Dashboard-first layout; editor behind tab |
-| T-RESP-04 | Teach view at 1280 px | E2E | Editor + checkpoints + class summary card visible together |
-| T-RESP-05 | No page has horizontal scroll at 375 px | E2E | `scrollWidth <= innerWidth` on every route |
-| T-RESP-06 | Landscape 667×375 workspace | E2E | Usable; bottom bar doesn't cover editor |
-
-### LIM — Usage limits · `rls/usage_limits.test.js`, `analyze-help.test.js`, `summarize-help.test.js`, `limits.test.js`
-
-The free-tier guardrails (migration `usage_limits`, numbers in `Limits` in `shared/constants.js`).
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-LIM-01 | `claim_llm_call()` | DB | 30 claims a minute across the site, the 31st is `false`; users can't call it, only the service role |
-| T-LIM-02 | Help analysis when the LLM limit is reached | Unit | Model never called; `{ status: 'failed', code: 'LLM_LIMIT' }` saved |
-| T-LIM-03 | Class summary when the LLM limit is reached | Unit | Model never called; the plain-text summary with `llmLimitReached: true` |
-| T-LIM-04 | 31st lesson in a course | DB | Refused with `LIMIT_REACHED`; 30 are fine |
-| T-LIM-05 | A student's error object over 4 KB | DB | Refused by `student_status_error_size` |
-| T-LIM-06 | Limit pop-up | Unit | A `LIMIT_REACHED` error from any api call opens it; the same limit opens it at most once a minute |
-| T-LIM-08 | `analyze-help` called with anything but the service-role key | Unit | `403`; nothing read, model never called |
-| T-LIM-09 | Presence a student made up (`teach-view.test.js`) | Unit | Only presence with a status row in the class counts, once per student, under the database's name |
-| T-LIM-07 | Database over 450 MB | Review | New lessons, checkpoints and snapshots refused with `LIMIT_REACHED` (not automated: needs a full database) |
-
-### VALID — Validation & error handling · `errors.spec.js`
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-VAL-01 | Malformed uuid in a route param | DB | Mapped to `NOT_FOUND`, no crash (replaces the old ObjectId check) |
-| T-VAL-02 | Row exists but is not mine | E2E | Empty/forbidden state on the page, not a spinner or a crash |
-| T-VAL-03 | Unknown client route | E2E | Friendly 404 page |
-| T-VAL-04 | **Deep link on the deployed URL** | E2E | `/join/<code>` and a refresh on `/s/:id/code` work (SPA rewrite) |
-| T-VAL-05 | XSS in step title / note / reply / follow-up / announcement | E2E | Rendered as text (Vue escaping); never executed |
-| T-VAL-06 | Oversized payload | DB | `octet_length` constraint → `PAYLOAD_TOO_LARGE` |
-| T-VAL-07 | Upstream (GitHub) down | E2E | Feature message; rest of app works |
-| T-VAL-08 | Every zod rule has a constraint behind it | Review | Each row of the validation table in [03](./03-data-model.md#validation-rules-summary) has both |
-
-### LOAD & SEED
-
-| ID | Test | Layer | Expected |
-|---|---|:---:|---|
-| T-LOAD-01 | 40 simulated students, update every 3 s, 5 minutes | Load | p95 tile latency < 500 ms; no dropped subscriptions |
-| T-LOAD-02 | 40 students receive a checkpoint broadcast | Load | All within 2 s |
-| T-LOAD-03 | **Load test fits the Realtime free tier** | Load | Concurrent connections and message count stay inside the cap; recorded in the README |
-| T-LOAD-04 | **Egress per session measured** | Load | One full session's Supabase egress recorded against the 5 GB budget; cached rejoin costs ~0 |
-| T-LOAD-05 | **Cold install time measured** | Load | Recorded in the README; decides whether the dependency cache in [05 §2](./05-core-logic.md#2-files-cache--dependencies) gets built |
-
-> **What the load test does not prove.** The 40 simulated students write status rows directly; they cannot each boot a WebContainer. So T-LOAD-01/02 show that Supabase and Realtime hold up under a class's worth of traffic — they say nothing about whether 40 real laptops each running a Vite dev server stay responsive. Those are two different questions and only the first is testable here. Say so in the README rather than letting "load-tested with 40 students" imply more than it does.
-| T-SEED-01 | `pnpm db:reset` twice | DB | Same counts both times (migrations + `seed.sql` are idempotent by construction) |
-| T-SEED-02 | Seeded accounts log in with documented passwords | DB | All roles correct |
-| T-SEED-03 | Seeded past session has replay + report | E2E | Both pages render |
-| T-SMOKE-01 | `/` loads landing in the production build | E2E | Title + "Join a class" visible |
-
----
-
-## Test Summary
-
-| Area | Count | Main stage |
-|---|---:|---|
-| PLAT | 21 | 2 |
-| LESSON + TODO | 14 | 4 |
-| SESS | 18 | 3 |
-| SBX | 25 | 3 |
-| STAT | 12 | 5 |
-| DASH | 7 | 5 |
-| ERRG | 9 | 9 |
-| CATCH | 10 | 6 |
-| HELP | 19 | 7 |
-| TG | 5 | 7 |
-| REPLAY | 7 | 8 |
-| GH | 6 | 8 |
-| INS | 8 | 10 |
-| PRIV | 11 | 5–9 |
-| ADM | 11 | 2 |
-| RESP | 6 | 11 |
-| VALID | 8 | 11 |
-| LOAD + SEED + SMOKE | 9 | 11–12 |
-| **Total** | **206** | |
-
-Up from 137 in the Mongo design: 15 came from authorization moving into the database (RLS negative tests — the cheapest in the suite, a sign-in and an `expect(data).toEqual([])`), and 17 more from the WebContainer runtime (boot, install, build errors, the file cache, delta autosave, and the two privacy tests that keep code frames and terminal output out of the dashboard), plus 12 for help follow-ups and class announcements, and 16 for sign-up roles, per-prof courses and the admin role.
-
-**Must be green for the video:** every E2E test tagged on a MUST feature (PLAT, LESSON, SESS, SBX, STAT, DASH, CATCH, HELP, REPLAY, PRIV, RESP, VALID).
-
-### How to run (goes in the README)
+## How to run (goes in the README)
 
 ```bash
-# Docker must be running — the local stack needs it
+# Docker must be running; the local stack needs it
+cd codeAlong
 pnpm install
-pnpm dlx playwright install chromium
-pnpm supabase start                  # Postgres + Auth + Realtime + Functions on localhost
-pnpm db:reset                        # migrations + seed.sql
+pnpm exec playwright install chromium
+pnpm exec supabase start                  # Postgres + Auth + Realtime + Functions
+pnpm exec supabase db reset               # migrations + seed.sql (wipes local data)
 
-pnpm test:unit                       # Vitest: shared/ logic + RLS negative tests — ~10 s
-pnpm test:e2e                        # builds, runs Playwright against the local stack (EXTERNAL_APIS=mock)
-pnpm dlx playwright show-report      # HTML report with traces for any failure
-pnpm simulate --session ABC234 --students 40   # load test (local stack — see the egress rule in 02)
+pnpm exec vitest run                      # unit + RLS tests, ~20 s (the RLS ones need the stack)
+
+# in a second terminal, so the Edge Functions run in mock mode
+pnpm exec supabase functions serve --env-file e2e/functions.env
+pnpm test:e2e                             # the six journeys, ~3 min; starts `pnpm dev` itself
+pnpm exec playwright show-report          # HTML report with traces for any failure
 ```
+
+If the stack is not running, `pnpm test:e2e` stops at once with a message saying so.

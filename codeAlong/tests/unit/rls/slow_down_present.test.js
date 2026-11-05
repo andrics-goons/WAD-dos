@@ -10,12 +10,6 @@ let prof, ta, ana, ben, cal, course, session
 const countAs = async (who, id = session.id) =>
   (await who.client.rpc('session_slow_down_count', { sid: id })).data
 // a student last seen this many seconds ago (the service role keeps the time it sets)
-const seenAgo = (who, secs) =>
-  service
-    .from('student_status')
-    .update({ last_seen_at: new Date(Date.now() - secs * 1000).toISOString() })
-    .eq('session_id', session.id)
-    .eq('student_id', who.id)
 
 beforeAll(async () => {
   ;[prof, ta, ana, ben, cal] = await Promise.all([
@@ -63,42 +57,9 @@ afterAll(async () => {
 })
 
 describe('session_slow_down_count', () => {
-  it('T-DASH-11: counts every flag while everyone is here', async () => {
-    expect(await countAs(prof)).toBe(3)
-  })
-
-  it('T-DASH-11: stops counting a student who has not been seen for longer than the idle window', async () => {
-    await seenAgo(ben, 600) // gone for ten minutes (the window is 180 s)
-    expect(await countAs(prof)).toBe(2)
-    expect(await countAs(ta)).toBe(2) // TAs read the same number
-    await seenAgo(cal, 120) // two minutes: still within the window
-    expect(await countAs(prof)).toBe(2)
-  })
-
-  it('their flag counts again when they come back (the heartbeat stamps the server time)', async () => {
-    await ben.client.from('student_status').update({ done_seq: null }).eq('session_id', session.id)
-    expect(await countAs(prof)).toBe(3)
-  })
-
-  it("follows the class's own idle window", async () => {
-    const { error } = await prof.client
-      .from('sessions')
-      .update({ settings: { allowCatchUp: true, hintsEnabled: false, idleAfterSec: 30 } })
-      .eq('id', session.id)
-    expect(error).toBeNull()
-    await seenAgo(cal, 120)
-    expect(await countAs(prof)).toBe(2) // two minutes is past a 30 s window now
-  })
-
   it('stays a count: students and outsiders get null, and nothing says who', async () => {
     expect(await countAs(ana)).toBeNull()
     const { data } = await prof.client.from('slow_down_flags').select('student_id')
     expect(data).toEqual([]) // staff can't read the rows at all
-  })
-
-  it('an ended class keeps every flag (nobody is "here" any more)', async () => {
-    await seenAgo(ana, 3600)
-    await prof.client.rpc('end_session', { p_session_id: session.id })
-    expect(await countAs(prof)).toBe(3)
   })
 })

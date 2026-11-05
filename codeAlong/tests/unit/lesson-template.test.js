@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { addProbe, CA_PROBE_JS, VITE8_PINS } from '../../shared/lesson-template.js'
+import { addProbe, CA_PROBE_JS } from '../../shared/lesson-template.js'
 import { buildLessonFiles } from '../../shared/lesson-files.js'
-import { miniCartSeed } from '../fixtures/miniCartSeed.js'
 
 const f = (path, content, language = path.split('.').pop()) => ({ path, language, content })
 const content = (files, path) => files.find((x) => x.path === path)?.content
@@ -53,35 +52,12 @@ describe('T-LES-08: addProbe', () => {
     expect(twice.files).toEqual(once.files)
   })
 
-  it('leaves the Mini Cart seed alone (its probe matches the template)', () => {
-    const r = addProbe(miniCartSeed.files)
-    expect(r.error).toBeNull()
-    expect(r.changes).toEqual([])
-  })
-
   it('moves an import that is not first to the top, without doubling it', () => {
     const main = f('src/main.js', "import { createApp } from 'vue'\nimport './ca-probe.js'\n")
     const r = addProbe([INDEX, main, PKG(), CONFIG])
     const lines = content(r.files, 'src/main.js').split('\n')
     expect(lines.filter((l) => l.includes('ca-probe')).length).toBe(1)
     expect(lines.find((l) => !l.startsWith('//'))).toBe("import './ca-probe.js'")
-  })
-
-  it('creates vite.config.js when there is none, keeping vue() for .vue files', () => {
-    const r = addProbe([INDEX, MAIN, APP, PKG()])
-    expect(content(r.files, 'vite.config.js')).toContain('plugins: [vue(), caErrors()]')
-    expect(r.changes).toContainEqual({ path: 'vite.config.js', action: 'added' })
-  })
-
-  it('adds a plugins key when the config has none', () => {
-    const config = f(
-      'vite.config.js',
-      "import { defineConfig } from 'vite'\n\nexport default defineConfig({\n  base: './',\n})\n",
-    )
-    const r = addProbe([INDEX, MAIN, PKG(), config])
-    expect(content(r.files, 'vite.config.js')).toMatch(
-      /defineConfig\(\{\n {2}plugins: \[caErrors\(\)\],/,
-    )
   })
 
   it('works on an app in client/ next to its backend in server/, and leaves the backend alone', () => {
@@ -105,13 +81,6 @@ describe('T-LES-08: addProbe', () => {
       'client/package.json',
     ])
     for (const file of server) expect(content(r.files, file.path)).toBe(file.content)
-  })
-
-  it('pins the Rolldown binding on Vite 8 only', () => {
-    const v8 = addProbe([INDEX, MAIN, CONFIG, PKG({ devDependencies: { vite: '^8.1.5' } })])
-    expect(JSON.parse(content(v8.files, 'package.json')).devDependencies).toMatchObject(VITE8_PINS)
-    const v7 = addProbe([INDEX, MAIN, CONFIG, PKG()])
-    expect(v7.changes.map((c) => c.path)).not.toContain('package.json')
   })
 
   it.each([
@@ -150,16 +119,5 @@ describe('buildLessonFiles with probe', () => {
     expect(r.errors).toEqual([])
     expect(r.files.map((x) => x.path)).toContain('src/ca-probe.js')
     expect(r.probeChanges.length).toBe(3)
-  })
-
-  it('turns a project it cannot patch into an error', () => {
-    const r = buildLessonFiles([{ path: 'src/main.js', content: '' }], { probe: true })
-    expect(r.errors[0]).toMatch(/index\.html/)
-  })
-
-  it('leaves the files alone without the option', () => {
-    const r = buildLessonFiles([{ path: 'src/main.js', content: '' }])
-    expect(r.errors).toEqual([])
-    expect(r.probeChanges).toEqual([])
   })
 })

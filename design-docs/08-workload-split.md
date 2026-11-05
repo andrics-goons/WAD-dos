@@ -268,7 +268,7 @@ Answers to #3 go in the README either way — the measurement is the decision re
 | **Review every migration PR** — feature owners write their own RPCs **(moved)** | — | ⬜ |
 | Supabase client + error mapper | `src/lib/supabase.js`, `src/api/mapError.js` | ✅ |
 | Auth data access | `src/api/auth.api.js` | ✅ |
-| Courses data access (create, list, enrol, add TA, people) + courses store | `src/api/courses.api.js`, `src/stores/courses.js`, `tests/unit/api/courses.api.test.js` | ✅ |
+| Courses data access (create, list, enrol, add TA, people) + courses store | `src/api/courses.api.js`, `src/stores/courses.js` | ✅ |
 | **Enrol page** — typed code and `/enrol/:code` link, auto-submit **(new)**, `returnTo` through login/register | `views/EnrolView.vue` | ✅ |
 | Report builder (SQL trigger on end) + trends RPC + digest function + report data access | `…_session_report.sql`, `supabase/functions/digest/`, `src/api/reports.api.js`, `src/stores/report.js` | ✅ |
 | Seed data (Dylan's Mini Cart project; past + live sessions, reports) | `supabase/seed.sql`, `tests/unit/rls/seed.test.js` | ✅ |

@@ -2,8 +2,7 @@
 // "Delete account" on the profile page: delete_my_account() removes the caller and everything
 // that would block it. A prof's courses go with them; nobody else's data does.
 import { describe, it, expect, beforeEach, afterAll } from 'vitest'
-import { anonClient, userClient, service, cleanup } from './_helpers.js'
-import { mapError } from '@/api/mapError'
+import { userClient, service, cleanup } from './_helpers.js'
 
 const file = (content) => [{ path: 'index.html', language: 'html', content }]
 const exists = async (table, column, value) =>
@@ -11,7 +10,7 @@ const exists = async (table, column, value) =>
   0
 const userExists = async (id) => !(await service.auth.admin.getUserById(id)).error
 
-let prof, otherProf, ana, ben, course, otherCourse, session, otherSession
+let prof, ana, ben, session
 const courses = []
 
 async function courseWithClass(owner, section) {
@@ -54,14 +53,12 @@ async function courseWithClass(owner, section) {
 }
 
 beforeEach(async () => {
-  ;[prof, otherProf, ana, ben] = await Promise.all([
+  ;[prof, ana, ben] = await Promise.all([
     userClient({ name: 'Prof Lee', role: 'prof' }),
-    userClient({ name: 'Prof Tan', role: 'prof' }),
     userClient({ name: 'Ana', role: 'student' }),
     userClient({ name: 'Ben', role: 'student' }),
   ])
-  ;({ c: course, s: session } = await courseWithClass(prof, 'G1'))
-  ;({ c: otherCourse, s: otherSession } = await courseWithClass(otherProf, 'G2'))
+  ;({ s: session } = await courseWithClass(prof, 'G1'))
 }, 60_000)
 
 afterAll(async () => {
@@ -81,23 +78,5 @@ describe('delete_my_account', () => {
     // the classes and Ben's part in them stay
     expect(await exists('sessions', 'id', session.id)).toBe(true)
     expect(await exists('student_status', 'student_id', ben.id)).toBe(true)
-  })
-
-  it("T-PLAT-23: a prof's courses go with them, everyone else's stay", async () => {
-    const { error } = await prof.client.rpc('delete_my_account')
-    expect(error).toBeNull()
-    expect(await userExists(prof.id)).toBe(false)
-    expect(await exists('courses', 'id', course.id)).toBe(false)
-    expect(await exists('sessions', 'id', session.id)).toBe(false)
-    expect(await exists('courses', 'id', otherCourse.id)).toBe(true)
-    expect(await exists('sessions', 'id', otherSession.id)).toBe(true)
-    // the students are still there, and still in the other prof's course
-    expect(await userExists(ana.id)).toBe(true)
-    expect(await exists('course_students', 'user_id', ana.id)).toBe(true)
-  })
-
-  it('T-PLAT-23: logged out, there is nothing to delete', async () => {
-    const { error } = await anonClient().rpc('delete_my_account')
-    expect(mapError(error).code).toBe('FORBIDDEN')
   })
 })

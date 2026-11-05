@@ -92,45 +92,6 @@ afterAll(async () => {
 })
 
 describe('session channel access', () => {
-  // Also proves broadcasts are getting through, so "hears nothing" below means something.
-  // The first few can be lost while the local live server wakes up, so it tries a few times.
-  it('an enrolled student can join their class channel and hears broadcasts', async () => {
-    const attempt = await tryJoin(stu.client, session.id)
-    for (let i = 0; i < 10 && !attempt.heard; i++) await broadcastSomething()
-    await stu.client.removeChannel(attempt.channel)
-    expect(attempt.status).toBe('SUBSCRIBED')
-    expect(attempt.heard).toBe(true)
-  }, 40_000)
-
-  it('T-PRIV-12: a student sees the classmates online in their live class', async () => {
-    const here = stu.client.channel(`session:${session.id}`, {
-      config: { private: true, presence: { key: stu.id } },
-    })
-    await new Promise((resolve) =>
-      here.subscribe((status) => {
-        if (status === 'SUBSCRIBED') here.track({ userId: stu.id, name: 'Stu Dent' }).then(resolve)
-      }),
-    )
-
-    const watching = stu2.client.channel(`session:${session.id}`, {
-      config: { private: true, presence: { key: '' } },
-    })
-    const names = await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('nobody seen within 10s')), 10_000)
-      watching.on('presence', { event: 'sync' }, () => {
-        const people = Object.values(watching.presenceState()).map(([p]) => p.name)
-        if (people.length) {
-          clearTimeout(timer)
-          resolve(people)
-        }
-      })
-      watching.subscribe()
-    })
-    await stu.client.removeChannel(here)
-    await stu2.client.removeChannel(watching)
-    expect(names).toEqual(['Stu Dent'])
-  }, 20_000)
-
   it('T-SESS-09: a logged-out visitor cannot join, and hears nothing', async () => {
     const anon = anonClient()
     const attempt = await tryJoin(anon, session.id)

@@ -128,13 +128,14 @@ codeAlong/                       ← project root; Vercel "Root Directory" point
 │   ├── seed-generate.js         ← prints seed rows using the real shared/ functions (Andric)
 │   └── fixtures/mini-cart/      ← the Mini Cart lesson project (Evan)
 │
+├── e2e/                         ← Playwright: the six journeys (see 06-stages-and-tests.md)
+│   ├── fixtures.js              ← login(email), joinClass, openQueue, the service client
+│   ├── classroom.js             ← throwaway accounts, courses and classes, and shared steps
+│   └── journey-*.spec.js
 └── tests/
-    ├── e2e/                     ← Playwright specs (see 06-stages-and-tests.md)
-    │   ├── fixtures.js          ← profPage, taPage, studentPages(n), db reset
-    │   └── *.spec.js
     └── unit/
-        ├── *.test.js            ← shared/ pure logic
-        └── rls/*.test.js        ← negative authorization tests (service role vs user role)
+        ├── *.test.js            ← pure logic and Edge Function handlers (with fakes)
+        └── rls/*.test.js        ← privacy and permission tests (service role vs user role)
 ```
 
 ---

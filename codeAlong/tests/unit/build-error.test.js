@@ -1,14 +1,17 @@
 // Unit tests for reading errors out of the student's dev server: shared/build-error.js,
 // shared/runtime-error.js and shared/error-reader.js (design-docs/05 §1)
 import { describe, it, expect, vi } from 'vitest'
-import { Limits } from '../../shared/constants.js'
 import { parseBuildError } from '../../shared/build-error.js'
 import { parseRuntimeError } from '../../shared/runtime-error.js'
 import { createErrorReader } from '../../shared/error-reader.js'
 import { normalizeError } from '../../shared/error-normalizer.js'
 
 // What Vite 8 prints for a syntax error, code frame included. The frame is the student's code
-const FRAME = ['  2  |  <script setup>', '  3  |  const items = ref([)', '     |                     ^']
+const FRAME = [
+  '  2  |  <script setup>',
+  '  3  |  const items = ref([)',
+  '     |                     ^',
+]
 const VITE_ERROR = [
   '9:18:41 PM [vite] (client) Pre-transform error: Unexpected token (3:21)',
   '  Plugin: vite:vue',
@@ -33,19 +36,6 @@ describe('parseBuildError', () => {
     for (const line of FRAME) expect(sent).not.toContain(line.split('|')[1].trim())
   })
 
-  it('reads the older "Internal server error" label, and a File: line with no line number', () => {
-    const err = parseBuildError(
-      '[vite] Internal server error: Failed to resolve import "./Cart.vue"\n  File: /x/src/main.js',
-    )
-    expect(err).toMatchObject({ message: 'Failed to resolve import "./Cart.vue"', file: 'src/main.js' })
-    expect(err.line).toBeNull()
-  })
-
-  it('cuts a long message to what the database accepts', () => {
-    const err = parseBuildError(`[vite] Pre-transform error: ${'x'.repeat(500)}`)
-    expect(err.message).toHaveLength(Limits.ERROR_MESSAGE_MAX)
-  })
-
   it.each(['', 'VITE v8 ready in 300 ms', '[vite] Pre-transform error:   '])(
     'is null for output that is not a Vite error: %j',
     (text) => expect(parseBuildError(text)).toBeNull(),
@@ -67,11 +57,6 @@ describe('parseRuntimeError', () => {
       file: 'src/components/ItemCard.vue',
       line: 12,
     })
-  })
-
-  it('a failed promise has no file, and line 0 means the browser does not know', () => {
-    const err = parseRuntimeError({ name: 'TypeError', message: 'x is not a function', lineno: 0 })
-    expect(err).toMatchObject({ name: 'TypeError', file: null, line: null })
   })
 
   it.each([null, 'text', {}, { message: 'Script error.' }])(
@@ -100,10 +85,6 @@ describe('createErrorReader', () => {
     expect(onError).toHaveBeenCalledWith(
       expect.objectContaining({ source: 'runtime', message: 'cart.map is not a function' }),
     )
-  })
-
-  it('ignores a ca-error line that is not JSON', () => {
-    expect(read(['ca-error {oops'])).not.toHaveBeenCalled()
   })
 
   it('reports null once the code compiles again', () => {

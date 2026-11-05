@@ -6,10 +6,13 @@ const PASSWORD = 'pass1234'
 const noSession = { auth: { persistSession: false, autoRefreshToken: false } }
 
 // Read the URL and keys from the running local stack, so the specs always match it.
+// Run from codeAlong/: the CLI only finds supabase/config.toml from there or below it, and the
+// VS Code Playwright extension starts the specs from whichever folder is open.
 function readLocalStack() {
   let out
   try {
     out = execSync('pnpm exec supabase status -o env', {
+      cwd: new URL('..', import.meta.url),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     })
@@ -33,7 +36,9 @@ export const service = createClient(stack.url, stack.serviceKey, noSession)
 
 // Sign in through Supabase Auth, then plant the session in localStorage so the page
 // is already logged in. supabase-js keeps it under `sb-<first label of the host>-auth-token`.
-async function loginContext(browser, email) {
+// Only when there's none yet: the app's own updates to it (archiving a course, a new name)
+// must survive a reload. A sign-out removes it, so the next page load signs back in.
+async function loginContext(browser, email, { githubToken } = {}) {
   const sb = createClient(stack.url, stack.anonKey, noSession)
   const { data, error } = await sb.auth.signInWithPassword({ email, password: PASSWORD })
   expect(error).toBeNull()
@@ -41,17 +46,13 @@ async function loginContext(browser, email) {
   const context = await browser.newContext()
   const key = `sb-${new URL(stack.url).hostname.split('.')[0]}-auth-token`
   await context.addInitScript(
-    ([k, session]) => window.localStorage.setItem(k, JSON.stringify(session)),
-    [key, data.session],
+    ([k, session]) => {
+      if (!window.localStorage.getItem(k)) window.localStorage.setItem(k, JSON.stringify(session))
+    },
+    // a GitHub sign-in leaves GitHub's token on the session; a placeholder is enough in mock mode
+    [key, githubToken ? { ...data.session, provider_token: githubToken } : data.session],
   )
   return { context, page: await context.newPage() }
-}
-
-/** One logged-in page for each email, closed when the test ends. */
-async function loginAll(browser, emails, use) {
-  const sessions = await Promise.all(emails.map((email) => loginContext(browser, email)))
-  await use(sessions.map((s) => s.page))
-  await Promise.all(sessions.map((s) => s.context.close()))
 }
 
 // Resolves once the realtime socket has confirmed the class channel. Call it before the
@@ -70,14 +71,14 @@ function channelSubscribed(page) {
 }
 
 /**
- * A student joins the seeded live class (join code CART42) and lands in its workspace.
- * Goes on only once the class channel is confirmed, so the student can receive a broadcast:
- * one sent while it is still connecting would be missed.
+ * A student joins a live class from its link (as from the QR code), pressing Join themselves,
+ * and lands in its workspace. Goes on only once the class channel is confirmed, so the student
+ * can receive a broadcast: one sent while it is still connecting would be missed.
  */
-export async function joinClass(page) {
+export async function joinClass(page, joinCode) {
   const subscribed = channelSubscribed(page)
-  await page.goto('/join/CART42')
-  await page.getByRole('button', { name: 'Join' }).click()
+  await page.goto(`/join/${joinCode}`)
+  await page.getByRole('button', { name: 'Join', exact: true }).click()
   await expect(page).toHaveURL(/\/s\/[^/]+\/code/)
   await subscribed
 }
@@ -90,13 +91,18 @@ export async function openQueue(page, path) {
 }
 
 export const test = base.extend({
-  prof: ({ browser }, use) => loginAll(browser, ['prof@codealong.test'], ([page]) => use(page)),
-  ta: ({ browser }, use) => loginAll(browser, ['ta.ana@codealong.test'], ([page]) => use(page)),
-  ta2: ({ browser }, use) => loginAll(browser, ['ta.ben@codealong.test'], ([page]) => use(page)),
-  // Zoe is not enrolled in any course
-  zoe: ({ browser }, use) => loginAll(browser, ['zoe@codealong.test'], ([page]) => use(page)),
-  students: ({ browser }, use) =>
-    loginAll(browser, ['alex@codealong.test', 'bea@codealong.test', 'chen@codealong.test'], use),
+  // login(email, { githubToken }) → a page already signed in as that account (the throwaway ones
+  // from classroom.js, or a seeded one), as if it had signed in with GitHub when a token is given.
+  // Closed when the test ends.
+  login: async ({ browser }, use) => {
+    const contexts = []
+    await use(async (email, options) => {
+      const { context, page } = await loginContext(browser, email, options)
+      contexts.push(context)
+      return page
+    })
+    await Promise.all(contexts.map((c) => c.close()))
+  },
 })
 
 export { expect }

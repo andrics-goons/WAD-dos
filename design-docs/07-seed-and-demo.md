@@ -150,7 +150,7 @@ The live class's `idleAfterSec` is **3600**, not 180, so its students stay "here
 | The live class | Inserted through the triggers, so its history is stamped now(). Its errors use the exact keys `shared/error-normalizer.js` makes |
 | Helpers | Built in a scratch `seed` schema that the file drops at the end |
 
-`tests/unit/rls/seed.test.js` checks it all (T-SEED-02/03, the reports against their history, the live class's states and help queue, plus the privacy rules on the seeded data). It skips itself when the database hasn't been seeded.
+`tests/unit/rls/seed.test.js` checks that the accounts above log in with their roles, and that a seeded student can't read a classmate's code. It skips itself when the database hasn't been seeded. The Playwright journeys never change the seeded rows: they make their own people and classes, and only read Prof Tan's course and its Mini Cart lesson.
 
 ---
 

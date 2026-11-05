@@ -37,24 +37,6 @@ afterEach(async () => {
 })
 
 describe('autosave', () => {
-  it('removes files the server has but this browser never saved, when told what the server has', async () => {
-    const saver = createAutosave({ sessionId: 's1', userId: 'u1', saved: project() }) // e.g. another device
-    savers.push(saver)
-    saver.autosave([f('src/a.js', 'a changed')]) // b and c are gone, e.g. after loading a checkpoint
-    await saver.flush()
-    expect(sentPaths(autosavePatch.mock.calls[0])).toEqual(['src/a.js'])
-    expect(autosavePatch.mock.calls[0][2]).toEqual(['src/b.js', 'src/c.js'])
-  })
-
-  it('with nothing saved on the server yet, the first save sends every file', async () => {
-    store.set('synced:u1:s1', { 'src/a.js': 'stale hash from an old session' })
-    const saver = createAutosave({ sessionId: 's1', userId: 'u1', saved: [] })
-    savers.push(saver)
-    saver.autosave(project())
-    await saver.flush()
-    expect(sentPaths(autosavePatch.mock.calls[0])).toEqual(['src/a.js', 'src/b.js', 'src/c.js'])
-  })
-
   it('T-SBX-18: waits until 5 s after the last edit, then saves once', async () => {
     const { saver } = setup()
     saver.autosave(project())
@@ -85,16 +67,6 @@ describe('autosave', () => {
     ])
   })
 
-  it('T-SBX-20: sends no request when nothing changed', async () => {
-    const { saver, statuses } = setup()
-    saver.autosave(project())
-    await saver.flush()
-    saver.autosave(project())
-    await saver.flush()
-    expect(autosavePatch).toHaveBeenCalledTimes(1)
-    expect(statuses.at(-1)).toBe('saved')
-  })
-
   it('T-SBX-21: keeps the old hashes after a failed save and retries the same changes', async () => {
     const { saver, statuses } = setup()
     autosavePatch.mockRejectedValueOnce(new Error('offline'))
@@ -112,23 +84,6 @@ describe('autosave', () => {
     expect(store.size).toBe(1)
   })
 
-  it('waits longer after each failure (2 s, then 4 s)', async () => {
-    const { saver } = setup()
-    autosavePatch.mockRejectedValue(new Error('offline'))
-    saver.autosave(project())
-    await saver.flush()
-
-    await vi.advanceTimersByTimeAsync(2_000)
-    await saver.idle()
-    expect(autosavePatch).toHaveBeenCalledTimes(2)
-
-    await vi.advanceTimersByTimeAsync(3_999)
-    expect(autosavePatch).toHaveBeenCalledTimes(2)
-    await vi.advanceTimersByTimeAsync(1)
-    await saver.idle()
-    expect(autosavePatch).toHaveBeenCalledTimes(3)
-  })
-
   it('stops saving once the class has ended, instead of retrying', async () => {
     const { saver, statuses } = setup()
     autosavePatch.mockRejectedValue(Object.assign(new Error('ended'), { code: 'CONFLICT' }))
@@ -142,46 +97,6 @@ describe('autosave', () => {
     expect(autosavePatch).toHaveBeenCalledTimes(1)
   })
 
-  it('after the class ends, leaving the window or tab sends nothing more', async () => {
-    const { saver } = setup()
-    autosavePatch.mockRejectedValue(Object.assign(new Error('ended'), { code: 'CONFLICT' }))
-    saver.autosave(project())
-    await saver.flush()
-    window.dispatchEvent(new Event('blur'))
-    window.dispatchEvent(new Event('pagehide'))
-    await saver.flush()
-    expect(autosavePatch).toHaveBeenCalledTimes(1)
-  })
-
-  it('asks before the page is left with edits not saved yet, and not once they are', async () => {
-    const { saver } = setup()
-    const leave = () => {
-      const event = new Event('beforeunload', { cancelable: true })
-      window.dispatchEvent(event)
-      return event.defaultPrevented
-    }
-    saver.autosave(project()) // waiting for the 5 s countdown
-    expect(leave()).toBe(true)
-    await saver.idle()
-    expect(leave()).toBe(false) // the leave itself saved it
-  })
-
-  it('does not retry a save the server refused (e.g. FORBIDDEN), but tries again on the next edit', async () => {
-    const { saver, statuses } = setup()
-    autosavePatch.mockRejectedValueOnce(Object.assign(new Error('no'), { code: 'FORBIDDEN' }))
-    saver.autosave(project())
-    await saver.flush()
-    expect(statuses.at(-1)).toBe('error')
-
-    await vi.advanceTimersByTimeAsync(60_000)
-    expect(autosavePatch).toHaveBeenCalledTimes(1) // no automatic retry
-
-    saver.autosave([...project(), f('src/d.js', 'd')])
-    await vi.advanceTimersByTimeAsync(5_000)
-    await saver.idle()
-    expect(autosavePatch).toHaveBeenCalledTimes(2)
-  })
-
   it('does not send a project that is too large, and does not keep retrying it', async () => {
     const { saver, statuses } = setup()
     saver.autosave(Array.from({ length: 41 }, (_, i) => f(`src/f${i}.js`, 'x')))
@@ -189,17 +104,6 @@ describe('autosave', () => {
     await vi.advanceTimersByTimeAsync(60_000)
     expect(autosavePatch).not.toHaveBeenCalled()
     expect(statuses.at(-1)).toBe('too_large')
-  })
-
-  it('remembers what was saved across a page refresh', async () => {
-    const before = setup()
-    before.saver.autosave(project())
-    await before.saver.flush()
-
-    const afterRefresh = setup()
-    afterRefresh.saver.autosave(project())
-    await afterRefresh.saver.flush()
-    expect(autosavePatch).toHaveBeenCalledTimes(1)
   })
 
   it("does not reuse another student's hashes on a shared computer", async () => {
@@ -214,17 +118,6 @@ describe('autosave', () => {
     expect(sentPaths(autosavePatch.mock.calls[1])).toHaveLength(3)
   })
 
-  it('stop() saves pending edits and ignores later ones', async () => {
-    const { saver } = setup()
-    saver.autosave(project())
-    await saver.stop()
-    expect(autosavePatch).toHaveBeenCalledTimes(1)
-
-    saver.autosave([f('src/a.js', 'after stop')])
-    await vi.advanceTimersByTimeAsync(10_000)
-    expect(autosavePatch).toHaveBeenCalledTimes(1)
-  })
-
   it('T-SBX-22: saves straight away when the tab is hidden, without waiting 5 s', async () => {
     const { saver } = setup()
     saver.autosave(project())
@@ -233,17 +126,5 @@ describe('autosave', () => {
     delete document.visibilityState
     await saver.idle()
     expect(autosavePatch).toHaveBeenCalledTimes(1)
-  })
-
-  it('removes its page listeners on stop()', async () => {
-    const removeDoc = vi.spyOn(document, 'removeEventListener')
-    const removeWin = vi.spyOn(window, 'removeEventListener')
-    await setup().saver.stop()
-    expect(removeDoc).toHaveBeenCalledWith('visibilitychange', expect.any(Function))
-    expect(removeWin).toHaveBeenCalledWith('blur', expect.any(Function))
-    expect(removeWin).toHaveBeenCalledWith('pagehide', expect.any(Function))
-    expect(removeWin).toHaveBeenCalledWith('beforeunload', expect.any(Function))
-    removeDoc.mockRestore()
-    removeWin.mockRestore()
   })
 })

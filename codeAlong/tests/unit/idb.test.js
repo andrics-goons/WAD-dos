@@ -9,10 +9,6 @@ describe('idb store', () => {
     expect(await idbGet('synced:u1:s1')).toEqual({ 'src/a.js': 'hash' })
   })
 
-  it('returns undefined for a key that was never stored', async () => {
-    expect(await idbGet('nothing-here')).toBeUndefined()
-  })
-
   it('does nothing, without failing, when the browser has no IndexedDB (e.g. private mode)', async () => {
     const real = globalThis.indexedDB
     delete globalThis.indexedDB

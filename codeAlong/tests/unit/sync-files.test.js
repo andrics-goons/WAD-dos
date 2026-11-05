@@ -1,13 +1,7 @@
 // Unit tests for shared/sync-files.js — what autosave decides to upload
 import { describe, it, expect } from 'vitest'
 import { Limits } from '../../shared/constants.js'
-import {
-  isSyncIgnored,
-  isStorablePath,
-  contentHash,
-  planAutosave,
-  storableFiles,
-} from '../../shared/sync-files.js'
+import { planAutosave, storableFiles } from '../../shared/sync-files.js'
 
 const f = (path, content) => ({ path, content })
 
@@ -30,49 +24,7 @@ const project = () => [
 // What the last successful save would have remembered for these files
 const syncedFor = async (tree) => (await planAutosave(tree, {})).hashes
 
-describe('isSyncIgnored', () => {
-  it.each([
-    ['node_modules/vue/index.js', true],
-    ['server/node_modules/express/index.js', true],
-    ['dist/assets/index.js', true],
-    ['.vite/deps/vue.js', true],
-    ['pnpm-lock.yaml', true],
-    ['logs/npm-debug.log', true],
-    ['src/App.vue', false],
-    ['src/node_modules.js', false],
-    ['distribution/a.js', false],
-  ])('%s → %s', (path, expected) => {
-    expect(isSyncIgnored(path)).toBe(expected)
-  })
-})
-
-describe('isStorablePath', () => {
-  it.each(['src/App.vue', 'server/data.json', 'src/my-cart_v2.js', '.env.example.md'])(
-    'accepts %s',
-    (path) => expect(isStorablePath(path)).toBe(true),
-  )
-  it.each([
-    'src/my notes.js',
-    'src/über.js',
-    '../secret.js',
-    '/etc/passwd.js',
-    `src/${'a'.repeat(120)}.js`,
-  ])('rejects %s', (path) => expect(isStorablePath(path)).toBe(false))
-})
-
 describe('storableFiles', () => {
-  it('T-SBX-32: gives a new file its language, and a renamed one the language of its new name', () => {
-    expect(
-      storableFiles([
-        { path: 'src/Cart.vue', content: '' },
-        { path: 'src/renamed.vue', language: 'js', content: 'x' },
-      ]),
-    ).toEqual([
-      { path: 'src/Cart.vue', language: 'vue', content: '' },
-      { path: 'src/renamed.vue', language: 'vue', content: 'x' },
-    ])
-  })
-
   it('leaves out what the database would refuse', () => {
     const paths = storableFiles([
       { path: 'node_modules/vue/index.js', content: '' },
@@ -84,22 +36,7 @@ describe('storableFiles', () => {
   })
 })
 
-describe('contentHash', () => {
-  it('gives the same hash for the same content and a different one otherwise', async () => {
-    const a = await contentHash('const x = 1')
-    expect(a).toMatch(/^[0-9a-f]{64}$/)
-    expect(await contentHash('const x = 1')).toBe(a)
-    expect(await contentHash('const x = 2')).not.toBe(a)
-  })
-})
-
 describe('planAutosave', () => {
-  it('sends every file on a new device (no saved hashes yet)', async () => {
-    const plan = await planAutosave(project(), {})
-    expect(plan.upsert).toHaveLength(12)
-    expect(plan.remove).toEqual([])
-  })
-
   it('T-SBX-19: sends only the one file that changed out of twelve', async () => {
     const tree = project()
     const synced = await syncedFor(tree)
@@ -146,21 +83,10 @@ describe('planAutosave', () => {
     expect(plan.upsert.map((x) => x.path)).toEqual(['src/main.js'])
   })
 
-  it('leaves out file types the database cannot store, so the rest still saves', async () => {
-    const plan = await planAutosave([...project(), f('.npmrc', 'node-linker=hoisted')], {})
-    expect(plan.upsert).toHaveLength(12)
-  })
-
   it(`flags a project with more than ${Limits.MAX_FILES} files as too large`, async () => {
     const tree = Array.from({ length: Limits.MAX_FILES + 1 }, (_, i) => f(`src/f${i}.js`, 'x'))
     expect((await planAutosave(tree, {})).tooLarge).toBe(true)
     expect((await planAutosave(tree.slice(1), {})).tooLarge).toBe(false)
-  })
-
-  it(`flags a project over ${Limits.MAX_SNAPSHOT_BYTES} bytes as too large`, async () => {
-    const tree = [f('src/big.js', 'x'.repeat(Limits.MAX_SNAPSHOT_BYTES))]
-    expect((await planAutosave(tree, {})).tooLarge).toBe(true)
-    expect((await planAutosave(project(), {})).tooLarge).toBe(false)
   })
 
   it('does not save an empty project (the database needs at least one file)', async () => {

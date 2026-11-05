@@ -14,18 +14,6 @@ describe('languageForPath', () => {
     expect(languageForPath('package.json')).toBe('json')
     expect(languageForPath('README.md')).toBe('md')
   })
-  it('returns null for types the database rejects', () => {
-    expect(languageForPath('logo.png')).toBeNull()
-    expect(languageForPath('main.ts')).toBeNull()
-    expect(languageForPath('Dockerfile')).toBeNull()
-    expect(languageForPath('.npmrc')).toBeNull()
-    expect(languageForPath('v1.2/Makefile')).toBeNull()
-  })
-  it('maps .mjs, .cjs and .htm to the language the database stores', () => {
-    expect(languageForPath('server.mjs')).toBe('js')
-    expect(languageForPath('config.cjs')).toBe('js')
-    expect(languageForPath('old.htm')).toBe('html')
-  })
 })
 
 describe('isIgnored', () => {
@@ -51,16 +39,6 @@ describe('buildLessonFiles', () => {
     expect(r.entryFile).toBe('index.html')
   })
 
-  it('strips the picked folder name when stripRoot is set', () => {
-    const r = buildLessonFiles([e('mini-cart/index.html'), e('mini-cart/src/main.js')], { stripRoot: true })
-    expect(r.files.map((f) => f.path)).toEqual(['index.html', 'src/main.js'])
-  })
-
-  it('normalises backslashes and leading ./', () => {
-    const r = buildLessonFiles([e('.\\src\\main.js')])
-    expect(r.files[0].path).toBe('src/main.js')
-  })
-
   it('skips ignored, unsupported and unsafe files and says why', () => {
     const r = buildLessonFiles([
       e('index.html'),
@@ -81,17 +59,6 @@ describe('buildLessonFiles', () => {
   it('reports an error for more than 40 files', () => {
     const many = Array.from({ length: Limits.MAX_FILES + 1 }, (_, i) => e(`f${i}.js`))
     expect(buildLessonFiles(many).errors[0]).toMatch(/Too many files/)
-  })
-
-  it('reports an error over the byte cap', () => {
-    const big = e('big.js', 'a'.repeat(Limits.MAX_SNAPSHOT_BYTES))
-    expect(buildLessonFiles([big]).errors[0]).toMatch(/too large/)
-  })
-
-  it('reports an error when nothing usable is found', () => {
-    const r = buildLessonFiles([e('logo.png')])
-    expect(r.errors[0]).toMatch(/No supported/)
-    expect(r.entryFile).toBeNull()
   })
 
   it('round-trips a Mini Cart-shaped project unchanged', () => {

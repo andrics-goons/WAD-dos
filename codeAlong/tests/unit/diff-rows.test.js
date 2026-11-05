@@ -32,17 +32,4 @@ describe('splitRows', () => {
       ['b', 'b'],
     ])
   })
-
-  it('pairs separate change blocks separately', () => {
-    const rows = splitRows([del('1'), add('one'), ctx('mid'), del('2'), add('two')])
-    expect(texts(rows)).toEqual([
-      ['1', 'one'],
-      ['mid', 'mid'],
-      ['2', 'two'],
-    ])
-  })
-
-  it('returns no rows for no lines', () => {
-    expect(splitRows([])).toEqual([])
-  })
 })

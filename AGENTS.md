@@ -46,7 +46,7 @@ Run everything from `codeAlong/`. **pnpm only.**
 | Apply new migrations, keep data | `pnpm exec supabase migration up` |
 | Wipe local DB, re-apply all + seed | `pnpm exec supabase db reset` — **destroys local data; ask first** |
 | Unit + RLS tests | `pnpm exec vitest run [file]` (RLS tests need the stack running) |
-| E2E | `pnpm test:e2e` |
+| E2E (serve the functions in mock mode first, see Tests) | `pnpm test:e2e` |
 | Lint | `pnpm lint` |
 | Format | `pnpm exec prettier --write <the files you changed>` — not `pnpm format`, which rewrites everyone's files |
 
@@ -91,11 +91,13 @@ Andric owns the schema; others request changes by PR. See `design-docs/03` and `
 
 ## Tests
 
-- Test names start with their ID from `design-docs/06`, e.g. `it('T-PRIV-03: a classmate cannot read …')`.
-- Tests that hit the local stack start with `// @vitest-environment node` and use `tests/unit/rls/_helpers.js`: `createUser` (admin API, avoids the auth rate limit), `userClient`, `service`, `makeAdmin`, `cleanup`.
-- Clean up in `afterAll`: delete sessions, then courses, then call `cleanup()`. Those foreign keys don't cascade, so users can't be deleted first.
-- Tests of `src/api/*` mock `@/lib/supabase` with `anonClient()` (see `tests/unit/api/courses.api.test.js`).
-- Edge Functions keep their logic in `handler.ts` with dependencies injected, so Vitest can run them with fakes; `index.ts` only wires in real clients.
+The six Playwright **journeys** are the main tests (`design-docs/06`). Before adding a test file, add a step to the journey it belongs to; a new journey is for a new story. Vitest covers what a journey can't see: who may read what, and pure logic.
+
+- **Journeys** (`e2e/journey-*.spec.js`) follow one person or one class through a whole story, in `test.step`s named in plain words. Make your own people and classes with `classroom()` from `e2e/classroom.js` (`account`, `ta`, `enrol`, `liveClass`, `course`) and call `room.cleanup()` in `afterAll`. **Never change a seeded row** (CART42, Prof Lee's course): Prof Tan's course and its Mini Cart lesson are the only seeded rows a journey uses, read-only. Sign in with `login(email)`.
+- **Serve the Edge Functions in mock mode before `pnpm test:e2e`:** `pnpm exec supabase functions serve --env-file e2e/functions.env` in another terminal. Without it the tests reuse the functions from `supabase start`, and the AI analysis calls the real model.
+- **Privacy and permission tests** (`tests/unit/rls/`): add one when you add a table or a policy (`09 §5`). They start with `// @vitest-environment node` and use `tests/unit/rls/_helpers.js`: `createUser` (admin API, avoids the auth rate limit), `userClient`, `service`, `makeAdmin`, `cleanup`. Clean up in `afterAll`: delete sessions, then courses, then call `cleanup()`. Those foreign keys don't cascade, so users can't be deleted first.
+- **Unit tests** (`tests/unit/`) are for pure logic (`shared/`, the parsers, the cache) and Edge Function handlers. Edge Functions keep their logic in `handler.ts` with dependencies injected, so Vitest can run them with fakes; `index.ts` only wires in real clients. Don't test components, stores or `src/api/*` on their own: a journey covers them.
+- A test's name says what it checks. Privacy tests keep their `T-PRIV-xx` ID from `design-docs/06`; other tests don't need one.
 - Playwright: if the bundled Chromium is missing, launch with `channel: 'chrome'`.
 
 ## Ownership

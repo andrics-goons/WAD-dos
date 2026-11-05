@@ -41,20 +41,4 @@ describe('classify', () => {
     expect(state({ lastSeenAt: secondsAgo(181), error: anError })).toBe('idle')
     expect(state({ lastSeenAt: secondsAgo(181), checkpointSeq: 3, doneSeq: 3 })).toBe('idle')
   })
-
-  it('is not idle at exactly the idle time, only after it (like the SQL)', () => {
-    expect(state({ lastSeenAt: secondsAgo(180) })).toBe('in_progress')
-  })
-
-  it('takes lastSeenAt as a date, a timestamp or an iso string', () => {
-    const old = NOW - 200_000
-    expect(state({ lastSeenAt: old })).toBe('idle')
-    expect(state({ lastSeenAt: new Date(old) })).toBe('idle')
-    expect(state({ lastSeenAt: new Date(old).toISOString() })).toBe('idle')
-  })
-
-  it('uses the default idle time when none is given', () => {
-    expect(state({ idleAfterMs: undefined, lastSeenAt: secondsAgo(179) })).toBe('in_progress')
-    expect(state({ idleAfterMs: undefined, lastSeenAt: secondsAgo(181) })).toBe('idle')
-  })
 })

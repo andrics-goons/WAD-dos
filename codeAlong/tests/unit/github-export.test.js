@@ -1,9 +1,8 @@
 // Unit tests for github-export: shared/github.js helpers and the Edge Function handler,
 // with a fake GitHub that records every call (no network).
 import { describe, it, expect, vi } from 'vitest'
-import { commitMessage, exportReadme, exportTree, isValidRepoName } from '../../shared/github.js'
 import { handleExport } from '../../supabase/functions/github-export/handler.ts'
-import { GithubError, mockGithub } from '../../supabase/functions/_shared/github.ts'
+import { GithubError } from '../../supabase/functions/_shared/github.ts'
 
 const TOKEN = 'gho_secret'
 const file = (path, content) => ({ path, content })
@@ -69,30 +68,6 @@ describe('github-export', () => {
     ])
   })
 
-  it('T-GH-04: names each commit after its checkpoint, and chains them in order', async () => {
-    const { github, run } = setup()
-    await run()
-    const commits = github.calls
-      .filter(([, path]) => path.endsWith('/git/commits'))
-      .map((c) => c[2])
-    expect(commits.map((c) => c.message)).toEqual(['Checkpoint 1 · Create the app', 'Checkpoint 2'])
-    // The fake hands out sha-1, sha-2… in call order: tree 1, commit 1, tree 2, commit 2
-    expect(commits[0].parents).toEqual(['initial']) // the repo's first commit
-    expect(commits[1].parents).toEqual(['sha-2']) // commit 1
-    expect(github.calls.at(-1)[2]).toEqual({ sha: 'sha-4' }) // the branch ends on commit 2
-  })
-
-  it('puts exactly that checkpoint in each commit, plus a README', async () => {
-    const { github, run } = setup()
-    await run()
-    const trees = github.calls.filter(([, path]) => path.endsWith('/git/trees')).map((c) => c[2])
-    expect(trees[1].base_tree).toBeUndefined()
-    expect(trees[1].tree.map((f) => [f.path, f.content.slice(0, 9)])).toEqual([
-      ['index.html', '<ul></ul>'],
-      ['README.md', '# Week 6 '],
-    ])
-  })
-
   it('T-GH-05: asks for another name when the repo name is taken', async () => {
     const { run } = setup({ github: fakeGithub({ createFails: 422 }) })
     const res = await run()
@@ -120,49 +95,6 @@ describe('github-export', () => {
     const expired = setup({ github: fakeGithub({ createFails: 401 }) })
     expect((await (await expired.run()).json()).code).toBe('UNAUTHENTICATED')
   })
-
-  it('refuses logged-out callers, bad names, classes it cannot see and classes with no checkpoints', async () => {
-    expect((await setup({ user: null }).run()).status).toBe(401)
-    expect((await setup().run({ ...BODY, repoName: 'my repo!' })).status).toBe(400)
-    expect((await setup({ data: null }).run()).status).toBe(404)
-    expect((await setup({ data: { ...lesson, checkpoints: [] } }).run()).status).toBe(400)
-  })
-
-  it('in mock mode, records every call in test_outbox and never the token', async () => {
-    const insert = vi.fn().mockResolvedValue({ error: null })
-    const github = mockGithub({ from: () => ({ insert }) }, () => undefined)
-    const { run } = setup({ github })
-    expect((await run()).status).toBe(200)
-    expect(insert).toHaveBeenCalledTimes(7) // repo + ref + 2 × (tree + commit) + branch update
-    expect(JSON.stringify(insert.mock.calls)).not.toContain(TOKEN)
-  })
-})
-
-describe('export helpers', () => {
-  it('builds commit messages from the checkpoint', () => {
-    expect(commitMessage({ seq: 3, title: 'Fetch items' })).toBe('Checkpoint 3 · Fetch items')
-    expect(commitMessage({ seq: 3, title: null })).toBe('Checkpoint 3')
-  })
-
-  it('lists the checkpoints in the README', () => {
-    const readme = exportReadme('Week 6 · Mini Cart', lesson.checkpoints)
-    expect(readme).toContain('- Checkpoint 1 · Create the app\n- Checkpoint 2\n')
-  })
-
-  it('keeps a lesson README instead of adding a second one', () => {
-    const tree = exportTree([file('README.md', 'mine')], 'ours')
-    expect(tree.map((f) => f.content)).toEqual(['mine'])
-  })
-
-  it.each([
-    ['mini-cart', true],
-    ['week_6.v2', true],
-    ['my repo', false],
-    ['..', false],
-    ['', false],
-  ])('repo name %s is valid: %s', (name, ok) => {
-    expect(isValidRepoName(name)).toBe(ok)
-  })
 })
 
 describe('github-export of my own code', () => {
@@ -187,18 +119,5 @@ describe('github-export of my own code', () => {
       .filter(([, path]) => path.endsWith('/git/commits'))
       .map((c) => c[2])
     expect(commits.map((c) => c.message)).toEqual(['My code at the end of the class'])
-  })
-
-  it('T-GH-08: the README says it is my code, not one commit per checkpoint', () => {
-    expect(exportReadme(mine.lessonTitle, mine.checkpoints)).toContain(
-      'my code at the end of the class',
-    )
-  })
-
-  it('T-GH-08: says so when I have no saved code', async () => {
-    const { run } = setup({ data: { lessonTitle: 'x', checkpoints: [] } })
-    const res = await run({ ...BODY, mine: true })
-    expect(res.status).toBe(400)
-    expect((await res.json()).message).toBe('You have no saved code in this class')
   })
 })

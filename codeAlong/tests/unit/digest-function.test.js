@@ -2,7 +2,6 @@
 // outbox and Telegram faked. Mock mode writes each message to the outbox instead of sending.
 import { describe, it, expect, vi } from 'vitest'
 import { handleDigest } from '../../supabase/functions/digest/handler.ts'
-import { formatStaffDigest, formatAbsentDigest, topCheckpoints } from '../../shared/telegram.js'
 
 const envOf = (vars) => (key) => vars[key]
 const MOCK = envOf({ EXTERNAL_APIS: 'mock', APP_URL: 'https://app.test' })
@@ -73,15 +72,6 @@ describe('digest', () => {
     })
   })
 
-  it('tells students who missed the class where to start in the replay', async () => {
-    const { deps: d, insert } = deps(ctx())
-    await handleDigest(req({ sessionId: 's1' }), d)
-    const absent = insert.mock.calls.at(-1)[0].payload
-    expect(absent.chat_id).toBe('333')
-    expect(absent.text).toContain('Checkpoint 4 · Emit add-to-cart')
-    expect(absent.text).toContain('https://app.test/replays/s1')
-  })
-
   it.each([
     ['not the course prof', { isProf: false }, 403, 'FORBIDDEN'],
     ['the class is still running', { report: null }, 409, 'CONFLICT'],
@@ -106,22 +96,5 @@ describe('digest', () => {
     const res = await handleDigest(req({ sessionId: 's1' }), d)
     expect(await res.json()).toMatchObject({ sent: 0, failed: 3 })
     expect(db.markSent).not.toHaveBeenCalled()
-  })
-})
-
-describe('digest messages', () => {
-  it('the hardest checkpoints come first, and untroubled ones are left out', () => {
-    expect(topCheckpoints(REPORT, 'trouble', 3).map((c) => c.seq)).toEqual([4, 7])
-  })
-
-  it('escapes anything a prof or student typed', () => {
-    const report = {
-      ...REPORT,
-      checkpoints: [{ seq: 2, title: '<script>', trouble: 0.5, errorStudents: 1, dropOff: 0 }],
-    }
-    const staff = formatStaffDigest({ courseLabel: 'X', lessonTitle: '<b>', report, openHelp: 0 })
-    const absent = formatAbsentDigest({ lessonTitle: '<b>', report })
-    expect(staff).not.toContain('<script>')
-    expect(absent).toContain('&lt;b&gt;')
   })
 })

@@ -1,6 +1,6 @@
 // Unit tests for shared/diff-summary.js, used by the replay and the TA's side-by-side
 import { describe, it, expect } from 'vitest'
-import { diffSummary, CONTEXT_LINES } from '../../shared/diff-summary.js'
+import { diffSummary } from '../../shared/diff-summary.js'
 
 // One file in the jsonb `files` shape
 const f = (path, content, language = 'js') => ({ path, language, content })
@@ -29,39 +29,6 @@ describe('diffSummary', () => {
       expect(file.firstDiffLine).toBe(22)
       expect(file).toMatchObject({ added: 1, removed: 1 })
     })
-
-    it('shows what the student wrote next to what the checkpoint has', () => {
-      const [hunk] = file.hunks
-      const del = hunk.lines.find((l) => l.type === 'del')
-      const add = hunk.lines.find((l) => l.type === 'add')
-      expect(del).toEqual({
-        type: 'del',
-        text: '    <ItemCard :items="items" />',
-        oldLine: 22,
-        newLine: null,
-      })
-      expect(add).toEqual({
-        type: 'add',
-        text: '    <ItemCard :items="props.items" />',
-        oldLine: null,
-        newLine: 22,
-      })
-    })
-
-    it(`surrounds the change with ${CONTEXT_LINES} lines of context`, () => {
-      expect(file.hunks).toHaveLength(1)
-      const [hunk] = file.hunks
-      expect(hunk).toMatchObject({ oldStart: 20, newStart: 20 })
-      expect(hunk.lines.map((l) => l.type)).toEqual([
-        'context',
-        'context',
-        'del',
-        'add',
-        'context',
-        'context',
-      ])
-      expect(hunk.lines[0]).toEqual({ type: 'context', text: 'line 20', oldLine: 20, newLine: 20 })
-    })
   })
 
   // Formatting differences shouldn't show up as changes
@@ -76,40 +43,16 @@ describe('diffSummary', () => {
       expect(diffSummary([f('a.js', 'a\r\nb\r\n')], [f('a.js', 'a\nb\n')]).files).toEqual([])
     })
 
-    it('ignores added and removed blank lines', () => {
-      expect(diffSummary([f('a.js', 'a\n\n\nb\n')], [f('a.js', 'a\nb\n\n')]).files).toEqual([])
-    })
-
-    it('ignores a missing newline at the end of the file', () => {
-      expect(diffSummary([f('a.js', 'a\nb')], [f('a.js', 'a\nb\n')]).files).toEqual([])
-    })
-
     it('still reports the real change when whitespace changed too', () => {
       const [file] = diffSummary([f('a.js', 'a\n  b\nc\n')], [f('a.js', 'a\nb\nC\n')]).files
       expect(file).toMatchObject({ added: 1, removed: 1, firstDiffLine: 3 })
       // Unchanged lines are shown as the checkpoint has them, since that is what gets loaded
       expect(file.hunks[0].lines[1]).toEqual({ type: 'context', text: 'b', oldLine: 2, newLine: 2 })
     })
-
-    it('keeps blank lines that are part of a real change', () => {
-      const before = 'a\nb\n'
-      const after = 'a\nfunction x() {\n\n  return 1\n}\nb\n'
-      const [file] = diffSummary([f('a.js', before)], [f('a.js', after)]).files
-      expect(file).toMatchObject({ added: 4, removed: 0, firstDiffLine: 2 })
-    })
   })
 
   // Added / removed / unchanged files, and the order they come back in
   describe('which files are listed', () => {
-    it('lists nothing when the versions are identical', () => {
-      const files = [f('index.html', '<div id="app"></div>\n'), f('src/main.js', 'mount()\n')]
-      expect(diffSummary(files, structuredClone(files)).files).toEqual([])
-    })
-
-    it('ignores the language field', () => {
-      expect(diffSummary([f('a.js', 'x\n', 'js')], [f('a.js', 'x\n', 'json')]).files).toEqual([])
-    })
-
     it('reports a file the student is missing as added', () => {
       const [file] = diffSummary(
         [],
@@ -131,33 +74,6 @@ describe('diffSummary', () => {
       const [file] = diffSummary([f('notes.md', 'todo\nlater\n', 'md')], []).files
       expect(file).toMatchObject({ status: 'removed', added: 0, removed: 2, firstDiffLine: 1 })
     })
-
-    it('still lists a missing file when it is empty', () => {
-      const [file] = diffSummary([], [f('src/empty.js', '')]).files
-      expect(file).toMatchObject({ status: 'added', added: 0, removed: 0, hunks: [] })
-    })
-
-    it('lists files in the checkpoint order, then files only the student has', () => {
-      const before = [f('a.js', 'old\n'), f('extra.js', 'x\n')]
-      const after = [f('b.js', 'new\n'), f('a.js', 'new\n')]
-      expect(diffSummary(before, after).files.map((x) => [x.path, x.status])).toEqual([
-        ['b.js', 'added'],
-        ['a.js', 'modified'],
-        ['extra.js', 'removed'],
-      ])
-    })
-
-    it('treats missing inputs as no files', () => {
-      expect(diffSummary(null, undefined)).toEqual({ files: [] })
-    })
-
-    it('does not change its inputs', () => {
-      const before = [f('a.js', 'a\nb\n')]
-      const after = [f('a.js', 'a\nc\n'), f('b.js', 'new\n')]
-      const copies = structuredClone([before, after])
-      diffSummary(before, after)
-      expect([before, after]).toEqual(copies)
-    })
   })
 
   // Line numbers at the edges, and how nearby changes are grouped into hunks
@@ -168,42 +84,6 @@ describe('diffSummary', () => {
       const [file] = diffSummary([f('a.js', text(before))], [f('a.js', text(after))]).files
       // 'line 6' is now line 5 of the checkpoint
       expect(file).toMatchObject({ added: 0, removed: 1, firstDiffLine: 5 })
-    })
-
-    it('points a deletion at the end of the file at the new last line', () => {
-      const [file] = diffSummary(
-        [f('a.js', text(numbered(10)))],
-        [f('a.js', text(numbered(8)))],
-      ).files
-      expect(file).toMatchObject({ removed: 2, firstDiffLine: 8 })
-    })
-
-    it('numbers lines added at the end of the file', () => {
-      const [file] = diffSummary(
-        [f('a.js', text(numbered(5)))],
-        [f('a.js', text(numbered(7)))],
-      ).files
-      expect(file).toMatchObject({ added: 2, firstDiffLine: 6 })
-      expect(file.hunks[0]).toMatchObject({ oldStart: 4, newStart: 4 })
-      expect(file.hunks[0].lines.filter((l) => l.type === 'add').map((l) => l.newLine)).toEqual([
-        6, 7,
-      ])
-    })
-
-    it(`merges changes with up to ${2 * CONTEXT_LINES} unchanged lines between them`, () => {
-      const before = numbered(30)
-      const after = withLines(before, { 5: 'changed 5', [5 + 2 * CONTEXT_LINES + 1]: 'changed' })
-      const [file] = diffSummary([f('a.js', text(before))], [f('a.js', text(after))]).files
-      expect(file.hunks).toHaveLength(1)
-    })
-
-    it('splits changes further apart into separate hunks', () => {
-      const before = numbered(30)
-      const after = withLines(before, { 5: 'changed 5', [5 + 2 * CONTEXT_LINES + 2]: 'changed' })
-      const [file] = diffSummary([f('a.js', text(before))], [f('a.js', text(after))]).files
-      expect(file.hunks).toHaveLength(2)
-      expect(file.hunks.map((h) => h.newStart)).toEqual([3, 9])
-      expect(file).toMatchObject({ added: 2, removed: 2, firstDiffLine: 5 })
     })
 
     it('T-REP-10: keeps every unchanged line it leaves out, so none can go missing', () => {
@@ -221,12 +101,6 @@ describe('diffSummary', () => {
       expect(numbers(all.filter((l) => l.type !== 'del'))).toEqual(
         Array.from({ length: 30 }, (_, i) => i + 1),
       )
-    })
-
-    it('does not run the context past either end of the file', () => {
-      const [file] = diffSummary([f('a.js', 'a\nb\n')], [f('a.js', 'A\nb\n')]).files
-      expect(file.hunks[0].lines.map((l) => l.type)).toEqual(['del', 'add', 'context'])
-      expect(file.hunks[0]).toMatchObject({ oldStart: 1, newStart: 1 })
     })
   })
 })

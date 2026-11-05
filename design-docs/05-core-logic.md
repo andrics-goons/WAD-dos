@@ -13,18 +13,18 @@ This is the "how it actually works" document: the parts that make CodeAlong a Ti
 
 | # | Logic | Owner | Tier | Home | Tested in |
 |---|---|---|:---:|---|---|
-| 1 | **Client-side runtime (WebContainer)** | Dylan | **3** | browser | `tests/unit/build-error.test.js`, E2E `workspace.spec.js` |
-| 2 | **Files, cache & dependencies** | Ray Yien (files, autosave) · Dylan (dependencies) | 2–3 | browser + Postgres | `tests/unit/files-cache.test.js`, E2E `workspace.spec.js` |
-| 3 | Session lifecycle | Ying Qi | 2 | RPC | `tests/unit/rls/sessions.test.js`, E2E `live-session.spec.js` |
-| 4 | Status reporting + classifier | Andric (view) · Evan (`classify()`) | 3 | view + `shared/` | `tests/unit/tile-state.test.js`, `tests/unit/rls/status.test.js` |
+| 1 | **Client-side runtime (WebContainer)** | Dylan | **3** | browser | `tests/unit/build-error.test.js`, journey 4 |
+| 2 | **Files, cache & dependencies** | Ray Yien (files, autosave) · Dylan (dependencies) | 2–3 | browser + Postgres | `tests/unit/files-cache.test.js`, `autosave.test.js`, `runtime/install.test.js`, journey 2 |
+| 3 | Session lifecycle | Ying Qi | 2 | RPC | `tests/unit/rls/sessions.test.js`, journey 2 |
+| 4 | Status reporting + classifier | Andric (view) · Evan (`classify()`) | 3 | view + `shared/` | `tests/unit/tile-state.test.js`, `tests/unit/rls/tile-state.test.js`, journey 4 |
 | 5 | ~~TODO parser → lesson plan~~ (removed: no lesson steps) | — | — | — | — |
 | 6 | Error normalisation (runtime **and build** errors) | Evan | **3** | `shared/` | `tests/unit/error-normalizer.test.js` |
-| 7 | Catch-up (download, then replace) | Ray Yien · Dylan (mount) | 2 | browser | `tests/unit/stores/workspace.test.js`, `downloadProject.test.js`, E2E `catch-up.spec.js` |
-| 8 | Help queue + Telegram ping | Karin | 2 | RPC + function | E2E `help.spec.js` |
+| 7 | Catch-up (download, then replace) | Ray Yien · Dylan (mount) | 2 | browser | journey 2 (a student loads the checkpoint) |
+| 8 | Help queue + Telegram ping | Karin | 2 | RPC + function | journey 3 |
 | 9 | ~~Spotlight anonymisation~~ | — | — | Dropped | — |
-| 10 | Insights report + trends + digest | Andric | 2–3 | SQL trigger + function | `tests/unit/rls/session_report.test.js`, `tests/unit/digest-function.test.js` |
-| 11 | Replay + GitHub import/export | Ray Yien | 2 | function | `tests/unit/github-export.test.js`, E2E `replay.spec.js` |
-| 12 | Telegram bot integration | Karin | 2 | function | `tests/unit/telegram.test.js` |
+| 10 | Insights report + trends + digest | Andric | 2–3 | SQL trigger + function | `tests/unit/rls/session_report.test.js`, `tests/unit/digest-function.test.js`, journeys 2 and 3 |
+| 11 | Replay + GitHub import/export | Ray Yien | 2 | function | `tests/unit/github-export.test.js`, journey 2 |
+| 12 | Telegram bot integration | Karin | 2 | function | `tests/unit/telegram.test.js`, journey 3 |
 | 13 | Stretch: auto checkpoint checks, AI hints, VS Code reporter | Dylan · Karin | 3 | — | — |
 
 ---

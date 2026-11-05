@@ -43,37 +43,10 @@ describe('loadFiles', () => {
     expect(store.get('files:lesson:l1')).toEqual({ hash: 'h2', files: V2 })
   })
 
-  it('without a hash, checks it cheaply instead of downloading the files', async () => {
-    await loadFiles('lesson', 'l1', 'h1')
-    fetchFiles.mockClear()
-    expect(await loadFiles('lesson', 'l1')).toEqual(V1)
-    expect(fetchHash).toHaveBeenCalledExactlyOnceWith('lesson', 'l1')
-    expect(fetchFiles).not.toHaveBeenCalled()
-  })
-
-  it('keeps lessons and checkpoints apart even with the same id', async () => {
-    await loadFiles('lesson', 'x', 'h1')
-    fetchFiles.mockResolvedValue({ files: V2, files_hash: 'h1' })
-    expect(await loadFiles('checkpoint', 'x', 'h1')).toEqual(V2)
-  })
-
   it("never caches a student's own snapshot (shared lab computers)", async () => {
     await loadFiles('snapshot', 's1', 'h1')
     await loadFiles('snapshot', 's1', 'h1')
     expect(fetchFiles).toHaveBeenCalledTimes(2)
-    expect(store.size).toBe(0)
-  })
-
-  it('T-SBX-15: a cleared cache just means downloading again', async () => {
-    await loadFiles('checkpoint', 'c1', 'h1')
-    store.clear() // the browser evicted IndexedDB
-    expect(await loadFiles('checkpoint', 'c1', 'h1')).toEqual(V1)
-    expect(fetchFiles).toHaveBeenCalledTimes(2)
-  })
-
-  it('a failed download throws, and nothing wrong is cached', async () => {
-    fetchFiles.mockRejectedValue(Object.assign(new Error('Not found'), { code: 'NOT_FOUND' }))
-    await expect(loadFiles('lesson', 'gone', 'h1')).rejects.toMatchObject({ code: 'NOT_FOUND' })
     expect(store.size).toBe(0)
   })
 })

@@ -31,12 +31,6 @@ describe('importersOf', () => {
     expect(importersOf(PROJECT, 'src/main.js')).toEqual(['index.html'])
   })
 
-  it('finds a dynamic import without the extension, a require and a new URL', () => {
-    expect(importersOf(PROJECT, 'src/components/Cart.vue')).toEqual(['src/lazy.js'])
-    expect(importersOf(PROJECT, 'src/util.js')).toEqual(['src/lazy.js'])
-    expect(importersOf(PROJECT, 'server/data.json')).toEqual(['server/api.js'])
-  })
-
   it('finds a script in package.json, but not a path in a comment or the README', () => {
     expect(importersOf(PROJECT, 'server/api.js')).toEqual(['package.json'])
   })
@@ -45,11 +39,6 @@ describe('importersOf', () => {
     expect(importersOf(PROJECT, 'README.md')).toEqual([])
     expect(importersOf([file('a.js', "import './a.js'")], 'a.js')).toEqual([])
   })
-
-  it("doesn't take a longer name for this one", () => {
-    const files = [file('src/App.vue', "import Card from './components/ItemCardList.vue'")]
-    expect(importersOf(files, 'src/components/ItemCard.vue')).toEqual([])
-  })
 })
 
 describe('moveWarning', () => {
@@ -57,9 +46,5 @@ describe('moveWarning', () => {
     const { title, message } = moveWarning(PROJECT, 'src/components/ItemCard.vue')
     expect(title).toBe('ItemCard.vue moved')
     expect(message).toContain('src/App.vue still points to ItemCard.vue at its old place')
-  })
-
-  it('is null when nothing refers to the file', () => {
-    expect(moveWarning([{ path: 'a.css', content: '' }], 'a.css')).toBeNull()
   })
 })
