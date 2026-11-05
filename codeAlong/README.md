@@ -9,7 +9,7 @@ Andric Ang, Yew Ying Qi, Dylan Shuck, Evan Sim, Karin Tan, Tan Ray Yien
 
 | | |
 | --- | --- |
-| **Deployed app** | https://code-along-andrics-goons.vercel.app/login?returnTo=/home |
+| **Deployed app** | https://code-along-andrics-goons.vercel.app |
 | **Video** | https://www.youtube.com/watch?v=t_L6mUZ0DQM |
 | **Repository** | https://github.com/andrics-goons/WAD-dos |
 
@@ -23,7 +23,7 @@ The password for every seeded account is `pass1234`. These are fake accounts tha
 | Prof (second) | `prof.tan@codealong.test` | Owns a different course, to show profs can't see each other's courses |
 | TA | `ta.ana@codealong.test` | TA of IS216 G2. `ta.ben@codealong.test` also works |
 | Student | `alex@codealong.test` | Enrolled in IS216 G2. `bea@` and `chen@` also work |
-| Student (not enrolled) | `zoe@codealong.test` | Joining with `CART42` enrols her |
+| Student (not enrolled) | `zoe@codealong.test` | Joining with `CART42` auto-enrols her into IS216 G2 |
 | Admin | `admin@codealong.test` | Can read everything, including students' code |
 
 - **Live class join code:** `CART42`
@@ -106,7 +106,7 @@ Vue SPA (Vercel) ──► Supabase: Postgres + RLS, Auth, Realtime
 
 ### Run locally
 
-Run every command in this README from this folder (the one that contains `package.json`).
+Run every command in the path of this folder.
 
 ```sh
 pnpm install
@@ -130,7 +130,7 @@ pnpm dev
 
 Open http://localhost:5173 and sign in with a demo account.
 
-`pnpm dev` doesn't serve the Edge Functions. To use the AI and Telegram features, use the deployed app. Running them locally needs your own keys and `pnpm exec supabase functions serve`.
+Running the app locally using `pnpm dev` doesn't serve the Edge Functions. To use the AI and Telegram features, use the deployed app.
 
 `supabase db reset` wipes the local database, so only use it for first-time setup or when you want a fresh start.
 
