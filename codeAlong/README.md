@@ -115,7 +115,7 @@ pnpm exec supabase db reset      # applies every migration, then the seed data
 pnpm exec supabase status -o env # prints API_URL and PUBLISHABLE_KEY
 ```
 
-Create `.env.local` in this folder using the two values printed above:
+The app reads its Supabase URL and key from `.env.local` in this folder, using the two values printed above:
 
 ```env
 VITE_SUPABASE_URL=http://127.0.0.1:54321
@@ -130,13 +130,13 @@ pnpm dev
 
 Open http://localhost:5173 and sign in with a demo account.
 
-Running the app locally using `pnpm dev` doesn't serve the Edge Functions. To use the AI and Telegram features, use the deployed app.
+`pnpm exec supabase start` also serves the Edge Functions with the secrets in `supabase/functions/.env`. The AI help diagnosis and Telegram messages are triggered by the database and are configured on the deployed app only.
 
 `supabase db reset` wipes the local database, so only use it for first-time setup or when you want a fresh start.
 
-### API keys (included in the submitted folder)
+### Environment files
 
-The keys needed to run the app locally are already in the submitted folder, in three files. They are left out of the GitHub repository on purpose, so a fresh clone won't have them.
+Local keys and secrets live in three files, none of which are committed to the repository.
 
 | File | What's in it |
 | --- | --- |
@@ -144,9 +144,9 @@ The keys needed to run the app locally are already in the submitted folder, in t
 | `supabase/.env` | The GitHub OAuth app's client ID and secret, for "Continue with GitHub" on the local stack |
 | `supabase/functions/.env` | The Groq API key (`LLM_API_KEY`) and `APP_URL`, for the Edge Functions on the local stack |
 
-`pnpm exec supabase start` reads the two `supabase/` files by itself. If you change either one, run `pnpm exec supabase stop`, then `pnpm exec supabase start`.
+`pnpm exec supabase start` reads the two `supabase/` files. After changing either one, restart the stack with `pnpm exec supabase stop`, then `pnpm exec supabase start`.
 
-The Telegram bot token isn't included; Telegram works on the deployed app.
+Telegram needs `TELEGRAM_BOT_TOKEN`, which is set on the deployed app only.
 
 ### Environment variables
 
@@ -165,7 +165,7 @@ Set function secrets with `pnpm exec supabase secrets set NAME=value`. Supabase 
 
 ### GitHub sign-in (optional)
 
-"Continue with GitHub" and "Connect GitHub" use Supabase Auth's GitHub provider. In the submitted folder this is already set up through `supabase/.env`. Without that file the app still runs, but the GitHub buttons fail. To set it up yourself on the local stack:
+"Continue with GitHub" and "Connect GitHub" use Supabase Auth's GitHub provider. On the local stack, the OAuth app's client ID and secret are read from `supabase/.env`. Without that file the app still runs, but the GitHub buttons fail. To use your own OAuth app:
 
 1. Create a GitHub OAuth app (GitHub → Settings → Developer settings → OAuth Apps) with the homepage URL `http://localhost:5173` and the callback URL `http://127.0.0.1:54321/auth/v1/callback`.
 2. Create `supabase/.env` with the app's client ID and a client secret:
@@ -205,7 +205,7 @@ Expected: all 18 files pass. These sign in as real users of each role against th
 
 ### 3. End-to-end tests (Playwright)
 
-Run these in order. The tests don't start the Edge Functions in mock mode themselves, because `supabase start` already serves them with real keys, so step 2 swaps those for mock ones.
+`supabase start` serves the Edge Functions with real keys. The end-to-end tests need them in mock mode instead, so run these steps in order:
 
 1. Start the local stack, if it isn't running: `pnpm exec supabase start`.
 2. In a **second terminal**, serve the Edge Functions in mock mode, so the tests never call Groq, Telegram or GitHub and no keys are needed. This command keeps running; leave that terminal open:
