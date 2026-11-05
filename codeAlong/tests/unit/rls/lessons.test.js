@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { userClient, makeAdmin, service, cleanup } from './_helpers.js'
 
-// The same column lists Evan's lessons.api.js selects, so these tests exercise his queries.
+// the same column lists lessons.api.js selects, so these tests exercise its queries.
 const LESSON_SUMMARY = 'id, course_id, title, week, description, status, updated_at'
 const LESSON_DETAIL = `${LESSON_SUMMARY}, files, files_hash, entry_file, dev_command, source, created_by, created_at`
 
@@ -17,7 +17,7 @@ const createdCourses = []
 let profA, ta, stu, outsider, admin
 let course
 
-// Same shape as createLesson() in lessons.api.js. No week by default.
+// same shape as createLesson() in lessons.api.js. no week by default.
 function insertLesson(client, fields = {}) {
   return client
     .from('lessons')

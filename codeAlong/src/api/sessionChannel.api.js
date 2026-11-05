@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 
-// The live "radio channel" for one class: session:<id>. Owner: Ying Qi.
-// Only class members can join it (the database checks). Clients only listen — messages
+// the live "radio channel" for one class: session:<id>.
+// only class members can join it (the database checks). clients only listen, messages
 // are sent by the database functions (checkpoint:new, session:settings, session:ended…).
 // A tab can only have ONE channel per class, so pages don't call this directly: the session
 // store opens it, and pages use sessionStore.onChange(table, handler) for row changes.
@@ -33,7 +33,7 @@ export function openSessionChannel(
   for (const [event, handler] of Object.entries(events)) {
     channel.on('broadcast', { event }, ({ payload }) => handler(payload))
   }
-  // only rows this user may read arrive — the table's own rules apply
+  // only rows this user may read arrive, the table's own rules apply
   for (const [table, handler] of Object.entries(changes)) {
     channel.on(
       'postgres_changes',

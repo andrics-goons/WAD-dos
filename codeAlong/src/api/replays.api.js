@@ -2,12 +2,12 @@ import { supabase } from '@/lib/supabase'
 import { mapError } from './mapError'
 import { SessionStatus } from '@shared/constants.js'
 
-// Replays: ended classes to look back on, and search across them. Owner: Ray Yien.
-// Contract: design-docs/04 "Replay, notes, search, export". A replay's checkpoints come from
+// replays: ended classes to look back on, and search across them.
+// a replay's checkpoints come from
 // listCheckpoints() in checkpoints.api.js, and their files from loadFiles() in src/cache/files.js.
 
 /**
- * Ended classes in every course I'm in (RLS), newest first. A class with no checkpoints has
+ * ended classes in every course I'm in (RLS), newest first. A class with no checkpoints has
  * nothing to step through, so it isn't listed. lessonId lets the page group a lesson's classes.
  */
 export async function listReplays() {
@@ -33,7 +33,7 @@ export async function listReplays() {
 }
 
 /**
- * One class for the replay page: { id, lesson_id, status, join_code, started_at, lesson,
+ * one class for the replay page: { id, lesson_id, status, join_code, started_at, lesson,
  * course: { code, section, term }, isStaff }. null when it doesn't exist or I can't see it (RLS).
  */
 export async function getReplay(id) {
@@ -64,8 +64,8 @@ export async function getReplay(id) {
 }
 
 /**
- * Checkpoint titles in my classes and my own notes that match `q`, best first (at most 20).
- * kind is 'checkpoint' or 'note'. Any text is safe: the server treats it as words, never syntax.
+ * checkpoint titles in my classes and my own notes that match `q`, best first (at most 20).
+ * kind is 'checkpoint' or 'note'. any text is safe: the server treats it as words, never syntax.
  */
 export async function search(q, courseId = null) {
   const { data, error } = await supabase.rpc('search', { p_q: q, p_course_id: courseId })

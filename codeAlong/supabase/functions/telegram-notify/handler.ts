@@ -1,8 +1,8 @@
-// In-person help ping, invoked by a Database Webhook when a help_requests row is inserted
-// (design-docs/05 §8). The row is already committed by then, so nothing here can fail the
+// in-person help ping, invoked by a Database Webhook when a help_requests row is inserted.
+// the row is already committed by then, so nothing here can fail the
 // student's request: a Telegram outage only leaves telegram_notified_at null.
 //
-// Anyone holding a valid JWT can call a function, so the body is never trusted: we take only
+// anyone holding a valid JWT can call a function, so the body is never trusted: we take only
 // the request id and re-read everything from the database. A forged call can at most trigger
 // the one ping a real, still-unnotified request was already due.
 import { formatInPersonPing, sendWithRetry } from '../../../shared/telegram.js'
@@ -41,7 +41,7 @@ export async function handleNotify(req: Request, deps: NotifyDeps): Promise<Resp
   const { env, db } = deps
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405)
 
-  // Database Webhook shape is { type, table, record: { id, ... } }; a manual call can send { requestId }.
+  // database Webhook shape is { type, table, record: { id, ... } }; a manual call can send { requestId }.
   const body = await req.json().catch(() => null)
   const requestId = body?.record?.id ?? body?.requestId
   if (typeof requestId !== 'string') return json({ error: 'requestId required' }, 400)
@@ -81,7 +81,7 @@ export async function handleNotify(req: Request, deps: NotifyDeps): Promise<Resp
     }
   }
 
-  // Only stamp the row if someone was actually reached; otherwise the student sees
+  // only stamp the row if someone was actually reached; otherwise the student sees
   // "notified in app only".
   if (sent > 0) await db.markNotified(ctx.requestId)
   return json({ sent, failed })

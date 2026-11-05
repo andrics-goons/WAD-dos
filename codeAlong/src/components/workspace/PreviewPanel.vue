@@ -13,12 +13,12 @@
 
     const poppedOut = ref(false)
 
-    // Back, Forward and Reload, like a browser's, for the app's own pages
+    // back, forward and reload, like a browser's, for the app's own pages
     const { frame, frameKey, canGoBack, canGoForward, back, forward, reload } = usePreviewNav()
 
-    // Our Cross-Origin-Opener-Policy header cuts this page off from any popup on another
+    // our Cross-Origin-Opener-Policy header cuts this page off from any popup on another
     // origin, so we can't see when the popup closes or close it ourselves. noopener just
-    // makes that explicit. The user brings the preview back with the button instead.
+    // makes that explicit. the user brings the preview back with the button instead.
     function popOut() {
         window.open(props.previewUrl, "_blank", "popup,noopener,width=1000,height=700")
         poppedOut.value = true
@@ -31,7 +31,7 @@
 
 <template>
     <div class="preview-panel">
-        <!-- Pane header -->
+        <!-- pane header -->
         <div class="pane-header">
             <!-- on the left, like a browser's: Back, Forward, Reload -->
             <div class="d-flex align-items-center gap-3">
@@ -72,7 +72,7 @@
                 <span class="ms-1">Preview</span>
             </div>
             <div class="d-flex gap-3">
-                <!-- Pop out button -->
+                <!-- pop out button -->
                 <button
                     class="toggle-btn"
                     type="button"

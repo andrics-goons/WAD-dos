@@ -1,5 +1,5 @@
 // @vitest-environment node
-// autosave_patch: merges a student's changed files into their one autosave row (design-docs/05 §2)
+// autosave_patch: merges a student's changed files into their one autosave row
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { userClient, service, cleanup } from './_helpers.js'
 import { mapError } from '@/api/mapError'
@@ -9,11 +9,11 @@ const file = (path, content) => ({ path, language: 'js', content })
 
 let prof, stu, outsider, course, session
 
-// Call the RPC as someone; upsert = changed files, remove = deleted paths
+// call the RPC as someone; upsert = changed files, remove = deleted paths
 const save = (who, upsert, remove = []) =>
   who.client.rpc('autosave_patch', { p_session_id: session.id, p_upsert: upsert, p_delete: remove })
 
-// The student's autosave rows, read past RLS
+// the student's autosave rows, read past RLS
 
 beforeAll(async () => {
   ;[prof, stu, outsider] = await Promise.all([

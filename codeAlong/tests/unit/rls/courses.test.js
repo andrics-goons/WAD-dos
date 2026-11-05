@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { userClient, makeAdmin, service, cleanup } from './_helpers.js'
 import { mapError } from '@/api/mapError'
 
-// Our RPCs raise 'CODE|message'; mapError turns that into { code, message }.
+// our RPCs raise 'CODE|message'; mapError turns that into { code, message }.
 const codeOf = (error) => mapError(error)?.code
 
 const IS216 = {
@@ -42,7 +42,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  // Courses first: owner_id does not cascade, so a user who owns a course can't be deleted.
+  // courses first: owner_id does not cascade, so a user who owns a course can't be deleted.
   if (createdCourses.length) await service.from('courses').delete().in('id', createdCourses)
   await cleanup()
 })

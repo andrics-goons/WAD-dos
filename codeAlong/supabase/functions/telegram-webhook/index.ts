@@ -1,4 +1,4 @@
-// Entry point for the Telegram webhook. Telegram sends no Supabase JWT, so this function is
+// entry point for the Telegram webhook. Telegram sends no Supabase JWT, so this function is
 // deployed with verify_jwt = false (see supabase/config.toml); the secret-token header,
 // checked in handler.ts, is what protects it.
 import { createTelegramSender } from '../../../shared/telegram.js'
@@ -17,7 +17,7 @@ const db: WebhookDb = {
     if (error) throw error
     return data
   },
-  // Binding clears the one-time code so it can't be used twice (T-TG-01).
+  // binding clears the one-time code so it can't be used twice (T-TG-01).
   async bindChat(userId, chatId) {
     const { error } = await admin
       .from('profiles')

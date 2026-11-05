@@ -5,10 +5,10 @@ import { test, expect, service } from './fixtures'
 import { classroom, confirmModal, editor, joinWithCode, typeAtEnd } from './classroom'
 import { miniCartSeed } from '../tests/fixtures/miniCartSeed.js'
 
-// Journey 2: a new prof sets up a course and teaches one whole class to three students, start to
+// journey 2: a new prof sets up a course and teaches one whole class to three students, start to
 // finish, and a student looks back at it afterwards: the replay, a note, a search, their own code
-// and its export to GitHub (a mock). Everyone and everything is made for it and deleted
-// afterwards. Covers what were journeys 2-6, 8, 9 and 13-15 (T-SESS-03, 05, 14, 15, 16).
+// and its export to GitHub (a mock). everyone and everything is made for it and deleted
+// afterwards. covers what were journeys 2-6, 8, 9 and 13-15 (T-SESS-03, 05, 14, 15, 16).
 const room = classroom()
 const code = `E2E${Date.now() % 100000}`
 let folder
@@ -31,13 +31,13 @@ test.afterAll(async () => {
 const row = (page, path) => page.locator(`.tree-item[title="${path}"]`)
 const banner = (page) => page.getByTestId('announcement-banner')
 
-// The code boxes on /join, typed into like a student copying it off the projector
+// the code boxes on /join, typed into like a student copying it off the projector
 async function typeJoinCode(page, joinCode) {
   await page.locator('input').first().pressSequentially(joinCode)
   await page.getByRole('button', { name: 'Join', exact: true }).click()
 }
 
-// The box and its buttons are in the Announce menu in the Teach view's session bar
+// the box and its buttons are in the Announce menu in the Teach view's session bar
 async function openAnnounceMenu(prof) {
   await prof.getByTestId('btn-open-announce').waitFor()
   if (!(await prof.getByTestId('input-announce').isVisible())) {

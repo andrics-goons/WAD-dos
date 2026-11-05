@@ -2,7 +2,7 @@
 import { useAuthStore } from '@/stores/auth'
 import EmptyState from '@/components/ui/EmptyState.vue'
 
-// Shown for any link that doesn't exist, with buttons to get back on track.
+// shown for any link that doesn't exist, with buttons to get back on track.
 const auth = useAuthStore()
 </script>
 

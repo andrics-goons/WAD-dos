@@ -49,7 +49,7 @@ async function createLesson(owner, courseRow, title) {
   return data
 }
 
-// Stand-ins for RPCs their owners haven't written yet: insert as the database owner.
+// stand-ins for RPCs their owners haven't written yet: insert as the database owner.
 async function startSession(lessonRow, startedBy) {
   const { data, error } = await service
     .from('sessions')
@@ -82,7 +82,7 @@ async function snapshot(who, reason, fields = {}) {
   return data
 }
 
-// What create_help_request (Karin) will do: a help_request snapshot plus the request.
+// what create_help_request will do: a help_request snapshot plus the request.
 async function askForHelp(who, fields = {}) {
   const snap = await snapshot(who, 'help_request')
   const { data, error } = await service
@@ -110,7 +110,7 @@ beforeAll(async () => {
     userClient({ name: 'Tia Ta' }),
     userClient({ name: 'Stu Dent' }),
     userClient({ name: 'Second Stu' }),
-    userClient({ name: 'Prof Tan', role: 'prof' }), // staff — but of a different course
+    userClient({ name: 'Prof Tan', role: 'prof' }), // staff, but of a different course
     userClient({ name: 'Ada Admin' }),
   ])
   await makeAdmin(admin.id)
@@ -134,7 +134,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  // Sessions first: they cascade to every table here, and stop courses being deleted.
+  // sessions first: they cascade to every table here, and stop courses being deleted.
   if (createdSessions.length) await service.from('sessions').delete().in('id', createdSessions)
   if (createdCourses.length) await service.from('courses').delete().in('id', createdCourses)
   await cleanup()

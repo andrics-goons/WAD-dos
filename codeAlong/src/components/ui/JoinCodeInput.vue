@@ -3,9 +3,9 @@ import { ref, watch } from 'vue'
 import { Limits } from '@shared/constants.js'
 import { isJoinCodeChar } from '@shared/join-code.js'
 
-// Six boxes for a join code, one character each. Letters are capitalised as you type, and
-// keys that can't be in a code (0, O, 1, I, L, symbols) are ignored. Emits `complete` when full.
-// Use: <JoinCodeInput v-model="code" @complete="join" />
+// six boxes for a join code, one character each. letters are capitalised as you type, and
+// keys that can't be in a code (0, O, 1, I, L, symbols) are ignored. emits `complete` when full.
+// use: <JoinCodeInput v-model="code" @complete="join" />
 const props = defineProps({
   modelValue: { type: String, default: '' },
   disabled: { type: Boolean, default: false },
@@ -17,7 +17,7 @@ const LENGTH = Limits.JOIN_CODE_LENGTH
 const chars = ref(Array(LENGTH).fill(''))
 const boxes = ref([])
 
-// a code set from outside (e.g. /join/K7QM2P from a QR code) fills the boxes
+// a code set from outside (like /join/K7QM2P from a QR code) fills the boxes
 watch(
   () => props.modelValue,
   (code) => {
@@ -38,7 +38,7 @@ const focusBox = (i) => boxes.value[Math.max(0, Math.min(i, LENGTH - 1))]?.focus
 
 function onInput(i, event) {
   if (event.target.value === '') {
-    // Backspace or Delete emptied the box
+    // backspace or Delete emptied the box
     chars.value[i] = ''
     update()
     return

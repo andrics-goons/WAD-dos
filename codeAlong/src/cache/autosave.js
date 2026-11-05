@@ -1,7 +1,7 @@
-// Delta autosave for the student workspace (design-docs/05-core-logic.md §2).
-// Saves 5 s after the last edit, and straight away when the tab is hidden or closed; asks
+// delta autosave for the student workspace.
+// saves 5 s after the last edit, and straight away when the tab is hidden or closed; asks
 // before the page is left with edits not yet saved.
-// Only files that changed since the last good save are sent; their hashes are kept in
+// only files that changed since the last good save are sent; their hashes are kept in
 // IndexedDB so a page refresh doesn't re-upload everything.
 //
 //   const saver = createAutosave({ sessionId, userId, saved, onStatus })
@@ -14,11 +14,11 @@ import { planAutosave } from '@shared/sync-files.js'
 import { autosavePatch } from '@/api/workspace.api.js'
 import { idbGet, idbSet } from './idb.js'
 
-// After a failed save, retry after 2 s, 4 s, 8 s … up to 30 s
+// after a failed save, retry after 2 s, 4 s, 8 s … up to 30 s
 const RETRY_BASE_MS = 2_000
 const RETRY_MAX_MS = 30_000
-// Errors that will fail the same way every time, so retrying only sends useless requests.
-// Anything else (offline, server hiccup, rate limit) is retried.
+// errors that will fail the same way every time, so retrying only sends useless requests.
+// anything else (offline, server hiccup, rate limit) is retried.
 const NO_RETRY = [
   'CONFLICT',
   'FORBIDDEN',
@@ -32,7 +32,7 @@ const NO_RETRY = [
 // failed), 'too_large' (over MAX_FILES / MAX_SNAPSHOT_BYTES, so nothing is sent), 'ended'
 // (the class has ended, so saving has stopped) or 'error' (refused; tried again on the next edit)
 export function createAutosave({ sessionId, userId, saved = null, onStatus: report = () => {} }) {
-  // Keyed by user too: lab PCs are shared, and someone else's hashes would make us skip files
+  // keyed by user too: lab PCs are shared, and someone else's hashes would make us skip files
   const key = `synced:${userId}:${sessionId}`
   let latest = null // newest file list from the editor
   let synced = null // { path: hash } of the last good save
@@ -50,14 +50,14 @@ export function createAutosave({ sessionId, userId, saved = null, onStatus: repo
 
   async function saveNow() {
     if (!latest || ended) return
-    // What Supabase has, so only real changes are sent and deleted files are removed. Taken
+    // what Supabase has, so only real changes are sent and deleted files are removed. taken
     // from `saved` when the workspace has just loaded it: IndexedDB can be empty (another
     // device, cleared site data) or stale (the row was changed elsewhere), and either way a
     // file the server has but this browser doesn't know about would never be removed.
     synced ??= saved ? (await planAutosave(saved, {})).hashes : ((await idbGet(key)) ?? {})
     const plan = await planAutosave(latest, synced)
     if (plan.tooLarge) return onStatus('too_large')
-    // Nothing changed since the last save: no request at all
+    // nothing changed since the last save: no request at all
     if (!plan.upsert.length && !plan.remove.length) return onStatus('saved')
 
     onStatus('saving')
@@ -71,7 +71,7 @@ export function createAutosave({ sessionId, userId, saved = null, onStatus: repo
         return onStatus('ended')
       }
       if (NO_RETRY.includes(error.code)) return onStatus('error')
-      // Keep the old hashes, so the retry sends the same changes again
+      // keep the old hashes, so the retry sends the same changes again
       retries += 1
       schedule(Math.min(RETRY_BASE_MS * 2 ** (retries - 1), RETRY_MAX_MS))
       return onStatus('retrying')
@@ -82,7 +82,7 @@ export function createAutosave({ sessionId, userId, saved = null, onStatus: repo
     onStatus('saved')
   }
 
-  // Save now, cancelling the countdown; resolves when that save has finished
+  // save now, cancelling the countdown; resolves when that save has finished
   function flush() {
     clearTimeout(timer)
     queue = queue.then(saveNow).catch(() => onStatus('error'))
@@ -95,7 +95,7 @@ export function createAutosave({ sessionId, userId, saved = null, onStatus: repo
     timer = setTimeout(flush, ms)
   }
 
-  // On every edit: remember the files and restart the 5 s countdown
+  // on every edit: remember the files and restart the 5 s countdown
   function autosave(tree) {
     if (stopped) return
     latest = tree
@@ -103,7 +103,7 @@ export function createAutosave({ sessionId, userId, saved = null, onStatus: repo
     schedule(Limits.AUTOSAVE_DEBOUNCE_MS)
   }
 
-  // Save straight away when the student switches tab, leaves the window or closes the page
+  // save straight away when the student switches tab, leaves the window or closes the page
   const onHide = () => document.visibilityState === 'hidden' && flush()
   // A save started while the page unloads is usually cancelled by the browser, so if edits
   // haven't reached Supabase yet, ask before leaving (the browser shows its own "Leave site?")
@@ -131,7 +131,7 @@ export function createAutosave({ sessionId, userId, saved = null, onStatus: repo
     await flush()
   }
 
-  // Wait for a save that's already running, without starting another
+  // wait for a save that's already running, without starting another
   const idle = () => queue
 
   return { autosave, flush, stop, idle }

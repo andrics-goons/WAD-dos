@@ -1,7 +1,7 @@
-/* Page layout helpers. For everything else (flex, spacing, hiding on phones…)
+/* page layout helpers. for everything else (flex, spacing, hiding on phones…)
    use Bootstrap classes like d-flex, gap-2, col-md-6 and d-none d-md-block. */
 
-/* Wrap every normal page in this: centred, not too wide, with side margins */
+/* wrap every normal page in this: centred, not too wide, with side margins */
 .ca-page {
   width: 100%;
   max-width: var(--ca-content-max);
@@ -20,7 +20,7 @@
   max-width: var(--ca-content-narrow);
 }
 
-/* The back button's row: lines up with .ca-page, with the button centred between navbar and page */
+/* the back button's row: lines up with .ca-page, with the button centred between navbar and page */
 .ca-back-bar {
   display: flex;
   align-items: center;
@@ -42,7 +42,7 @@
   }
 }
 
-/* Page title on the left, buttons on the right; stacks on small phones */
+/* page title on the left, buttons on the right; stacks on small phones */
 .ca-page-header {
   display: flex;
   flex-wrap: wrap;
@@ -61,7 +61,7 @@
   font-weight: 700;
 }
 
-/* Fills the screen below the navbar — for the coding pages */
+/* fills the screen below the navbar, for the coding pages */
 .ca-fill-viewport {
   height: calc(100dvh - var(--ca-navbar-height));
   min-height: 0;
@@ -75,7 +75,7 @@
   padding-inline: var(--ca-space-4);
 }
 
-/* Small grey capitals above a heading */
+/* small grey capitals above a heading */
 .ca-eyebrow {
   font-size: var(--ca-text-xs);
   font-weight: 600;

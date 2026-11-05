@@ -1,9 +1,9 @@
 <script setup>
-// The prof's live class. The editor, terminal and preview are the real workspace (Dylan's
-// panels and store); the class, join code and checkpoints come from ying qi's session store.
-// The dashboard shows what the class clicked as numbers (no tiles) and the AI help summary.
-// The announce box is karin's: students see the message as a banner.
-// No navbar here: the global nav (AppNavbar) wraps every page from App.vue.
+// the prof's live class. the editor, terminal and preview are the real workspace (its
+// panels and store); the class, join code and checkpoints come from the session store.
+// the dashboard shows what the class clicked as numbers (no tiles) and the AI help summary.
+// the announce box: students see the message as a banner.
+// no navbar here: the global nav (AppNavbar) wraps every page from App.vue.
 import { computed, ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Limits } from '@shared/constants.js'
@@ -38,16 +38,16 @@ const loadError = ref('')
 const mobileTab = ref('dashboard')
 // the editor area shows either the code or the running app, switched by the panels' own buttons
 const editorView = ref('code')
-// Presenting: the dashboard and the right-hand panels go, and the editor fills the page (for
-// showing the class the code). The editor stays mounted, so the code and the running app survive.
+// presenting: the dashboard and the right-hand panels go, and the editor fills the page (for
+// showing the class the code). the editor stays mounted, so the code and the running app survive.
 const presenting = ref(false)
 const announcement = ref('')
 
-// karin's announcements: students see it as a banner. An empty box can't be sent; the Clear
+// announcements: students see it as a banner. an empty box can't be sent; the Clear
 // button takes the current announcement down
 const canSend = computed(() => announcement.value.trim() !== '')
 
-// The session bar only has an Announce button; its menu holds the box, Send and Clear. A click
+// the session bar only has an Announce button; its menu holds the box, Send and Clear. A click
 // anywhere else (or Escape) closes it, like the ⋯ menus on the course pages.
 const announceOpen = ref(false)
 const announceBox = ref(null)
@@ -63,7 +63,7 @@ const closeAnnounce = () => (announceOpen.value = false)
 onMounted(() => document.addEventListener('click', closeAnnounce))
 onBeforeUnmount(() => document.removeEventListener('click', closeAnnounce))
 
-// The students panel under the number cards: who is connected, grouped by status. It closes
+// the students panel under the number cards: who is connected, grouped by status. it closes
 // the same way
 const studentsOpen = ref(false)
 function toggleStudents() {
@@ -101,7 +101,7 @@ const workspaceStore = useWorkspaceStore()
 const runtime = useRuntime("The editor couldn't start")
 const { isolated, bootError, previewUrl } = runtime
 
-// open the class. When the editor can run, dylan's loadForTeaching opens it while it loads my
+// open the class. when the editor can run, loadForTeaching opens it while it loads my
 // code (my draft in this browser, else the latest checkpoint), and the WebContainer boots alongside
 onMounted(async () => {
   const booting = isolated ? getWebContainer() : null
@@ -118,7 +118,7 @@ onMounted(async () => {
   if (isolated && live.isLive) await runtime.start(booting, workspaceStore.files)
 })
 
-// checkpoints saved so far, newest first. Reloaded whenever a new one arrives on the channel
+// checkpoints saved so far, newest first. reloaded whenever a new one arrives on the channel
 const checkpoints = ref([])
 async function loadCheckpoints() {
   try {
@@ -153,13 +153,13 @@ const stopHelpChanges = live.onChange('help_requests', refreshSummarySoon)
 // slow-down flags never go out on the channel (staff only ever see the count), so check every 10 s
 const slowDownPoll = setInterval(() => live.isLive && loadSummary(), 10_000)
 
-// The dashboard is about who is here now. Students who joined earlier and have left don't count
+// the dashboard is about who is here now. students who joined earlier and have left don't count
 // in "Done X of N" or its bar: N is the students connected, and Done is only theirs. (Slow down
 // is an anonymous count, and help requests stay in the queue until answered, so those aren't
 // filtered.)
 //
-// Presence is what each browser says about itself, so a student could claim to be several people
-// or anyone. Only students with a status row in this class count (opening the workspace writes
+// presence is what each browser says about itself, so a student could claim to be several people
+// or anyone. only students with a status row in this class count (opening the workspace writes
 // one), each once, under the name the database has for them. A student who has only just joined
 // shows up when that first row arrives, a second or so later.
 const here = computed(() => {
@@ -191,10 +191,10 @@ const roster = computed(() =>
 const savedAt = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
-// save what's in the editor as the next checkpoint. Every student goes back to In progress
+// save what's in the editor as the next checkpoint. every student goes back to In progress
 const checkpointTitle = ref('')
 const saving = ref(false)
-// The file tree's New file, Rename (or drag) and Delete, as in the student workspace. They change
+// the file tree's New file, Rename (or drag) and Delete, as in the student workspace. they change
 // the prof's own draft; students get them with the next checkpoint
 async function renameFile(from, to) {
   const warning = moveWarning(workspaceStore.files, from)
@@ -262,7 +262,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <!-- Light page on purpose (team choice); only the editor and terminal are dark .ca-ide regions -->
+  <!-- light page on purpose (team choice); only the editor and terminal are dark .ca-ide regions -->
   <div class="ca-fill-viewport d-flex flex-column">
     <p v-if="loading" class="text-body-secondary p-3">Opening the class…</p>
 
@@ -279,7 +279,7 @@ onBeforeUnmount(() => {
     </EmptyState>
 
     <template v-else>
-      <!-- Session bar -->
+      <!-- session bar -->
       <div
         class="session-bar position-relative d-flex flex-wrap align-items-center gap-2 px-3 py-2 border-bottom"
       >
@@ -317,7 +317,7 @@ onBeforeUnmount(() => {
         >
           <i class="bi bi-life-preserver" />Help queue
         </RouterLink>
-        <!-- Present: just the editor, full page. The same button brings the dashboard back -->
+        <!-- present: just the editor, full page. the same button brings the dashboard back -->
         <button
           type="button"
           class="ca-btn ca-btn--secondary ca-btn--sm"
@@ -329,7 +329,7 @@ onBeforeUnmount(() => {
           }}
         </button>
 
-        <!-- Announce: students see what you send as a banner. The menu keeps the bar clear -->
+        <!-- announce: students see what you send as a banner. the menu keeps the bar clear -->
         <div class="dropdown announce-dropdown" @click.stop>
           <button
             type="button"
@@ -374,7 +374,7 @@ onBeforeUnmount(() => {
                   : 'Announce to class'
               }}
             </label>
-            <!-- Enter sends, so the message stays on one line -->
+            <!-- enter sends, so the message stays on one line -->
             <textarea
               id="announce"
               ref="announceBox"
@@ -417,7 +417,7 @@ onBeforeUnmount(() => {
         class="teach-body flex-grow-1 overflow-auto position-relative"
         :class="presenting ? 'p-0 presenting' : 'p-3'"
       >
-        <!-- Below xl: switch between dashboard and editor -->
+        <!-- below xl: switch between dashboard and editor -->
         <div class="collapsible d-xl-none" :class="{ collapsed: presenting }">
           <div class="collapsible-inner">
             <div class="ca-surface nav nav-pills nav-fill gap-1 p-1 mb-3">
@@ -442,7 +442,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="teach-row row g-3 flex-xl-nowrap">
-          <!-- The class summary, then the editor (terminal under it) / preview filling the rest,
+          <!-- the class summary, then the editor (terminal under it) / preview filling the rest,
                so its bottom lines up with the right-hand column -->
           <div
             class="teach-main col-12 d-flex flex-column d-xl-grid gap-3"
@@ -472,7 +472,7 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <!-- the students panel. From xl it sits in the editor's place, on top of it, so it
+            <!-- the students panel. from xl it sits in the editor's place, on top of it, so it
                  covers the editor exactly; on a phone it's under the cards on the Dashboard tab -->
             <div
               v-if="studentsOpen && !presenting"
@@ -529,7 +529,7 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <!-- Join code + checkpoints + help summary -->
+          <!-- join code + checkpoints + help summary -->
           <div
             class="teach-side col-12 col-xl-4"
             :class="{ 'd-none d-xl-block': mobileTab !== 'editor', 'side-hidden': presenting }"
@@ -537,7 +537,7 @@ onBeforeUnmount(() => {
             <div class="d-flex flex-column gap-3 h-100">
               <JoinCodeCard :code="live.session.join_code" />
 
-              <!-- Save the editor's code as the next checkpoint, any time. Every student goes
+              <!-- save the editor's code as the next checkpoint, any time. every student goes
                  back to In progress until they click Done on it. -->
               <div class="ca-surface">
                 <div
@@ -583,7 +583,7 @@ onBeforeUnmount(() => {
                 </ol>
               </div>
 
-              <!-- what the class is stuck on: the AI summary of the help requests. It takes the
+              <!-- what the class is stuck on: the AI summary of the help requests. it takes the
                  rest of the column, so its bottom lines up with the editor's -->
               <HelpSummaryPanel :session-id="id" class="flex-grow-1" />
             </div>
@@ -621,7 +621,7 @@ onBeforeUnmount(() => {
 .session-bar {
   background: var(--ca-surface);
 }
-/* the green dot before "3 connected": students are live. Brighter than the kit's success
+/* the green dot before "3 connected": students are live. brighter than the kit's success
    green (that one is for text and buttons), with a soft ring so it reads as a live light */
 .live-dot {
   width: 0.5rem;
@@ -653,7 +653,7 @@ onBeforeUnmount(() => {
     margin-inline: 0.5rem;
   }
 }
-/* Dylan's panels fill their box, so the box sets the height. Stacked below xl it's a fixed
+/* the workspace panels fill their box, so the box sets the height. stacked below xl it's a fixed
    tall box; from xl it fills what's left of the screen (below) */
 .editor-box {
   flex: 1 1 auto;
@@ -661,9 +661,9 @@ onBeforeUnmount(() => {
   border-radius: var(--ca-radius);
   overflow: hidden;
 }
-/* Present: things ease out instead of snapping. The stats and the phone tabs collapse upward,
+/* present: things ease out instead of snapping. the stats and the phone tabs collapse upward,
    the side panels slide away while the editor widens, and the padding and corners ease off.
-   Nothing is unmounted (re-creating the QR code and panels freezes the page for a moment,
+   nothing is unmounted (re-creating the QR code and panels freezes the page for a moment,
    which made coming back snap), it's all CSS.
    (The 1fr -> 0fr grid row is how a block's height is animated without knowing it.) */
 .collapsible {
@@ -738,7 +738,7 @@ onBeforeUnmount(() => {
     transition: none;
   }
 }
-/* xl: the page fits the screen. The editor fills the left side down to the bottom, and the
+/* xl: the page fits the screen. the editor fills the left side down to the bottom, and the
    right-hand panels scroll on their own, so a long AI summary never stretches the editor */
 @media (min-width: 1200px) {
   .teach-body {
@@ -754,7 +754,7 @@ onBeforeUnmount(() => {
   .editor-box {
     min-height: 0;
   }
-  /* the cards on top, the editor filling the rest. The students panel opens in the editor's
+  /* the cards on top, the editor filling the rest. the students panel opens in the editor's
      cell too, on top of it, so it lines up with the editor */
   .teach-main {
     grid-template-rows: auto minmax(0, 1fr);
@@ -773,7 +773,7 @@ onBeforeUnmount(() => {
     z-index: 5;
     border-radius: var(--ca-radius); /* the editor's corners, so none of it shows behind */
   }
-  /* Present: the cards fold to nothing, so the gap under them goes too */
+  /* present: the cards fold to nothing, so the gap under them goes too */
   .presenting .teach-main {
     row-gap: 0 !important;
   }

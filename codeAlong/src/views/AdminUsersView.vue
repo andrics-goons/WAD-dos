@@ -7,8 +7,8 @@ import { Role, RoleLabel } from '@shared/constants'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 
-// /admin/users — the one admin page: every account, and a role dropdown for each.
-// The admin's own row is locked: nobody can change their own role, so an admin can
+// /admin/users: the one admin page: every account, and a role dropdown for each.
+// the admin's own row is locked: nobody can change their own role, so an admin can
 // never accidentally remove the last admin.
 const admin = useAdminStore()
 const auth = useAuthStore()
@@ -42,7 +42,7 @@ onMounted(async () => {
   }
 })
 
-// Picking a role only opens the confirm dialog; the role changes once the server agrees.
+// picking a role only opens the confirm dialog; the role changes once the server agrees.
 const pending = ref(null) // { user, role, select }
 
 function askRole(user, event) {
@@ -98,7 +98,7 @@ async function confirmRole() {
       Try a different name or email.
     </EmptyState>
 
-    <!-- One list: each user is a stacked card on phones and a single row from lg up -->
+    <!-- one list: each user is a stacked card on phones and a single row from lg up -->
     <ul v-else class="list-group">
       <li class="list-group-item d-none d-lg-block fw-semibold">
         <div class="row">

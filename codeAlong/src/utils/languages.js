@@ -6,7 +6,7 @@ import { vue } from "@codemirror/lang-vue"
 // getting the extension from the filename
 export function getExtension(filename) {
     const dot = filename.lastIndexOf(".")
-    // if no extension i.e. the readme file
+    // if no extension so the readme file
     if (dot === -1) {
         return ""
     }

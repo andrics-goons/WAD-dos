@@ -7,7 +7,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import JoinCodeInput from '@/components/ui/JoinCodeInput.vue'
 
-// The /_kit page: shows every colour, button and component so the team can copy them.
+// the /_kit page: shows every colour, button and component so the team can copy them.
 const toast = useToastStore()
 const confirmOpen = ref(false)
 const confirmBusy = ref(false)
@@ -60,7 +60,7 @@ function fakeConfirm() {
       </p>
     </div>
 
-    <!-- Colour -->
+    <!-- colour -->
     <section class="mb-5">
       <h2>Colour</h2>
       <div class="row row-cols-2 row-cols-md-4 g-3">
@@ -71,7 +71,7 @@ function fakeConfirm() {
       </div>
     </section>
 
-    <!-- Tile states -->
+    <!-- tile states -->
     <section class="mb-5">
       <h2>Tile states</h2>
       <p class="text-body-secondary small">
@@ -86,7 +86,7 @@ function fakeConfirm() {
       </div>
     </section>
 
-    <!-- Responsive layout -->
+    <!-- responsive layout -->
     <section class="mb-5">
       <h2>Responsive layout (Bootstrap breakpoints)</h2>
       <p class="text-body-secondary small">
@@ -182,7 +182,7 @@ function fakeConfirm() {
       </div>
     </section>
 
-    <!-- Type -->
+    <!-- type -->
     <section class="mb-5">
       <h2>Typography</h2>
       <div class="ca-card">
@@ -198,7 +198,7 @@ function fakeConfirm() {
       </div>
     </section>
 
-    <!-- Buttons -->
+    <!-- buttons -->
     <section class="mb-5">
       <h2>Buttons</h2>
       <p class="text-body-secondary small">
@@ -229,7 +229,7 @@ function fakeConfirm() {
       </div>
     </section>
 
-    <!-- Forms -->
+    <!-- forms -->
     <section class="mb-5">
       <h2>Forms</h2>
       <p class="text-body-secondary small">
@@ -277,7 +277,7 @@ function fakeConfirm() {
       </form>
     </section>
 
-    <!-- Join code -->
+    <!-- join code -->
     <section class="mb-5">
       <h2>Join code input</h2>
       <p class="text-body-secondary small">
@@ -296,7 +296,7 @@ function fakeConfirm() {
       </div>
     </section>
 
-    <!-- Feedback -->
+    <!-- feedback -->
     <section class="mb-5">
       <h2>Toasts &amp; confirm</h2>
       <p class="text-body-secondary small">

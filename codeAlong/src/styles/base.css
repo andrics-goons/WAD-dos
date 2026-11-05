@@ -1,5 +1,5 @@
 /* Bootstrap does our layout, but its colours are blue by default.
-   This file points Bootstrap's own variables at our colours so everything matches. */
+   this file points Bootstrap's own variables at our colours so everything matches. */
 
 :root,
 .ca-ide {
@@ -30,7 +30,7 @@
 }
 
 /* Bootstrap reads these as plain numbers, so they're copied from tokens.css.
-   If a brand colour changes there, change it here too. */
+   if a brand colour changes there, change it here too. */
 :root {
   --bs-primary: #4f46e5;
   --bs-primary-rgb: 79, 70, 229;
@@ -46,7 +46,7 @@
   --bs-link-hover-color-rgb: 67, 56, 202;
 }
 
-/* We use .ca-btn and .ca-input instead, but in case Bootstrap's own button or
+/* we use .ca-btn and .ca-input instead, but in case Bootstrap's own button or
    input sneaks in, this keeps it indigo rather than blue. */
 .btn-primary {
   --bs-btn-bg: var(--ca-brand);
@@ -85,14 +85,14 @@
   border-color: var(--ca-brand);
 }
 
-/* Page-wide basics */
+/* page-wide basics */
 body {
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   font-feature-settings: 'cv11', 'ss01'; /* makes 1, l and I easier to tell apart */
 }
 
-/* Smaller, calmer headings than Bootstrap's */
+/* smaller, calmer headings than Bootstrap's */
 h1,
 .h1 {
   font-size: var(--ca-text-2xl);

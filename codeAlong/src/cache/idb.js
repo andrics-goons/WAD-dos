@@ -7,7 +7,7 @@ const STORE = 'kv'
 
 let dbPromise = null
 
-// Open the database once and reuse it; resolves to null if IndexedDB can't be used
+// open the database once and reuse it; resolves to null if IndexedDB can't be used
 function openDb() {
   if (!globalThis.indexedDB) return Promise.resolve(null)
   dbPromise ??= new Promise((resolve) => {
@@ -19,7 +19,7 @@ function openDb() {
   return dbPromise
 }
 
-// Run one request in its own transaction; resolves with its result, or undefined on failure
+// run one request in its own transaction; resolves with its result, or undefined on failure
 async function run(mode, makeRequest) {
   try {
     const db = await openDb()

@@ -38,8 +38,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     // which reads a file's code only when it opens, shows the new code
     const filesVersion = ref(0)
 
-    // From the terminal's error reader: a parsed build or runtime error, or null when the dev
-    // server compiles again (every hmr update, so on most keystrokes). The status store skips a
+    // from the terminal's error reader: a parsed build or runtime error, or null when the dev
+    // server compiles again (every hmr update, so on most keystrokes). the status store skips a
     // repeat of the same error and a clear when there's nothing to clear, so neither writes again.
     function reportError (err) {
         const status = useStatusStore()
@@ -62,7 +62,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         },
     })
 
-    // Opens the class: its live channel (checkpoints, the class ending…) and its code — my
+    // opens the class: its live channel (checkpoints, the class ending…) and its code, my
     // autosave if I've saved before, otherwise the lesson's starter files
     async function load(sessionId) {
         await close()
@@ -89,9 +89,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
             onStatus: (status) => (saveStatus.value = status),
         })
     }
-    // The prof's editor (TeachView): my unsaved work from this browser if I refreshed,
+    // the prof's editor (TeachView): my unsaved work from this browser if I refreshed,
     // otherwise the latest checkpoint, or the starter files before the first one.
-    // Saved only to this browser: Save checkpoint is what sends it to the class.
+    // saved only to this browser: Save checkpoint is what sends it to the class.
     async function loadForTeaching(sessionId) {
         await close()
         const auth = useAuthStore()
@@ -120,9 +120,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         }
     }
 
-    // "Load latest checkpoint" (design-docs/05 §7): replace my code with the prof's latest
-    // checkpoint. The workspace asks first and offers a download; after this my old code is gone,
-    // because the autosave row is overwritten too. Returns whether package.json changed, since the
+    // "Load latest checkpoint": replace my code with the prof's latest
+    // checkpoint. the workspace asks first and offers a download; after this my old code is gone,
+    // because the autosave row is overwritten too. returns whether package.json changed, since the
     // student then needs to run pnpm install again, and whether the new code reached Supabase
     // (if not, autosave keeps retrying, but a refresh now would bring the old code back).
     async function loadLatestCheckpoint() {
@@ -155,8 +155,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         return { packageChanged, saved: saveStatus.value === 'saved' }
     }
 
-    // The file tree's New file / Rename / Delete (T-SBX-16): the editor's files change, autosave
-    // sends the change like an edit, and the running project follows. Like syncEdit, a failure
+    // the file tree's New file / Rename / Delete (T-SBX-16): the editor's files change, autosave
+    // sends the change like an edit, and the running project follows. like syncEdit, a failure
     // to update the running project is logged, not thrown.
     async function inContainer(change) {
         try {
@@ -195,7 +195,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         await inContainer(wc => wc.fs.rm(path, { force: true }))
     }
 
-    // When leaving the workspace: saves anything still waiting, stops autosaving, leaves the channel
+    // when leaving the workspace: saves anything still waiting, stops autosaving, leaves the channel
     async function close() {
         const leaving = saver
         saver = null

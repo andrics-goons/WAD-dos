@@ -5,8 +5,8 @@ import * as checkpointsApi from '@/api/checkpoints.api'
 import * as filesApi from '@/api/files.api'
 import { loadFiles } from '@/cache/files.js'
 
-// The calls the replay pages (/replays, /replays/:sessionId) make. Owner: Ray Yien.
-// Nothing is shared between pages, so each page keeps its own copy of what it loads.
+// the calls the replay pages (/replays, /replays/:sessionId) make.
+// nothing is shared between pages, so each page keeps its own copy of what it loads.
 export const useReplaysStore = defineStore('replays', () => {
   const list = () => replaysApi.listReplays()
   const search = (q, courseId) => replaysApi.search(q, courseId)

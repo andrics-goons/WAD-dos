@@ -46,7 +46,7 @@ async function createLesson(fields = {}) {
   return data
 }
 
-// Stand-in for start_session (Ying Qi's RPC, not written yet): insert as the database owner.
+// stand-in for start_session: insert as the database owner.
 async function startSession(lessonRow = lesson) {
   const { data, error } = await service
     .from('sessions')
@@ -63,9 +63,9 @@ async function startSession(lessonRow = lesson) {
   return data
 }
 
-// Stand-in for save_checkpoint: the checkpoint row plus the session's latest checkpoint number.
+// stand-in for save_checkpoint: the checkpoint row plus the session's latest checkpoint number.
 
-// Same shape as Dylan's status write in workspace.api.js
+// same shape as the status write in workspace.api.js
 const writeStatus = (who, fields = {}) =>
   who.client.from('student_status').upsert({
     session_id: session.id,
@@ -101,7 +101,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  // Sessions first: they hold the history that stops courses and lessons being deleted.
+  // sessions first: they hold the history that stops courses and lessons being deleted.
   if (createdSessions.length) await service.from('sessions').delete().in('id', createdSessions)
   if (createdCourses.length) await service.from('courses').delete().in('id', createdCourses)
   await cleanup()

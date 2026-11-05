@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { writeToContainer, debounceByPath } from '@/runtime/sync.js'
 
-// Fake WebContainer: only the fs part, recording every mkdir and writeFile call
+// fake WebContainer: only the fs part, recording every mkdir and writeFile call
 function fakeWebContainer() {
   const calls = { mkdir: [], writeFile: [] }
   return {
@@ -42,7 +42,7 @@ describe('debounceByPath', () => {
     expect(fn).toHaveBeenCalledExactlyOnceWith('a.js', 'hey')
   })
 
-  // Easy to get wrong: switching files quickly must not drop the first file's last edit
+  // easy to get wrong: switching files quickly must not drop the first file's last edit
   it('keeps edits to different files separate', () => {
     const fn = vi.fn()
     const sync = debounceByPath(fn, 300)

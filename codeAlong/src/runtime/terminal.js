@@ -1,15 +1,15 @@
-// Importing xterm and renaming it to prevent confusion with the Terminal.vue component
+// importing xterm and renaming it to prevent confusion with the Terminal.vue component
 import { Terminal as XTerm } from "@xterm/xterm"
-// Addon that works out how many cols/rows fit inside the element
+// addon that works out how many cols/rows fit inside the element
 import { FitAddon } from "@xterm/addon-fit"
 // xterm's stylesheet
 import "@xterm/xterm/css/xterm.css"
 
 
-// The terminal's look: the editor's dark colours (--ca-ide-* in tokens.css) and the app's code
+// the terminal's look: the editor's dark colours (--ca-ide-* in tokens.css) and the app's code
 // font, so it sits in the code area instead of looking like a black box pasted in.
 // xterm can't read CSS variables, so the colours are copied here; the palette is GitHub-dark
-// style to go with them. Only looks: nothing about how the terminal works changes
+// style to go with them. only looks: nothing about how the terminal works changes
 const FONT = '"JetBrains Mono Variable", ui-monospace, Menlo, Consolas, monospace'
 const THEME = {
     background: "#0d1117",          // --ca-ide-bg

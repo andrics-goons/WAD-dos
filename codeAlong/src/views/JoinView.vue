@@ -9,7 +9,7 @@ import { useSessionStore } from '@/stores/session'
 
 // /join        → type the code on the projector, then press Join (or Enter).
 // /join/:code  → the QR code: the boxes fill in, and the student still presses Join.
-// Logged-out visitors are sent to log in first; returnTo brings them back here.
+// logged-out visitors are sent to log in first; returnTo brings them back here.
 const props = defineProps({ code: { type: String, default: '' } })
 
 const auth = useAuthStore()

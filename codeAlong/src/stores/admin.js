@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as adminApi from '@/api/admin.api'
 
-// The user list on /admin/users, kept in step with each role change so the page never
+// the user list on /admin/users, kept in step with each role change so the page never
 // needs a full reload.
 export const useAdminStore = defineStore('admin', () => {
   const users = ref([])

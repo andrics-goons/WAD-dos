@@ -1,5 +1,5 @@
 <script setup>
-// After-class insights (design-docs/04, 05 §10). The database builds the report the moment the
+// after-class insights. the database builds the report the moment the
 // prof ends the class; this page reads it, adds the help-request numbers, and lets the prof send
 // the Telegram digest.
 import { computed, onMounted, ref } from 'vue'
@@ -71,8 +71,8 @@ const stats = computed(() => {
 // the two checkpoints the most students needed the prof's code for
 const hardest = computed(() => topTwo('catchUps'))
 
-// What students got stuck on: the saved AI diagnosis of each help request, grouped like the live
-// "What the class is stuck on" panel (same checkpoint, same kind of mistake), biggest first. Built
+// what students got stuck on: the saved AI diagnosis of each help request, grouped like the live
+// "What the class is stuck on" panel (same checkpoint, same kind of mistake), biggest first. built
 // from what's saved, so opening the report never calls the AI. A group's title is its first
 // student's diagnosis
 const stuckOn = computed(() => {
@@ -88,8 +88,8 @@ const stuckOn = computed(() => {
     .map((g) => ({ ...g, where: checkpointLabel(g.checkpointSeq, title(g.checkpointSeq)) }))
 })
 
-// The staff message exactly as the digest function sends it (same shared formatter, same report),
-// so the preview can't drift from what goes out. It's Telegram HTML: shown as plain lines here,
+// the staff message exactly as the digest function sends it (same shared formatter, same report),
+// so the preview can't drift from what goes out. it's Telegram HTML: shown as plain lines here,
 // with the <b> headings in bold
 const unescape = (text) =>
   text
@@ -133,14 +133,14 @@ async function sendDigest() {
 
 <template>
   <div class="ca-page">
-    <!-- Loading -->
+    <!-- loading -->
     <div v-if="loading" class="d-flex justify-content-center py-5">
       <span class="spinner-border text-primary">
         <span class="visually-hidden">Loading the report…</span>
       </span>
     </div>
 
-    <!-- Not found (or not your class) / couldn't load -->
+    <!-- not found (or not your class) / couldn't load -->
     <div v-else-if="loadError" class="ca-surface">
       <EmptyState
         :icon="loadError === 'not-found' ? 'bi-question-circle' : 'bi-exclamation-triangle'"
@@ -167,7 +167,7 @@ async function sendDigest() {
         </div>
       </div>
 
-      <!-- Still running: the report is built when the class ends -->
+      <!-- still running: the report is built when the class ends -->
       <div v-if="!report" class="ca-surface">
         <EmptyState
           :icon="session.status === 'live' ? 'bi-broadcast' : 'bi-file-earmark-x'"
@@ -189,7 +189,7 @@ async function sendDigest() {
       </div>
 
       <template v-else>
-        <!-- Headline numbers: stacked at xs, all three in one row from sm -->
+        <!-- headline numbers: stacked at xs, all three in one row from sm -->
         <div class="row g-3 mb-3">
           <div v-for="s in stats" :key="s.label" class="col-12 col-sm-4">
             <div class="ca-card h-100">
@@ -205,7 +205,7 @@ async function sendDigest() {
         </div>
 
         <div class="row g-3">
-          <!-- Funnel -->
+          <!-- funnel -->
           <div class="col-12 col-lg-8">
             <div class="ca-surface" data-testid="report-funnel">
               <div
@@ -256,7 +256,7 @@ async function sendDigest() {
             </div>
           </div>
 
-          <!-- What students got stuck on, then the digest under it -->
+          <!-- what students got stuck on, then the digest under it -->
           <div class="col-12 col-lg-4 d-flex flex-column gap-3">
             <div class="ca-surface" data-testid="report-stuck-on">
               <div
@@ -282,7 +282,7 @@ async function sendDigest() {
               </ul>
             </div>
 
-            <!-- Digest -->
+            <!-- digest -->
             <div class="ca-surface">
               <div
                 class="d-flex flex-wrap align-items-baseline justify-content-between column-gap-3 row-gap-1 px-3 py-2 border-bottom"

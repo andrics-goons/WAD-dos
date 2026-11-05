@@ -8,8 +8,8 @@ import { loadFiles } from '@/cache/files.js'
 import { useLimitStore } from '@/stores/limits'
 import { useSessionStore } from '@/stores/session'
 
-// The staff side of help (design-docs/04, "Help"): one class's queue, kept live through the
-// class channel, and what a TA does with a request. The help queue and help request pages share it.
+// the staff side of help: one class's queue, kept live through the
+// class channel, and what a TA does with a request. the help queue and help request pages share it.
 export const useHelpStore = defineStore('help', () => {
   const requests = ref([]) // oldest first, the order the queue is served in
   const staffNames = ref({}) // user id → name, for "Ana is on this" and "last handled by Ana"
@@ -17,8 +17,8 @@ export const useHelpStore = defineStore('help', () => {
   let stopChanges = null
   let studentSide = false // load() is the student's own requests; open() is a staff queue
 
-  // The student side: my own requests in the class I'm in (the table's rules give a student only
-  // their own). Unlike open(), this leaves the class channel to the workspace.
+  // the student side: my own requests in the class I'm in (the table's rules give a student only
+  // their own). unlike open(), this leaves the class channel to the workspace.
   async function load(sessionId) {
     stop()
     studentSide = true
@@ -37,7 +37,7 @@ export const useHelpStore = defineStore('help', () => {
   const cancel = (id) => move(id, HelpStatus.CANCELLED)
   const followUp = async (id, payload) => apply(await helpApi.followUpHelpRequest(id, payload))
 
-  // Opens a class's queue and keeps it live until close()
+  // opens a class's queue and keeps it live until close()
   async function open(sessionId) {
     close()
     studentSide = false
@@ -52,7 +52,7 @@ export const useHelpStore = defineStore('help', () => {
     stopChanges = sessionStore.onChange('help_requests', apply)
   }
 
-  // The help request page only has the request id: find its class, then open that queue
+  // the help request page only has the request id: find its class, then open that queue
   async function openRequest(requestId) {
     const request = await helpApi.getHelpRequest(requestId)
     snapshotFiles.set(request.snapshot_id, request.snapshot.files)
@@ -66,7 +66,7 @@ export const useHelpStore = defineStore('help', () => {
     requests.value = []
   }
 
-  // A changed row, from the channel or an RPC's reply. The row has no student name,
+  // A changed row, from the channel or an RPC's reply. the row has no student name,
   // so a request we haven't seen yet means re-reading the list.
   async function apply(row) {
     const known = requests.value.find((r) => r.id === row.id)
@@ -92,7 +92,7 @@ export const useHelpStore = defineStore('help', () => {
   const resolve = (id) => move(id, HelpStatus.RESOLVED)
   const reply = (id, text) => move(id, HelpStatus.REPLIED, text)
 
-  // The code the student sent (a follow-up points the request at a newer snapshot)
+  // the code the student sent (a follow-up points the request at a newer snapshot)
   async function studentFiles(snapshotId) {
     if (!snapshotFiles.has(snapshotId)) {
       snapshotFiles.set(snapshotId, await loadFiles('snapshot', snapshotId))
@@ -100,7 +100,7 @@ export const useHelpStore = defineStore('help', () => {
     return snapshotFiles.get(snapshotId)
   }
 
-  // The checkpoint the class was on when they asked, with its files; null before the first
+  // the checkpoint the class was on when they asked, with its files; null before the first
   async function checkpointFor(sessionId, seq) {
     const checkpoint = (await listCheckpoints(sessionId)).find((c) => c.seq === seq)
     if (!checkpoint) return null
@@ -110,7 +110,7 @@ export const useHelpStore = defineStore('help', () => {
     }
   }
 
-  // The lesson's starter files, from the class that's open. Before the first checkpoint a request
+  // the lesson's starter files, from the class that's open. before the first checkpoint a request
   // is compared with these, so only what the student changed shows, not the whole project
   async function starterFiles() {
     const session = useSessionStore().session

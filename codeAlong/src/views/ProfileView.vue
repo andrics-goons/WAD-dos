@@ -16,12 +16,12 @@ const router = useRouter()
 const toast = useToastStore()
 const courses = useCoursesStore()
 
-// Courses I'm a TA in. Anyone can be one (a prof too, in another prof's course), so this
+// courses I'm a TA in. anyone can be one (a prof too, in another prof's course), so this
 // comes from the courses, not my account role.
 const taCourses = computed(() => courses.courses.filter((c) => c.myRole === Role.TA))
 onMounted(() => courses.load().catch((error) => toast.show(error.message, 'danger')))
 
-// The sidebar: one chapter shows at a time. It's in the URL, so a reload stays on it and
+// the sidebar: one chapter shows at a time. it's in the URL, so a reload stays on it and
 // connecting GitHub comes back to it (?chapter=connections).
 const CHAPTERS = [
   { key: 'profile', label: 'Profile', icon: 'bi-person' },
@@ -47,7 +47,7 @@ async function logout() {
   }
 }
 
-// Change name
+// change name
 const name = ref(auth.user?.name ?? '')
 const savingName = ref(false)
 const nameError = ref('')
@@ -66,7 +66,7 @@ async function saveName() {
   }
 }
 
-// Change password
+// change password
 const currentPassword = ref('')
 const newPassword = ref('')
 const savingPassword = ref(false)

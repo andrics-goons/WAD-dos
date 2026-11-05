@@ -1,4 +1,4 @@
-// works out a student's tile state (design-docs/05-core-logic.md §4)
+// works out a student's tile state
 // the same rule as the session_tiles view in sql, so the dashboard can re-colour tiles in the
 // browser without asking the db again. tests/unit/rls/tile-state.test.js checks they agree
 //

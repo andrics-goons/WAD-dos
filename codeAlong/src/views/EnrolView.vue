@@ -6,7 +6,7 @@ import { useToastStore } from '@/stores/toast'
 
 // /enrol        → type the code the prof shows
 // /enrol/:code  → the shared link or QR: submitted straight away.
-// Logged-out visitors are sent to log in (or register) first; returnTo brings them back here.
+// logged-out visitors are sent to log in (or register) first; returnTo brings them back here.
 const props = defineProps({ code: { type: String, default: '' } })
 
 const courses = useCoursesStore()
@@ -17,7 +17,7 @@ const enrolCode = ref(props.code)
 const isSubmitting = ref(false)
 const errorMsg = ref('')
 
-// Codes are 6 upper-case letters and digits; accept "wad2g2" or "WAD-2G2" too
+// codes are 6 upper-case letters and digits; accept "wad2g2" or "WAD-2G2" too
 const clean = (value) => value.toUpperCase().replace(/[^A-Z0-9]/g, '')
 
 async function enrol() {

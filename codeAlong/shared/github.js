@@ -1,12 +1,12 @@
-// GitHub import / export helpers (design-docs/05-core-logic.md §11).
-// Pure: no DOM, no network, so the Edge Functions and Vitest share them.
+// helpers for GitHub import and export.
+// pure: no DOM, no network, so the Edge Functions and Vitest share them.
 
 import { checkpointLabel } from './checkpoint-label.js'
 import { isIgnored, languageForPath } from './lesson-files.js'
 
 // 'https://github.com/owner/repo[/tree/<ref>/<dir>]' -> { owner, repo, ref, dir }; null if it isn't one.
 // ref is null when the link doesn't name a branch (the repo's default branch is used).
-// Also takes the links people copy from the address bar: no https://, http://, www., a
+// also takes the links people copy from the address bar: no https://, http://, www., a
 // ?tab=… or #readme on the end, or a file's /blob/<ref>/<path> (that file's folder is imported).
 export function parseRepoUrl(url) {
   const match = String(url)
@@ -21,7 +21,7 @@ export function parseRepoUrl(url) {
   return { owner, repo, ref, dir }
 }
 
-// From a repo's file list, the ones worth downloading: inside `dir`, a type a lesson can hold,
+// from a repo's file list, the ones worth downloading: inside `dir`, a type a lesson can hold,
 // and not node_modules / build output. `path` is relative to `dir`, `repoPath` to the repo.
 export function importCandidates(tree, dir) {
   const prefix = dir ? `${dir}/` : ''
@@ -35,9 +35,9 @@ export function importCandidates(tree, dir) {
 export const isValidRepoName = (name) =>
   /^[\w.-]{1,100}$/.test(name) && name !== '.' && name !== '..'
 
-// One commit per checkpoint, named like everywhere else in the app:
+// one commit per checkpoint, named like everywhere else in the app:
 // 'Checkpoint 3 · Fetch items for the selected category', or 'Checkpoint 3' without a title
-// An export of a student's own final code has one commit, with its own `message`
+// an export of a student's own final code has one commit, with its own `message`
 export const commitMessage = (checkpoint) =>
   checkpoint.message ?? checkpointLabel(checkpoint.seq, checkpoint.title)
 
@@ -50,7 +50,7 @@ export function exportReadme(lessonTitle, checkpoints) {
   return `# ${lessonTitle}\n\nExported from CodeAlong: ${what}.\n\n${list}\n`
 }
 
-// The files of one commit: exactly the checkpoint's files, plus our README unless it has its own
+// the files of one commit: exactly the checkpoint's files, plus our README unless it has its own
 export function exportTree(files, readme) {
   const tree = files.map((f) => ({
     path: f.path,

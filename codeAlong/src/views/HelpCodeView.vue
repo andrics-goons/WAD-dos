@@ -12,9 +12,9 @@ import PreviewPanel from '@/components/workspace/PreviewPanel.vue'
 import WorkspaceLayout from '@/components/workspace/WorkspaceLayout.vue'
 
 // A TA's own copy of a student's code, to run and poke at (issue #69): the editor, terminal and
-// preview the student has, loaded with what they sent with their help request. It opens in a new
+// preview the student has, loaded with what they sent with their help request. it opens in a new
 // tab, so its WebContainer is its own and never touches the one in the tab it came from.
-// Nothing here is saved or sent anywhere: edits only go to this tab's WebContainer.
+// nothing here is saved or sent anywhere: edits only go to this tab's WebContainer.
 const props = defineProps({ requestId: { type: String, required: true } })
 
 const help = useHelpStore()

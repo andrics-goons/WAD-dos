@@ -1,4 +1,4 @@
-// Unit tests for src/cache/idb.js, run against an in-memory IndexedDB (fake-indexeddb)
+// unit tests for src/cache/idb.js, run against an in-memory IndexedDB (fake-indexeddb)
 import 'fake-indexeddb/auto'
 import { describe, it, expect, vi } from 'vitest'
 import { idbGet, idbSet } from '@/cache/idb.js'

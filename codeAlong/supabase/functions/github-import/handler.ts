@@ -1,5 +1,5 @@
-// github-import: a prof pastes a repo link and gets its starter files back
-// (design-docs/05 §11). The browser then adds the error reporter (buildLessonFiles with
+// github-import: a prof pastes a repo link and gets its starter files back.
+// the browser then adds the error reporter (buildLessonFiles with
 // `probe`) and saves the lesson, as for an upload.
 //   { repoUrl, providerToken } -> { files, entryFile, source }
 // providerToken is the prof's own GitHub token from Supabase Auth, as for github-export: the
@@ -53,8 +53,8 @@ export async function handleImport(req: Request, deps: ImportDeps): Promise<Resp
     }
     const wanted = importCandidates(tree, dir)
 
-    // Check the limits before downloading, so a huge repo costs one request, not hundreds.
-    // New lesson adds ca-probe.js after this, so leave room for it unless the repo has one.
+    // check the limits before downloading, so a huge repo costs one request, not hundreds.
+    // new lesson adds ca-probe.js after this, so leave room for it unless the repo has one.
     const room = Limits.MAX_FILES - (wanted.some((f) => f.path.endsWith('ca-probe.js')) ? 0 : 1)
     if (wanted.length > room) {
       return fail(
@@ -79,7 +79,7 @@ export async function handleImport(req: Request, deps: ImportDeps): Promise<Resp
         ),
       })),
     )
-    // The same checks as an upload: allowed types, safe paths, size
+    // the same checks as an upload: allowed types, safe paths, size
     const { files, entryFile, errors } = buildLessonFiles(entries)
     if (errors.length) return fail(400, 'VALIDATION_FAILED', errors[0])
 

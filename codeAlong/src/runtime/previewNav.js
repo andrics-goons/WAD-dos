@@ -1,9 +1,9 @@
 import { onBeforeUnmount, ref } from 'vue'
 
-// Back, Forward and Reload for a preview <iframe>, like a browser's (PreviewPanel, ReplayPreview).
-// The preview is the student's app on WebContainer's own origin, so we can't reach into it. This
+// back, forward and reload for a preview <iframe>, like a browser's (PreviewPanel, ReplayPreview).
+// the preview is the student's app on WebContainer's own origin, so we can't reach into it. this
 // script is put into every preview page (setPreviewScript in webcontainer.js) and talks by message:
-// it tells us where it can go, and goes there when asked. The Navigation API only steps through
+// it tells us where it can go, and goes there when asked. the Navigation API only steps through
 // the preview's own pages, so Back and Forward can never take you out of CodeAlong.
 export const PREVIEW_NAV_SCRIPT = `
 (() => {
@@ -26,7 +26,7 @@ export const PREVIEW_NAV_SCRIPT = `
 })()
 `
 
-// In a component: <iframe ref="frame" :key="frameKey" …> and three buttons: back, forward, reload
+// in a component: <iframe ref="frame" :key="frameKey" …> and three buttons: back, forward, reload
 export function usePreviewNav() {
   const frame = ref(null)
   const frameKey = ref(0) // bumped to load the preview again from its start page

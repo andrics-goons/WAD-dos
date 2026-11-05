@@ -15,9 +15,9 @@ import CodeViewer from '@/components/replay/CodeViewer.vue'
 import ReplayTabs from '@/components/replay/ReplayTabs.vue'
 import { downloadProject } from '@/utils/downloadProject.js'
 
-// One class, step by step: pick a checkpoint and see what changed since the one before it,
+// one class, step by step: pick a checkpoint and see what changed since the one before it,
 // with my notes beside it. A student can switch to Student view: their own code as the
-// class ended, with the same download, preview and export. Owner: Ray Yien. design-docs/04, 05 §11.
+// class ended, with the same download, preview and export.
 // ?seq=4 opens checkpoint 4 (search results link here like that).
 const props = defineProps({ sessionId: { type: String, required: true } })
 
@@ -113,7 +113,7 @@ function select(seq) {
   router.replace({ query: { ...route.query, seq } })
 }
 
-// The code before and after the active checkpoint; checkpoint 1 is compared with the starter code
+// the code before and after the active checkpoint; checkpoint 1 is compared with the starter code
 const before = ref([])
 const after = ref([])
 const filesLoading = ref(false)
@@ -147,7 +147,7 @@ const notedCheckpoints = computed(() =>
   notes.value.filter((n) => n.kind === NoteKind.NOTE).map((n) => n.checkpointId),
 )
 
-// My notes are closed until asked for, so the code gets the width. Remembered on this device;
+// my notes are closed until asked for, so the code gets the width. remembered on this device;
 // a search result for a note opens them (?notes=open).
 const NOTES_KEY = 'codealong:replay-notes'
 const notesOpen = ref(
@@ -169,7 +169,7 @@ function toggleNotes() {
   }
 }
 
-// Runs one note change; done() lets the notes panel clear its text box only once it's saved,
+// runs one note change; done() lets the notes panel clear its text box only once it's saved,
 // so a failed save keeps what the student wrote
 const saving = ref(false)
 async function run(action, done = () => {}) {
@@ -208,7 +208,7 @@ const removeNote = (id) =>
     notes.value = notes.value.filter((n) => n.id !== id)
   })
 
-// Export to GitHub: the dialog, and the new repo's link once it's done
+// export to GitHub: the dialog, and the new repo's link once it's done
 function onExported(url) {
   exportedUrl.value = url
   exportedHidden.value = false

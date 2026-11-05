@@ -2,9 +2,9 @@ import { onBeforeUnmount, ref } from 'vue'
 import { UNSUPPORTED_BROWSER } from './unsupportedBrowser'
 import { startWorkspace } from './workspace'
 
-// What every page that runs code in the WebContainer needs (the student workspace, the teach view,
+// what every page that runs code in the WebContainer needs (the student workspace, the teach view,
 // a TA's view of a student's code): whether this browser can run it, the preview URL once the dev
-// server is up, and the error to show when it can't start. Stops the preview on leaving the page.
+// server is up, and the error to show when it can't start. stops the preview on leaving the page.
 //
 //   const runtime = useRuntime("The editor couldn't start")
 //   const booting = runtime.isolated ? getWebContainer() : null   // start booting early
@@ -24,7 +24,7 @@ export function useRuntime(failMessage) {
     stop?.()
   })
 
-  // Waits for the boot, then mounts the files and starts the preview. A boot failure is shown here
+  // waits for the boot, then mounts the files and starts the preview. A boot failure is shown here
   async function start(booting, files) {
     try {
       const webcontainer = await booting

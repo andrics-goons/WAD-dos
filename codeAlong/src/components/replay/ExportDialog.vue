@@ -1,6 +1,6 @@
 <script setup>
-// "Export to GitHub" on the replay: a new repo on my own GitHub, one commit per checkpoint
-// (design-docs/05 §11). Needs a GitHub sign-in; if there isn't one (never connected, or Supabase
+// "Export to GitHub" on the replay: a new repo on my own GitHub, one commit per checkpoint.
+// needs a GitHub sign-in; if there isn't one (never connected, or Supabase
 // dropped GitHub's token when it refreshed the session) it offers to reconnect and come back here.
 //   <ExportDialog v-model:open="show" :session-id="id" default-name="week-6-mini-cart" @exported="url = $event" />
 import { ref, watch } from 'vue'

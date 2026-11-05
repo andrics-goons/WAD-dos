@@ -1,4 +1,4 @@
-// Entry point for the help request analysis. Keeps verify_jwt on (the trigger sends the
+// entry point for the help request analysis. keeps verify_jwt on (the trigger sends the
 // service-role key); handler.ts re-reads the request from the database rather than trusting the body.
 import { createGroqClient } from '../_shared/groq.ts'
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts'

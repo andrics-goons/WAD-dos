@@ -1,8 +1,8 @@
-// Unit tests for src/cache/autosave.js — debounce, delta saves, retries, flush on hide.
-// The database call and IndexedDB are mocked, so no Supabase is needed.
+// unit tests for src/cache/autosave.js: debounce, delta saves, retries, flush on hide.
+// the database call and IndexedDB are mocked, so no Supabase is needed.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-// An in-memory stand-in for IndexedDB, shared by every saver in a test (like one browser)
+// an in-memory stand-in for IndexedDB, shared by every saver in a test (like one browser)
 const { store } = vi.hoisted(() => ({ store: new Map() }))
 vi.mock('@/cache/idb.js', () => ({
   idbGet: async (key) => store.get(key),
@@ -17,7 +17,7 @@ const f = (path, content) => ({ path, content })
 const project = () => [f('src/a.js', 'a'), f('src/b.js', 'b'), f('src/c.js', 'c')]
 const sentPaths = (call) => call[1].map((x) => x.path)
 
-// Every saver made in a test is stopped afterwards, so its page listeners don't leak
+// every saver made in a test is stopped afterwards, so its page listeners don't leak
 const savers = []
 function setup(userId = 'u1') {
   const statuses = []

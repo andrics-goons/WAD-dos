@@ -1,7 +1,7 @@
 import process from 'node:process'
 import { defineConfig, devices } from '@playwright/test'
 
-// Specs share one database and sign in as the same seeded users, so they run one at a time.
+// specs share one database and sign in as the same seeded users, so they run one at a time.
 export default defineConfig({
   testDir: './e2e',
   globalSetup: './e2e/global-setup.js',
@@ -26,7 +26,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
     },
     {
-      // Only the specs tagged @responsive run at phone width, and only here.
+      // only the specs tagged @responsive run at phone width, and only here.
       name: 'mobile-chrome',
       grep: /@responsive/,
       use: { ...devices['Pixel 5'], viewport: { width: 375, height: 667 } },
@@ -39,8 +39,8 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
-      // The Edge Functions, with Telegram / GitHub / LLM calls going to test_outbox instead.
-      // Any answer from the gateway (even 401) means they are up.
+      // the Edge Functions, with Telegram / GitHub / LLM calls going to test_outbox instead.
+      // any answer from the gateway (even 401) means they are up.
       command: 'pnpm exec supabase functions serve --env-file e2e/functions.env',
       url: 'http://127.0.0.1:54321/functions/v1/telegram-notify',
       reuseExistingServer: !process.env.CI,

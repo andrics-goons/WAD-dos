@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Test page for scripts/try-analyze-help.mjs --serve (not part of the app). -->
+<!-- test page for scripts/try-analyze-help.mjs --serve (not part of the app). -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -308,7 +308,7 @@
         $('summarise').disabled = n === 0
       }
 
-      // Same layout as the dashboard's "What the class is stuck on" panel
+      // same layout as the dashboard's "What the class is stuck on" panel
       function showSummary(s) {
         const out = $('class-output')
         out.replaceChildren()
@@ -357,7 +357,7 @@
         }
       }
 
-      // Builds an element with text only: model output is never inserted as HTML
+      // builds an element with text only: model output is never inserted as HTML
       function el(tag, className, text) {
         const node = document.createElement(tag)
         if (className) node.className = className

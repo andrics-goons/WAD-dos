@@ -1,11 +1,11 @@
-// Unit tests for src/components/replay/diffRows.js — pairing lines for the side-by-side view
+// unit tests for src/components/replay/diffRows.js: pairing lines for the side-by-side view
 import { describe, it, expect } from 'vitest'
 import { splitRows } from '@/components/replay/diffRows.js'
 
 const ctx = (text) => ({ type: 'context', text })
 const del = (text) => ({ type: 'del', text })
 const add = (text) => ({ type: 'add', text })
-// Show rows as [leftText, rightText] so expectations stay readable
+// show rows as [leftText, rightText] so expectations stay readable
 const texts = (rows) => rows.map((r) => [r.left?.text ?? null, r.right?.text ?? null])
 
 describe('splitRows', () => {

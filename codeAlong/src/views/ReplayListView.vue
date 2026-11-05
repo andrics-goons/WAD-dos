@@ -4,9 +4,9 @@ import { checkpointLabel } from '@shared/checkpoint-label.js'
 import { useReplaysStore } from '@/stores/replays'
 import EmptyState from '@/components/ui/EmptyState.vue'
 
-// Every ended class in my courses, grouped by course and then by lesson (a lesson taught several
+// every ended class in my courses, grouped by course and then by lesson (a lesson taught several
 // times is one row that opens to its classes), with search across checkpoint titles and my own
-// notes. Owner: Ray Yien. design-docs/04 "/replays".
+// notes.
 const store = useReplaysStore()
 
 const replays = ref([])
@@ -46,7 +46,7 @@ const when = (iso) => new Date(iso).toLocaleString([], { dateStyle: 'medium', ti
 const day = (iso) => new Date(iso).toLocaleDateString([], { dateStyle: 'medium' })
 const plural = (n, word, many = `${word}s`) => `${n} ${n === 1 ? word : many}`
 
-// Search: null until the first search, then the results (possibly none)
+// search: null until the first search, then the results (possibly none)
 const q = ref('')
 const results = ref(null)
 const searching = ref(false)
@@ -100,7 +100,7 @@ function clearSearch() {
       </button>
     </form>
 
-    <!-- Search results replace the list until cleared -->
+    <!-- search results replace the list until cleared -->
     <section v-if="searchError || results" class="mb-4">
       <div v-if="searchError" class="ca-surface">
         <EmptyState icon="bi-exclamation-triangle" title="Search didn't work" compact>

@@ -32,7 +32,7 @@ async function register() {
       role: role.value,
     })
 
-    // back to wherever they were heading (e.g. an enrol link), like login does
+    // back to wherever they were heading (like an enrol link), like login does
     router.replace(route.query.returnTo || '/home')
   } catch (error) {
     errorMsg.value = error.message

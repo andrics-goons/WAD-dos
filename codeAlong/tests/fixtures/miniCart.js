@@ -1,5 +1,5 @@
 // A small stand-in for the Mini Cart lesson, kept here so the unit tests don't depend on the
-// workspace seed. It reproduces the cases that matter: eight numbered TODOs across .vue, .js
+// workspace seed. it reproduces the cases that matter: eight numbered TODOs across .vue, .js
 // and .html files, with TODO 3 and TODO 8 each appearing in two files.
 
 export const miniCartFiles = [

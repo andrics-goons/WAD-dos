@@ -2,7 +2,7 @@
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 
 // "Leave this course?" for a student, with the warning that their code and replays in it are
-// deleted, or for a TA, who only stops helping there. Used on the course page and in the ⋯ menu on
+// deleted, or for a TA, who only stops helping there. used on the course page and in the ⋯ menu on
 // the My courses cards.
 //   <LeaveCourseModal v-model:open="show" :title="course.title" :ta="isTa" :busy="leaving" @confirm="leave" />
 defineProps({

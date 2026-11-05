@@ -1,4 +1,4 @@
-// Entry point for github-import: wires the real clients into handler.ts.
+// entry point for github-import: wires the real clients into handler.ts.
 import { isMockMode } from '../_shared/outbox.ts'
 import { liveGithub, mockGithub } from '../_shared/github.ts'
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts'
@@ -7,7 +7,7 @@ import { handleImport } from './handler.ts'
 const admin = supabaseAdmin()
 const env = (key: string) => Deno.env.get(key)
 
-// The caller's role from profiles (never from the token's metadata, which users can edit)
+// the caller's role from profiles (never from the token's metadata, which users can edit)
 async function callerRole(req: Request) {
   const jwt = req.headers.get('authorization')?.replace(/^Bearer /i, '')
   if (!jwt) return null

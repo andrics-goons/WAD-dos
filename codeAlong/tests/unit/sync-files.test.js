@@ -1,4 +1,4 @@
-// Unit tests for shared/sync-files.js — what autosave decides to upload
+// unit tests for shared/sync-files.js: what autosave decides to upload
 import { describe, it, expect } from 'vitest'
 import { Limits } from '../../shared/constants.js'
 import { planAutosave, storableFiles } from '../../shared/sync-files.js'
@@ -21,7 +21,7 @@ const project = () => [
   f('server/data.json', '[]'),
 ]
 
-// What the last successful save would have remembered for these files
+// what the last successful save would have remembered for these files
 const syncedFor = async (tree) => (await planAutosave(tree, {})).hashes
 
 describe('storableFiles', () => {

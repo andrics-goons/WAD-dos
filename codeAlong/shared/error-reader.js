@@ -2,12 +2,12 @@ import { parseBuildError, ERROR_LABEL } from "./build-error.js"
 import { parseRuntimeError } from "./runtime-error.js"
 
 // the start of the line the lesson's vite.config.js prints for a runtime error,
-// e.g. 'ca-error {"name":"ReferenceError","message":"itmes is not defined",...}'
+// like 'ca-error {"name":"ReferenceError","message":"itmes is not defined",...}'
 const RUNTIME_MARK = "ca-error "
 
 // the lines that mean it compiles again
 const RECOVERED = /hmr update|page reload|ready in/
-// concurrently (the lesson's dev script) puts its name in front of every line, e.g. "[web]   File: ..."
+// concurrently (the lesson's dev script) puts its name in front of every line, like "[web]   File: ..."
 // [vite] is Vite's own label, so it's left alone
 const PREFIX = /^\[(?!vite\])[\w-]+\] ?/
 

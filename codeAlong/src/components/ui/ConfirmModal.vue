@@ -1,9 +1,9 @@
 <script setup>
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
-// An "Are you sure?" pop-up for risky actions like ending a class or deleting a lesson.
-// Use: <ConfirmModal v-model:open="show" title="End class?" variant="danger" @confirm="end">
-// Escape or clicking outside cancels. It doesn't close itself — set open to false when done.
+// an "Are you sure?" pop-up for risky actions like ending a class or deleting a lesson.
+// use: <ConfirmModal v-model:open="show" title="End class?" variant="danger" @confirm="end">
+// escape or clicking outside cancels. it doesn't close itself, set open to false when done.
 const props = defineProps({
   open: { type: Boolean, default: false },
   title: { type: String, required: true },

@@ -1,8 +1,8 @@
-// The after-class Telegram digest (design-docs/05 §10). The prof presses "Send digest" on the
+// the after-class Telegram digest. the prof presses "Send digest" on the
 // report page: the course's staff get the summary, and enrolled students who didn't join get
-// where to start in the replay. Only people who linked Telegram can be reached.
+// where to start in the replay. only people who linked Telegram can be reached.
 //
-// Sent once per class: the report row records it, and a second press is refused.
+// sent once per class: the report row records it, and a second press is refused.
 import { formatAbsentDigest, formatStaffDigest, sendWithRetry } from '../../../shared/telegram.js'
 import { deliver, type EnvReader, type OutboxClient } from '../_shared/outbox.ts'
 import { fail, json } from '../_shared/cors.ts'
@@ -104,7 +104,7 @@ export async function handleDigest(req: Request, deps: DigestDeps): Promise<Resp
     }
   }
 
-  // Recorded only if someone was reached, so a total outage can be retried
+  // recorded only if someone was reached, so a total outage can be retried
   if (sent > 0) {
     await db.markSent(sessionId, {
       sentAt: (deps.now?.() ?? new Date()).toISOString(),

@@ -2,13 +2,12 @@ import { supabase } from '@/lib/supabase'
 import { mapError } from './mapError'
 import { SessionStatus } from '@shared/constants.js'
 
-// Live classes: start, join, load, change settings, end. Owner: Ying Qi.
-// Contract: design-docs/04 "Sessions & checkpoints" and 09 §7.
+// live classes: start, join, load, change settings, end.
 
 const SESSION =
   'id, lesson_id, course_id, started_by, join_code, status, checkpoint_seq, settings, announcement, spotlight, started_at, ended_at'
 
-/** Profs only. Starts a live class for a ready lesson; the row includes its join_code. */
+/** profs only. starts a live class for a ready lesson; the row includes its join_code. */
 export async function startSession(lessonId) {
   const { data, error } = await supabase.rpc('start_session', { p_lesson_id: lessonId })
   if (error) throw mapError(error)
@@ -16,8 +15,8 @@ export async function startSession(lessonId) {
 }
 
 /**
- * Finds the live class for a join code (exactly as shown, e.g. "K7QM2P").
- * Returns { session_id, role } where role is 'student' or 'staff'.
+ * finds the live class for a join code (exactly as shown, like "K7QM2P").
+ * returns { session_id, role } where role is 'student' or 'staff'.
  * NOT_FOUND for a wrong or ended code; FORBIDDEN if you're not in the course.
  */
 export async function joinSession(joinCode) {
@@ -27,10 +26,10 @@ export async function joinSession(joinCode) {
 }
 
 /**
- * Everything a page needs to open a class:
- *   role               'staff' or 'student' — which page you belong on
+ * everything a page needs to open a class:
+ *   role               'staff' or 'student': which page you belong on
  *   lesson             the starter project to load: files_hash, entry_file, dev_command
- *                      (no files — compare files_hash with your cache, then download if needed)
+ *                      (no files: compare files_hash with your cache, then download if needed)
  *   latest_checkpoint  the prof's newest checkpoint, or null (also without files)
  */
 export async function getSession(id) {
@@ -65,7 +64,7 @@ export async function getSession(id) {
   }
 }
 
-/** All classes in a course, newest first — for the course page's Lessons tab. */
+/** All classes in a course, newest first, for the course page's Lessons tab. */
 export async function listSessions(courseId) {
   const { data, error } = await supabase
     .from('sessions')
@@ -76,7 +75,7 @@ export async function listSessions(courseId) {
   return data
 }
 
-/** Live classes in every course I'm in, newest first — for the home page. */
+/** live classes in every course I'm in, newest first, for the home page. */
 export async function listLiveSessions() {
   const { data, error } = await supabase
     .from('sessions')
@@ -87,7 +86,7 @@ export async function listLiveSessions() {
   return data
 }
 
-/** Profs only. Every student is told straight away (session:settings). */
+/** profs only. every student is told straight away (session:settings). */
 export async function updateSettings(id, settings) {
   const { data, error } = await supabase
     .from('sessions')
@@ -99,14 +98,14 @@ export async function updateSettings(id, settings) {
   return data
 }
 
-/** Profs only. Everyone in the class is told (session:ended). */
+/** profs only. everyone in the class is told (session:ended). */
 export async function endSession(id) {
   const { data, error } = await supabase.rpc('end_session', { p_session_id: id })
   if (error) throw mapError(error)
   return data
 }
 
-/** Profs only, live classes only. Students see it as a banner (session:announce); no text clears it. */
+/** profs only, live classes only. students see it as a banner (session:announce); no text clears it. */
 export async function announce(id, text) {
   const { data, error } = await supabase.rpc('announce', { p_session_id: id, p_text: text })
   if (error) throw mapError(error)

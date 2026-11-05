@@ -5,8 +5,8 @@ import { createClient } from '@supabase/supabase-js'
 const PASSWORD = 'pass1234'
 const noSession = { auth: { persistSession: false, autoRefreshToken: false } }
 
-// Read the URL and keys from the running local stack, so the specs always match it.
-// Run from codeAlong/: the CLI only finds supabase/config.toml from there or below it, and the
+// read the URL and keys from the running local stack, so the specs always match it.
+// run from codeAlong/: the CLI only finds supabase/config.toml from there or below it, and the
 // VS Code Playwright extension starts the specs from whichever folder is open.
 function readLocalStack() {
   let out
@@ -31,12 +31,12 @@ function readLocalStack() {
 
 const stack = readLocalStack()
 
-/** Bypasses RLS. For reading `test_outbox` and checking rows, never to drive the UI. */
+/** bypasses RLS. for reading `test_outbox` and checking rows, never to drive the UI. */
 export const service = createClient(stack.url, stack.serviceKey, noSession)
 
-// Sign in through Supabase Auth, then plant the session in localStorage so the page
+// sign in through Supabase Auth, then plant the session in localStorage so the page
 // is already logged in. supabase-js keeps it under `sb-<first label of the host>-auth-token`.
-// Only when there's none yet: the app's own updates to it (archiving a course, a new name)
+// only when there's none yet: the app's own updates to it (archiving a course, a new name)
 // must survive a reload. A sign-out removes it, so the next page load signs back in.
 async function loginContext(browser, email, { githubToken } = {}) {
   const sb = createClient(stack.url, stack.anonKey, noSession)
@@ -55,7 +55,7 @@ async function loginContext(browser, email, { githubToken } = {}) {
   return { context, page: await context.newPage() }
 }
 
-// Resolves once the realtime socket has confirmed the class channel. Call it before the
+// resolves once the realtime socket has confirmed the class channel. call it before the
 // navigation that opens the channel, and await the result afterwards.
 function channelSubscribed(page) {
   return new Promise((resolve) => {
@@ -72,7 +72,7 @@ function channelSubscribed(page) {
 
 /**
  * A student joins a live class from its link (as from the QR code), pressing Join themselves,
- * and lands in its workspace. Goes on only once the class channel is confirmed, so the student
+ * and lands in its workspace. goes on only once the class channel is confirmed, so the student
  * can receive a broadcast: one sent while it is still connecting would be missed.
  */
 export async function joinClass(page, joinCode) {
@@ -93,7 +93,7 @@ export async function openQueue(page, path) {
 export const test = base.extend({
   // login(email, { githubToken }) → a page already signed in as that account (the throwaway ones
   // from classroom.js, or a seeded one), as if it had signed in with GitHub when a token is given.
-  // Closed when the test ends.
+  // closed when the test ends.
   login: async ({ browser }, use) => {
     const contexts = []
     await use(async (email, options) => {

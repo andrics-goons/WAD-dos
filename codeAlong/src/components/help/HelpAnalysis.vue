@@ -3,9 +3,9 @@ import { computed } from 'vue'
 import { checkpointLabel } from '@shared/checkpoint-label.js'
 import { Limits, LimitCode } from '@shared/constants.js'
 
-// What the AI made of the code a student sent with "Ask for help" (design-docs/05 §8a, part 1):
-// where they're stuck and why, in words. It arrives a few seconds after the request, so there is
-// nothing here until it does. A "Check my work" request is never analysed. It can be wrong, and
+// what the AI made of the code a student sent with "Ask for help":
+// where they're stuck and why, in words. it arrives a few seconds after the request, so there is
+// nothing here until it does. A "Check my work" request is never analysed. it can be wrong, and
 // it says so.
 const props = defineProps({
   // { summary, rootCause, category, stuckAt: { checkpoint, file, line }, confidence } or

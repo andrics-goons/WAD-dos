@@ -2,9 +2,9 @@ import { generateJoinCode } from '../shared/join-code.js'
 import { test, expect, service } from './fixtures'
 import { classroom, confirmModal, editor } from './classroom'
 
-// Journey 5: a prof looks after their course between classes: who is in it, who helps, and which
-// lessons students can see. They own two courses, made for the journey, and everything goes
-// afterwards. The enrol link, the TAs and the lesson library are all untouched by the other journeys.
+// journey 5: a prof looks after their course between classes: who is in it, who helps, and which
+// lessons students can see. they own two courses, made for the journey, and everything goes
+// afterwards. the enrol link, the TAs and the lesson library are all untouched by the other journeys.
 const room = classroom()
 const code = `J${Date.now() % 100000}`
 

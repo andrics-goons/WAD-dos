@@ -1,13 +1,13 @@
-// What every lesson needs so students' runtime errors reach CodeAlong
-// (design-docs/lesson-import-requirements.md). addProbe() makes those changes to an uploaded or
+// what every lesson needs so students' runtime errors reach CodeAlong.
+// addProbe() makes those changes to an uploaded or
 // imported project before it's saved:
 //   1. src/ca-probe.js, next to the entry script: catches errors in the running app
 //   2. the entry script imports it on its first line
 //   3. vite.config.js has the ca-errors plugin, which prints each error in the terminal
 //   4. Vite 8: package.json pins the Rolldown WASM binding, or Vite crashes in the WebContainer
-// The app is at the top of the project, or in a folder of its own next to its backend
+// the app is at the top of the project, or in a folder of its own next to its backend
 // (client/ + server/); all four changes go in the app's folder.
-// Pure: takes and returns the flat files list. Nothing here touches the DOM or the network.
+// pure: takes and returns the flat files list. nothing here touches the DOM or the network.
 
 export const CA_PROBE_JS = `// CodeAlong runtime probe: reports errors in your app to your CodeAlong workspace.
 // You don't need to edit this file.
@@ -65,7 +65,7 @@ function caErrors() {
 }
 `
 
-// Temporary: drop these once Rolldown works with the latest @napi-rs/wasm-runtime (doc §4)
+// temporary: drop these once Rolldown works with the latest @napi-rs/wasm-runtime
 export const VITE8_PINS = Object.freeze({
   '@napi-rs/wasm-runtime': '1.2.5',
   '@rolldown/binding-wasm32-wasi': '1.2.15',

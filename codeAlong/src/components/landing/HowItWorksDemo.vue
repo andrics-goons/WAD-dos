@@ -2,8 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 // "How it works" on the landing page: a mock CodeAlong screen that plays the four steps of a
-// class on a loop, with a cursor that moves, clicks and types. It plays only while it's on
-// screen; clicking a step jumps to it. Everything in it is made up.
+// class on a loop, with a cursor that moves, clicks and types. it plays only while it's on
+// screen; clicking a step jumps to it. everything in it is made up.
 const STEPS = [
   { title: 'The prof starts a class', body: 'One click gives a 6-character join code.' },
   { title: 'Students join with the code', body: 'Type it in, or scan the QR on the screen.' },
@@ -65,7 +65,7 @@ function reset() {
   helpCount.value = 0
 }
 
-// Each play() gets a number; starting another (or stopping) makes the old one's waits throw,
+// each play() gets a number; starting another (or stopping) makes the old one's waits throw,
 // so only one ever runs.
 let run = 0
 const STOP = Symbol('stop')
@@ -328,7 +328,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* The steps beside the screen */
+/* the steps beside the screen */
 .demo-step {
   padding: var(--ca-space-3) var(--ca-space-4);
   border: 1px solid var(--ca-border);
@@ -359,7 +359,7 @@ onBeforeUnmount(() => {
   color: var(--ca-on-brand);
 }
 
-/* The window. Everything inside is sized in cqw (1% of its width), so it scales as one picture
+/* the window. everything inside is sized in cqw (1% of its width), so it scales as one picture
    and the cursor's positions (in % of the screen) always land on the buttons. */
 .demo {
   container-type: inline-size;
@@ -755,7 +755,7 @@ onBeforeUnmount(() => {
   height: 20%;
 }
 
-/* The cursor: its tip sits on the point it's moved to */
+/* the cursor: its tip sits on the point it's moved to */
 .demo__cursor {
   position: absolute;
   z-index: 1;

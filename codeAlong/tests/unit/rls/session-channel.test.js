@@ -1,5 +1,5 @@
 // @vitest-environment node
-// Who may listen to a class's live channel (session:<id>). The realtime.messages policy
+// who may listen to a class's live channel (session:<id>). the realtime.messages policy
 // only lets members of the class's course in; everyone else is refused and hears nothing.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { anonClient, userClient, service, cleanup } from './_helpers.js'
@@ -7,7 +7,7 @@ import { generateJoinCode } from '@shared/join-code.js'
 
 let prof, stu, stu2, outsider, course, session
 
-// Try to join the channel. Resolves with how it went ('SUBSCRIBED' or 'CHANNEL_ERROR'), the
+// try to join the channel. resolves with how it went ('SUBSCRIBED' or 'CHANNEL_ERROR'), the
 // error message if refused, and `heard`, which turns true if any broadcast arrives afterwards.
 // Realtime takes about 5 s to refuse, so the tests below get 20 s.
 async function tryJoin(client, sessionId) {
@@ -28,7 +28,7 @@ async function tryJoin(client, sessionId) {
   return result
 }
 
-// The prof flips a setting (keeping the rest), which broadcasts session:settings to the class
+// the prof flips a setting (keeping the rest), which broadcasts session:settings to the class
 async function broadcastSomething() {
   session.settings = { ...session.settings, hintsEnabled: !session.settings.hintsEnabled }
   const { error } = await prof.client

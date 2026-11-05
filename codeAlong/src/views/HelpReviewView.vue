@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import HelpReviewPanel from '@/components/help/HelpReviewPanel.vue'
 
-// One help request on its own page — where the Telegram ping links to. Same panel as the queue.
+// one help request on its own page, where the Telegram ping links to. same panel as the queue.
 const props = defineProps({ requestId: { type: String, required: true } })
 
 const help = useHelpStore()

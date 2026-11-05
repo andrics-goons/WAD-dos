@@ -3,8 +3,7 @@ import { mapError } from './mapError'
 import { LessonStatus } from '@shared/constants.js'
 
 // all the lesson calls to supabase live here. A lesson is a title and its starter files:
-// there are no steps, the prof saves checkpoints during class (design-docs/05 §3).
-// based on design-docs/03-data-model.md, change the columns if andric's tables end up different
+// there are no steps, the prof saves checkpoints during class.
 // db uses snake_case, the app uses camelCase, so we convert here
 
 // list view doesn't need the files, they can be big

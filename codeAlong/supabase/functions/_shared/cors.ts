@@ -1,5 +1,5 @@
-// For functions the browser calls directly (supabase.functions.invoke): the CORS headers the
-// browser checks, and a JSON response that carries them. Errors are { code, message }, with the
+// for functions the browser calls directly (supabase.functions.invoke): the CORS headers the
+// browser checks, and a JSON response that carries them. errors are { code, message }, with the
 // same codes as mapError, so the page can show the message.
 
 export const corsHeaders = {

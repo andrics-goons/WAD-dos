@@ -1,8 +1,8 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
-// Pop-up messages for the whole app: toast.show('Saved', 'success').
-// Types: info, success, warning, danger. They vanish after 4 seconds (timeout: 0 keeps one up).
+// pop-up messages for the whole app: toast.show('Saved', 'success').
+// types: info, success, warning, danger. they vanish after 4 seconds (timeout: 0 keeps one up).
 const DEFAULT_TIMEOUT_MS = 4000
 const MAX_VISIBLE = 4
 

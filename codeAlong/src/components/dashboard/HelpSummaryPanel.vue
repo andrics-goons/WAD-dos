@@ -4,8 +4,8 @@ import { computed, onMounted } from 'vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { useDashboardStore } from '@/stores/dashboard'
 
-// "What the class is stuck on": the AI summary of open help requests (design-docs/05 §8a,
-// part 2), which runs when the dashboard loads and when the prof presses Refresh.
+// "What the class is stuck on": the AI summary of open help requests,
+// which runs when the dashboard loads and when the prof presses Refresh.
 const props = defineProps({ sessionId: { type: String, required: true } })
 
 const dashboard = useDashboardStore()
@@ -22,7 +22,7 @@ const hasGroups = computed(() => !!dashboard.helpSummary?.groups.length)
   <div class="ca-surface d-flex flex-column" data-testid="help-summary">
     <!-- a flex column, so when the Teach view stretches the card the empty state centres and
          the footer stays at the bottom -->
-    <!-- Refresh reruns the help request summary -->
+    <!-- refresh reruns the help request summary -->
     <div class="d-flex align-items-center justify-content-between gap-3 px-3 py-2 border-bottom">
       <span class="fw-semibold">What the class is stuck on</span>
       <button

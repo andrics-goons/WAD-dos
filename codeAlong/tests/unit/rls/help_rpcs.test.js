@@ -57,7 +57,7 @@ async function startSession(lessonRow, startedBy, extra = {}) {
   return data
 }
 
-// Each test sends its own request so they never depend on each other's leftovers.
+// each test sends its own request so they never depend on each other's leftovers.
 const ask = (who, fields = {}) =>
   who.client.rpc('create_help_request', {
     p_session_id: session.id,
@@ -107,7 +107,7 @@ beforeAll(async () => {
   session = await startSession(lesson, prof.id)
 })
 
-// One student, one session: clear the queue so an earlier test's open request
+// one student, one session: clear the queue so an earlier test's open request
 // can't trip the one-active-request-per-type rule in the next.
 beforeEach(async () => {
   await service.from('help_requests').delete().eq('session_id', session.id)

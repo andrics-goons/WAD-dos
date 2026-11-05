@@ -1,10 +1,10 @@
-// Prompt in, diagnosis out, for analyze-help (design-docs/05 §8a). Pure: no Deno globals,
+// prompt in, diagnosis out, for analyze-help. pure: no Deno globals,
 // no network, so Vitest runs it directly.
 import { checkpointLabel } from '../../../shared/checkpoint-label.js'
 import type { ChatMessage } from '../_shared/groq.ts'
 
-// Fixed list, so the prof's dashboard can group "13 students · Checkpoint 3 · missing-prop" without
-// trusting the LLM's wording. Anything else the model says becomes 'other'.
+// fixed list, so the prof's dashboard can group "13 students · Checkpoint 3 · missing-prop" without
+// trusting the LLM's wording. anything else the model says becomes 'other'.
 export const CATEGORIES = [
   'missing-prop',
   'undefined-variable',
@@ -70,7 +70,7 @@ Reply with one JSON object and nothing else, with exactly these keys:
 - "stuckAt": { "file": the file path, "line": the line number } of the most important mistake, using the line numbers shown. If code is missing, use the line in the student's file where it belongs.
 - "confidence": "high", "medium" or "low".`
 
-// Whole-line comments can hold anything the student typed (names included), so they're
+// whole-line comments can hold anything the student typed (names included), so they're
 // dropped, except TODO lines: those are the lesson's hints.
 function isDroppedComment(line: string): boolean {
   const t = line.trim()
@@ -78,7 +78,7 @@ function isDroppedComment(line: string): boolean {
   return t.startsWith('//') || t.startsWith('/*') || t.startsWith('*') || t.startsWith('<!--')
 }
 
-// Line ranges [from, to] (1-based, inclusive) around each line of interest, merged when they touch
+// line ranges [from, to] (1-based, inclusive) around each line of interest, merged when they touch
 function ranges(lines: number[], total: number): [number, number][] {
   const sorted = [...new Set(lines)].filter((n) => n >= 1).sort((a, b) => a - b)
   const out: [number, number][] = []
@@ -92,8 +92,8 @@ function ranges(lines: number[], total: number): [number, number][] {
   return out
 }
 
-// The lines worth showing from each file: around the error.
-// With no error to anchor on, the whole files go in (the cap still applies).
+// the lines worth showing from each file: around the error.
+// with no error to anchor on, the whole files go in (the cap still applies).
 function linesOfInterest(ctx: AnalysisContext): Map<string, number[]> {
   const map = new Map<string, number[]>()
   const add = (file: string | undefined, line: number | undefined) => {
@@ -135,7 +135,7 @@ export function buildPrompt(ctx: AnalysisContext): ChatMessage[] {
     ? `${e.name ?? 'Error'}: ${e.message}${e.file ? ` (at ${e.file}${e.line ? `:${e.line}` : ''})` : ''}`
     : 'No error was reported. The student may be stuck on what to write next.'
 
-  // Which of the student's files to show. Around an error: the file it's in. With no error:
+  // which of the student's files to show. around an error: the file it's in. with no error:
   // the files that differ from the reference, since that's the student's own work (sending
   // every file in order used to spend the budget on config before reaching it)
   const ref = ctx.checkpointFiles
@@ -149,7 +149,7 @@ export function buildPrompt(ctx: AnalysisContext): ChatMessage[] {
   const identical = byDiff && shown.length === 0
   const shownPaths = new Set(shown.map((f) => f.path))
 
-  // The student's code gets most of the budget; the reference fills what's left
+  // the student's code gets most of the budget; the reference fills what's left
   const student = identical
     ? '(identical to the reference, so not repeated)'
     : cap(excerpt(shown, interest), Math.round(MAX_CODE_CHARS * 0.6))
@@ -194,7 +194,7 @@ const clamp = (value: unknown, max: number): string =>
     .trim()
     .slice(0, max)
 
-// Keep only the fields we asked for, within size, with no code blocks. Throws if the model
+// keep only the fields we asked for, within size, with no code blocks. throws if the model
 // didn't return usable JSON, so the handler can store a 'failed' result instead.
 export function parseAnalysis(text: string, ctx: AnalysisContext): Analysis {
   const json = text.trim().replace(/^```(?:json)?\s*|\s*```$/g, '')

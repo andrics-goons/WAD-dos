@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { HELP_STATUS_META } from './helpLabels.js'
 
-// Where a help request is (Waiting, Claimed, Replied…), with an icon and text
+// where a help request is (Waiting, Claimed, Replied…), with an icon and text
 const props = defineProps({ status: { type: String, required: true } })
 
 const meta = computed(() => HELP_STATUS_META[props.status])

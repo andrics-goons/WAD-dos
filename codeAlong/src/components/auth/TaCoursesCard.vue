@@ -1,5 +1,5 @@
 <script setup>
-// Profile page: the courses I'm a TA in. Being a TA is per course, so the page shows
+// profile page: the courses I'm a TA in. being a TA is per course, so the page shows
 // my account type (Student or Educator) and the courses are listed here.
 defineProps({ courses: { type: Array, required: true } }) // { id, title, code, section, term }
 </script>

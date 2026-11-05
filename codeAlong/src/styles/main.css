@@ -1,4 +1,4 @@
-/* Loads all our styles, in this order (tokens first, since the rest use them) */
+/* loads all our styles, in this order (tokens first, since the rest use them) */
 @import './tokens.css';
 @import './base.css';
 @import './components.css';

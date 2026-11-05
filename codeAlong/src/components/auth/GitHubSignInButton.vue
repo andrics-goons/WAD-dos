@@ -3,8 +3,8 @@ import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
-// "or" + "Continue with GitHub", under the login and register forms. Leaves for GitHub and
-// comes back signed in, to wherever they were heading (?returnTo=, e.g. an enrol link).
+// "or" + "Continue with GitHub", under the login and register forms. leaves for GitHub and
+// comes back signed in, to wherever they were heading (?returnTo=, like an enrol link).
 const auth = useAuthStore()
 const route = useRoute()
 

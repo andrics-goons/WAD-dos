@@ -1,6 +1,6 @@
 // @vitest-environment node
-// The end-of-class report (design-docs/05 §10): built by the database when the prof ends the
-// class, readable by the course's staff only, counts only. Plus lesson_trends().
+// the end-of-class report: built by the database when the prof ends the
+// class, readable by the course's staff only, counts only. plus lesson_trends().
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { userClient, service, cleanup } from './_helpers.js'
 
@@ -9,9 +9,9 @@ const file = (content) => [{ path: 'index.html', language: 'html', content }]
 let prof, ta, ana, ben, cal, outsider, otherProf, course, lesson, session
 const createdCourses = []
 
-// Run a whole class: three students join, the prof saves two titled checkpoints, Ana and Ben
+// run a whole class: three students join, the prof saves two titled checkpoints, Ana and Ben
 // click Done on the first, only Ana on the second, Ben hits an error, Cal asks for help and
-// two ask to slow down at once. Then the prof ends it.
+// two ask to slow down at once. then the prof ends it.
 async function teachClass(title = 'Added ItemCard') {
   const { data: s, error } = await prof.client.rpc('start_session', { p_lesson_id: lesson.id })
   if (error) throw error

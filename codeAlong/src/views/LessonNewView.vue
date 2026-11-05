@@ -44,7 +44,7 @@ const titleError = ref('')
 const weekError = ref('')
 const saving = ref(false)
 
-// What the upload is doing right now, so the page never looks frozen:
+// what the upload is doing right now, so the page never looks frozen:
 //   idle → picking (browser is opening the folder) → scanning → reading → idle
 const phase = ref('idle')
 const scanTotal = ref(0) // every file the browser handed over
@@ -57,7 +57,7 @@ const readPercent = computed(() =>
   readTotal.value ? Math.round((readDone.value / readTotal.value) * 100) : 0,
 )
 
-// Lets the browser paint the new status before we start the next chunk of work.
+// lets the browser paint the new status before we start the next chunk of work.
 const nextPaint = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)))
 
 const canContinue = computed(
@@ -85,8 +85,8 @@ function onImported(result) {
   suggestTitle((result.source?.dir || result.source?.repo || '').split('/').filter(Boolean).pop())
 }
 
-// fill the title from the folder or repo name, e.g. "mini-cart" -> "Mini cart", unless the
-// prof has typed their own. Picking another folder replaces a title we filled in
+// fill the title from the folder or repo name, like "mini-cart" -> "Mini cart", unless the
+// prof has typed their own. picking another folder replaces a title we filled in
 let suggested = ''
 function suggestTitle(name) {
   if (!name || (title.value.trim() && title.value !== suggested)) return
@@ -111,9 +111,9 @@ function next() {
   stage.value++
 }
 
-// Leaving once files are picked (on either step) would lose them, so ask first. This catches every
-// way out: Back to course, the navbar and the browser's Back. Closing or reloading the tab gets the
-// browser's own warning instead. Creating the lesson leaves on purpose, so it doesn't ask.
+// leaving once files are picked (on either step) would lose them, so ask first. this catches every
+// way out: Back to course, the navbar and the browser's Back. closing or reloading the tab gets the
+// browser's own warning instead. creating the lesson leaves on purpose, so it doesn't ask.
 const confirmLeave = ref(false)
 let leaveTo = null // where the prof was going
 let leaving = false // set once they've confirmed, or the lesson is created
@@ -143,8 +143,8 @@ async function create() {
       description: description.value.trim(),
       files: files.value,
       entryFile: entryFile.value,
-      // an import keeps where it came from (repo, branch, folder) — design-docs/03 lessons.source.
-      // Set by where the files came from, not by the tab that happens to be open now.
+      // an import keeps where it came from (repo, branch, folder) in lessons.source.
+      // set by where the files came from, not by the tab that happens to be open now.
       source: githubSource.value ?? { type: 'upload' },
     })
     leaving = true // saved: going to the editor or the class doesn't need asking
@@ -164,13 +164,13 @@ async function create() {
   }
 }
 
-// Show "Loading files…" only once the file dialog has closed. While it is open nothing changes;
-// if the prof cancels, nothing ever shows. The browser can take a few seconds to hand over a big
+// show "Loading files…" only once the file dialog has closed. while it is open nothing changes;
+// if the prof cancels, nothing ever shows. the browser can take a few seconds to hand over a big
 // folder after the dialog closes, and that gap is what this covers.
 let pickerOpen = false
 
 function onWindowFocus() {
-  // Focus returns to the page when the dialog closes (picked or cancelled). Give `change` or
+  // focus returns to the page when the dialog closes (picked or cancelled). give `change` or
   // `cancel` a moment to fire first so a cancel never flashes the loading message.
   setTimeout(() => {
     if (pickerOpen && phase.value === 'idle') phase.value = 'picking'
@@ -204,7 +204,7 @@ async function onFolderPicked(event) {
   await readPicked(picked, { folder: picked[0].path.split('/')[0] })
 }
 
-// Dragging a folder (or files) onto the box does the same as Choose folder…
+// dragging a folder (or files) onto the box does the same as Choose folder…
 const dragOver = ref(false)
 const isFileDrag = (event) => [...(event.dataTransfer?.types ?? [])].includes('Files')
 function onDragOver(event) {
@@ -242,7 +242,7 @@ async function onDrop(event) {
   }
 }
 
-// Every file in a dropped folder, as { path, file }. Ignored folders (node_modules, dist, .git…)
+// every file in a dropped folder, as { path, file }. ignored folders (node_modules, dist, .git…)
 // are never opened, so a big one doesn't take minutes.
 async function walk(entry, picked) {
   const path = entry.fullPath.replace(/^\/+/, '')
@@ -261,7 +261,7 @@ async function walk(entry, picked) {
   }
 }
 
-// Read the source files of a picked or dropped folder into the review step.
+// read the source files of a picked or dropped folder into the review step.
 // picked: [{ path, file }], each path starting with `folder` when there is one
 async function readPicked(picked, { folder }) {
   try {
@@ -270,7 +270,7 @@ async function readPicked(picked, { folder }) {
     phase.value = 'scanning'
     await nextPaint()
 
-    // Filter on the path BEFORE reading, so a node_modules folder is never loaded into memory.
+    // filter on the path BEFORE reading, so a node_modules folder is never loaded into memory.
     const wanted = picked.filter((f) => !isIgnored(f.path) && languageForPath(f.path))
 
     readTotal.value = wanted.length
@@ -309,7 +309,7 @@ async function readPicked(picked, { folder }) {
         </div>
       </div>
 
-      <!-- Stepper: numbers at xs, numbers + labels from sm -->
+      <!-- stepper: numbers at xs, numbers + labels from sm -->
       <ol class="list-unstyled d-flex gap-2 mb-3">
         <li
           v-for="(label, i) in stages"
@@ -392,7 +392,7 @@ async function readPicked(picked, { folder }) {
             </label>
           </div>
 
-          <!-- Live status: tells the prof what's happening instead of a silent wait -->
+          <!-- live status: tells the prof what's happening instead of a silent wait -->
           <div v-if="busy" class="alert alert-info d-flex align-items-start gap-2 small mt-3 mb-0">
             <span class="spinner-border spinner-border-sm flex-shrink-0 mt-1" />
             <div class="flex-grow-1">
@@ -415,7 +415,7 @@ async function readPicked(picked, { folder }) {
 
         <GithubImportTab v-else @imported="onImported" />
 
-        <!-- Result of the upload or the import -->
+        <!-- result of the upload or the import -->
         <div
           v-for="e in errors"
           :key="e"

@@ -1,5 +1,5 @@
-// Receives Telegram updates: /start <code> links an account, /stop unlinks, /help explains.
-// All logic lives here with its dependencies injected, so Vitest can run it with fakes;
+// receives Telegram updates: /start <code> links an account, /stop unlinks, /help explains.
+// all logic lives here with its dependencies injected, so Vitest can run it with fakes;
 // index.ts wires in the real Supabase client and fetch.
 import {
   BOT_REPLIES,
@@ -43,7 +43,7 @@ export async function handleWebhook(req: Request, deps: WebhookDeps): Promise<Re
 
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405)
 
-  // The URL is public: reject anything that doesn't carry the secret we registered (T-TG-05).
+  // the URL is public: reject anything that doesn't carry the secret we registered (T-TG-05).
   const secret = req.headers.get('X-Telegram-Bot-Api-Secret-Token')
   if (!isValidWebhookSecret(secret ?? '', env('TELEGRAM_WEBHOOK_SECRET') ?? '')) {
     return json({ error: 'unauthorized' }, 401)
@@ -72,7 +72,7 @@ export async function handleWebhook(req: Request, deps: WebhookDeps): Promise<Re
     }
   }
 
-  // Always answer 200: a non-2xx makes Telegram redeliver the same update.
+  // always answer 200: a non-2xx makes Telegram redeliver the same update.
   try {
     if (cmd?.command === 'start' && cmd.arg) {
       const profile = await db.findProfileByLinkCode(cmd.arg)

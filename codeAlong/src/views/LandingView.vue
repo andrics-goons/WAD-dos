@@ -3,9 +3,9 @@ import { SignupRole } from '@shared/constants.js'
 import LandingCodeBackdrop from '@/components/landing/LandingCodeBackdrop.vue'
 import HowItWorksDemo from '@/components/landing/HowItWorksDemo.vue'
 
-// The public home page: the motto over a class's code scrolling past, a card per role (each
+// the public home page: the motto over a class's code scrolling past, a card per role (each
 // opens sign-up with that role picked), and a screen that plays how a class works.
-// Logged-in users go to /home instead.
+// logged-in users go to /home instead.
 const roles = [
   {
     icon: 'bi-laptop',
@@ -36,7 +36,7 @@ const roles = [
 
 <template>
   <div>
-    <!-- Hero: the motto in the middle, over the code -->
+    <!-- hero: the motto in the middle, over the code -->
     <section class="landing-hero">
       <div class="landing-hero__code ca-ide" data-bs-theme="dark">
         <LandingCodeBackdrop />
@@ -58,7 +58,7 @@ const roles = [
       </div>
     </section>
 
-    <!-- Roles: each card opens sign-up with its role picked -->
+    <!-- roles: each card opens sign-up with its role picked -->
     <section class="ca-page">
       <h2 class="display-6 fw-bold text-center mb-4">Made for everyone in the room</h2>
       <div class="row g-3">
@@ -79,7 +79,7 @@ const roles = [
       </div>
     </section>
 
-    <!-- How it works: a screen playing the steps -->
+    <!-- how it works: a screen playing the steps -->
     <section class="ca-page pt-0">
       <h2 class="display-6 fw-bold text-center mb-4">How a class works</h2>
       <HowItWorksDemo />

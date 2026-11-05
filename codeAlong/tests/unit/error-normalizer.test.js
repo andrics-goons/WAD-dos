@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { normalizeError } from '../../shared/error-normalizer.js'
 
 describe('normalizeError', () => {
-  // examples straight from design-docs/05-core-logic.md §6
+  // real examples of each kind of error
   it('drops the location and hides the property name in the shape', () => {
     const result = normalizeError({
       name: 'TypeError',

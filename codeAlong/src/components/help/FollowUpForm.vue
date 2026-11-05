@@ -1,8 +1,8 @@
 <script setup>
 import { ref } from 'vue'
 
-// "Still not working?" under a TA's reply. It sends one more message, with my current code,
-// on the same request. Only shown while the request is replied; once sent it reopens and
+// "Still not working?" under a TA's reply. it sends one more message, with my current code,
+// on the same request. only shown while the request is replied; once sent it reopens and
 // this form goes away. `remaining` counts the follow-ups I have left.
 defineProps({
   request: { type: Object, required: true },

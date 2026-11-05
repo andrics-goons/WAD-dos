@@ -1,5 +1,5 @@
 // @vitest-environment node
-// The independent RLS sweep: every table has RLS on, and every view runs with the caller's
+// the independent RLS sweep: every table has RLS on, and every view runs with the caller's
 // rights, so nothing in the schema skips the policies.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { service, cleanup } from './_helpers.js'

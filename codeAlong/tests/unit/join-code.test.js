@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { generateJoinCode, isValidJoinCode } from '@shared/join-code.js'
 
-// Fake "random" bytes handed out in order, so we know exactly which code comes out
+// fake "random" bytes handed out in order, so we know exactly which code comes out
 function fakeBytes(...values) {
   let i = 0
   return (n) => Uint8Array.from({ length: n }, () => values[i++])

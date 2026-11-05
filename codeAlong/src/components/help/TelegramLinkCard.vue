@@ -3,9 +3,9 @@ import { onMounted, ref } from 'vue'
 import { useTelegramStore } from '@/stores/telegram'
 import { useToastStore } from '@/stores/toast'
 
-// Anyone can link Telegram here. Staff get a message when a student asks for help in person, and
+// anyone can link Telegram here. staff get a message when a student asks for help in person, and
 // the class digest; students get the digest's "You missed…" for a class they didn't join.
-// Link → open the bot and press Start → "Check" shows it's done.
+// link → open the bot and press Start → "Check" shows it's done.
 const telegram = useTelegramStore()
 const toast = useToastStore()
 

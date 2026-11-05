@@ -1,7 +1,7 @@
 <script setup>
 import { useToastStore } from '@/stores/toast'
 
-// Shows the pop-up messages. It's already on every page — just call toast.show().
+// shows the pop-up messages. it's already on every page, just call toast.show().
 const toast = useToastStore()
 
 const ICONS = {

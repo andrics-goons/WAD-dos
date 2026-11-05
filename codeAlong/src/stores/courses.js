@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as coursesApi from '@/api/courses.api'
 
-// My courses, for the courses page and the navbar. One course's details (people, lessons,
+// my courses, for the courses page and the navbar. one course's details (people, lessons,
 // sessions) are loaded by its page; this store only keeps the list.
 export const useCoursesStore = defineStore('courses', () => {
   const courses = ref([])

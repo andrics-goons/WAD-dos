@@ -1,11 +1,11 @@
 import { supabase } from '@/lib/supabase'
 import { mapError } from './mapError'
 
-// Student workspace: autosave, my status (and later catch-up) — design-docs/04, "Student workspace".
+// student workspace: autosave, my status (and later catch-up).
 
-// Merge changed files into my autosave row.
-//   upsert  [{ path, language, content }] — new or changed files
-//   remove  [path] — files deleted since the last save
+// merge changed files into my autosave row.
+//   upsert  [{ path, language, content }]: new or changed files
+//   remove  [path]: files deleted since the last save
 export async function autosavePatch(sessionId, upsert, remove) {
   const { data, error } = await supabase.rpc('autosave_patch', {
     p_session_id: sessionId,
@@ -16,7 +16,7 @@ export async function autosavePatch(sessionId, upsert, remove) {
   return { filesHash: data[0].files_hash }
 }
 
-// My status row in this class: { done_seq, error }, or null before I've opened the workspace.
+// my status row in this class: { done_seq, error }, or null before I've opened the workspace.
 // done_seq is the checkpoint I clicked Done on (0 = the starter code), null if I haven't.
 export async function getMyStatus(sessionId) {
   const { data, error } = await supabase
@@ -28,7 +28,7 @@ export async function getMyStatus(sessionId) {
   return data
 }
 
-// Create or update my status row. The first write is my attendance; every later one (a change
+// create or update my status row. the first write is my attendance; every later one (a change
 // or the heartbeat) moves last_seen_at, which the database stamps with its own clock.
 //   error  { source, name, message, file, line, key, shapeKey, at }, or null for no error
 export async function saveStatus(sessionId, studentId, { doneSeq, error }) {
@@ -41,8 +41,8 @@ export async function saveStatus(sessionId, studentId, { doneSeq, error }) {
   if (dbError) throw mapError(dbError)
 }
 
-// How many times I've loaded the prof's latest checkpoint in this class. Going up logs a
-// catch-up for the report (design-docs/05 §10), counted per checkpoint and never by name.
+// how many times I've loaded the prof's latest checkpoint in this class. going up logs a
+// catch-up for the report, counted per checkpoint and never by name.
 export async function saveCatchUps(sessionId, studentId, catchUps) {
   const { error } = await supabase
     .from('student_status')
@@ -52,8 +52,8 @@ export async function saveCatchUps(sessionId, studentId, catchUps) {
   if (error) throw mapError(error)
 }
 
-// "Slow down": whether I've asked the prof to slow down in this class. Only I can read my
-// flag; staff only ever get the count (design-docs/09 §5).
+// "Slow down": whether I've asked the prof to slow down in this class. only I can read my
+// flag; staff only ever get the count.
 export async function getMySlowDown(sessionId) {
   const { data, error } = await supabase
     .from('slow_down_flags')
@@ -64,7 +64,7 @@ export async function getMySlowDown(sessionId) {
   return data !== null
 }
 
-// Raise (on) or clear my flag. Raising it twice is harmless: the second insert is ignored.
+// raise (on) or clear my flag. raising it twice is harmless: the second insert is ignored.
 export async function setSlowDown(sessionId, studentId, on) {
   const { error } = on
     ? await supabase

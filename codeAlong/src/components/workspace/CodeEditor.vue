@@ -1,33 +1,33 @@
 <script setup>
     import { ref, watch, onMounted, onBeforeUnmount } from "vue"
     import { EditorView, basicSetup } from 'codemirror'
-    // Importing linters and syntaxTrees for error detection
+    // importing linters and syntaxTrees for error detection
     import { linter, lintGutter } from "@codemirror/lint"
     import { syntaxTree } from "@codemirror/language"
-    // Importing utils to help with identifying language
+    // importing utils to help with identifying language
     import { languageFor } from "@/utils/languages.js"
-    // Importing Compartment from codemirror to help change language of codemirror on the fly
+    // importing Compartment from codemirror to help change language of codemirror on the fly
     import { Compartment } from "@codemirror/state"
-    // Dark theme
+    // dark theme
     import { oneDark } from "@codemirror/theme-one-dark"
-    // Allow tab in the codemirror
+    // allow tab in the codemirror
     import { keymap } from "@codemirror/view"
     import { indentWithTab } from "@codemirror/commands"
 
-    // Defining props so that code can be passed down
+    // defining props so that code can be passed down
     const props = defineProps({
         selectedFile: { type: String, default: "" },
         selectedCode: { type: String, default: "" },
     })
 
-    // Defining emits to allow updating of file inputted
+    // defining emits to allow updating of file inputted
     const emit = defineEmits(["update:selectedCode"])
 
-    // Creating editor Element
+    // creating editor Element
     const editorEl = ref(null)
     let view
 
-    // Creating synatxError tree
+    // creating synatxError tree
     const syntaxErrors = linter((view) => {
         const errors = []
         syntaxTree(view.state).cursor().iterate((node) => {
@@ -52,7 +52,7 @@
         }
     )
 
-    // On mounted, create new codeEditor view
+    // on mounted, create new codeEditor view
     onMounted(() => {
         view = new EditorView({
             doc: props.selectedCode,

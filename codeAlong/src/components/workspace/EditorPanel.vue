@@ -26,8 +26,8 @@
     const collapsed = ref(window.matchMedia("(max-width: 767.98px)").matches)
     const terminalOpen = ref(true)
 
-    // The file tree's width and the terminal's height can be dragged with the handles between
-    // the panes (double-click one for the default size). Kept on this device; null = the default
+    // the file tree's width and the terminal's height can be dragged with the handles between
+    // the panes (double-click one for the default size). kept on this device; null = the default
     const TREE_KEY = "codealong:tree-width"
     const TERMINAL_KEY = "codealong:terminal-height"
     function stored(key) {
@@ -116,16 +116,16 @@
 <template>
     <div ref="panel" class="editor-panel" :class="{ dragging, [`dragging-${dragging}`]: dragging }">
 
-        <!-- Tree Pane (always full height, the terminal only sits under the editor) -->
+        <!-- tree Pane (always full height, the terminal only sits under the editor) -->
         <!-- its width is the dragged size, so it's the one style set here -->
         <div
             class="pane tree-pane"
             :class="{ collapsed }"
             :style="!collapsed && treeWidth ? { width: `${treeWidth}px` } : null"
         >
-            <!-- Pane Header -->
+            <!-- pane Header -->
             <div class="pane-header">
-                <!-- Collapse widget button -->
+                <!-- collapse widget button -->
                 <button
                     class="toggle-btn"
                     type="button"
@@ -139,7 +139,7 @@
                 <span v-show="!collapsed">Files</span>
             </div>
 
-            <!-- Actual collapsable file structure -->
+            <!-- actual collapsable file structure -->
             <div v-show="!collapsed" class="pane-body">
 
                 <FileTree
@@ -154,9 +154,9 @@
 
             </div>
 
-            <!-- Pane Footer, pinned to the bottom even when the tree is collapsed -->
+            <!-- pane Footer, pinned to the bottom even when the tree is collapsed -->
             <div class="pane-footer">
-                <!-- Terminal toggle button -->
+                <!-- terminal toggle button -->
                 <button
                     class="toggle-btn"
                     :class="{ active: terminalOpen }"
@@ -188,16 +188,16 @@
             @dblclick="resetSize('tree')"
         />
 
-        <!-- Right column: code editor on top, terminal underneath -->
+        <!-- right column: code editor on top, terminal underneath -->
         <div ref="mainPane" class="pane main-pane">
 
-            <!-- Code editor Pane -->
+            <!-- code editor Pane -->
             <div class="pane editor-pane">
-                <!-- Pane header -->
+                <!-- pane header -->
                 <div class="pane-header">
                     <span v-if="fileType" class="file-badge">{{ fileType }}</span>
                     <span>{{ selectedFile }}</span>
-                    <!-- right after the file name, so it reads as that file's save state. The usual
+                    <!-- right after the file name, so it reads as that file's save state. the usual
                          states are faded; a warning keeps its full colour so it's noticed -->
                     <span class="small text-nowrap ms-2" :class="saveLabel?.tone ?? 'opacity-50'" data-testid="save-status">
                         <template v-if="saveLabel">{{ saveLabel.text }} <i class="bi" :class="saveLabel.icon" /></template>
@@ -262,7 +262,7 @@
                 @dblclick="resetSize('terminal')"
             />
 
-            <!-- Terminal Pane -->
+            <!-- terminal Pane -->
             <!-- v-show instead of v-if so hiding it doesn't kill the shell and lose its history -->
             <!-- its height is the dragged size, so it's the one style set here -->
             <div
@@ -273,7 +273,7 @@
                 <div class="pane-header">
                     <span>Terminal</span>
                     <!-- faded like Saved: whether the packages are installed (or put back from this
-                         device), and if not, what to type. Nothing while booting or with no package.json -->
+                         device), and if not, what to type. nothing while booting or with no package.json -->
                     <span
                         v-if="packagesState === 'ready'"
                         class="small text-nowrap ms-2 opacity-50"
@@ -373,7 +373,7 @@
         border-top: 1px solid #181a1f;
     }
     /* the drag handles between the panes: a thin strip over the border, lit while you use it.
-       The negative margins let it sit on the border without taking any space */
+       the negative margins let it sit on the border without taking any space */
     .resize-handle {
         position: relative;
         z-index: 1;
