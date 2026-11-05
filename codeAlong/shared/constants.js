@@ -71,7 +71,15 @@ export const Limits = Object.freeze({
   MAX_FOLLOW_UPS: 3, // per help request; past this the TA should walk over
   FOLLOW_UP_MAX_CHARS: 300,
   ANNOUNCE_MAX_CHARS: 200,
+  // free-tier guardrails, enforced in the database (migration usage_limits)
+  LLM_CALLS_PER_MINUTE: 30, // across the whole site
+  LESSONS_PER_COURSE: 30,
+  STORAGE_LIMIT_MB: 450, // of the free tier's 500 MB
 })
+
+// Error codes that open the limit pop-up (LimitModal): an AI call skipped because the
+// site-wide limit was reached, and a database limit (lessons per course, storage)
+export const LimitCode = Object.freeze({ LLM: 'LLM_LIMIT', USAGE: 'LIMIT_REACHED' })
 
 // names of the live messages sent to everyone in a class
 export const RtEvent = Object.freeze({

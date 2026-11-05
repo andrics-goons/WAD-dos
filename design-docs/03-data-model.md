@@ -795,6 +795,20 @@ An ordinary migration (`…_test_outbox.sql`), applied everywhere including prod
 
 ---
 
+## Usage limits (free-tier guardrails)
+
+Migration `…_usage_limits.sql`. The numbers match `Limits` in `shared/constants.js`, which the app uses in its messages. A `LIMIT_REACHED` error opens the app's limit pop-up (`LimitModal`), as does a skipped LLM call (`code: 'LLM_LIMIT'`).
+
+| Limit | Where | What happens |
+|---|---|---|
+| 30 LLM calls a minute, site-wide | `llm_calls` (`id`, `at`) + `claim_llm_call()` | `analyze-help` and `summarize-help` claim a slot before each call. With none left, the analysis is saved as `{ status: 'failed', code: 'LLM_LIMIT' }` and the summary falls back to plain text with `llmLimitReached: true`. Only the service role can call it; `llm_calls` has RLS on and only `admin reads all`. Rows older than an hour are deleted on each claim |
+| 30 lessons a course | `check_lesson_limit` trigger on `lessons` (insert, or a change of `course_id`) | `LIMIT_REACHED`. Archived lessons count |
+| 450 MB of the 500 MB database | `check_storage_limit` trigger on insert into `lessons`, `checkpoints`, `snapshots` | `LIMIT_REACHED` once `pg_database_size()` is past 450 MB. Covers autosave, help requests and catch-ups, which all write snapshots |
+| Only the trigger runs an analysis | `analyze-help` | Refuses any caller whose JWT isn't the service role, so a student's login can't run up LLM calls |
+| A student's error object ≤ 4 KB | `student_status_error_size` check | The app's own errors are under 1 KB; this stops one student sending megabytes to every staff dashboard |
+
+---
+
 ## Admin
 
 An **admin** manages user accounts and can **read everything** in the system. Admins cannot *act* in a course — they cannot start sessions, save checkpoints, claim help requests or edit lessons — because every one of those writes goes through an RPC or policy that checks course membership, and admin access is deliberately read-only outside user management.
@@ -907,12 +921,12 @@ Each rule exists **twice**: a zod schema in `src/validators/` for the per-field 
 | Register | name, email, password, role choice | email format; password ≥ 8; role is Student or Educator | Supabase Auth + the trigger's allow-list (`prof`, else `student`) |
 | Login | email, password | generic "Invalid email or password" | Supabase Auth (rate-limited by the platform) |
 | Course | code, title, term, section | code uppercase A–Z0–9 | `unique (owner_id, code, term, section)` — per prof |
-| Lesson | title, files, entry_file | 1–40 files; safe relative paths; no duplicate paths; `entry_file` exists; ≤ 200 KB | `files_valid()` + `octet_length` check + `entry_file_exists` constraint |
+| Lesson | title, files, entry_file | 1–40 files; safe relative paths; no duplicate paths; `entry_file` exists; ≤ 200 KB; ≤ 30 lessons a course | `files_valid()` + `octet_length` check + `entry_file_exists` constraint + `check_lesson_limit` trigger |
 | GitHub import | repo URL | `https://github.com/<owner>/<repo>[/tree/<ref>/<dir>]`; only `.html/.css/.js/.json/.md` | `github-import` function |
 | Start session | lesson_id | lesson `ready`, caller is the course prof | `start_session` RPC |
 | Join session | join_code | 6 chars; live session; caller is staff, enrolled, or a student, TA or educator who is enrolled by it (not an admin) | `join_session` RPC |
 | Checkpoint | files, title? | title ≤ 80 chars; session live; caller is the course prof | `save_checkpoint` RPC |
-| Status update | done_seq, error? | done_seq ≥ 0 or null; message ≤ 300; no code frame in a build error | `student_status` policy + check; T-PRIV-09 |
+| Status update | done_seq, error? | done_seq ≥ 0 or null; message ≤ 300; whole error ≤ 4 KB; no code frame in a build error | `student_status` policy + checks; T-PRIV-09, T-LIM-05 |
 | Help request | type, files | one active per type; seat required if in_person | partial unique index |
 | Help reply | reply | 1–1000 chars; claiming staff only; appended to `thread` | `transition_help_request` |
 | Help follow-up | message, files | 1–300 chars; own request; status `replied`; ≤ 3 follow-ups | `follow_up_help_request` + `follow_ups` check |

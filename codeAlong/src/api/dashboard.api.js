@@ -11,7 +11,7 @@ import { invoke } from './invoke'
  *   slowDown  asked the prof to slow down (only ever a count, see 09 §5)
  *   help      open or claimed "Ask for help" requests
  *   check     open or claimed "Check my work" requests
- *   students  [{ studentId, done, state, help, check }] for everyone in the class: the Teach view
+ *   students  [{ studentId, name, done, state, help, check }] for everyone in the class: the Teach view
  *             counts only the students connected right now, and lists them by status in its
  *             Students menu (state is session_tiles' done / in_progress / error / idle; help and
  *             check say they have an open or claimed request of that type)
@@ -21,7 +21,7 @@ export async function getClassSummary(sessionId) {
   const [tiles, summary, requests] = await Promise.all([
     supabase
       .from('session_tiles')
-      .select('student_id, checkpoint_seq, done_seq, state')
+      .select('student_id, name, checkpoint_seq, done_seq, state')
       .eq('session_id', sessionId),
     supabase
       .from('session_summary')
@@ -45,6 +45,7 @@ export async function getClassSummary(sessionId) {
     done: rows.filter((t) => t.done_seq === t.checkpoint_seq).length,
     students: rows.map((t) => ({
       studentId: t.student_id,
+      name: t.name,
       done: t.done_seq === t.checkpoint_seq,
       state: t.state,
       help: helpIds.has(t.student_id),

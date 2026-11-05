@@ -118,11 +118,13 @@ function deps({
   analysed = ROWS,
   pending = 0,
   llmResult = { ok: true, status: 200, text: REPLY },
+  llmAllowed = true,
 } = {}) {
   const insert = vi.fn().mockResolvedValue({ error: null })
   const db = {
     isSessionStaff: vi.fn().mockResolvedValue(staff),
     listAnalyses: vi.fn().mockResolvedValue({ analysed, pending }),
+    claimLlmCall: vi.fn().mockResolvedValue(llmAllowed),
   }
   const llm = vi.fn().mockResolvedValue(llmResult)
   return {
@@ -183,6 +185,14 @@ describe('summarize-help handler', () => {
     expect(
       (await (await handleSummarize(post({ sessionId: 's1' }), garbled.deps)).json()).source,
     ).toBe('rules')
+  })
+
+  it('T-LIM-03 gives the plain-text summary and flags it when the site-wide LLM limit is reached', async () => {
+    const { deps: d, llm } = deps({ llmAllowed: false })
+    const body = await (await handleSummarize(post({ sessionId: 's1' }), d)).json()
+    expect(llm).not.toHaveBeenCalled()
+    expect(body).toMatchObject({ source: 'rules', llmLimitReached: true })
+    expect(body.groups).toHaveLength(3)
   })
 
   it('does not call the model when there is nothing to summarise', async () => {

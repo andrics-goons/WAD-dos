@@ -141,6 +141,15 @@ afterEach(() => {
 
 describe('TeachView', () => {
   it('opens the class and shows the lesson, join code and who is connected', async () => {
+    const here = (studentId, name) => ({ studentId, name, done: false, state: 'in_progress' })
+    api.getClassSummary.mockResolvedValue({
+      total: 2,
+      done: 0,
+      slowDown: 0,
+      help: 0,
+      check: 0,
+      students: [here('a', 'Alex'), here('b', 'Bea')],
+    })
     await open()
     expect(live.open).toHaveBeenCalledWith('ses-1')
     live.present = [
@@ -460,19 +469,30 @@ describe('TeachView', () => {
       expect(done()).toContain('of 0')
     })
 
-    it('a student who reconnects counts again, and a new one counts before the summary has them', async () => {
+    it('a student who reconnects counts again', async () => {
       api.getClassSummary.mockResolvedValue(summary())
       await open()
-      live.present = [{ userId: 'c' }, { userId: 'd' }] // d has no status row yet
+      live.present = [{ userId: 'a' }, { userId: 'c' }]
       await flushPromises()
       expect(done()).toContain('of 2')
-      expect(done()).toContain('1') // only c
+      expect(done()).toContain('2')
+    })
+
+    it("T-LIM-09: presence a student made up doesn't count: only status rows, each once", async () => {
+      api.getClassSummary.mockResolvedValue(summary())
+      await open()
+      // one student's browser claims three entries; 'x' has no status row in this class
+      live.present = [{ userId: 'c' }, { userId: 'c' }, { userId: 'x', name: 'Fake' }]
+      await flushPromises()
+      expect(done()).toContain('of 1')
+      expect(wrapper.find('[data-testid="connected-count"]').text()).toContain('1 connected')
     })
   })
 
   describe('T-DASH-13: the Students menu lists who is connected, grouped by status', () => {
     const row = (studentId, state, over = {}) => ({
       studentId,
+      name: `Student ${studentId.toUpperCase()}`,
       done: state === 'done',
       state,
       help: false,
@@ -500,16 +520,15 @@ describe('TeachView', () => {
           row('d', 'done'),
           row('e', 'idle'),
           row('f', 'done'), // joined earlier and has left
+          row('g', 'in_progress'),
         ],
       })
     })
 
     it('opens from under the number cards and groups each connected student once, most urgent first', async () => {
       await open()
-      live.present = ['a', 'b', 'c', 'd', 'e', 'g'].map((id) => ({
-        userId: id,
-        name: `Student ${id.toUpperCase()}`,
-      }))
+      // the names come from the database, not from what each browser says
+      live.present = ['a', 'b', 'c', 'd', 'e', 'g'].map((id) => ({ userId: id, name: 'Anyone' }))
       await flushPromises()
       expect(menu().exists()).toBe(false)
       await wrapper.find('[data-testid="btn-open-students"]').trigger('click')
@@ -521,7 +540,7 @@ describe('TeachView', () => {
       expect(names('error')).toEqual(['Student C'])
       expect(names('idle')).toEqual(['Student E'])
       expect(names('done')).toEqual(['Student D']) // F left, so isn't listed
-      expect(names('in_progress')).toEqual(['Student G']) // no status row yet
+      expect(names('in_progress')).toEqual(['Student G'])
       const order = menu()
         .findAll('section')
         .map((sec) => sec.attributes('data-testid'))

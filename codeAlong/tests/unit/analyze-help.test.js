@@ -55,11 +55,13 @@ function deps({
   env = LIVE,
   context = ctx(),
   llmResult = { ok: true, status: 200, text: GOOD },
+  llmAllowed = true,
 } = {}) {
   const insert = vi.fn().mockResolvedValue({ error: null })
   const db = {
     getAnalysisContext: vi.fn().mockResolvedValue(context),
     saveAnalysis: vi.fn().mockResolvedValue(),
+    claimLlmCall: vi.fn().mockResolvedValue(llmAllowed),
   }
   const llm = vi.fn().mockResolvedValue(llmResult)
   return {
@@ -70,10 +72,13 @@ function deps({
   }
 }
 
-const post = (body) =>
+// A JWT carrying this role; the gateway checks the signature, so the handler only reads the role
+const jwt = (role) => `h.${btoa(JSON.stringify({ role })).replace(/=+$/, '')}.s`
+
+const post = (body, role = 'service_role') =>
   new Request('https://fn.test/analyze-help', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${jwt(role)}` },
     body: JSON.stringify(body),
   })
 
@@ -289,6 +294,13 @@ describe('analyze-help handler', () => {
     expect(garbled.db.saveAnalysis.mock.calls[0][1]).toMatchObject({ status: 'failed' })
   })
 
+  it('T-LIM-02 skips the model when the site-wide LLM limit is reached, and says why', async () => {
+    const { deps: d, db, llm } = deps({ llmAllowed: false })
+    await handleAnalyze(post({ requestId: 'r1' }), d)
+    expect(llm).not.toHaveBeenCalled()
+    expect(db.saveAnalysis.mock.calls[0][1]).toMatchObject({ status: 'failed', code: 'LLM_LIMIT' })
+  })
+
   it('T-AIH-09 mock mode records the prompt in test_outbox and never calls the model', async () => {
     const { deps: d, db, llm, insert } = deps({ env: MOCK })
     await handleAnalyze(post({ requestId: 'r1' }), d)
@@ -315,6 +327,18 @@ describe('analyze-help handler', () => {
     expect((await handleAnalyze(post({}), d)).status).toBe(400)
     db.getAnalysisContext.mockResolvedValueOnce(null)
     expect((await handleAnalyze(post({ requestId: 'nope' }), d)).status).toBe(404)
+  })
+
+  it("T-LIM-08 refuses anyone but the service role, so a student can't run up LLM calls", async () => {
+    const { deps: d, db, llm } = deps()
+    expect((await handleAnalyze(post({ requestId: 'r1' }, 'authenticated'), d)).status).toBe(403)
+    const noToken = new Request('https://fn.test/analyze-help', {
+      method: 'POST',
+      body: JSON.stringify({ requestId: 'r1' }),
+    })
+    expect((await handleAnalyze(noToken, d)).status).toBe(403)
+    expect(db.getAnalysisContext).not.toHaveBeenCalled()
+    expect(llm).not.toHaveBeenCalled()
   })
 })
 

@@ -357,7 +357,7 @@ RLS applies to subscriptions, so a student receives only their own rows — the 
 
 ### Presence
 
-Students track `{ userId, name }` on join; staff read it for the live attendance count. **The Teach view's numbers are about who is connected now:** "N connected" in the session bar, and on the dashboard "Done X of N" (and its bar) and the Students menu count only connected students. A student who joined earlier and left drops out of all of them until they reconnect. Slow down (an anonymous count) and the help queue aren't filtered. `joined_at` is still written to `student_status` so the report survives after everyone disconnects. Presence is **not** used for idle — idle is `now() - last_seen_at > idleAfterSec`, derived in `session_tiles`.
+Students track `{ userId, name }` on join; staff read it for the live attendance count. **The Teach view's numbers are about who is connected now:** "N connected" in the session bar, and on the dashboard "Done X of N" (and its bar) and the Students menu count only connected students. A student who joined earlier and left drops out of all of them until they reconnect. Presence is only what each browser says about itself, so the Teach view counts a presence entry only if its `userId` has a status row in the class, once per student, and shows the name from `session_tiles`, never the one sent in presence. A student who has just joined appears when their first status row arrives, a second or so later. Slow down (an anonymous count) and the help queue aren't filtered. `joined_at` is still written to `student_status` so the report survives after everyone disconnects. Presence is **not** used for idle — idle is `now() - last_seen_at > idleAfterSec`, derived in `session_tiles`.
 
 ### What used to be socket events
 

@@ -2,6 +2,7 @@
 import AppNavbar from '@/components/ui/AppNavbar.vue'
 import AppToast from '@/components/ui/AppToast.vue'
 import BackButton from '@/components/ui/BackButton.vue'
+import LimitModal from '@/components/ui/LimitModal.vue'
 </script>
 
 <template>
@@ -14,5 +15,6 @@ import BackButton from '@/components/ui/BackButton.vue'
       <RouterView />
     </main>
     <AppToast />
+    <LimitModal />
   </div>
 </template>

@@ -50,6 +50,12 @@ function dbFor(req: Request): SummarizeDb {
       }
       return { analysed, pending }
     },
+    // the counter is shared by every user, so it goes through the service role
+    async claimLlmCall() {
+      const { data, error } = await admin.rpc('claim_llm_call')
+      if (error) throw error
+      return data === true
+    },
   }
 }
 

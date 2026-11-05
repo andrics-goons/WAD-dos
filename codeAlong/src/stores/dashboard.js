@@ -1,6 +1,8 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
+import { Limits, LimitCode } from '@shared/constants.js'
 import * as dashboardApi from '@/api/dashboard.api'
+import { useLimitStore } from '@/stores/limits'
 
 // The prof dashboard's data: the class summary card and the help summary (design-docs/05 §8a, part 2).
 export const useDashboardStore = defineStore('dashboard', () => {
@@ -14,6 +16,12 @@ export const useDashboardStore = defineStore('dashboard', () => {
     helpSummaryError.value = null
     try {
       helpSummary.value = await dashboardApi.getHelpSummary(sessionId)
+      if (helpSummary.value.llmLimitReached) {
+        useLimitStore().show(
+          LimitCode.LLM,
+          `The site's limit of ${Limits.LLM_CALLS_PER_MINUTE} AI calls a minute has been reached, so this summary was written without AI. Press Refresh in a minute to try again.`,
+        )
+      }
     } catch (err) {
       helpSummaryError.value = err
     } finally {

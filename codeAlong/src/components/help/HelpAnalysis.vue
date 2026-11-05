@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { checkpointLabel } from '@shared/checkpoint-label.js'
+import { Limits, LimitCode } from '@shared/constants.js'
 
 // What the AI made of the code a student sent with "Ask for help" (design-docs/05 §8a, part 1):
 // where they're stuck and why, in words. It arrives a few seconds after the request, so there is
@@ -29,7 +30,12 @@ const place = computed(() => {
 
 <template>
   <p v-if="failed" class="small text-body-secondary mt-3 mb-0" data-testid="help-analysis-failed">
-    <i class="bi bi-stars me-1" />The AI couldn't analyse this one.
+    <i class="bi bi-stars me-1" />
+    <template v-if="analysis.code === LimitCode.LLM">
+      No AI analysis: the site's limit of {{ Limits.LLM_CALLS_PER_MINUTE }} AI calls a minute was
+      reached.
+    </template>
+    <template v-else>The AI couldn't analyse this one.</template>
   </p>
 
   <section
